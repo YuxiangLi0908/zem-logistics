@@ -108,6 +108,7 @@ class PostNsop(View):
     template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
     template_fleet_check = "post_port/new_sop/leader_check/fleet_check.html"
     template_master_shipment_check = "post_port/new_sop/leader_check/master_shipment_check.html"
+    template_pod_reupload = "post_port/new_sop/leader_check/pod_reupload.html"
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -195,7 +196,13 @@ class PostNsop(View):
                     "You are not authenticated to access this page!"
                 )
             template, context = await self.handle_fleet_leader_check_get(request)
-            return render(request, template, context)         
+            return render(request, template, context)       
+        elif step == "pod_reupload_check":
+            if not await self._validate_user_check_po_group(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            return render(request, self.template_pod_reupload, {})       
         elif step == "fleet_po_check":
             if not await self._validate_user_check_po_group(request.user):
                 return HttpResponseForbidden(
@@ -530,6 +537,15 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "save_virtual_shipment_time":
             template, context = await self.handle_save_virtual_shipment_time_post(request)
+            return render(request, template, context)
+        elif step == "unbind_master_shipment":
+            template, context = await self.handle_unbind_master_shipment_post(request)
+            return render(request, template, context)
+        elif step == "pod_reupload_search":
+            template, context = await self.handle_pod_reupload_post(request)
+            return render(request, template, context)
+        elif step == "pod_reupload":
+            template, context = await self.handle_pod_reupload_upload_post(request)
             return render(request, template, context)
         elif step == "fleet_po_delete":
             template, context = await self.handle_fleet_po_delete_post(request)
@@ -3978,7 +3994,7 @@ class PostNsop(View):
 
         # 确认出库-分摊成本
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_num_str)
-        if fleet.fleet_cost > 0:
+        if fleet.fleet_cost is not None and fleet.fleet_cost > 0:
             await fm.insert_fleet_shipment_pallet_fleet_cost(
                 request, fleet_num_str, fleet.fleet_cost
             )
@@ -6987,8 +7003,11 @@ class PostNsop(View):
             if shipments:
                 all_notified = all(shipment.is_notified_customer for shipment in shipments)
                 fleet_obj.is_notified_customer = all_notified
+                # 取第一条 shipment 的 shipment_type 作为装载类型
+                fleet_obj.load_type = shipments[0].load_type
             else:
                 fleet_obj.is_notified_customer = False
+                fleet_obj.load_type = ""
 
             for shipment in shipments:
                 shipment_batch_number = shipment.shipment_batch_number
@@ -7559,8 +7578,11 @@ class PostNsop(View):
             if shipments:
                 all_notified = all(shipment.is_notified_customer for shipment in shipments)
                 fleet_obj.is_notified_customer = all_notified
+                # 取第一条 shipment 的 shipment_type 作为装载类型
+                fleet_obj.shipment_type = shipments[0].shipment_type
             else:
                 fleet_obj.is_notified_customer = False
+                fleet_obj.shipment_type = ""
 
             for shipment in shipments:
                 shipment_batch_number = shipment.shipment_batch_number
@@ -8711,6 +8733,8 @@ class PostNsop(View):
         plt_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
         
         data = []
+        pallet_data_to_sort = []
+        packinglist_data_to_sort = []
         if plt_criteria:
             pk_subquery = PackingList.objects.filter(
                 shipping_mark=OuterRef("shipping_mark"),
@@ -8762,6 +8786,8 @@ class PostNsop(View):
                     "address", 
                     "is_dropped_pallet",
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipped_at",
+                    "shipment_batch_number__arrived_at",
                     "data_source",
                     "shipment_batch_number__fleet_number__fleet_number",
                     "location",
@@ -8870,7 +8896,7 @@ class PostNsop(View):
                 
                 processed_pal_list.append(cargo)
 
-            data += processed_pal_list
+            pallet_data_to_sort = processed_pal_list
         # 查询 PackingList 数据
         if pl_criteria:
             pl_list = await sync_to_async(list)(
@@ -8924,6 +8950,8 @@ class PostNsop(View):
                     "ltl_release_command",
                     "ltl_contact_method",
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipped_at",
+                    "shipment_batch_number__arrived_at",
                     "shipment_batch_number__fleet_number__fleet_number",
                     "ltl_correlation_id",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
@@ -8964,11 +8992,11 @@ class PostNsop(View):
                     offload_tag=Case(
                         When(
                             container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
-                            then=Value("实际")
+                            then=Value("实际提柜")
                         ),
                         When(
                             container_number__orders__retrieval_id__planned_release_time__isnull=False,
-                            then=Value("放行")
+                            then=Value("实际放行")
                         ),
                         default=Value("ETA")
                     )
@@ -9010,7 +9038,7 @@ class PostNsop(View):
                 .order_by("is_pickup_priority","actual_retrieval_time")
             )
 
-            data += pl_list
+            packinglist_data_to_sort = pl_list
         
         # 1. 定义日期提取辅助函数 (内部函数)
         def get_pickup_date_key(status):
@@ -9025,20 +9053,63 @@ class PostNsop(View):
                     return (month, day)
                 except ValueError:
                     pass
-            return (99, 99) # 没匹配到日期的排在 pickup 类的最后
+            # 搜索数字.数字格式 (如 2.1 或 02.18)
+            match = re.search(r'(\d+)\.(\d+)', str(status))
+            if match:
+                try:
+                    month = int(match.group(1))
+                    day = int(match.group(2))
+                    return (month, day)
+                except ValueError:
+                    pass
+            return (99, 99) # 没匹配到日期的排在最后
 
-        # 2. 统一排序逻辑
-        # Python 的 sort 是稳定的，可以一次性处理整个 data 列表
-        data.sort(key=lambda x: (
-            0 if x.get('ltl_correlation_id') else 1,             # 第一优先级：有关联ID的在前
-            x.get('ltl_correlation_id') or '',                    # 第二优先级：相同 ID 聚合
-            x.get('is_pickup_priority', 1),                      # 第三优先级：pickup 状态
-            get_pickup_date_key(x.get('ltl_follow_status', '')), # 第四优先级：状态日期
-            x.get('offload_at') or '',                           # 第五优先级
-            x.get('container_number') or '',                          # 第六优先级
-            x.get('destination') or '',                          # 第七优先级
-            x.get('shipping_marks') or x.get('shipping_mark') or ''
-        ))
+        # 2. 检查 ltl_follow_status 是否有日期
+        def has_date_in_status(status):
+            if not status:
+                return False
+            if re.search(r'\d+/\d+', str(status)):
+                return True
+            if re.search(r'\d+\.\d+', str(status)):
+                return True
+            return False
+
+        # 3. 分别对两组数据进行排序
+        # Pallet 数据排序
+        if pallet_data_to_sort:
+            pallet_data_to_sort.sort(key=lambda x: (
+                # 第一组：ltl_follow_status 有日期的
+                0 if has_date_in_status(x.get('ltl_follow_status', '')) else 1,
+                # 这组里按日期从小到大
+                get_pickup_date_key(x.get('ltl_follow_status', '')),
+                # 第二组：ltl_correlation_id 有值的
+                0 if x.get('ltl_correlation_id') else 1,
+                # 相同的 ltl_correlation_id 排在一起
+                x.get('ltl_correlation_id') or '',
+                # 第三组：ltl_follow_status 有值但没有日期的
+                0 if (x.get('ltl_follow_status') and not has_date_in_status(x.get('ltl_follow_status'))) else 1,
+                # 第四组：delivery_method 包含暂扣的
+                0 if (x.get('delivery_method') and '暂扣' in str(x.get('delivery_method'))) else 1,
+                # 后续排序
+                x.get('offload_at') or '',
+                x.get('destination') or '',
+                x.get('shipping_marks') or x.get('shipping_mark') or ''
+            ))
+            data += pallet_data_to_sort
+
+        # PackingList 数据排序
+        if packinglist_data_to_sort:
+            packinglist_data_to_sort.sort(key=lambda x: (
+                # 第一组：offload_tag 有实际提柜的
+                0 if x.get('offload_tag') == '实际提柜' else 1,
+                # 第二组：offload_tag 有实际放行的
+                0 if x.get('offload_tag') == '实际放行' else 1,
+                # 后续排序
+                x.get('offload_at') or '',
+                x.get('destination') or '',
+                x.get('shipping_marks') or x.get('shipping_mark') or ''
+            ))
+            data += packinglist_data_to_sort
         # 已拆柜的，按照下面排序：
             # 第一优先级：pickup 有日期的，
             # 第二优先级：日期按从小到大排列，
@@ -10296,7 +10367,7 @@ class PostNsop(View):
     async def handle_ltl_history_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
-        '''LTL组的港后全流程'''
+        '''LTL组的历史港后数据'''
         warehouse = request.POST.get("warehouse")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -10305,8 +10376,11 @@ class PostNsop(View):
         if warehouse:
             warehouse_name = warehouse.split('-')[0]
         else:
-            context.update({'error_messages':"没选仓库！"})
-            return self.template_unscheduled_pos_all, context
+            context.update({
+                'error_messages':"没选仓库！",
+                'warehouse_options': self.warehouse_options,
+            })
+            return self.template_ltl_history_pos, context
         
         # 未给定时间时，自动查询过去三个月的
         current_date = datetime.now().date()
@@ -10332,7 +10406,7 @@ class PostNsop(View):
         )
 
         # 已放行-客提
-        release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
+        _, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
         #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
         #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
@@ -10391,8 +10465,11 @@ class PostNsop(View):
                 else:
                     selfdel_cargos.append(item)
 
-        # 针对未放行进行排序 (对应你原来的逻辑)
-        release_cargos.sort(key=lambda x: (x.get('ltl_verify', False),))
+        # 针对未放行进行排序：未核实排在前面，然后按 vessel_eta 排序，时间早的在前
+        release_cargos.sort(key=lambda x: (
+            x.get('ltl_verify', False),  # 第一优先级：未核实（False）在前
+            str(x.get('vessel_eta')) or '9999-12-31'  # 第二优先级：vessel_eta，时间早的在前
+        ))
         
         return release_cargos, selfpick_cargos, selfdel_cargos
 
@@ -12536,7 +12613,7 @@ class PostNsop(View):
             base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
         
         base_criteria &= Q(delivery_type=delivery_type)
-        print('delivery_type',delivery_type)
+
         # 分别构建Pallet和PackingList的查询条件
         pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
         packinglist_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=True)
@@ -12848,6 +12925,175 @@ class PostNsop(View):
         context.update(search_context)
         
         return template, context
+    
+    async def handle_unbind_master_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """解绑主约"""
+        context = {}
+        
+        try:
+            container_number = request.POST.get('unbind_container_number', '').strip()
+            destination = request.POST.get('unbind_destination', '').strip()
+            shipment_batch_number = request.POST.get('unbind_shipment_batch_number', '').strip()
+            
+            if not all([container_number, destination, shipment_batch_number]):
+                context['error_messages'] = '缺少必要的参数'
+                template, search_context = await self.handle_master_shipment_check_post(request)
+                context.update(search_context)
+                return template, context
+            
+            # 查找目标 shipment
+            target_shipment = await sync_to_async(Shipment.objects.get)(
+                shipment_batch_number=shipment_batch_number
+            )
+            
+            # 查找相关的 container
+            container = await sync_to_async(Container.objects.get)(
+                container_number=container_number
+            )
+            
+            # 更新 Pallet 记录
+            pallet_count = await sync_to_async(Pallet.objects.filter(
+                container_number=container,
+                destination=destination,
+                master_shipment_batch_number=target_shipment
+            ).update)(
+                master_shipment_batch_number=None
+            )
+            
+            # 更新 PackingList 记录
+            packinglist_count = await sync_to_async(PackingList.objects.filter(
+                container_number=container,
+                destination=destination,
+                master_shipment_batch_number=target_shipment
+            ).update)(
+                master_shipment_batch_number=None
+            )
+            
+            # 检查是否还有其他记录绑定这个 shipment
+            # 检查 Pallet 表（包括 shipment_batch_number 和 master_shipment_batch_number）
+            pallet_has_binding = await sync_to_async(
+                Pallet.objects.filter(
+                    Q(shipment_batch_number=target_shipment) | Q(master_shipment_batch_number=target_shipment)
+                ).exists
+            )()
+            
+            # 检查 PackingList 表（包括 shipment_batch_number 和 master_shipment_batch_number）
+            packinglist_has_binding = await sync_to_async(
+                PackingList.objects.filter(
+                    Q(shipment_batch_number=target_shipment) | Q(master_shipment_batch_number=target_shipment)
+                ).exists
+            )()
+            
+            # 如果两个表都没有记录绑定了
+            if not pallet_has_binding and not packinglist_has_binding:
+                # 刷新一下 target_shipment 对象
+                target_shipment = await sync_to_async(Shipment.objects.get)(
+                    shipment_batch_number=shipment_batch_number
+                )
+                
+                if target_shipment.is_virtual_sp:
+                    # 虚拟货约，直接删除
+                    await sync_to_async(target_shipment.delete)()
+                    context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单，该虚拟货约已删除'
+                else:
+                    # 真实货约，设置为取消
+                    target_shipment.is_canceled = True
+                    await sync_to_async(target_shipment.save)()
+                    context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单，该货约已标记为取消'
+            else:
+                context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单'
+            
+        except Exception as e:
+            context['error_messages'] = f'解绑失败: {str(e)}'
+        
+        # 重新调用搜索功能
+        template, search_context = await self.handle_master_shipment_check_post(request)
+        context.update(search_context)
+        
+        return template, context
+    
+    async def handle_pod_reupload_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
+        """POD重新上传搜索"""
+        start_date = request.POST.get('start_date', '').strip()
+        end_date = request.POST.get('end_date', '').strip()
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        appointment_id = request.POST.get('appointment_id', '').strip()
+
+        if not any([start_date, end_date, shipment_batch_number, appointment_id]):
+            # 设置时间范围为前一个月
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        context = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'shipment_batch_number': shipment_batch_number,
+            'appointment_id': appointment_id,
+            'search_performed': True,
+            'results': [],
+        }
+        
+        query = Q()
+        
+        if start_date:
+            start_datetime = timezone.make_aware(datetime.strptime(start_date, '%Y-%m-%d'))
+            query &= Q(shipment_appointment__gte=start_datetime)
+        
+        if end_date:
+            end_datetime = timezone.make_aware(datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1))
+            query &= Q(shipment_appointment__lt=end_datetime)
+        
+        if shipment_batch_number:
+            query &= Q(shipment_batch_number__icontains=shipment_batch_number)
+        
+        if appointment_id:
+            query &= Q(appointment_id__icontains=appointment_id)
+        
+        if query:
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(query).values(
+                    'shipment_batch_number',
+                    'appointment_id',
+                    'shipment_appointment',
+                    'pod_link',
+                ).order_by('-shipment_appointment')
+            )
+            
+            context['results'] = shipments
+        else:
+            context['error_messages'] = '请至少输入一个搜索条件'
+        
+        return self.template_pod_reupload, context
+    
+    async def _delete_old_pod_file(self, shipment_batch_number: str) -> None:
+        """删除旧的POD文件 - 预留函数，内容待补充"""
+        # TODO: 补充删除旧文件的逻辑
+        pass
+    
+    async def handle_pod_reupload_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """POD重新上传处理"""
+        context = {}
+        
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        
+        if not shipment_batch_number:
+            context['error_messages'] = '缺少批次号'
+            return self.template_pod_reupload, context
+        
+        if "file" not in request.FILES:
+            context['error_messages'] = '请选择要上传的文件'
+            return self.template_pod_reupload, context
+        
+        # 先删除旧文件
+        await self._delete_old_pod_file(shipment_batch_number)
+        
+        # 调用 FleetManagement 类的上传方法
+        fm = FleetManagement()
+        await fm.handle_pod_upload_post(request, 'post_nsop')
+        
+        context['success_messages'] = 'POD修改成功！'
+        
+        return await self.handle_pod_reupload_post(request, context)
     
     def _process_master_shipment_item(self, item, source_type):
         """处理单个master_shipment项目，计算状态和格式化日期"""

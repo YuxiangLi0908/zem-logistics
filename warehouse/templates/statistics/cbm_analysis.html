@@ -205,6 +205,31 @@
         top: 0;
         z-index: 10;
         border-bottom: 2px solid #1677ff;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .data-table th:hover {
+        background-color: #2a4a70;
+    }
+    
+    .sort-icon {
+        margin-left: 5px;
+        opacity: 0.5;
+    }
+    
+    .sort-icon.active {
+        opacity: 1;
+    }
+    
+    .sort-asc::after {
+        content: ' ▲';
+        font-size: 10px;
+    }
+    
+    .sort-desc::after {
+        content: ' ▼';
+        font-size: 10px;
     }
     
     .data-table .filter-row th {
@@ -418,12 +443,12 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>仓点</th>
-                            <th>总CBM</th>
-                            <th>总重量(kg)</th>
-                            <th>总重量(lbs)</th>
-                            <th>所属区域</th>
-                            <th>占比(%)</th>
+                            <th onclick="sortTable(0, 'text', this)">仓点</th>
+                            <th onclick="sortTable(1, 'number', this)">总CBM</th>
+                            <th onclick="sortTable(2, 'number', this)">总重量(kg)</th>
+                            <th onclick="sortTable(3, 'number', this)">总重量(lbs)</th>
+                            <th onclick="sortTable(4, 'text', this)">所属区域</th>
+                            <th onclick="sortTable(5, 'number', this)">占比(%)</th>
                         </tr>
                         <tr class="filter-row">
                             <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(0, this.value)"></th>
@@ -453,13 +478,13 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>区域</th>
-                            <th>仓点</th>
-                            <th>客户</th>
-                            <th>总CBM</th>
-                            <th>总重量(kg)</th>
-                            <th>总重量(lbs)</th>
-                            <th>占比(%)</th>
+                            <th onclick="sortTable(0, 'text', this)">区域</th>
+                            <th onclick="sortTable(1, 'text', this)">仓点</th>
+                            <th onclick="sortTable(2, 'text', this)">客户</th>
+                            <th onclick="sortTable(3, 'number', this)">总CBM</th>
+                            <th onclick="sortTable(4, 'number', this)">总重量(kg)</th>
+                            <th onclick="sortTable(5, 'number', this)">总重量(lbs)</th>
+                            <th onclick="sortTable(6, 'number', this)">占比(%)</th>
                         </tr>
                         <tr class="filter-row">
                             <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(0, this.value)"></th>
@@ -501,13 +526,13 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>客户</th>
-                            <th>仓点</th>
-                            <th>总CBM</th>
-                            <th>总重量(kg)</th>
-                            <th>总重量(lbs)</th>
-                            <th>所属区域</th>
-                            <th>占比(%)</th>
+                            <th onclick="sortTable(0, 'text', this)">客户</th>
+                            <th onclick="sortTable(1, 'text', this)">仓点</th>
+                            <th onclick="sortTable(2, 'number', this)">总CBM</th>
+                            <th onclick="sortTable(3, 'number', this)">总重量(kg)</th>
+                            <th onclick="sortTable(4, 'number', this)">总重量(lbs)</th>
+                            <th onclick="sortTable(5, 'text', this)">所属区域</th>
+                            <th onclick="sortTable(6, 'number', this)">占比(%)</th>
                         </tr>
                         <tr class="filter-row">
                             <th><input type="text" class="filter-input" placeholder="筛选客户" onkeyup="filterTable(0, this.value)"></th>
@@ -665,6 +690,66 @@
         }
         
         // 筛选后重新计算统计
+        calculateTotals();
+    }
+    
+    // 全局变量，记录当前排序状态
+    let currentSortColumn = -1;
+    let currentSortDirection = 'asc';
+    
+    // 表格排序功能
+    function sortTable(columnIndex, type, headerElement) {
+        const table = document.querySelector('.data-table');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // 确定排序方向
+        if (currentSortColumn === columnIndex) {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSortColumn = columnIndex;
+            currentSortDirection = 'asc';
+        }
+        
+        // 更新排序指示器
+        const allHeaders = table.querySelectorAll('thead tr:first-child th');
+        allHeaders.forEach((th, idx) => {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (idx === columnIndex) {
+                th.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+        
+        // 排序行
+        rows.sort((a, b) => {
+            const cellA = a.cells[columnIndex];
+            const cellB = b.cells[columnIndex];
+            
+            // 如果单元格不存在或被隐藏（rowspan），返回 0 保持原有顺序
+            if (!cellA || cellA.style.display === 'none') return 0;
+            if (!cellB || cellB.style.display === 'none') return 0;
+            
+            // 获取单元格内容
+            let valA = cellA.textContent.trim();
+            let valB = cellB.textContent.trim();
+            
+            if (type === 'number') {
+                // 数字排序
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+                return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+            } else {
+                // 文本排序
+                return currentSortDirection === 'asc' 
+                    ? valA.localeCompare(valB, 'zh-CN')
+                    : valB.localeCompare(valA, 'zh-CN');
+            }
+        });
+        
+        // 重新添加到 tbody
+        rows.forEach(row => tbody.appendChild(row));
+        
+        // 重新计算统计
         calculateTotals();
     }
     

@@ -671,6 +671,7 @@ class Palletization(View):
     async def handle_packing_list_post(
         self, request: HttpRequest, pk: int
     ) -> tuple[str, dict[str, Any]]:
+        '''拆柜录入的确认'''
         order_selected = await sync_to_async(
             Order.objects.select_related(
                 "offload_id", "warehouse", "container_number"
@@ -1009,6 +1010,7 @@ class Palletization(View):
                     'ltl_follow_status': pl.ltl_follow_status,
                     'ltl_release_command': pl.ltl_release_command,
                     'ltl_contact_method': pl.ltl_contact_method,
+                    'ltl_quote_note': pl.ltl_release_command,
                 }
         
         # 字段映射关系：PackingList字段 -> Pallet字段
@@ -1021,6 +1023,7 @@ class Palletization(View):
             'ltl_follow_status': 'ltl_follow_status',
             'ltl_release_command': 'ltl_release_command',
             'ltl_contact_method': 'ltl_contact_method',
+            'ltl_quote_note': 'ltl_quote_note',
         }
         # 更新pallet数据
         updated_pallets = []

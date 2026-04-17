@@ -542,6 +542,8 @@
                     <th class="fleet-carrier-col">承运公司</th>
                     <th class="fleet-bol-col">BOL号</th>
                     <th class="fleet-pro-col">PRO号</th>
+                    <th class="fleet-date-col">出库时间</th>
+                    <th class="fleet-date-col">送达时间</th>
                     <th class="fleet-action-col">操作</th>
                 </tr>
             </thead>
@@ -623,6 +625,12 @@
                     </td>
                     <td>
                         <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="24" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选出库时间..." data-column="25" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选送达时间..." data-column="26" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-action-col">
                         <!-- 操作列不需要筛选 -->
@@ -844,6 +852,20 @@
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.ltl_pro_num|default:'' }}</textarea>
                     </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__shipped_at %}
+                            {{ cargo.shipment_batch_number__shipped_at|date:'Y-m-d H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__arrived_at %}
+                            {{ cargo.shipment_batch_number__arrived_at|date:'Y-m-d H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td class="fleet-action-col">
                         <div class="fleet-action-buttons">
                             <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
@@ -854,7 +876,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="19" style="text-align: center; padding: 20px;">
+                    <td colspan="21" style="text-align: center; padding: 20px;">
                         暂无自发货物
                     </td>
                 </tr>

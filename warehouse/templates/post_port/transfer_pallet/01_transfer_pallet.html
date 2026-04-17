@@ -37,7 +37,7 @@
     
     .transfer-btn-container {
         margin: 10px 0;
-        text-align: right;
+        text-align: left;
     }
     
     .btn-transfer {
@@ -68,22 +68,27 @@
         font-size: 11px;
     }
     
-    .th, .td {
+    .th, .td, .header-th, .filter-th {
         padding: 6px 8px;
         border: 1px solid #dee2e6;
         text-align: left;
     }
     
-    .th {
+    .header-th {
         background: #e9ecef;
         position: sticky;
         top: 0;
-        z-index: 10;
+        z-index: 11;
     }
     
-    .filter-row th {
+    .filter-th {
         background: #f8f9fa;
-        padding: 4px;
+        padding: 6px 8px;
+        position: sticky;
+        top: 37px;
+        z-index: 10;
+        border: 1px solid #dee2e6;
+        border-top: none;
     }
     
     .filter-input {
@@ -152,13 +157,41 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 450px;
+        width: 900px;
+        max-height: 85vh;
+        overflow-y: auto;
         background: #ffffff;
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         z-index: 1000;
-        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    .batch-info-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    
+    .batch-info-item {
+        flex: 1;
+        min-width: 140px;
+        max-width: 200px;
+    }
+    
+    .batch-info-item label {
+        display: block;
+        font-size: 12px;
+        color: #495057;
+        margin-bottom: 4px;
+        font-weight: 500;
+    }
+    
+    .batch-info-item .form-control-custom {
+        padding: 6px 10px;
+        font-size: 13px;
     }
 
     /* 头部样式 */
@@ -173,7 +206,7 @@
 
     /* 表单区域 */
     #transferForm {
-        padding: 20px;
+        padding: 15px 25px 25px 25px;
     }
 
     .transfer-info-table td {
@@ -222,6 +255,53 @@
 
     .btn-primary-custom { background: #007bff; color: white; }
     .btn-secondary-custom { background: #6c757d; color: white; }
+    
+    .section-divider {
+        margin: 15px 0;
+        border-top: 2px solid #e9ecef;
+        padding-top: 15px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 12px;
+        padding-left: 8px;
+        border-left: 4px solid #007bff;
+    }
+    
+    .po-info-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    
+    .po-info-table th,
+    .po-info-table td {
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        text-align: center;
+    }
+    
+    .po-info-table th {
+        background: #e9ecef;
+        font-weight: 600;
+    }
+    
+    .po-info-table .actual-pallet-input {
+        width: 80px;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        text-align: center;
+    }
+    
+    .po-info-table .actual-pallet-input:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.1);
+    }
 </style>
 
 <div class="inventory-container">
@@ -246,6 +326,10 @@
 
     {% if pallet %}
     <div class="transfer-btn-container">
+        <span style="margin-right: 20px; font-weight: bold;">当前显示：<span id="rowCountDisplay">{{ pallet|length }}</span> 条</span>
+        <button type="button" class="btn-transfer" style="margin-right: 10px;" onclick="exportFilteredTable()">
+            📊 导出表格
+        </button>
         <button type="button" id="transfer-btn" class="btn-transfer" onclick="editTransfer()">
             📦 转仓操作
         </button>
@@ -254,41 +338,45 @@
     <div class="table-container">
         <table class="table" id="inventory-summary-table">
             <thead>
-                <tr>
-                    <th class="th" style="width: 30px; text-align: center;">
+                <tr class="header-main-row">
+                    <th class="th header-th" style="width: 30px; text-align: center;">
                         <input type="checkbox" id="selectAll" onclick="toggleAllSelection()">
                     </th>
-                    <th class="th">客户</th>
-                    <th class="th">柜号</th>
-                    <th class="th">目的地</th>
-                    <th class="th">派送方式</th>
-                    <th class="th" style="min-width: 200px;">唛头</th>
-                    <th class="th" style="min-width: 200px;">FBA</th>
-                    <th class="th" style="min-width: 200px;">REF</th>
-                    <th class="th">重量(lbs)</th>
-                    <th class="th">数量</th>
-                    <th class="th">体积(CBM)</th>
-                    <th class="th">卡板数</th>
-                    <th class="th" style="min-width: 150px;">备注</th>
-                    <th class="th">预约批次</th>
-                    <th class="th">预约号</th>
+                    <th class="th header-th">客户</th>
+                    <th class="th header-th">预报仓库</th>
+                    <th class="th header-th">柜号</th>
+                    <th class="th header-th">目的地</th>
+                    <th class="th header-th">入库时间</th>
+                    <th class="th header-th">派送方式</th>
+                    <th class="th header-th" style="min-width: 200px;">唛头</th>
+                    <th class="th header-th" style="min-width: 200px;">FBA</th>
+                    <th class="th header-th" style="min-width: 200px;">REF</th>
+                    <th class="th header-th">重量(lbs)</th>
+                    <th class="th header-th">数量</th>
+                    <th class="th header-th">体积(CBM)</th>
+                    <th class="th header-th">卡板数</th>
+                    <th class="th header-th" style="min-width: 150px;">备注</th>
+                    <th class="th header-th">预约批次</th>
+                    <th class="th header-th">预约号</th>
                 </tr>
                 <tr class="filter-row">
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 2)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 3)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 4)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 5)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 6)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 7)"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="预报仓库..." oninput="filterTable(this, 2)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 3)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 4)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="入库时间(如2025,2025/4,2025/4/16)" oninput="filterTable(this, 5)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 6)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 7)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 8)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 9)"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
                 </tr>
             </thead>
             <tbody id="warehouse-trans">
@@ -300,8 +388,10 @@
                         <input type="hidden" name="orders" value='{{ p.container }}'>
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
+                    <td class="td">{{ p.forecast_warehouse|default_if_none:"" }}</td>
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
+                    <td class="td">{% if p.offload_at %}{{ p.offload_at|date:"Y/m/d" }}{% else %}-{% endif %}</td>
                     <td class="td">{{ p.delivery_method }}</td>
                     <td class="td" style="word-break: break-all;">{{ p.shipping_mark }}</td>
                     <td class="td" style="word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
@@ -329,57 +419,78 @@
         <input type="hidden" name="step" value="transfer_warehouse">
         <input type="hidden" name="warehouse" value="{{ warehouse }}">
         
-        <table class="transfer-info-table" style="width: 100%;">
-            <tr>
-                <td width="30%"><strong>发货仓库:</strong></td>
-                <td>
+        <div id="batchInfoSection">
+            <div class="section-title">批次信息</div>
+            <div class="batch-info-row">
+                <div class="batch-info-item">
+                    <label>发货仓库:</label>
                     <select name="shipping_warehouse" class="form-control-custom">
                         {% for k, v in warehouse_options.items %}
                             <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                         {% endfor %}
                     </select>
-                </td>
-            </tr>
-            <tr>
-                <td><strong>收货仓库:</strong></td>
-                <td>
-                    <select name="receiving_warehouse" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>收货仓库:</label>
+                    <select name="receiving_warehouse" class="form-control-custom" required>
                         {% for k, v in warehouse_options.items %}
                             <option value="{{ v }}">{{ k }}</option>
                         {% endfor %}
                     </select>
-                </td>
-            </tr>
-            <tr>
-                <td><strong>pickupNumber:</strong></td>
-                <td><input type="text" name="pickup_number" placeholder="可选输入" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>carrier:</strong></td>
-                <td><input type="text" name="carrier" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>备注:</strong></td>
-                <td><input type="text" name="note" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>转仓成本:</strong></td>
-                <td><input type="number" step="0.01" name="fleet_transfer_cost" placeholder="请输入转仓成本" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>车次成本:</strong></td>
-                <td><input type="number" step="0.01" name="fleet_cost" placeholder="请输入车次成本" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>发货时间:</strong></td>
-                <td><input type="datetime-local" name="shipping_time" class="form-control-custom" required></td>
-            </tr>
-            <tr>
-                <td><strong>预计到达:</strong></td>
-                <td><input type="datetime-local" name="ETA" class="form-control-custom" required></td>
-            </tr>
-            
-        </table>
+                </div>
+                <div class="batch-info-item">
+                    <label>pickupNumber:</label>
+                    <input type="text" name="pickup_number" placeholder="可选" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>carrier:</label>
+                    <input type="text" name="carrier" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>备注:</label>
+                    <input type="text" name="note" class="form-control-custom">
+                </div>
+            </div>
+            <div class="batch-info-row">
+                <div class="batch-info-item">
+                    <label>转仓成本:</label>
+                    <input type="number" step="0.01" name="fleet_transfer_cost" placeholder="转仓成本" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>车次成本:</label>
+                    <input type="number" step="0.01" name="fleet_cost" placeholder="车次成本" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>发货时间:</label>
+                    <input type="datetime-local" name="shipping_time" class="form-control-custom" required>
+                </div>
+                <div class="batch-info-item">
+                    <label>预计到达:</label>
+                    <input type="datetime-local" name="ETA" class="form-control-custom" required>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section-divider"></div>
+        
+        <div id="poInfoSection">
+            <div class="section-title">PO信息</div>
+            <div id="poInfoContainer">
+                <table class="po-info-table">
+                    <thead>
+                        <tr>
+                            <th>柜号</th>
+                            <th>目的地</th>
+                            <th>体积(CBM)</th>
+                            <th>卡板数</th>
+                            <th>实际卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poInfoTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
         
         <div class="popup-buttons">
             <button type="button" class="btn-custom btn-secondary-custom" onclick="closeTransferPopup()">
@@ -397,6 +508,7 @@
     function editTransfer() {
         const popup = document.getElementById('transferPopup');
         const form = document.getElementById('transferForm');
+        const poInfoTableBody = document.getElementById('poInfoTableBody');
 
         const checkboxes = document.querySelectorAll('input[name="is_pallet_selected"]:checked');
         if (checkboxes.length === 0) {
@@ -406,20 +518,69 @@
 
         // 先清除旧的 hidden inputs，避免重复
         form.querySelectorAll('input[name="plt_ids"]').forEach(el => el.remove());
+        form.querySelectorAll('input[name="actual_pallets"]').forEach(el => el.remove());
+        form.querySelectorAll('input[name="row_index"]').forEach(el => el.remove());
+        
+        // 清空PO信息表格
+        poInfoTableBody.innerHTML = '';
 
-        // 遍历勾选的行，把 plt_ids 动态添加到 form
-        checkboxes.forEach(checkbox => {
+        // 遍历勾选的行，构建PO信息表格和隐藏输入框
+        checkboxes.forEach((checkbox, index) => {
             const row = checkbox.closest('tr');
-            const pltId = row.querySelector('input[name="plt_ids"]').value;
+            const pltIds = row.querySelector('input[name="plt_ids"]').value;
+            const container = row.cells[3].textContent;
+            const destination = row.cells[4].textContent;
+            const nPallet = row.cells[13].textContent;
+            const cbm = row.cells[12].textContent;
 
-            const hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.name = 'plt_ids';
-            hidden.value = pltId;
-            form.appendChild(hidden);
+            // 创建PO信息表格行
+            const tableRow = document.createElement('tr');
+            tableRow.innerHTML = `
+                <td>${container}</td>
+                <td>${destination}</td>
+                <td>${cbm}</td>
+                <td>${nPallet}</td>
+                <td>
+                    <input type="number" 
+                           class="actual-pallet-input" 
+                           name="actual_pallets_${index}" 
+                           value="${parseFloat(nPallet)}" 
+                           min="0" 
+                           step="1"
+                           data-row-index="${index}"
+                           onchange="validateActualPallet(this, ${parseFloat(nPallet)})">
+                </td>
+            `;
+            poInfoTableBody.appendChild(tableRow);
+
+            // 添加隐藏的plt_ids输入框
+            const hiddenPltIds = document.createElement('input');
+            hiddenPltIds.type = 'hidden';
+            hiddenPltIds.name = 'plt_ids_' + index;
+            hiddenPltIds.value = pltIds;
+            form.appendChild(hiddenPltIds);
+
+            // 添加隐藏的row_index输入框，用于标识行索引
+            const hiddenRowIndex = document.createElement('input');
+            hiddenRowIndex.type = 'hidden';
+            hiddenRowIndex.name = 'row_index';
+            hiddenRowIndex.value = index;
+            form.appendChild(hiddenRowIndex);
         });
 
         popup.style.display = 'block';
+    }
+    
+    // 验证实际卡板数不能超过原始卡板数
+    function validateActualPallet(input, maxPallet) {
+        const value = parseInt(input.value);
+        if (value < 0) {
+            input.value = 0;
+            alert('实际卡板数不能小于0');
+        } else if (value > maxPallet) {
+            input.value = maxPallet;
+            alert(`实际卡板数不能超过原始卡板数 (${maxPallet})`);
+        }
     }
 
     
@@ -433,8 +594,12 @@
         const checkboxes = document.querySelectorAll('input[name="is_pallet_selected"]');
         
         checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAll.checked;
-            toggleRowSelection(checkbox, checkbox.closest('tr').id.replace('row-', ''));
+            const row = checkbox.closest('tr');
+            // 只选择当前显示出来的行（不选择被过滤掉的行）
+            if (row.style.display !== 'none') {
+                checkbox.checked = selectAll.checked;
+                toggleRowSelection(checkbox, row.id.replace('row-', ''));
+            }
         });
     }
     
@@ -457,41 +622,112 @@
         const filters = {};
         filterInputs.forEach((input, index) => {
             const filterText = input.value.trim().toLowerCase();
+            const colIndex = index + 2; // 前两列是复选框和客户
             if (filterText) {
-                // 列索引对应：柜号=2, 目的地=3, 派送方式=4, 唛头=5, FBA=6, REF=7
-                filters[index + 2] = filterText.split(' ').filter(val => val.length > 0);
+                // 入库时间列是第5列（colIndex=5），使用灵活日期匹配
+                if (colIndex === 5) {
+                    // 将横杠转换为斜杠，统一格式
+                    const normalizedDate = filterText.replace(/-/g, '/');
+                    filters[colIndex] = { type: 'flexible_date', value: normalizedDate };
+                } else {
+                    // 普通文本筛选
+                    filters[colIndex] = { type: 'text', values: filterText.split(' ').filter(val => val.length > 0) };
+                }
             }
         });
+        
+        let visibleCount = 0;
         
         // 如果没有筛选条件，显示所有行
         if (Object.keys(filters).length === 0) {
             rows.forEach(row => {
                 row.style.display = '';
+                visibleCount++;
             });
+        } else {
+            rows.forEach(row => {
+                let shouldShow = true;
+                
+                // 检查每一行的每个筛选条件
+                for (const [columnIndex, filterConfig] of Object.entries(filters)) {
+                    const cell = row.cells[parseInt(columnIndex)];
+                    if (cell) {
+                        const cellText = cell.textContent.toLowerCase();
+                        
+                        if (filterConfig.type === 'flexible_date') {
+                            // 灵活日期匹配：支持只年、只年月、或完整日期
+                            if (cellText !== '-') {
+                                if (!cellText.startsWith(filterConfig.value)) {
+                                    shouldShow = false;
+                                    break;
+                                }
+                            } else {
+                                // 无日期的行不显示
+                                shouldShow = false;
+                                break;
+                            }
+                        } else {
+                            // 检查单元格文本是否包含任意一个搜索值
+                            const matches = filterConfig.values.some(value => cellText.includes(value));
+                            
+                            if (!matches) {
+                                shouldShow = false;
+                                break; // 如果任一条件不满足，就跳出循环
+                            }
+                        }
+                    }
+                }
+                
+                row.style.display = shouldShow ? '' : 'none';
+                if (shouldShow) {
+                    visibleCount++;
+                }
+            });
+        }
+        
+        // 更新条数显示
+        document.getElementById('rowCountDisplay').textContent = visibleCount;
+    }
+    
+    // 导出筛选后的表格
+    function exportFilteredTable() {
+        const table = document.getElementById('inventory-summary-table');
+        const rows = Array.from(table.querySelectorAll('#warehouse-trans tr')).filter(row => row.style.display !== 'none');
+        
+        if (rows.length === 0) {
+            alert('没有可导出的数据');
             return;
         }
         
+        // 获取表头（排除复选框列）
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th')).slice(1).map(th => th.textContent.trim());
+        
+        // 构建 CSV 内容
+        let csvContent = headers.join(',') + '\n';
+        
         rows.forEach(row => {
-            let shouldShow = true;
-            
-            // 检查每一行的每个筛选条件
-            for (const [columnIndex, searchValues] of Object.entries(filters)) {
-                const cell = row.cells[parseInt(columnIndex)];
-                if (cell) {
-                    const cellText = cell.textContent.toLowerCase();
-                    
-                    // 检查单元格文本是否包含任意一个搜索值
-                    const matches = searchValues.some(value => cellText.includes(value));
-                    
-                    if (!matches) {
-                        shouldShow = false;
-                        break; // 如果任一条件不满足，就跳出循环
-                    }
+            const cells = Array.from(row.cells).slice(1); // 排除复选框列
+            const rowData = cells.map(cell => {
+                let text = cell.textContent.trim();
+                // 处理包含逗号或引号的文本
+                if (text.includes(',') || text.includes('"')) {
+                    text = '"' + text.replace(/"/g, '""') + '"';
                 }
-            }
-            
-            row.style.display = shouldShow ? '' : 'none';
+                return text;
+            });
+            csvContent += rowData.join(',') + '\n';
         });
+        
+        // 创建下载链接
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', '转仓数据_' + new Date().toISOString().slice(0,10) + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
     
     // 点击外部关闭弹出窗口
@@ -500,6 +736,12 @@
         if (popup.style.display === 'block' && !popup.contains(e.target) && e.target.id !== 'transfer-btn') {
             closeTransferPopup();
         }
+    });
+    
+    // 页面加载时初始化条数显示
+    document.addEventListener('DOMContentLoaded', function() {
+        const rows = document.querySelectorAll('#warehouse-trans tr');
+        document.getElementById('rowCountDisplay').textContent = rows.length;
     });
 </script>
 {% endblock %}

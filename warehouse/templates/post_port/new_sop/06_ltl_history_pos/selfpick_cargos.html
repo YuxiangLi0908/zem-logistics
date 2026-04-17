@@ -562,6 +562,8 @@
                     <th class="bol-col">BOL号</th>                   
                     <th>承运公司</th>
                     <th class="address-col">地址</th>
+                    <th class="date-col">出库时间</th>
+                    <th class="date-col">送达时间</th>
                     <th class="date-col">预计提货日期</th>
                     <th class="action-col">操作</th>
                 </tr>
@@ -640,7 +642,13 @@
                         <input type="text" class="filter-input" placeholder="筛选地址..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库时间..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选送达时间..." data-column="23" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="24" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -854,6 +862,20 @@
                             placeholder="输入详细地址"
                             oninput="autoResizeTextarea(this)"
                             >{{ cargo.address|default:'' }}</textarea>
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__shipped_at %}
+                            {{ cargo.shipment_batch_number__shipped_at|date:'Y-m-d H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__arrived_at %}
+                            {{ cargo.shipment_batch_number__arrived_at|date:'Y-m-d H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
                     </td>
                     <td>
                         <input type="date" class="pickup-date-input" 

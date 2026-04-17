@@ -483,6 +483,19 @@
     .priority-highlight td {
         background-color: transparent !important;
     }
+
+    /* 预计提货日期有值时的整行底色 */
+    .pickup-date-has-value {
+        background-color: #e8f5e9 !important;
+    }
+
+    .pickup-date-has-value td {
+        background-color: transparent !important;
+    }
+
+    .pickup-date-has-value input {
+        background-color: transparent !important;
+    }
 </style>
 
 <div id="selfpick-page">
@@ -527,6 +540,39 @@
             <strong>柜子已放行</strong>、
             <strong>派送方式为自提</strong>
         </div>
+        <div class="sorting-notice" style="font-size: 13px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-top: 10px;">
+            <i class="fas fa-sort-amount-down"></i> 
+            <strong>数据排序规则：</strong>
+            <div style="margin-top: 6px; margin-left: 22px;">
+                <div><strong>1. Pallet 数据在前，PackingList 数据在后</strong></div>
+                <div style="display: flex; gap: 30px; margin-top: 8px;">
+                    <div style="flex: 1;">
+                        <strong>Pallet 数据排序：</strong>
+                        <div style="margin-left: 15px; margin-top: 4px;">
+                            • 第一组：跟进状态有日期的（日期格式 4/1 或 4.1），按日期从小到大排序
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第二组：有关联 ID 的，相同关联 ID 排在一起
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第三组：跟进状态有值但没有日期的
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第四组：派送方式包含暂扣的
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <strong>PackingList 数据排序：</strong>
+                        <div style="margin-left: 15px; margin-top: 4px;">
+                            • 第一组：有实际提柜时间的
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第二组：有实际放行时间的
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <span style="display: inline-block; color: white; background-color: #3498db; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 8px; border: 2px solid #2980b9; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
             <span id="selfpick_filteredCount">{{ selfpick_cargos|length }}</span>
         </span>
@@ -541,6 +587,7 @@
                         <input type="checkbox" id="selfpick_selectAllCargos">
                     </th>
                     <th>跟进状态</th>
+                    <th class="date-col">预计提货日期</th>
                     <th class="customer-col">客户</th>
                     <th class="date-col">拆柜日期</th>
                     <th class="delivery-method-col">派送方式</th>
@@ -562,7 +609,6 @@
                     <th class="bol-col">BOL号</th>                   
                     <th>承运公司</th>
                     <th class="address-col">地址</th>
-                    <th class="date-col">预计提货日期</th>
                     <th class="action-col">操作</th>
                 </tr>
             </thead>
@@ -574,73 +620,73 @@
                         <input type="text" class="filter-input" placeholder="筛选跟进状态..." data-column="0" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选客户..." data-column="1" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="1" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选客户..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选方式..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选方式..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="mark-col">
-                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选指令..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选指令..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         {% comment %}
                         托盘尺寸筛选只对PALLET数据有效
                         {% endcomment %}
-                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -649,7 +695,7 @@
 
                 <!-- 数据行 -->
                 {% for cargo in selfpick_cargos %}
-                <tr class="data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}"
+                <tr class="data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}{% if cargo.est_pickup_time %} pickup-date-has-value{% endif %}"
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
                     data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
@@ -684,6 +730,12 @@
                             placeholder="输入跟进状态"
                             oninput="autoResizeTextarea(this)"                  
                             >{{ cargo.ltl_follow_status|default:'' }}</textarea>
+                    </td>
+                    <td>
+                        <input type="date" class="pickup-date-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
+                            placeholder="选择预计提货日期">
                     </td>
                     <td class="customer-col">{{ cargo.customer_name|default:"-" }}</td>                   
                     <td class="date-col">
@@ -854,12 +906,6 @@
                             placeholder="输入详细地址"
                             oninput="autoResizeTextarea(this)"
                             >{{ cargo.address|default:'' }}</textarea>
-                    </td>
-                    <td>
-                        <input type="date" class="pickup-date-input" 
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
-                            placeholder="选择预计提货日期">
                     </td>
                     <td class="action-col">
                         <div class="action-buttons">
@@ -1601,13 +1647,13 @@
                         }
 
                         // 特殊处理日期列
-                        if (idx === 2 || idx === 12) { // 拆柜日期和预计提货时间
+                        if (idx === 1 || idx === 3) { // 预计提货时间和拆柜日期
                             cellValue = cell.getAttribute('title') || cell.textContent;
                             cellValue = cellValue.toLowerCase().trim();
                         }
 
                         // 处理板数列（包含ACT/EST标记）
-                        if (idx === 8) { // 板数列
+                        if (idx === 14) { // 板数列
                             // 获取板数文本（包含标记）
                             cellValue = cell.textContent.toLowerCase().trim();
                         }
@@ -1836,5 +1882,24 @@
         window.showCopyNotification = showCopyNotification;
         window.selfpick_batchSaveRows = selfpick_batchSaveRows;
         window.batchUpdateDeliveryMethod = batchUpdateDeliveryMethod;
+
+        // 预计提货日期输入框事件监听，动态添加/移除底色
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.pickup-date-input').forEach(function(input) {
+                updatePickupDateBackground(input);
+                input.addEventListener('change', function() {
+                    updatePickupDateBackground(this);
+                });
+            });
+        });
+
+        function updatePickupDateBackground(input) {
+            const tr = input.closest('tr');
+            if (input.value) {
+                tr.classList.add('pickup-date-has-value');
+            } else {
+                tr.classList.remove('pickup-date-has-value');
+            }
+        }
     })(); // 立即执行
 </script>

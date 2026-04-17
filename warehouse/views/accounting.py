@@ -5790,10 +5790,18 @@ class Accounting(View):
 
             # ========== 一车多柜 → 循环每个柜号核销
             for container_id in container_ids:
+                order = Order.objects.select_related(
+                    "customer_name", "container_number"
+                ).get(container_number_id=container_id)
+                current_date = datetime.now().date()
+                order_id = str(order.id)
+                customer_id = order.customer_name.id
                 # 发票主表
                 invoicev2, _ = Invoicev2.objects.get_or_create(
                     container_number_id=container_id,
-                    defaults={"invoice_date": current_date}
+                    is_master_bill=True,
+                    invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
+                    created_at=current_date,
                 )
 
                 # 发票项（核销）
@@ -5879,17 +5887,19 @@ class Accounting(View):
                     for container_id in container_ids:
                         try:
                             # 发票主表
+                            order = Order.objects.select_related(
+                                "customer_name", "container_number"
+                            ).get(id=container_id)
+                            current_date = datetime.now().date()
+                            order_id = str(order.id)
+                            customer_id = order.customer_name.id
+
                             invoicev2, created = Invoicev2.objects.get_or_create(
                                 container_number_id=container_id,
-                                defaults={
-                                    'created_at': current_date,
-                                    'invoice_date': current_date,
-                                }
+                                is_master_bill=True,
+                                invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
+                                created_at=current_date,
                             )
-                            if not created:
-                                invoicev2.invoice_date = current_date
-                                invoicev2.note = note
-                                invoicev2.save(update_fields=['invoice_date'])
 
                             # 发票项
                             invoiceitemv2, item_created = InvoiceItemv2.objects.get_or_create(
@@ -6018,17 +6028,19 @@ class Accounting(View):
         current_date = datetime.now().date()
         try:
             with transaction.atomic():  # 事务：要么全成功，要么全回滚
+                order = Order.objects.select_related(
+                    "customer_name", "container_number"
+                ).get(container_number_id=container_id_str)
+                current_date = datetime.now().date()
+                order_id = str(order.id)
+                customer_id = order.customer_name.id
+
                 invoicev2, invoicev2_created = Invoicev2.objects.get_or_create(
                     container_number_id=container_id_str,
-                    defaults={
-                        'created_at': current_date,
-                        'invoice_date': current_date,
-                    }
+                    is_master_bill=True,
+                    invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
+                    created_at=current_date,
                 )
-                # 已有记录：更新金额和日期
-                if not invoicev2_created:
-                    invoicev2.invoice_date = current_date
-                    invoicev2.save(update_fields=['invoice_date'])  # 只更新修改的字段
 
                 # ========== 处理InvoiceItemv2（发票项表） ==========
                 invoiceitemv2, invoiceitemv2_created = InvoiceItemv2.objects.get_or_create(
@@ -11774,12 +11786,18 @@ class Accounting(View):
 
         # 步骤2：无记录则创建（保留原get_or_create的创建逻辑）
         if not invoice:
-            invoice, created = Invoicev2.objects.get_or_create(
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number=order.container_number)
+            current_date = datetime.now().date()
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+
+            invoicev2, created = Invoicev2.objects.get_or_create(
                 container_number=order.container_number,
-                defaults={  # 创建时直接赋值，避免二次save
-                    'invoice_number': f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                    'created_at': current_date
-                }
+                is_master_bill=True,
+                invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
+                created_at=current_date,
             )
 
         # 1. 先筛选（修正拼写后的正确筛选）
