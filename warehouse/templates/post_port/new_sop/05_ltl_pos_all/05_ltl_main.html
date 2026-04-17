@@ -407,6 +407,9 @@
             <div class="tab" data-tab="readyShip">
                 待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
             </div>
+            <div class="tab" data-tab="shipping">
+                待传出库单 <span class="badge">{{ summary.shipping_count }}</span>
+            </div>
             <div class="tab" data-tab="ready">
                 待送达批次 <span class="badge">{{ summary.ready_count }}</span>
             </div>
@@ -438,6 +441,11 @@
         <!-- 待出库批次标签页 -->
         <div class="content-section" id="readyShip-section">
             {% include 'post_port/new_sop/05_ltl_pos_all/ready_section.html' %}
+        </div>
+
+        <!-- 待传出库单标签页 -->
+        <div class="content-section" id="shipping-section">
+            {% include 'post_port/new_sop/05_ltl_pos_all/shipping_upload.html' %}
         </div>
 
         <!-- 待送达批次标签页 -->
@@ -534,6 +542,9 @@
                 if (activeTab === 'pod' && typeof initializePodSection === 'function') {
                     setTimeout(initializePodSection, 100);
                 }
+                if (activeTab === 'shipping' && typeof initializeShippingSection === 'function') {
+                    setTimeout(initializeShippingSection, 100);
+                }
             }
         }
     }
@@ -590,6 +601,9 @@
                     }
                     if (tabName === 'pod' && typeof initializePodSection === 'function') {
                         setTimeout(initializePodSection, 50);
+                    }
+                    if (tabName === 'shipping' && typeof initializeShippingSection === 'function') {
+                        setTimeout(initializeShippingSection, 50);
                     }
                 } else {
                     console.error('未找到内容区域:', tabName + '-section');

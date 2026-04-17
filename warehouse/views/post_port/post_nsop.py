@@ -10506,34 +10506,38 @@ class PostNsop(View):
             return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def handle_shipping_order_upload(
-        self, request: HttpRequest, context: dict| None = None,
+        self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''回传出库单（单个或批量）'''
+        contetxt = {}
         fm = FleetManagement()
         conn = await fm._get_sharepoint_auth()
         step = request.POST.get("step")
         
         if step == "batch_shipping_order_upload":
-            # 批量上传
-            batch_ids_json = request.POST.get("batch_ids_json")
-            if batch_ids_json:
-                shipment_batch_numbers = json.loads(batch_ids_json)
-                if "files" in request.FILES:
-                    files = request.FILES.getlist("files")
-                    # 遍历文件和批次号进行上传
-                    for file, shipment_batch_number in zip(files, shipment_batch_numbers):
-                        await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
+            # 批量上传 - 新格式
+            index = 0
+            while True:
+                file_key = f"file_{index}"
+                batch_key = f"batch_{index}"
+                
+                if file_key not in request.FILES or batch_key not in request.POST:
+                    break
+                
+                file = request.FILES[file_key]
+                shipment_batch_number = request.POST[batch_key]
+                await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
+                index += 1
         else:
             # 单个上传
             shipment_batch_number = request.POST.get("shipment_batch_number")
             if "file" in request.FILES and shipment_batch_number:
                 file = request.FILES["file"]
-                
                 await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
             
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
         context.update({"success_messages": '出库单上传成功!'})           
-        return render(request, template, context)
+        return template, context
 
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
@@ -10782,8 +10786,7 @@ class PostNsop(View):
 
         criteria = models.Q(
             models.Q(shipping_order_link__isnull=True) | models.Q(shipping_order_link=""),
-            shipped_at__isnull=False,
-            shipment_schduled_at__gte="2024-12-01",
+            shipment_schduled_at__gte="2026-4-17",
             origin=warehouse,
         )
         criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])

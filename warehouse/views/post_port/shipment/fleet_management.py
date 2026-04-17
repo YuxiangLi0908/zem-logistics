@@ -5410,6 +5410,39 @@ class FleetManagement(View):
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
 
+    async def _upload_shipping_order_file_to_sharepoint(
+        self, conn, shipment_batch_number: str, file
+    ) -> None:
+        '''上传出库单到云盘'''
+        shipment = await sync_to_async(Shipment.objects.get)(
+            shipment_batch_number=shipment_batch_number
+        )
+        file_extension = os.path.splitext(file.name)[1]  # 提取扩展名
+        # 文档库名称，系统文件夹名称，当前环境
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/delivery_order/{APP_ENV}")
+          
+        # 上传到SharePoint
+        try:
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(
+                f"{shipment_batch_number}{file_extension}", file
+            ).execute_query()
+        except:
+            conn = await self._get_sharepoint_auth()
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(
+                f"{shipment_batch_number}{file_extension}", file
+            ).execute_query()
+        # 生成并获取链接
+        link = (
+            resp.share_link(SharingLinkKind.AnonymousView)
+            .execute_query()
+            .value.to_json()["sharingLinkInfo"]["Url"]
+        )
+        shipment.shipping_order_link = link
+        shipment.pod_uploaded_at = timezone.now()
+        await sync_to_async(shipment.save)()
+
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
