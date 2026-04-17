@@ -129,15 +129,15 @@ class Inventory(View):
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": self.warehouse_options, "delivery_type_options": self.delivery_type_options}
         return self.template_counting_main, context
 
     async def handle_inventory_management_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": self.warehouse_options, "delivery_type_options": self.delivery_type_options}
         return self.template_inventory_management_main, context
 
     async def handle_pallet_merge_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": self.warehouse_options, "delivery_type_options": self.delivery_type_options}
         return self.template_inventory_list_and_merge, context
 
     async def handle_export_inventory(self, request: HttpRequest) -> HttpResponse:
@@ -211,6 +211,7 @@ class Inventory(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
+        delivery_type = request.POST.get("delivery_type")
         pallet = await self._get_inventory_pallet_merge(warehouse)
         pallet_json = {
             p.get("plt_ids"): {
@@ -237,6 +238,8 @@ class Inventory(View):
         total_pallet = sum([p.get("n_pallet") for p in pallet])
         context = {
             "warehouse": warehouse,
+            "delivery_type": delivery_type,
+            "delivery_type_options": self.delivery_type_options,
             "warehouse_options": self.warehouse_options,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
@@ -257,6 +260,7 @@ class Inventory(View):
                 pid.strip() for pid in pallet_ids_str.split(",") if pid.strip()
             ]
             warehouse = request.POST.get("warehouse", "")
+            delivery_type = request.POST.get("delivery_type", "")
 
             if not new_po_id:
                 context = {
@@ -301,6 +305,8 @@ class Inventory(View):
             context = {
                 "warehouse_options": self.warehouse_options,
                 "warehouse": warehouse,
+                "delivery_type_options": self.delivery_type_options,
+                "delivery_type": delivery_type,
                 "pallet": await self._get_inventory_pallet_merge(warehouse),
                 "merge_status": "success",
                 "merge_message": f"合板成功！共更新 {updated_count} 个卡板, PackingList更新{updated_count_p}条数据",

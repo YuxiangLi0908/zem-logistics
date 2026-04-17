@@ -24,7 +24,7 @@
     </form>
 </div>
 
-<div id="loading-bar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center;">
+<div id="loading-bar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
     <div style="color:white; text-align:center;">
         <div class="spinner" style="width:50px; height:50px; border:5px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 1s linear infinite;"></div>
         <p style="margin-top:10px;">Loading, please wait...</p>
@@ -181,6 +181,7 @@
                                     <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
                                     <input type="hidden" name="step" value="update_po_page">
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
                                     <button type="submit" class="btn btn-primary" style="font-size:11px; background-color:rgb(35,189,11); border-color:rgb(35,189,11);">更新PO</button>
                                 </form>
                             </div>
@@ -225,6 +226,7 @@
                     </div>
                     <input type="hidden" name="step" value="repalletize">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
                     <button type="submit" class="btn btn-success" style="font-size: 11px;" onclick="checkRepalletizeForm()">确认</button>
                     <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="closePopupWindow('repalletize-popup-window')">关闭</button>
                     <table class="table" id="original-pallets" style="font-size: 11px; width: 100%;">
@@ -315,6 +317,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="counting">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
                 <button type="submit" class="btn btn-success" style="font-size: 11px; margin-bottom:10px;">更新库存</button>
                 <table class="table" id="inventory-summary-table" style="font-size: 11px; width:100%; border-collapse:collapse;">
                     <thead>
@@ -515,12 +518,9 @@
         document.getElementById('total-pallets').textContent = totalPal;
     }
 
-    // 页面加载后自动计算一次
     window.onload = function(){
-        filterTable();
-    }
-    window.addEventListener('load', function() {
+    filterTable();
     document.getElementById('loading-bar').style.display = 'none';
-});
+}
 </script>
 {% endblock %}
