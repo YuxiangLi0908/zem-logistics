@@ -44,6 +44,7 @@ class Shipment(models.Model):
     shipped_pcs = models.FloatField(null=True, default=0, blank=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
+    shipping_order_link = models.CharField(max_length=2000, null=True, blank=True)
     pod_uploaded_at = models.DateTimeField(null=True, blank=True)
     ltl_bol_link = models.CharField(max_length=2000, null=True, blank=True)
     ltl_label_link = models.CharField(max_length=2000, null=True, blank=True)
