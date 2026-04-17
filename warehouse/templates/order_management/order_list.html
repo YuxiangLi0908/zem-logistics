@@ -89,7 +89,7 @@
                         <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
                         <th class="th"><input type="text" style="width:110px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
                         <th class="th"><input type="text" id="forcastSearchInput" placeholder="状态" oninput="filterTable()" style="width:60px;"></th>
-                        <th class="th"></th>
+                        <th class="th"><input type="text" style="width:110px;" id="warehouseSearchInput" placeholder="搜索入仓仓库..." oninput="filterTable()"></th>
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -238,56 +238,63 @@
     });
 
     function filterTable() {
-        var containerInput, customerInput, forcastInput, vesselInput;
-        var containerFilter, customerFilter, forcastFilter, vesselFilter;
-        var table, tbody, tr, containerTd, customerTd, forcastTd, vesselTd, i;
-        var containerTxtValue, customerTxtValue, forcastTxtValue, vesselTxtValue;
-        
+        var containerInput, customerInput, forcastInput, vesselInput, warehouseInput;
+        var containerFilter, customerFilter, forcastFilter, vesselFilter, warehouseFilter;
+        var table, tbody, tr, containerTd, customerTd, forcastTd, vesselTd, i, warehouseTd;
+        var containerTxtValue, customerTxtValue, forcastTxtValue, vesselTxtValue, warehouseTxtValue;
+
         // 获取输入框
         containerInput = document.getElementById("containerSearchInput");
         customerInput = document.getElementById("customerSearchInput");
         forcastInput = document.getElementById("forcastSearchInput");
         vesselInput = document.getElementById("vesselSearchInput");
-        
+        warehouseInput = document.getElementById("warehouseSearchInput");
+
         // 获取过滤值
         containerFilter = containerInput.value.trim().toUpperCase();
         customerFilter = customerInput.value.trim().toUpperCase();
         forcastFilter = forcastInput.value.trim().toUpperCase();
         vesselFilter = vesselInput.value.trim().toUpperCase();
-        
+        warehouseFilter = warehouseInput.value.trim().toUpperCase();
+
         table = document.getElementById("order-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
-        
+
         // 处理柜号的多条件搜索
         var containerParts = containerFilter.split(/\W/);
-        
+
         for (i = 0; i < tr.length; i++) {
             containerTd = tr[i].getElementsByTagName("td")[2]; // 柜号列
             customerTd = tr[i].getElementsByTagName("td")[1]; // 客户列
             forcastTd = tr[i].getElementsByTagName("td")[3]; // 状态列
+            warehouseTd = tr[i].getElementsByTagName("td")[4]; // 仓库列
             vesselTd = tr[i].getElementsByTagName("td")[9]; // 船名列（索引9）
-            
+
             if (containerTd && customerTd && forcastTd && vesselTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 customerTxtValue = customerTd.textContent || customerTd.innerText;
                 forcastTxtValue = forcastTd.textContent || forcastTd.innerText;
+                warehouseTxtValue = warehouseTd.textContent || warehouseTd.innerText;
                 vesselTxtValue = vesselTd.textContent || vesselTd.innerText;
-                
+
                 // 客户过滤
                 var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1 ? "" : "none";
-                
+
                 // 状态过滤
                 var forcastDisplayStyle = forcastTxtValue.toUpperCase().indexOf(forcastFilter) > -1 ? "" : "none";
-                
+
+                // 仓库过滤
+                var warehouseDisplayStyle = warehouseTxtValue.toUpperCase().indexOf(warehouseFilter) > -1 ? "" : "none";
+
                 // 船名过滤
                 var vesselDisplayStyle = vesselTxtValue.toUpperCase().indexOf(vesselFilter) > -1 ? "" : "none";
-                
+
                 // 柜号过滤（支持多条件）
                 var containerDisplayStyle = "none";
                 if (containerParts.length > 0) {
-                    for(var j = 0; j < containerParts.length; j++) {
-                        if(containerTxtValue.toUpperCase().indexOf(containerParts[j]) > -1) {
+                    for (var j = 0; j < containerParts.length; j++) {
+                        if (containerTxtValue.toUpperCase().indexOf(containerParts[j]) > -1) {
                             containerDisplayStyle = "";
                             break;
                         }
@@ -295,12 +302,13 @@
                 } else {
                     containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
                 }
-                
-                // 综合所有过滤条件
-                tr[i].style.display = (containerDisplayStyle === "" && 
-                                    customerDisplayStyle === "" && 
-                                    forcastDisplayStyle === "" && 
-                                    vesselDisplayStyle === "") ? "" : "none";
+
+                // 综合所有过滤条件 ✅ 这里加上 warehouseDisplayStyle
+                tr[i].style.display = (containerDisplayStyle === "" &&
+                    customerDisplayStyle === "" &&
+                    forcastDisplayStyle === "" &&
+                    warehouseDisplayStyle === "" &&
+                    vesselDisplayStyle === "") ? "" : "none";
             }
         }
     };
