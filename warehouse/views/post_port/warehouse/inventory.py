@@ -142,7 +142,11 @@ class Inventory(View):
 
     async def handle_export_inventory(self, request: HttpRequest) -> HttpResponse:
         warehouse = request.POST.get("warehouse")
-        pallet = await self._get_inventory_pallet(warehouse)
+        delivery_type = request.POST.get("delivery_type")
+        if delivery_type != "":
+            pallet = await self._get_inventory_pallet(warehouse, models.Q(delivery_type=delivery_type))
+        else:
+            pallet = await self._get_inventory_pallet(warehouse)
         # 创建Excel工作簿
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -323,7 +327,7 @@ class Inventory(View):
         warehouse = request.POST.get("warehouse")
         delivery_type = request.POST.get("delivery_type")
         if delivery_type != "":
-            pallet = await self._get_inventory_pallet(warehouse, models.Q(delivery_method=delivery_type))
+            pallet = await self._get_inventory_pallet(warehouse, models.Q(delivery_type=delivery_type))
         else:
             pallet = await self._get_inventory_pallet(warehouse)
         pallet_json = {}
