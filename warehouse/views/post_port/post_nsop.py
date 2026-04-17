@@ -12969,7 +12969,39 @@ class PostNsop(View):
                 master_shipment_batch_number=None
             )
             
-            context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单'
+            # 检查是否还有其他记录绑定这个 shipment
+            # 检查 Pallet 表（包括 shipment_batch_number 和 master_shipment_batch_number）
+            pallet_has_binding = await sync_to_async(
+                Pallet.objects.filter(
+                    Q(shipment_batch_number=target_shipment) | Q(master_shipment_batch_number=target_shipment)
+                ).exists
+            )()
+            
+            # 检查 PackingList 表（包括 shipment_batch_number 和 master_shipment_batch_number）
+            packinglist_has_binding = await sync_to_async(
+                PackingList.objects.filter(
+                    Q(shipment_batch_number=target_shipment) | Q(master_shipment_batch_number=target_shipment)
+                ).exists
+            )()
+            
+            # 如果两个表都没有记录绑定了
+            if not pallet_has_binding and not packinglist_has_binding:
+                # 刷新一下 target_shipment 对象
+                target_shipment = await sync_to_async(Shipment.objects.get)(
+                    shipment_batch_number=shipment_batch_number
+                )
+                
+                if target_shipment.is_virtual_sp:
+                    # 虚拟货约，直接删除
+                    await sync_to_async(target_shipment.delete)()
+                    context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单，该虚拟货约已删除'
+                else:
+                    # 真实货约，设置为取消
+                    target_shipment.is_canceled = True
+                    await sync_to_async(target_shipment.save)()
+                    context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单，该货约已标记为取消'
+            else:
+                context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单'
             
         except Exception as e:
             context['error_messages'] = f'解绑失败: {str(e)}'
