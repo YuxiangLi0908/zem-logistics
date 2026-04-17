@@ -6987,8 +6987,11 @@ class PostNsop(View):
             if shipments:
                 all_notified = all(shipment.is_notified_customer for shipment in shipments)
                 fleet_obj.is_notified_customer = all_notified
+                # 取第一条 shipment 的 shipment_type 作为装载类型
+                fleet_obj.load_type = shipments[0].load_type
             else:
                 fleet_obj.is_notified_customer = False
+                fleet_obj.load_type = ""
 
             for shipment in shipments:
                 shipment_batch_number = shipment.shipment_batch_number
@@ -7559,8 +7562,11 @@ class PostNsop(View):
             if shipments:
                 all_notified = all(shipment.is_notified_customer for shipment in shipments)
                 fleet_obj.is_notified_customer = all_notified
+                # 取第一条 shipment 的 shipment_type 作为装载类型
+                fleet_obj.shipment_type = shipments[0].shipment_type
             else:
                 fleet_obj.is_notified_customer = False
+                fleet_obj.shipment_type = ""
 
             for shipment in shipments:
                 shipment_batch_number = shipment.shipment_batch_number
