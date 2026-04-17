@@ -594,8 +594,12 @@
         const checkboxes = document.querySelectorAll('input[name="is_pallet_selected"]');
         
         checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAll.checked;
-            toggleRowSelection(checkbox, checkbox.closest('tr').id.replace('row-', ''));
+            const row = checkbox.closest('tr');
+            // 只选择当前显示出来的行（不选择被过滤掉的行）
+            if (row.style.display !== 'none') {
+                checkbox.checked = selectAll.checked;
+                toggleRowSelection(checkbox, row.id.replace('row-', ''));
+            }
         });
     }
     
