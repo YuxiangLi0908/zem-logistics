@@ -86,7 +86,7 @@
 <div class="content-section active" id="scheduledFleet-section">
     <div class="filter-notice">
         <i class="fas fa-filter"></i> 
-        当前显示 <strong>{{ warehouse }}</strong> 仓库的未排车货物，筛选条件：          
+        当前显示 <strong>{{ warehouse }}</strong> 仓库的已排车货物，筛选条件：          
         <strong>未出库</strong>、
         <strong>车次未取消</strong>、
         <strong>车次类型为FTL或者约的目的地为仓点的LTL</strong>
@@ -99,6 +99,7 @@
                     <th>预约批次</th>
                     <th>ISA</th>
                     <th>carrier</th>
+                    <th>装载类型</th>
                     <th>提货时间</th>
                     <th>预约时间</th>
                     <th>总重lbs</th>
@@ -112,12 +113,13 @@
                     <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
                     <td><input type="text" class="header-search" placeholder="搜索ISA" data-column="2"></td>
                     <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="5"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="6"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索装载类型" data-column="4"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
                     <td></td>
                 </tr>
             </thead>
@@ -177,6 +179,7 @@
                     </td>
                     <td>{{ f.appointment_ids }}</td>
                     <td>{{ f.carrier }}</td>
+                    <td>{{ f.load_type }}</td>
                     <td>
                         {% if f.departure_status == "past_due" %}
                         <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
@@ -578,7 +581,10 @@
             });
 
             if (Object.keys(searchState).length === 0) {
+                // 所有搜索框都清空时，显示所有行
                 rows.forEach(r => r.style.display = '');
+                // 确保清除所有高亮
+                clearHighlights();
                 return;
             }
 
@@ -634,7 +640,18 @@
     
     function clearHighlights() {
         document.querySelectorAll('#scheduledFleet-section tbody tr td').forEach(td => {
-            td.innerHTML = td.innerText;
+            // 检查这个 td 是否包含按钮（form 或 button 元素）
+            const hasButton = td.querySelector('form, button');
+            if (hasButton) {
+                // 包含按钮的 td，直接跳过，不做任何处理
+                return;
+            }
+            
+            // 只移除高亮 span 标签，保留其他内容
+            let html = td.innerHTML;
+            // 移除所有 highlight-color-* 的 span 标签，但保留内部文本
+            html = html.replace(/<span class="highlight-color-\d+">([^<]*)<\/span>/gi, '$1');
+            td.innerHTML = html;
         });
     }
 
@@ -645,6 +662,13 @@
             if (row.style.display === 'none') return;
 
             row.querySelectorAll('td').forEach(td => {
+                // 检查这个 td 是否包含按钮（form 或 button 元素）
+                const hasButton = td.querySelector('form, button');
+                if (hasButton) {
+                    // 包含按钮的 td，跳过处理
+                    return;
+                }
+
                 let html = td.innerText;
 
                 searchTerms.forEach((term, index) => {
@@ -663,7 +687,7 @@
         const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
         
         rows.forEach((row, index) => {
-            const timeCell = row.cells[4]; // 提货时间在第5列
+            const timeCell = row.cells[5]; // 提货时间在第6列（因为新增了装载类型列）
             let timeText = timeCell.textContent.trim();
             
             // 如果有状态span，获取span内的文本
