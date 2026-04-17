@@ -531,6 +531,9 @@ class PostNsop(View):
         elif step == "save_virtual_shipment_time":
             template, context = await self.handle_save_virtual_shipment_time_post(request)
             return render(request, template, context)
+        elif step == "unbind_master_shipment":
+            template, context = await self.handle_unbind_master_shipment_post(request)
+            return render(request, template, context)
         elif step == "fleet_po_delete":
             template, context = await self.handle_fleet_po_delete_post(request)
             return render(request, template, context)
@@ -12597,7 +12600,7 @@ class PostNsop(View):
             base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
         
         base_criteria &= Q(delivery_type=delivery_type)
-        print('delivery_type',delivery_type)
+
         # 分别构建Pallet和PackingList的查询条件
         pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
         packinglist_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=True)
@@ -12903,6 +12906,60 @@ class PostNsop(View):
             
         except Exception as e:
             context['error_messages'] = f'保存失败: {str(e)}'
+        
+        # 重新调用搜索功能
+        template, search_context = await self.handle_master_shipment_check_post(request)
+        context.update(search_context)
+        
+        return template, context
+    
+    async def handle_unbind_master_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """解绑主约"""
+        context = {}
+        
+        try:
+            container_number = request.POST.get('unbind_container_number', '').strip()
+            destination = request.POST.get('unbind_destination', '').strip()
+            shipment_batch_number = request.POST.get('unbind_shipment_batch_number', '').strip()
+            
+            if not all([container_number, destination, shipment_batch_number]):
+                context['error_messages'] = '缺少必要的参数'
+                template, search_context = await self.handle_master_shipment_check_post(request)
+                context.update(search_context)
+                return template, context
+            
+            # 查找目标 shipment
+            target_shipment = await sync_to_async(Shipment.objects.get)(
+                shipment_batch_number=shipment_batch_number
+            )
+            
+            # 查找相关的 container
+            container = await sync_to_async(Container.objects.get)(
+                container_number=container_number
+            )
+            
+            # 更新 Pallet 记录
+            pallet_count = await sync_to_async(Pallet.objects.filter(
+                container_number=container,
+                destination=destination,
+                master_shipment_batch_number=target_shipment
+            ).update)(
+                master_shipment_batch_number=None
+            )
+            
+            # 更新 PackingList 记录
+            packinglist_count = await sync_to_async(PackingList.objects.filter(
+                container_number=container,
+                destination=destination,
+                master_shipment_batch_number=target_shipment
+            ).update)(
+                master_shipment_batch_number=None
+            )
+            
+            context['success_messages'] = f'解绑成功！已解绑 {pallet_count} 个托盘和 {packinglist_count} 个装箱单'
+            
+        except Exception as e:
+            context['error_messages'] = f'解绑失败: {str(e)}'
         
         # 重新调用搜索功能
         template, search_context = await self.handle_master_shipment_check_post(request)

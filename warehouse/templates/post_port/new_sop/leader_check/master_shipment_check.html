@@ -1,4 +1,4 @@
-﻿﻿{% extends 'base.html' %}
+﻿﻿﻿﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -528,11 +528,12 @@
                         <th>状态</th>
                         <th>是否虚构</th>
                         <th>主约批次号</th>
-                        <th>appointment_id</th>
+                        <th>ISA</th>
                         <th>预约时间</th>
                         <th>出库时间</th>
                         <th>送达时间</th>
                         <th>上传POD</th>
+                        <th>解绑主约</th>
                     </tr>
                     <tr class="search-row">
                         <td><input type="text" class="table-search-input" placeholder="搜索柜号" data-col="0"></td>
@@ -559,6 +560,7 @@
                         <td><input type="text" class="table-search-input" placeholder="搜索预约时间" data-col="6"></td>
                         <td><input type="text" class="table-search-input" placeholder="搜索出库时间" data-col="7"></td>
                         <td><input type="text" class="table-search-input" placeholder="搜索送达时间" data-col="8"></td>
+                        <td></td>
                         <td></td>
                     </tr>
                 </thead>
@@ -617,9 +619,24 @@
                                 {% endif %}
                             {% endif %}
                         </td>
+                        <td>
+                            {% if item.has_master_shipment %}
+                            <form method="post" action="" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="unbind_master_shipment">
+                                <input type="hidden" name="unbind_container_number" value="{{ item.container_number|default:'' }}">
+                                <input type="hidden" name="unbind_destination" value="{{ item.destination|default:'' }}">
+                                <input type="hidden" name="unbind_shipment_batch_number" value="{{ item.shipment_batch_number|default:'' }}">
+                                <button type="submit" class="table-btn" style="background: #dc3545; color: white;">
+                                    <i class="fas fa-unlink"></i> 解绑主约
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
                         {% else %}
                         <td>-</td>
-                        <td colspan="6" style="text-align: center;">
+                        <td></td>
+                        <td colspan="7" style="text-align: center;">
                             <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}', '{{ item.destination|default:'' }}')" style="margin-right: 10px;">创建虚构主约</button>
                             <button class="create-fictional-btn" onclick="openBindShipmentModal('{{ item.ids_string }}')" style="background-color: #28a745; color: white;">绑定已有的约</button>
                         </td>
