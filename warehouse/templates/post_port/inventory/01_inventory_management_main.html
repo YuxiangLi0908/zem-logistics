@@ -210,7 +210,7 @@
         </div>
 
         <div class="repalletize-popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll; max-width: 90%; overflow-x: scroll;">
-            <form method="post" action="" style="width: 100%; overflow-x: scroll; max-width: 100%; max-height: 100%;" onsubmit="showLoadingBar()">
+            <form method="post" action="" style="width: 100%; overflow-x: scroll; max-width: 100%; max-height: 100%;" onsubmit="setTimeout(showLoadingBar, 0)">
                 {% csrf_token %}
                 <div>
                     <div id="form-input">
@@ -227,7 +227,7 @@
                     <input type="hidden" name="step" value="repalletize">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                     <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
-                    <button type="submit" class="btn btn-success" style="font-size: 11px;" onclick="checkRepalletizeForm()">确认</button>
+                    <button type="submit" class="btn btn-success" style="font-size: 11px;" onclick="return checkRepalletizeForm()">确认</button>
                     <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="closePopupWindow('repalletize-popup-window')">关闭</button>
                     <table class="table" id="original-pallets" style="font-size: 11px; width: 100%;">
                         <thead>
@@ -285,24 +285,25 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr id="repalletize-row-empty" style="display: none;">
-                                <td class="td"><input type="text" name="destination_repalletize" required></td>
-                                <td class="td">
-                                    <select name="delivery_method_repalletize">
-                                        {% for k, v in delivery_method_options %}
+                        <tr id="repalletize-row-empty" style="display: none;">
+                            <td class="td"><input type="text" name="destination_repalletize" required disabled></td>
+                            <td class="td">
+                                <select name="delivery_method_repalletize" disabled>
+                                    {% for k, v in delivery_method_options %}
                                         <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </td>
-                                <td class="td"><input type="text" name="address_repalletize" value=""></td>
-                                <td class="td"><input type="text" name="zipcode_repalletize" value=""></td>
-                                <td class="td"><input type="text" name="shipping_mark_repalletize" value=""></td>
-                                <td class="td"><input type="text" name="fba_id_repalletize" value=""></td>
-                                <td class="td"><input type="text" name="ref_id_repalletize" value=""></td>
-                                <td class="td"><input type="number" step="1" name="pcs_repalletize" required></td>
-                                <td class="td"><input type="number" step="1" name="n_pallet_repalletize" required></td>
-                                <td class="td"><input type="text" name="note_repalletize" value=""></td>
-                            </tr>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="address_repalletize" value="" disabled></td>
+                            <td class="td"><input type="text" name="zipcode_repalletize" value="" disabled></td>
+                            <td class="td"><input type="text" name="shipping_mark_repalletize" value="" disabled></td>
+                            <td class="td"><input type="text" name="fba_id_repalletize" value="" disabled></td>
+                            <td class="td"><input type="text" name="ref_id_repalletize" value="" disabled></td>
+                            <td class="td"><input type="number" step="1" name="pcs_repalletize" required disabled></td>
+                            <td class="td"><input type="number" step="1" name="n_pallet_repalletize" required disabled>
+                            </td>
+                            <td class="td"><input type="text" name="note_repalletize" value="" disabled></td>
+                        </tr>
                         </tbody>
                     </table>
                 </div>
@@ -448,9 +449,14 @@
         var newRow = document.querySelector('#repalletize-row-empty').cloneNode(true);
         newRow.style.display = '';
         newRow.id = 'repalletize-row';
+
+        // 启用新行的所有输入框（关键修复）
+        newRow.querySelectorAll('input, select').forEach(el => {
+            el.disabled = false;
+        });
+
         tableBody.appendChild(newRow);
     };
-
     function removeRepalletizeRow() {
         var rows = document.querySelectorAll('#repalletize-row');
         if (rows.length > 0) {
@@ -459,10 +465,18 @@
     };
 
     function checkRepalletizeForm() {
-        if (!checkRequiredFields() || !checkFieldsAddedUp()) {
-            event.preventDefault();
-        }
-    };
+    // 先校验必填项
+    if (!checkRequiredFields()) {
+        return false;
+    }
+    // 校验数量总和
+    if (!checkFieldsAddedUp()) {
+        return false;
+    }
+    // 都通过，允许提交
+    showLoadingBar();
+    return true;
+};
 
     function checkRequiredFields() {
         let valid = true;
