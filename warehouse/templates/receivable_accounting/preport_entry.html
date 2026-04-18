@@ -615,7 +615,7 @@
                                             {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单:</span>
                                             {% endif %}
-                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                         </td>
@@ -709,7 +709,7 @@
                                             {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单:</span>                                            
                                             {% endif %}
-                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                             
@@ -829,7 +829,7 @@
                                             {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单: </span>
                                             {% endif %}
-                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                             
@@ -924,7 +924,7 @@
                                             {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单: </span>
                                             {% endif %}
-                                            <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             
