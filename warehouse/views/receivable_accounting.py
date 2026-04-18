@@ -8169,22 +8169,30 @@ class ReceivableAccounting(View):
         order_id = str(order.id)
         customer_id = order.customer_name.id
 
-        # 4.1 新建发票（发票编号规则优化：避免重复）
+        # 4.1 生成唯一的 invoice_number（避免重复）
+        base_invoice_number = f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
+        invoice_number = base_invoice_number
+        counter = 1
+        while Invoicev2.objects.filter(invoice_number=invoice_number).exists():
+            invoice_number = f"{base_invoice_number}{counter}"
+            counter += 1
+        
+        # 4.2 新建发票
         invoice = Invoicev2.objects.create(
             container_number=order.container_number,
-            invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
+            invoice_number=invoice_number,
             created_at=current_date,
             is_master_bill=True,
         )
 
-        # 4.2 新建应收状态
+        # 4.3 新建应收状态
         invoice_status_receivable = InvoiceStatusv2.objects.create(
             container_number=order.container_number,
             invoice=invoice,
             invoice_type="receivable"
         )
 
-        # 4.3 新建应付状态（核心修复：关联新建的invoice，而非existing_invoice）
+        # 4.4 新建应付状态（核心修复：关联新建的invoice，而非existing_invoice）
         invoice_status_payable = InvoiceStatusv2.objects.create(
             container_number=order.container_number,
             invoice=invoice,
