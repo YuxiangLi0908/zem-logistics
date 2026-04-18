@@ -2129,10 +2129,17 @@ class ReceivableAccounting(View):
         order_id = str(order.id)
         customer_id = order.customer_name.id
 
+        base_invoice_number = f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
+        invoice_number = base_invoice_number
+        counter = 1
+        while Invoicev2.objects.filter(invoice_number=invoice_number).exists():
+            invoice_number = f"{base_invoice_number}{counter}"
+            counter += 1
+
         # 先检查是否已经存在对应柜号的发票       
         invoice = Invoicev2.objects.create(
             container_number=order.container_number,
-            invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+            invoice_number=invoice_number,
             created_at=current_date,
             is_master_bill=is_master,
         )
