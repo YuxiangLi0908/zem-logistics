@@ -10786,8 +10786,10 @@ class PostNsop(View):
 
         criteria = models.Q(
             models.Q(shipping_order_link__isnull=True) | models.Q(shipping_order_link=""),
+            models.Q(is_shipped=True) | models.Q(shipped_at__isnull=False),
             shipment_schduled_at__gte="2026-4-17",
             origin=warehouse,
+            is_shipped=True,
         )
         criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
 
