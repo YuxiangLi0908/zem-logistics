@@ -12504,7 +12504,9 @@ class PostNsop(View):
         new_request.POST = post_data
         new_request.FILES = request.FILES
         new_request.user = request.user
-        
+        # 插入数据 重新分摊车次板子数以及成本
+        fm = FleetManagement()
+        await fm.insert_fleet_shipment_pallet(request, fleet_number)
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request)
 

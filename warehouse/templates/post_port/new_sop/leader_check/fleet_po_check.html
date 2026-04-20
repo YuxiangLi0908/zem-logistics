@@ -466,6 +466,7 @@
         const row = button.closest('tr');
         const actualPalletsInput = row.querySelector('.actual-pallets-input');
         const actualPallets = parseInt(actualPalletsInput.value);
+        const fleetNumber = row.cells[0].textContent;
         const totalPallets = parseInt(row.cells[6].textContent);
         
         if (isNaN(actualPallets) || actualPallets < 0 || actualPallets > totalPallets) {
@@ -527,6 +528,13 @@
         actualPalletsHiddenInput.name = 'actual_pallets';
         actualPalletsHiddenInput.value = actualPallets;
         form.appendChild(actualPalletsHiddenInput);
+
+        // 添加fleet_number参数
+        const fleetNumberHiddenInput = document.createElement('input');
+        fleetNumberHiddenInput.type = 'hidden';
+        fleetNumberHiddenInput.name = 'fleet_number';
+        fleetNumberHiddenInput.value = fleetNumber;
+        form.appendChild(fleetNumberHiddenInput);
         
         // 提交表单
         document.body.appendChild(form);
