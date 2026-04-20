@@ -1564,6 +1564,127 @@ class FleetManagement(View):
             except Exception as e:
                 raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}")
 
+    async def insert_fleet_shipment_pallet(self, request, fleet_number):
+        """
+        传入板子id-车次成本费用不变，只是重新分摊fleetshipmentpallet表成本以及板数，invoicev2表不管，因为总费用不变
+        核心逻辑：
+        1. 按PO_ID分组查询托盘数据，创建FleetShipmentPallet记录；
+        2. 按总托盘数分摊本次成本费用到每条记录的expense字段。
+        """
+        criteria_plt = models.Q(
+            shipment_batch_number__fleet_number__fleet_number=fleet_number
+        )
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到车次 {fleet_number} 的记录")
+
+        # 该成本FleetShipmentPallet之前存在，板子数改变，成本没变（新旧一样），需要重新分摊， 需要把上一个该成本的分摊汇总到invoicev2的值查出来
+        try:
+            # 重新分摊板子
+            grouped_pallets = await sync_to_async(list)(
+                Pallet.objects.filter(criteria_plt)
+                .values("container_number", "PO_ID", "shipment_batch_number")
+                .annotate(
+                    actual_pallets=Count("pallet_id"),
+                )
+                .order_by("container_number")
+            )
+
+            if not grouped_pallets:
+                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建成本费用记录")
+
+            now_time = timezone.now()
+            user = request.user
+
+            # ====================
+            # 【核心】批量更新：不删、不重建、保持原有分组，只更新板子数量
+            # ====================
+            @sync_to_async
+            def batch_update_only():
+                # 1. 查出当前车次所有“成本费用”记录
+                ship_list = FleetShipmentPallet.objects.filter(
+                    fleet_number=fleet,
+                    pickup_number=fleet.pickup_number,
+                    description="成本费用",
+                )
+
+                # 2. 建立唯一索引：(柜号, PO, 批次) → 对象
+                ship_map = {
+                    (
+                        s.container_number_id,
+                        s.PO_ID,
+                        s.shipment_batch_number_id
+                    ): s
+                    for s in ship_list
+                }
+
+                update_list = []
+
+                # 3. 遍历新分组，只更新已存在的，不删、不增
+                for g in grouped_pallets:
+                    key = (
+                        g["container_number"],
+                        g["PO_ID"],
+                        g["shipment_batch_number"]
+                    )
+
+                    if key not in ship_map:
+                        continue  # 不新增！只更新！
+
+                    obj = ship_map[key]
+                    obj.total_pallet = g["actual_pallets"]
+                    obj.cost_input_time = now_time
+                    obj.operator = user
+                    update_list.append(obj)
+
+                # 4. 批量更新（只改这3个字段）
+                if update_list:
+                    FleetShipmentPallet.objects.bulk_update(
+                        update_list,
+                        fields=['total_pallet', 'cost_input_time', 'operator'],
+                        batch_size=500
+                    )
+            await batch_update_only()
+            fleet_shipments = await sync_to_async(list)(
+                FleetShipmentPallet.objects.filter(
+                    fleet_number__fleet_number=fleet_number,
+                    description='成本费用'
+                ).only("id", "PO_ID", "total_pallet", "expense", "container_number")
+            )
+            # 下面是新车分摊
+            # 计算总托盘数
+            total_pallets_in_fleet = sum(
+                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet is not None]
+            )
+            # 旧车成本
+            old_fleet_cost = fleet.fleet_cost
+            old_fleet_cost_decimal = Decimal(str(old_fleet_cost or '0.0000'))
+
+            if total_pallets_in_fleet <= 0:
+                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊成本费用")
+            # 高精度 Decimal 计算
+            total_pallets_decimal = Decimal(str(total_pallets_in_fleet))
+            fleet_cost = old_fleet_cost_decimal
+
+            cost_per_pallet = (fleet_cost / total_pallets_decimal).quantize(
+                Decimal("0.0000"), rounding=ROUND_HALF_UP
+            )
+
+            # 批量更新分摊
+            update_records = []
+            for shipment in fleet_shipments:
+                if shipment.total_pallet is not None and shipment.total_pallet > 0:
+                    shipment.expense = cost_per_pallet * Decimal(shipment.total_pallet)
+                    update_records.append(shipment)
+
+            if update_records:
+                await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+                    update_records, ["expense"], batch_size=500
+                )
+        except Exception as e:
+            raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}")
+
     async def insert_fleet_shipment_pallet_fleet_cost_tranfer_cost(self, request, fleet_number, fleet_cost):
         """
         转仓车次成本---单独
