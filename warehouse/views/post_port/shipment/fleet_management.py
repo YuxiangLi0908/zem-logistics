@@ -5220,19 +5220,22 @@ class FleetManagement(View):
         batch_number = request.POST.getlist("batch_number")
         plt_ids = request.POST.getlist("plt_ids")
         plt_ids = [ids.split(",") for ids in plt_ids]
-
-        error_messages = []
-        empty_indices = [i for i, ids in enumerate(plt_ids) if ids == ['']]
-        if empty_indices:
-            # 将索引转换为用户友好的位置（从1开始计数）
-            positions = [f"第{i+1}组" for i in empty_indices]
-            error_message = f"有未打板的货物，请核实！行数：{', '.join(positions)}"
-            
-            if name == "post_nsop":
-                return {'error_messages': error_message}
-            error_messages.append(error_message)
-            return await self.handle_outbound_warehouse_search_post(request,error_messages)
         
+        # 处理需要解绑的cargo_ids
+        cargo_ids_str = request.POST.get("cargo_ids", "")
+        cargo_ids = []
+        if cargo_ids_str:
+            cargo_ids = [int(id_str.strip()) for id_str in cargo_ids_str.split(",") if id_str.strip()]
+        
+        error_messages = []
+        
+        # 找出空数组索引并删除
+        empty_indices = [i for i, ids in enumerate(plt_ids) if ids == ['']]
+        # 逆序删除，避免索引错乱
+        for i in reversed(empty_indices):
+            del plt_ids[i]
+            del actual_shipped_pallet[i]
+            del scheduled_pallet[i]
         #判断是否有未解扣的板子，有的话，就直接报错
         all_flat_ids = [pid for group in plt_ids for pid in group]
 
@@ -5295,6 +5298,15 @@ class FleetManagement(View):
         await sync_to_async(Pallet.objects.filter(
             id__in=unshipped_pallet_ids
         ).update)(shipment_batch_number=None)
+        
+        # 处理需要解绑的cargo_ids，把packinglist表的shipment_batch_number设为空
+        if cargo_ids:
+            await sync_to_async(
+                lambda: PackingList.objects.filter(id__in=cargo_ids).update(
+                    shipment_batch_number=None,
+                    master_shipment_batch_number=None
+                )
+            )()
      
         shipment_pallet = {}
         for p in unshipped_pallet:
