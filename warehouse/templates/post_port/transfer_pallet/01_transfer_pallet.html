@@ -296,6 +296,15 @@
         border-radius: 4px;
         text-align: center;
     }
+
+    .po-info-table .total-row {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .po-info-table .total-row .total-label {
+        text-align: right;
+    }
     
     .po-info-table .actual-pallet-input:focus {
         border-color: #007bff;
@@ -488,6 +497,14 @@
                     </thead>
                     <tbody id="poInfoTableBody">
                     </tbody>
+                    <tfoot id="poInfoTableFoot">
+                        <tr class="total-row">
+                            <td colspan="2" class="total-label"><strong>总计:</strong></td>
+                            <td id="totalCbm">0</td>
+                            <td id="totalPallet">0</td>
+                            <td id="totalActualPallet">0</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
@@ -548,7 +565,7 @@
                            min="0" 
                            step="1"
                            data-row-index="${index}"
-                           onchange="validateActualPallet(this, ${parseFloat(nPallet)})">
+                           oninput="validateActualPallet(this, ${parseFloat(nPallet)})">
                 </td>
             `;
             poInfoTableBody.appendChild(tableRow);
@@ -568,6 +585,9 @@
             form.appendChild(hiddenRowIndex);
         });
 
+        // 计算并显示总计
+        calculateTotals();
+
         popup.style.display = 'block';
     }
     
@@ -581,6 +601,45 @@
             input.value = maxPallet;
             alert(`实际卡板数不能超过原始卡板数 (${maxPallet})`);
         }
+        // 实时更新总计
+        calculateTotals();
+    }
+
+    // 计算并显示PO信息的总计
+    function calculateTotals() {
+        const tableBody = document.getElementById('poInfoTableBody');
+        const rows = tableBody.querySelectorAll('tr');
+        
+        let totalCbm = 0;
+        let totalPallet = 0;
+        let totalActualPallet = 0;
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 5) {
+                // 获取体积并累加
+                const cbmText = cells[2].textContent;
+                const cbm = parseFloat(cbmText) || 0;
+                totalCbm += cbm;
+
+                // 获取卡板数并累加
+                const palletText = cells[3].textContent;
+                const pallet = parseInt(palletText) || 0;
+                totalPallet += pallet;
+
+                // 获取实际卡板数并累加
+                const actualPalletInput = cells[4].querySelector('input');
+                if (actualPalletInput) {
+                    const actualPallet = parseInt(actualPalletInput.value) || 0;
+                    totalActualPallet += actualPallet;
+                }
+            }
+        });
+
+        // 更新显示
+        document.getElementById('totalCbm').textContent = totalCbm.toFixed(2);
+        document.getElementById('totalPallet').textContent = totalPallet;
+        document.getElementById('totalActualPallet').textContent = totalActualPallet;
     }
 
     
