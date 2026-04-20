@@ -310,6 +310,7 @@
                 <input type="hidden" name="scheduled_pallet" id="formScheduledPallet">
                 <input type="hidden" name="actual_shipped_pallet" id="formActualShippedPallet">
                 <input type="hidden" name="plt_ids" id="formPltIds">
+                <input type="hidden" name="cargo_ids" id="formCargoIds">
                 <div id="cargoDataContainer" style="display: none;"></div>
                 
                 <!-- 出库时间选择 -->
@@ -537,16 +538,6 @@
 
         if (totalScheduledElem) totalScheduledElem.textContent = totalPlanned;
         if (totalActualElem) totalActualElem.textContent = totalActual;
-        if (estWarning) {
-            estWarning.style.display = (hasEst || hasUnfilled) ? 'block' : 'none';
-            // 如果存在异常也高亮提示
-            if (hasAnomaly) {
-                estWarning.style.display = 'block';
-                estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
-            } else {
-                estWarning.textContent = '存在未打板货物，请核实！';
-            }
-        }
 
         
 
@@ -611,12 +602,12 @@
             tp += plannedNum;
             ta += actualNum;
 
-            // 未打板判断：pltId 为空且 cargoId 有值
+            // 未打板判断：pltId 为空且 cargoId 有值，且实际出库板数 > 0
             const hasPltLocal = Boolean((tr.dataset.pltId || '').trim());
             const hasCargoIdLocal = Boolean((tr.dataset.cargoId || '').trim());
-            if (!hasPltLocal && hasCargoIdLocal) anyUnplated = true;
+            if (!hasPltLocal && hasCargoIdLocal && actualNum > 0) anyUnplated = true;
 
-            // 实际小于计划 => 未满
+            // 实际大于计划 => 未满
             if (actualNum > plannedNum) anyUnfilledLocal = true;
 
             // 异常判断：同时有 pltId 和 cargoId（双ID） 或 两者都没有（无ID）
@@ -696,6 +687,7 @@
         const scheduledArr = [];
         const actualArr = [];
         const batchArr = [];
+        const cargoIdsToUnbind = [];  // 存储需要解绑shipment_batch_number的cargo_id
 
         let foundUnplated = false;
         let foundAnomaly = false;
@@ -718,8 +710,13 @@
                 if (actualInput) actualInput.style.borderColor = '#dc3545';
             }
 
-            // 未打板：pltId 为空但 cargoId 有值
-            if (!pltId && cargoId) foundUnplated = true;
+            // 未打板：pltId 为空但 cargoId 有值，且实际出库板数 > 0
+            if (!pltId && cargoId && actual > 0) foundUnplated = true;
+
+            // 未打板且实际出库板数为0，需要解绑
+            if (!pltId && cargoId && actual === 0) {
+                cargoIdsToUnbind.push(cargoId);
+            }
 
             // 异常：同时有plt和cargo（双ID）或两者都没有（无ID）
             if ((pltId && cargoId) || (!pltId && !cargoId)) {
@@ -758,7 +755,7 @@
             console.error('找不到确认出库表单');
             return alert('系统错误：找不到表单');
         }
-        const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+        const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"], input[name="cargo_ids"]');
         existingInputs.forEach(input => input.remove());
 
         // 添加新的隐藏字段：plt_ids —— JSON 字符串，每行一个数组（按顺序）
@@ -767,6 +764,15 @@
         pltInput.name = 'plt_ids';
         pltInput.value = JSON.stringify(pltRows); // e.g. [["PLT1"],[""],["PLT3"]]
         form.appendChild(pltInput);
+
+        //  添加cargo_ids隐藏字段（需要解绑的cargo_id）
+        if (cargoIdsToUnbind.length > 0) {
+            const cargoInput = document.createElement('input');
+            cargoInput.type = 'hidden';
+            cargoInput.name = 'cargo_ids';
+            cargoInput.value = cargoIdsToUnbind.join(',');
+            form.appendChild(cargoInput);
+        }
 
         // scheduled_pallet 与 actual_shipped_pallet 保持逗号分隔（如你原来那样）
         if (scheduledArr.length > 0) {
