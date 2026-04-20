@@ -1996,7 +1996,6 @@ class ReceivableAccounting(View):
         customer_id = request.POST.get("customerId")
         customer = Customer.objects.get(id=customer_id)
         amount = float(request.POST.get("usdamount"))
-        raise ValueError('要核销的余额是',amount)
         note = request.POST.get("note")
         user = request.user if request.user.is_authenticated else None
 
