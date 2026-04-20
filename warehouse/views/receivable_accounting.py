@@ -1992,10 +1992,11 @@ class ReceivableAccounting(View):
 
 
     def handle_adjust_balance_save(self, request: HttpRequest) -> tuple[Any, Any]:
-        print(request.POST)
+        '''核销客户余额'''
         customer_id = request.POST.get("customerId")
         customer = Customer.objects.get(id=customer_id)
         amount = float(request.POST.get("usdamount"))
+        raise ValueError('要核销的余额是',amount)
         note = request.POST.get("note")
         user = request.user if request.user.is_authenticated else None
 
@@ -8320,6 +8321,8 @@ class ReceivableAccounting(View):
         )
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
+        if not container_type:
+            raise ValueError("订单缺少柜型，请补充！")
         container_type_temp = 0 if "40" in container_type else 1
         matched_regions = self.find_matching_regions(
             plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
@@ -9544,6 +9547,8 @@ class ReceivableAccounting(View):
         # 这里之前是
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
+        if not container_type:
+            raise ValueError("订单缺少柜型，请补充！")
         container_type_temp = 0 if "40" in container_type else 1
         matched_regions = self.find_matching_regions(
             plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
