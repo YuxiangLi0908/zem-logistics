@@ -12660,7 +12660,13 @@ class PostNsop(View):
         new_request.POST = post_data
         new_request.FILES = request.FILES
         new_request.user = request.user
-        
+
+        # 找到车次信息，重新分摊
+        fleet = target_shipment.fleet_number
+        fm = FleetManagement()
+        await fm.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet.fleet_number, fleet.fleet_cost
+            )
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request, context)
 
