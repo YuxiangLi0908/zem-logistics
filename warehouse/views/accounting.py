@@ -5761,18 +5761,18 @@ class Accounting(View):
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
         warehouse_filter = request.POST.get("warehouse_filter")
-        customer_id = request.POST.get("customer_name")
+        customer = request.POST.get("customer_name")
 
         # 2. 金额校验
         try:
             write_off_amount = float(write_off_amount_str)
             if write_off_amount <= 0:
                 return self.handle_invoice_confirm_get_v1_delivery(
-                    request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+                    request, start_date_confirm, end_date_confirm, customer, warehouse_filter
                 )
         except (ValueError, TypeError):
             return self.handle_invoice_confirm_get_v1_delivery(
-                request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+                request, start_date_confirm, end_date_confirm, customer, warehouse_filter
             )
 
         current_date = datetime.now().date()
@@ -5785,7 +5785,7 @@ class Accounting(View):
 
             if not container_ids:
                 return self.handle_invoice_confirm_get_v1_delivery(
-                    request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+                    request, start_date_confirm, end_date_confirm, customer, warehouse_filter
                 )
 
             # ========== 一车多柜 → 循环每个柜号核销
@@ -5822,7 +5822,7 @@ class Accounting(View):
             logger.error(f"派送核销失败：{str(e)}")
 
         return self.handle_invoice_confirm_get_v1_delivery(
-            request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+            request, start_date_confirm, end_date_confirm, customer, warehouse_filter
         )
 
     def batch_writeoff_delivery(self, request):
