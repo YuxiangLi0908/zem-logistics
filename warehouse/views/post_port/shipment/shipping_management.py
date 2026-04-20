@@ -1345,6 +1345,38 @@ class ShippingManagement(View):
             raise ValueError("shipment_type 不能为空!")
         is_print_label = request.POST.get("is_print_label")  #仅LTL和客提的有值
         
+        # 解析 non_master_ids 参数
+        # 新格式：pl:id1,id2;pallet:id1,id2
+        # 只记录 is_master 为 false 的 id，其他默认是 true
+        non_master_pl_ids = []
+        non_master_pallet_ids = []
+        
+        non_master_ids_str = request.POST.get("non_master_ids", "")
+        
+        if non_master_ids_str:
+            for section in non_master_ids_str.split(";"):
+                section = section.strip()
+                if section and ":" in section:
+                    key, value = section.split(":", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if key == "pl" and value:
+                        for v in value.split(","):
+                            v = v.strip()
+                            if v:
+                                try:
+                                    non_master_pl_ids.append(int(v))
+                                except ValueError:
+                                    pass
+                    elif key == "pallet" and value:
+                        for v in value.split(","):
+                            v = v.strip()
+                            if v:
+                                try:
+                                    non_master_pallet_ids.append(int(v))
+                                except ValueError:
+                                    pass
+
         if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             if 'shipment_schduled_at' not in shipment_data or shipment_data['shipment_schduled_at'] is None:
@@ -1615,12 +1647,16 @@ class ShippingManagement(View):
                 pl_po_ids = set()
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
-
-                    pl_master_shipment = await self.get_master_shipment(pl)
-                    if pl_master_shipment is None:
-                        # 因为一个仓点的主约，每次都是一起更新，所以如果同PO_ID的任意一个没有主约，这个PO_ID下的pl都要更新主约
-                        pl_po_ids.add(pl.PO_ID)
-                        pl.master_shipment_batch_number = shipment
+                    
+                    # 判断是否为主约，默认为True（如果不在 non_master_pl_ids 中）
+                    is_master = pl.id not in non_master_pl_ids
+                    
+                    if is_master:
+                        pl_master_shipment = await self.get_master_shipment(pl)
+                        if pl_master_shipment is None:
+                            # 因为一个仓点的主约，每次都是一起更新，所以如果同PO_ID的任意一个没有主约，这个PO_ID下的pl都要更新主约
+                            pl_po_ids.add(pl.PO_ID)
+                            pl.master_shipment_batch_number = shipment
                     container_number.add(pl.container_number.container_number)
 
                 if pl_po_ids:
@@ -1655,10 +1691,15 @@ class ShippingManagement(View):
                 for p in pallet:
                     p.shipment_batch_number = shipment
                     plt_shipment_po_ids.add(p.PO_ID)
-                    p_master_shipment = await self.get_master_shipment(p)
-                    if p_master_shipment is None:
-                        plt_master_po_ids.add(p.PO_ID)
-                        p.master_shipment_batch_number = shipment
+                    
+                    # 判断是否为主约，默认为True（如果不在 non_master_pallet_ids 中）
+                    is_master = p.id not in non_master_pallet_ids
+                    
+                    if is_master:
+                        p_master_shipment = await self.get_master_shipment(p)
+                        if p_master_shipment is None:
+                            plt_master_po_ids.add(p.PO_ID)
+                            p.master_shipment_batch_number = shipment
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,

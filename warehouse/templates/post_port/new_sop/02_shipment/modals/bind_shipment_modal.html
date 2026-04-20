@@ -12,6 +12,7 @@
                 <input type="hidden" name="suggestion_id" id="modalSuggestionId">
                 <input type="hidden" name="cargo_ids" id="modalCargoIds">
                 <input type="hidden" name="plt_ids" id="modalPltIds">
+                <input type="hidden" name="non_master_ids" id="modalNonMasterIds">
                 <input type="hidden" name="shipment_batch_number" id="modalShipmentBatchNumber">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="st_type" value="{{ st_type }}">
@@ -146,6 +147,7 @@
                                 <th style="width: 80px; min-width: 80px;">板数</th>
                                 <th style="width: 80px; min-width: 80px;">CBM</th>
                                 <th style="width: 80px; min-width: 80px;">重量lbs</th>
+                                <th style="width: 80px; min-width: 80px;">是主约</th>
                                 <th style="width: 120px; min-width: 120px;">入仓时间</th>
                             </tr>
                         </thead>
@@ -159,6 +161,7 @@
                                 <td id="sumPallets">0.00</td>
                                 <td id="sumCbm">0.000</td>
                                 <td id="sumWeight">0.00</td>
+                                <td></td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -688,6 +691,12 @@
                 <td>${c.total_pallet}</td>
                 <td>${c.total_cbm}</td>
                 <td>${c.total_weight}</td>
+                <td>
+                    <select class="is-master-select" data-cargo-id="${c.cargo_id}">
+                        <option value="1" selected>是</option>
+                        <option value="0">否</option>
+                    </select>
+                </td>
                 <td>${c.offload_time}</td>
             `;
             tbody.appendChild(tr);
@@ -743,6 +752,46 @@
         
         document.getElementById('modalCargoIds').value = cargoIds.join(',');
         document.getElementById('modalPltIds').value = pltIds.join(',');
+        
+        // 构建 non_master_ids，只记录选中的且 is_master 为 false 的 id
+        // 格式简单一点，pl:id1,id2;pallet:id1,id2
+        let nonMasterPlIds = [];
+        let nonMasterPalletIds = [];
+        
+        // 获取所有选中的行
+        const allRows = document.querySelectorAll('#cargoSelectionBody tr');
+        allRows.forEach(tr => {
+            const checkbox = tr.querySelector('.cargo-checkbox');
+            if (checkbox && checkbox.checked) {
+                const cargoId = checkbox.dataset.cargoId;
+                const pltId = checkbox.dataset.pltId;
+                const selectEl = tr.querySelector('.is-master-select');
+                
+                if (selectEl && selectEl.value === '0') {
+                    // is_master 为 false
+                    if (cargoId && cargoId.trim() !== '') {
+                        nonMasterPlIds.push(cargoId);
+                    }
+                    if (pltId && pltId.trim() !== '') {
+                        nonMasterPalletIds.push(pltId);
+                    }
+                }
+            }
+        });
+        
+        let nonMasterIdsValue = '';
+        if (nonMasterPlIds.length > 0) {
+            nonMasterIdsValue += `pl:${nonMasterPlIds.join(',')};`;
+        }
+        if (nonMasterPalletIds.length > 0) {
+            nonMasterIdsValue += `pallet:${nonMasterPalletIds.join(',')}`;
+        }
+        // 去除末尾的分号
+        if (nonMasterIdsValue.endsWith(';')) {
+            nonMasterIdsValue = nonMasterIdsValue.slice(0, -1);
+        }
+        console.log('nonMasterIdsValue:', nonMasterIdsValue);  // 调试用
+        document.getElementById('modalNonMasterIds').value = nonMasterIdsValue;
 
         let totalWeight = 0;
         let totalPallets = 0;
@@ -770,6 +819,45 @@
     document.querySelector('#bindShipmentModal .close').addEventListener('click', closeBindModal);
 
 
+    // 收集非主约id的函数
+    function collectNonMasterIds() {
+        const nonMasterPlIds = [];
+        const nonMasterPalletIds = [];
+        
+        const allRows = document.querySelectorAll('#cargoSelectionBody tr');
+        allRows.forEach(tr => {
+            const checkbox = tr.querySelector('.cargo-checkbox');
+            if (checkbox && checkbox.checked) {
+                const cargoId = checkbox.dataset.cargoId;
+                const pltId = checkbox.dataset.pltId;
+                const selectEl = tr.querySelector('.is-master-select');
+                
+                if (selectEl && selectEl.value === '0') {
+                    if (cargoId && cargoId.trim() !== '') {
+                        nonMasterPlIds.push(cargoId);
+                    }
+                    if (pltId && pltId.trim() !== '') {
+                        nonMasterPalletIds.push(pltId);
+                    }
+                }
+            }
+        });
+        
+        let result = '';
+        if (nonMasterPlIds.length > 0) {
+            result += `pl:${nonMasterPlIds.join(',')};`;
+        }
+        if (nonMasterPalletIds.length > 0) {
+            result += `pallet:${nonMasterPalletIds.join(',')}`;
+        }
+        // 去掉末尾分号
+        if (result.endsWith(';')) {
+            result = result.slice(0, -1);
+        }
+        console.log('collectNonMasterIds result:', result);
+        return result;
+    }
+
     document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -784,6 +872,10 @@
 
         document.getElementById('modalCargoIds').value = cargoIds.join(',');
         document.getElementById('modalPltIds').value = pltIds.join(',');
+        
+        // 收集 non_master_ids
+        const nonMasterIdsValue = collectNonMasterIds();
+        document.getElementById('modalNonMasterIds').value = nonMasterIdsValue;
 
         const shipmentCargoId = document.getElementById('shipment_cargo_id').value;
         const operationType = document.getElementById('modalSuggestionId').value;
