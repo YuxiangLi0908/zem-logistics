@@ -5405,12 +5405,9 @@ class FleetManagement(View):
         # await sync_to_async(lambda: None)()
         # 构建fleet_shipment_pallet表
         # 获取每行记录的第一个板子的id，为了读PO_ID
-        sample_pallet_ids = [
-            group.split(",")[-1] for group in request.POST.getlist("plt_ids")
-        ]
         
         pallets = await sync_to_async(list)(
-            Pallet.objects.filter(id__in=sample_pallet_ids)
+            Pallet.objects.filter(id__in=plt_ids)
             .select_related("shipment_batch_number", "container_number")
             .only("id","pallet_id", "PO_ID", "shipment_batch_number", "container_number")
         )
@@ -5424,7 +5421,7 @@ class FleetManagement(View):
         }
         new_fleet_shipment_pallets = []
         for first_pallet_id, actual_pallets in zip(
-            sample_pallet_ids, actual_shipped_pallet
+            plt_ids, actual_shipped_pallet
         ):
             target_id = int(first_pallet_id)
             matched_key = None
