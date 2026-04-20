@@ -5321,6 +5321,7 @@ class FleetManagement(View):
                 PO_ID=po_id,
                 total_pallet=actual_pallets,
                 container_number=container_number,
+                description="成本费用",
             )
             new_fleet_shipment_pallets.append(new_record)
 

@@ -392,7 +392,9 @@
                                 <input type="number" class="actual-pallets-input" 
                                         name="actual_pallets_{{ item.pallet_ids|join:'_' }}" 
                                         min="0" max="{{ item.pallet_count }}" 
-                                        value="{{ item.pallet_count }}">
+                                        value="{{ item.pallet_count }}"
+                                        oninput="validateActualPallets(this, {{ item.pallet_count }})"
+                                        onchange="validateActualPallets(this, {{ item.pallet_count }})">
                             </td>
                             <td>
                                 <button class="delete-btn" onclick="deletePallets('{{ item.pallet_ids|join:"," }}', '{{ item.shipment_id }}', this)">确认</button>
@@ -462,6 +464,18 @@
     {% endif %}
 
 <script>
+    function validateActualPallets(input, maxPallets) {
+        let value = parseInt(input.value);
+        if (isNaN(value) || value < 0) {
+            value = 0;
+            input.value = value;
+        } else if (value > maxPallets) {
+            value = maxPallets;
+            input.value = value;
+            alert('实际板数不能超过板数（最大为 ' + maxPallets + '）');
+        }
+    }
+
     function deletePallets(palletIds, shipmentId, button) {
         const row = button.closest('tr');
         const actualPalletsInput = row.querySelector('.actual-pallets-input');
