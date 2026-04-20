@@ -5321,7 +5321,7 @@ class FleetManagement(View):
                 PO_ID=po_id,
                 total_pallet=actual_pallets,
                 container_number=container_number,
-                expense = fleet.fleet_cost or 0.0,
+                expense = 0.0,
                 description="成本费用",
             )
             new_fleet_shipment_pallets.append(new_record)
@@ -5334,6 +5334,9 @@ class FleetManagement(View):
             if name == "post_nsop":
                 return {'error_messages':f"成本记录没有生成成功！{error}"}
             error_messages.append(f"成本记录没有生成成功！{error}")
+
+        # 成本分摊
+        await self.insert_fleet_shipment_pallet_fleet_cost(request, fleet.fleet_number, fleet.fleet_cost)
         if name == "post_nsop":
             return {'success_messages':f"{fleet_number}车出库成功"}
         return await self.handle_outbound_warehouse_search_post(request)
