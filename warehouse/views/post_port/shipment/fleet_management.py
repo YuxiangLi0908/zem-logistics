@@ -5420,6 +5420,7 @@ class FleetManagement(View):
             if p.PO_ID
         }
         new_fleet_shipment_pallets = []
+        now_time = timezone.now()
         for first_pallet_id, actual_pallets in zip(
             plt_ids, actual_shipped_pallet
         ):
@@ -5442,6 +5443,9 @@ class FleetManagement(View):
                 container_number=container_number,
                 expense = 0.0,
                 description="成本费用",
+                is_recorded=False,
+                cost_input_time=now_time,
+                operator=request.user,
             )
             new_fleet_shipment_pallets.append(new_record)
 
