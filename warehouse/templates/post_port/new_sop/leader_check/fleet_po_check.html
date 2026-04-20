@@ -395,7 +395,7 @@
                                         value="{{ item.pallet_count }}">
                             </td>
                             <td>
-                                <button class="delete-btn" onclick="deletePallets('{{ item.pallet_ids|join:"," }}', '{{ item.shipment_id }}', this)">删除</button>
+                                <button class="delete-btn" onclick="deletePallets('{{ item.pallet_ids|join:"," }}', '{{ item.shipment_id }}', this)">确认</button>
                             </td>
                         </tr>
                         {% endfor %}
