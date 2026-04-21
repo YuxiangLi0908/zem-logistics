@@ -2259,6 +2259,13 @@ class PostNsop(View):
                         data = await response.json()
                         return JsonResponse({'success': True, 'data': data})
                     text = await response.text()
+                    # 处理RDI找不到的情况，这不是错误，只是该地址查不到
+                    if response.status == 404 and 'RDI value not found' in text:
+                        return JsonResponse(
+                            {'success': False, 'message': '当前地址查不到是商业地址还是私人地址'},
+                            status=200
+                        )
+                    # 其他错误才返回真正的错误信息
                     return JsonResponse(
                         {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
                         status=response.status
