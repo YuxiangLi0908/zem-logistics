@@ -1,6 +1,6 @@
 <!-- 绑定预约模态框 -->
 <div id="bindShipmentModal" class="modal">
-    <div class="modal-content" style="width: 100%; max-width: 1200px; max-height: 700px;">
+    <div class="modal-content" style="width: 100%; max-width: 1400px; max-height: 85vh;">
         <div class="modal-header">
             <h3><i class="fas fa-link"></i> 绑定预约信息</h3>
             <span class="close">&times;</span>
@@ -137,18 +137,19 @@
                     <table class="modal-table">
                         <thead>
                             <tr>
-                                <th style="width: 50px; min-width: 50px;">
+                                <th style="width: 40px; min-width: 40px;">
                                     <input type="checkbox" id="selectAllCargos">
                                 </th>
-                                <th style="width: 180px; min-width: 180px;">REF ID</th>
-                                <th style="width: 180px; min-width: 180px;">FBA ID</th>
-                                <th style="width: 150px; min-width: 150px;">柜号</th>
+                                <th style="width: 150px; min-width: 150px;">REF ID</th>
+                                <th style="width: 150px; min-width: 150px;">FBA ID</th>
+                                <th style="width: 100px; min-width: 100px;">柜号</th>
                                 <th style="width: 100px; min-width: 100px;">目的地</th>
-                                <th style="width: 80px; min-width: 80px;">板数</th>
-                                <th style="width: 80px; min-width: 80px;">CBM</th>
-                                <th style="width: 80px; min-width: 80px;">重量lbs</th>
-                                <th style="width: 80px; min-width: 80px;">是主约</th>
-                                <th style="width: 120px; min-width: 120px;">入仓时间</th>
+                                <th style="width: 70px; min-width: 70px;">板数</th>
+                                <th style="width: 70px; min-width: 70px;">CBM</th>
+                                <th style="width: 70px; min-width: 70px;">重量lbs</th>
+                                <th style="width: 70px; min-width: 70px;">是主约</th>
+                                <th style="width: 70px; min-width: 70px;">是否甩板</th>
+                                <th style="width: 90px; min-width: 90px;">入仓时间</th>
                             </tr>
                         </thead>
                         <tbody id="cargoSelectionBody">
@@ -156,7 +157,7 @@
                         </tbody>
                          <tfoot style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
                             <tr id="totalSummaryRow">
-                                <td colspan="4" style="text-align: right;">当前勾选总计:</td>
+                                <td colspan="5" style="text-align: right;">当前勾选总计:</td>
                                 <td id="totalDestCount">0 条</td>                             
                                 <td id="sumPallets">0.00</td>
                                 <td id="sumCbm">0.000</td>
@@ -185,7 +186,7 @@
     .modal {
         display: none;
         position: fixed;
-        z-index: 1000;
+        z-index: 99999;
         left: 0;
         top: 0;
         width: 100%;
@@ -271,6 +272,7 @@
         border-collapse: collapse;
         margin: 15px 0;
         font-size: 0.9rem;
+        table-layout: fixed;
     }
 
     .modal-table th {
@@ -285,6 +287,9 @@
     .modal-table td {
         padding: 10px 8px;
         border-bottom: 1px solid #f1f3f4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .modal-table tr:hover {
@@ -347,6 +352,8 @@
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 0.9rem;
+        box-sizing: border-box;
+        max-width: 100%;
     }
 
     .form-select:focus, .form-input:focus {
@@ -456,6 +463,16 @@
                 groupRows.forEach(row => {
                     const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
                     const offload_timeTd = row.querySelector('td.offload-time-col');
+                    const is_dropped_td = row.querySelector('td.is-dropped');
+                    
+                    // 判断是否甩板：如果 td 有内容且不是 '无主约时间'，则认为是甩板
+                    let is_dropped = false;
+                    if (is_dropped_td) {
+                        const text = is_dropped_td.textContent.trim();
+                        if (text && text !== '无主约时间') {
+                            is_dropped = true;
+                        }
+                    }
                     
                     cargos.push({
                         cargo_id: row.dataset.cargoId || '',
@@ -468,6 +485,7 @@
                         total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
                         total_weight: row.querySelector('.weight-col')?.innerText.trim() || '0',
                         offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
+                        is_dropped: is_dropped,
                     });
                 });
 
@@ -676,6 +694,11 @@
         console.log('cargos', cargos);
         cargos.forEach(c => {
             const tr = document.createElement('tr');
+            // 判断是否甩板，显示对号或叉号
+            const is_dropped_icon = c.is_dropped 
+                ? '<span style="color: #28a745;"><i class="fas fa-check"></i></span>' 
+                : '<span style="color: #dc3545;"><i class="fas fa-times"></i></span>';
+            
             tr.innerHTML = `
                 <td><input type="checkbox" class="cargo-checkbox" 
                     data-cargo-id="${c.cargo_id}" 
@@ -693,10 +716,11 @@
                 <td>${c.total_weight}</td>
                 <td>
                     <select class="is-master-select" data-cargo-id="${c.cargo_id}">
-                        <option value="1" selected>是</option>
-                        <option value="0">否</option>
+                        <option value="1" ${c.is_dropped ? '' : 'selected'}>是</option>
+                        <option value="0" ${c.is_dropped ? 'selected' : ''}>否</option>
                     </select>
                 </td>
+                <td style="text-align: center;">${is_dropped_icon}</td>
                 <td>${c.offload_time}</td>
             `;
             tbody.appendChild(tr);
