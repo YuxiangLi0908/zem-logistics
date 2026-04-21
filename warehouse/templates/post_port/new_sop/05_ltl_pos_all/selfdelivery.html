@@ -519,8 +519,13 @@
             <strong>柜子已放行</strong>、
             <strong>派送方式为非自提</strong>
         </div>
-        <div class="sorting-notice" style="font-size: 13px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-top: 10px;">
-            <i class="fas fa-sort-amount-down"></i> 
+        <div style="margin-top: 10px;">
+            <button type="button" class="fleet-action-btn" style="background-color: #ffc107 !important; color: #212529 !important;" onclick="fleet_toggleSortRules()">
+                <i class="fas fa-sort-amount-down"></i> 
+                <span id="fleet_sortRulesToggleText">查看</span> 数据排序规则
+            </button>
+        </div>
+        <div id="fleet_sortRulesContent" class="sorting-notice" style="display: none; font-size: 13px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-top: 10px;">
             <strong>数据排序规则：</strong>
             <div style="margin-top: 6px; margin-left: 22px;">
                 <div><strong>1. Pallet 数据在前，PackingList 数据在后</strong></div>
@@ -1016,6 +1021,21 @@
                     }
                 `;
                 document.head.appendChild(style);
+            }
+        }
+
+        // 切换排序规则显示/隐藏
+        function fleet_toggleSortRules() {
+            const content = document.getElementById('fleet_sortRulesContent');
+            const toggleText = document.getElementById('fleet_sortRulesToggleText');
+            if (content && toggleText) {
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    toggleText.textContent = '收起';
+                } else {
+                    content.style.display = 'none';
+                    toggleText.textContent = '查看';
+                }
             }
         }
                 
@@ -1742,6 +1762,7 @@
         window.fleet_batchSaveRows = fleet_batchSaveRows;
         window.fleet_batchUpdateDeliveryMethod = fleet_batchUpdateDeliveryMethod;
         window.fleet_batchOnePickMultiDrop = fleet_batchOnePickMultiDrop;
+        window.fleet_toggleSortRules = fleet_toggleSortRules;
     })();
 </script>
 
