@@ -5405,11 +5405,15 @@ class FleetManagement(View):
         # await sync_to_async(lambda: None)()
         # 构建fleet_shipment_pallet表
         # 获取每行记录的第一个板子的id，为了读PO_ID
-        
+        shipment_lists = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+        )
+        shipment_batch_numbers = [s.shipment_batch_number for s in shipment_lists]
         pallets = await sync_to_async(list)(
-            Pallet.objects.filter(id__in=plt_ids)
-            .select_related("shipment_batch_number", "container_number")
-            .only("id","pallet_id", "PO_ID", "shipment_batch_number", "container_number")
+            Pallet.objects.filter(
+                shipment_batch_number__shipment_batch_number__in=shipment_batch_numbers
+            ).select_related("shipment_batch_number", "container_number")
+            .only("id", "pallet_id", "PO_ID", "shipment_batch_number", "container_number")
         )
         error = None
         if not pallets:
