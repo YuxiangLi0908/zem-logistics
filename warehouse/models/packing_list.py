@@ -99,6 +99,10 @@ class PackingList(models.Model):
     ltl_contact_method = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl预约送货联系方式")
     ltl_correlation_id = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl一提多卸关联关系")
     shipment_note = models.CharField(max_length=1000, null=True, blank=True, verbose_name="公仓排约备注")
+    ltl_address = models.CharField(max_length=1000, null=True, blank=True, verbose_name="ltl询价的地址")
+    ltl_city = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的城市")
+    ltl_state = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的州")
+    ltl_zipcode = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的邮编")
     history = HistoricalRecords()
 
     class Meta:

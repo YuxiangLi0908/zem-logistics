@@ -908,6 +908,9 @@
                             <button class="fleet-action-btn fleet-btn-warning fleet-small-btn" onclick="fleet_openQuoteModal(this)" style="background-color: #ff9800 !important; color: white;">
                                 <i class="fas fa-calculator"></i> 马士基询价
                             </button>
+                            <button class="fleet-action-btn fleet-btn-secondary fleet-small-btn" onclick="fleet_checkBusinessResidential(this)" style="background-color: #8e44ad !important; color: white;">
+                                <i class="fas fa-home"></i> 商私地址
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -920,6 +923,79 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- 商私地址检查弹框 -->
+<div class="modal fade" id="fleet_businessResidentialModal" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-home me-2"></i>商私地址检查</h5>
+                <button type="button" class="btn btn-link text-white text-decoration-none" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; padding: 0; opacity: 0.9;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="fleet_businessResidentialForm">
+                    <div class="row g-3">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">原始地址</label>
+                            <textarea class="form-control" id="br_raw_address" rows="2" readonly></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header bg-light fw-bold">
+                            <i class="fas fa-map-marker-alt me-2"></i>解析后的地址信息
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">地址 (Address)</label>
+                                    <input type="text" class="form-control" id="br_address">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">城市 (City)</label>
+                                    <input type="text" class="form-control" id="br_city">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">州 (State)</label>
+                                    <input type="text" class="form-control" id="br_state">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">邮编 (Zip)</label>
+                                    <input type="text" class="form-control" id="br_zip">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">国家 (Country)</label>
+                                    <input type="text" class="form-control" id="br_country" value="US" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="br_result_area" class="mt-3" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-success text-white fw-bold">
+                                <i class="fas fa-check-circle me-2"></i>查询结果
+                            </div>
+                            <div class="card-body">
+                                <div id="br_result_content"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="br_error_msg" class="alert alert-danger mt-3" style="display: none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="btn_check_business_residential" onclick="fleet_checkBusinessResidentialApi()">
+                    <i class="fas fa-search me-1"></i> 检查商私地址
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -2323,6 +2399,232 @@
             console.error('Error:', error);
             document.getElementById('quote_result_area').style.display = 'none';
             const errorDiv = document.getElementById('quote_error_msg');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = '请求出错，请检查网络或重试';
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    }
+    
+    // 解析地址函数
+    function fleet_parseAddress(rawAddress) {
+        const address = {
+            address: '',
+            city: '',
+            state: '',
+            zip: '',
+            country: 'US'
+        };
+        
+        if (!rawAddress) return address;
+        
+        // 按行分割
+        const lines = rawAddress.split('\n').map(line => line.trim()).filter(line => line);
+        
+        // 方法1: 查找标签（中文标签）
+        for (const line of lines) {
+            if (line.includes('邮编') || line.includes('zip') || line.includes('Zip')) {
+                const zipMatch = line.match(/(\d{5})/);
+                if (zipMatch) address.zip = zipMatch[1];
+            }
+            if (line.includes('城市') || line.includes('city') || line.includes('City')) {
+                const cityPart = line.split(/城市|city|City|：|:/).pop().trim();
+                if (cityPart && !cityPart.match(/^\d/)) {
+                    address.city = cityPart;
+                }
+            }
+            if (line.includes('地址') || line.includes('address') || line.includes('Address')) {
+                const addrPart = line.split(/地址|address|Address|：|:/).pop().trim();
+                if (addrPart) address.address = addrPart;
+            }
+            // 提取州（2个字母大写）
+            const stateMatch = line.match(/\b([A-Z]{2})\b/);
+            if (stateMatch && !address.state) {
+                address.state = stateMatch[1];
+            }
+            // 提取邮编（5位数字）
+            const zipMatch2 = line.match(/\b(\d{5})\b/);
+            if (zipMatch2 && !address.zip) {
+                address.zip = zipMatch2[1];
+            }
+        }
+        
+        // 方法2: 如果没有找到标签，尝试从文本中提取
+        if (!address.zip) {
+            for (const line of lines) {
+                const zipMatch = line.match(/\b(\d{5})\b/);
+                if (zipMatch) {
+                    address.zip = zipMatch[1];
+                    break;
+                }
+            }
+        }
+        
+        if (!address.state) {
+            for (const line of lines) {
+                const stateMatch = line.match(/\b([A-Z]{2})\b/);
+                if (stateMatch) {
+                    address.state = stateMatch[1];
+                    break;
+                }
+            }
+        }
+        
+        // 如果还是没有，尝试用常见的地址格式解析
+        if (lines.length > 0) {
+            // 第一行通常是地址
+            if (!address.address) address.address = lines[0];
+            
+            // 最后一行通常包含城市、州、邮编
+            if (lines.length > 1) {
+                const lastLine = lines[lines.length - 1];
+                // 尝试匹配 City, ST 12345
+                const match = lastLine.match(/^(.*?),?\s*([A-Z]{2})\s*(\d{5})?$/);
+                if (match) {
+                    if (!address.city) address.city = match[1].trim();
+                    if (!address.state) address.state = match[2];
+                    if (!address.zip && match[3]) address.zip = match[3];
+                }
+            }
+        }
+        
+        return address;
+    }
+    
+    // 打开商私地址检查弹框
+    function fleet_checkBusinessResidential(btn) {
+        const row = btn.closest('tr');
+        const addressInput = row.querySelector('.fleet-address-input');
+        const rawAddress = addressInput ? addressInput.value.trim() : '';
+        
+        // 设置原始地址
+        document.getElementById('br_raw_address').value = rawAddress;
+        
+        // 解析地址
+        const parsedAddress = fleet_parseAddress(rawAddress);
+        
+        // 填充表单
+        document.getElementById('br_address').value = parsedAddress.address;
+        document.getElementById('br_city').value = parsedAddress.city;
+        document.getElementById('br_state').value = parsedAddress.state;
+        document.getElementById('br_zip').value = parsedAddress.zip;
+        document.getElementById('br_country').value = parsedAddress.country;
+        
+        // 隐藏结果和错误
+        document.getElementById('br_result_area').style.display = 'none';
+        document.getElementById('br_error_msg').style.display = 'none';
+        
+        // 打开弹框
+        const modal = new bootstrap.Modal(document.getElementById('fleet_businessResidentialModal'));
+        modal.show();
+    }
+    
+    // 调用后端API检查商私地址
+    function fleet_checkBusinessResidentialApi() {
+        const address = document.getElementById('br_address').value.trim();
+        const city = document.getElementById('br_city').value.trim();
+        const state = document.getElementById('br_state').value.trim();
+        const zip = document.getElementById('br_zip').value.trim();
+        const country = document.getElementById('br_country').value.trim();
+        
+        // 验证必填字段
+        if (!zip) {
+            alert('请输入邮编');
+            return;
+        }
+        
+        const btn = document.getElementById('btn_check_business_residential');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 检查中...';
+        
+        const formData = new FormData();
+        formData.append('step', 'check_business_residential');
+        formData.append('address', address);
+        formData.append('city', city);
+        formData.append('state', state);
+        formData.append('zip', zip);
+        formData.append('country', country);
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('br_result_area').style.display = 'block';
+                document.getElementById('br_error_msg').style.display = 'none';
+                
+                const resultContent = document.getElementById('br_result_content');
+                let html = '';
+                
+                if (data.data) {
+                    html = '<div class="row g-3">';
+                    html += '<div class="col-md-6">';
+                    html += '<div class="alert alert-info">';
+                    html += '<h6 class="alert-heading">地址信息</h6>';
+                    html += '<p class="mb-0">';
+                    if (data.data.address && data.data.address.street) html += `<strong>地址:</strong> ${data.data.address.street}<br>`;
+                    if (data.data.address && data.data.address.city) html += `<strong>城市:</strong> ${data.data.address.city}<br>`;
+                    if (data.data.address && data.data.address.state) html += `<strong>州:</strong> ${data.data.address.state}<br>`;
+                    if (data.data.address && data.data.address.zipcode) html += `<strong>邮编:</strong> ${data.data.address.zipcode}<br>`;
+                    html += '</p></div></div>';
+                    
+                    html += '<div class="col-md-6">';
+                    const rdi = data.data.rdi || '未知';
+                    let resType = '未知';
+                    let alertClass = 'alert-warning';
+                    let icon = 'fa-building';
+                    
+                    if (rdi === 'R') {
+                        resType = '住宅地址 (Residential)';
+                        alertClass = 'alert-danger';
+                        icon = 'fa-home';
+                    } else if (rdi === 'C') {
+                        resType = '商业地址 (Commercial)';
+                        alertClass = 'alert-success';
+                        icon = 'fa-building';
+                    } else if (rdi === 'B') {
+                        resType = '混合地址 (Both)';
+                        alertClass = 'alert-info';
+                        icon = 'fa-building';
+                    }
+                    
+                    html += `<div class="alert ${alertClass}">`;
+                    html += '<h6 class="alert-heading">地址类型</h6>';
+                    html += `<p class="mb-0"><i class="fas ${icon} me-2"></i><strong>${resType}</strong></p>`;
+                    html += `<p class="mt-2 mb-0 text-sm"><strong>RDI值:</strong> ${rdi}</p>`;
+                    html += '</div></div></div>';
+                    
+                    // 显示原始数据
+                    html += '<div class="mt-3 pt-3 border-top">';
+                    html += '<button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#br_debug_json">';
+                    html += '<i class="fas fa-code me-1"></i> 显示原始数据';
+                    html += '</button>';
+                    html += '<div class="collapse mt-2" id="br_debug_json">';
+                    html += `<pre style="background: #f1f8e9; padding: 15px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 0.8rem; border: 1px solid #c8e6c9;">${JSON.stringify(data.data, null, 2)}</pre>`;
+                    html += '</div></div>';
+                }
+                
+                resultContent.innerHTML = html || '<p>没有返回数据</p>';
+            } else {
+                document.getElementById('br_result_area').style.display = 'none';
+                const errorDiv = document.getElementById('br_error_msg');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = '检查失败: ' + (data.message || '未知错误');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('br_result_area').style.display = 'none';
+            const errorDiv = document.getElementById('br_error_msg');
             errorDiv.style.display = 'block';
             errorDiv.textContent = '请求出错，请检查网络或重试';
         })
