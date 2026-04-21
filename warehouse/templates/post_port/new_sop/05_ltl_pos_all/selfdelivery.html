@@ -595,6 +595,7 @@
                     <th class="fleet-carrier-col">承运公司</th>
                     <th class="fleet-bol-col">BOL号</th>
                     <th class="fleet-pro-col">PRO号</th>
+                    <th class="fleet-address-type-col">地址类型</th>
                     <th class="fleet-action-col">操作</th>
                 </tr>
             </thead>
@@ -677,6 +678,9 @@
                     <td>
                         <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="24" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选地址类型..." data-column="25" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
                     <td class="fleet-action-col">
                         <!-- 操作列不需要筛选 -->
                     </td>
@@ -707,6 +711,11 @@
                     data-quote="{{ cargo.ltl_quote|default:0 }}"
                     data-carrier="{{ cargo.fleet_carrier_company|default:'' }}"
                     data-address="{{ cargo.address|default:'' }}"
+                    data-ltl-address="{{ cargo.ltl_address|default:'' }}"
+                    data-ltl-city="{{ cargo.ltl_city|default:'' }}"
+                    data-ltl-state="{{ cargo.ltl_state|default:'' }}"
+                    data-ltl-zipcode="{{ cargo.ltl_zipcode|default:'' }}"
+                    data-ltl-address-type="{{ cargo.ltl_address_type|default:'' }}"
                     data-note="{{ cargo.note|default:'' }}"
                     data-bol="{{ cargo.ltl_bol_num|default:'' }}"
                     data-pro="{{ cargo.ltl_pro_num|default:'' }}"
@@ -900,6 +909,23 @@
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.ltl_pro_num|default:'' }}</textarea>
                     </td>
+                    <td class="fleet-address-type-col">
+                        {% with addr_type=cargo.ltl_address_type|default:'' %}
+                            {% if addr_type %}
+                                {% if addr_type == 'R' or addr_type|lower == 'residential' %}
+                                    <span style="color: #e53935; font-weight: bold;">住宅地址</span>
+                                {% elif addr_type == 'C' or addr_type|lower == 'commercial' %}
+                                    <span style="color: #43a047; font-weight: bold;">商业地址</span>
+                                {% elif addr_type == 'B' or addr_type|lower == 'both' %}
+                                    <span style="color: #039be5; font-weight: bold;">混合地址</span>
+                                {% else %}
+                                    <span style="color: #757575;">{{ addr_type }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #999;">-</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
                     <td class="fleet-action-col">
                         <div class="fleet-action-buttons" style="display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;">
                             <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
@@ -916,7 +942,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="19" style="text-align: center; padding: 20px;">
+                    <td colspan="20" style="text-align: center; padding: 20px;">
                         暂无自发货物
                     </td>
                 </tr>
@@ -938,6 +964,7 @@
             </div>
             <div class="modal-body">
                 <form id="fleet_businessResidentialForm">
+                    <input type="hidden" id="br_cargo_id" value="">
                     <div class="row g-3">
                         <div class="col-md-12 mb-3">
                             <label class="form-label">原始地址</label>
@@ -951,9 +978,13 @@
                         </div>
                         <div class="card-body">
                             <div class="row g-3">
-                                <div class="col-md-12">
+                                <div class="col-md-8">
                                     <label class="form-label">地址 (Address)</label>
                                     <input type="text" class="form-control" id="br_address">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">国家 (Country)</label>
+                                    <input type="text" class="form-control" id="br_country" value="US" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">城市 (City)</label>
@@ -966,10 +997,6 @@
                                 <div class="col-md-4">
                                     <label class="form-label">邮编 (Zip)</label>
                                     <input type="text" class="form-control" id="br_zip">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">国家 (Country)</label>
-                                    <input type="text" class="form-control" id="br_country" value="US" readonly>
                                 </div>
                             </div>
                         </div>
@@ -2496,21 +2523,45 @@
     // 打开商私地址检查弹框
     function fleet_checkBusinessResidential(btn) {
         const row = btn.closest('tr');
+        const cargoId = row.getAttribute('data-cargo-id');
         const addressInput = row.querySelector('.fleet-address-input');
         const rawAddress = addressInput ? addressInput.value.trim() : '';
+        
+        // 获取已保存的地址信息
+        const savedLtlAddress = row.getAttribute('data-ltl-address') || '';
+        const savedLtlCity = row.getAttribute('data-ltl-city') || '';
+        const savedLtlState = row.getAttribute('data-ltl-state') || '';
+        const savedLtlZipcode = row.getAttribute('data-ltl-zipcode') || '';
         
         // 设置原始地址
         document.getElementById('br_raw_address').value = rawAddress;
         
-        // 解析地址
-        const parsedAddress = fleet_parseAddress(rawAddress);
+        let addressToUse, cityToUse, stateToUse, zipToUse;
+        
+        // 检查是否有已保存的值，如果有就优先使用
+        if (savedLtlAddress || savedLtlCity || savedLtlState || savedLtlZipcode) {
+            addressToUse = savedLtlAddress;
+            cityToUse = savedLtlCity;
+            stateToUse = savedLtlState;
+            zipToUse = savedLtlZipcode;
+        } else {
+            // 没有保存的值时，进行自动解析
+            const parsedAddress = fleet_parseAddress(rawAddress);
+            addressToUse = parsedAddress.address;
+            cityToUse = parsedAddress.city;
+            stateToUse = parsedAddress.state;
+            zipToUse = parsedAddress.zip;
+        }
         
         // 填充表单
-        document.getElementById('br_address').value = parsedAddress.address;
-        document.getElementById('br_city').value = parsedAddress.city;
-        document.getElementById('br_state').value = parsedAddress.state;
-        document.getElementById('br_zip').value = parsedAddress.zip;
-        document.getElementById('br_country').value = parsedAddress.country;
+        document.getElementById('br_address').value = addressToUse;
+        document.getElementById('br_city').value = cityToUse;
+        document.getElementById('br_state').value = stateToUse;
+        document.getElementById('br_zip').value = zipToUse;
+        document.getElementById('br_country').value = 'US'; // 国家默认为US
+        
+        // 保存 cargoId 到表单，用于后续 API 调用
+        document.getElementById('br_cargo_id').value = cargoId;
         
         // 隐藏结果和错误
         document.getElementById('br_result_area').style.display = 'none';
@@ -2523,6 +2574,7 @@
     
     // 调用后端API检查商私地址
     function fleet_checkBusinessResidentialApi() {
+        const cargoId = document.getElementById('br_cargo_id').value.trim();
         const address = document.getElementById('br_address').value.trim();
         const city = document.getElementById('br_city').value.trim();
         const state = document.getElementById('br_state').value.trim();
@@ -2542,6 +2594,7 @@
         
         const formData = new FormData();
         formData.append('step', 'check_business_residential');
+        formData.append('cargo_id', cargoId);
         formData.append('address', address);
         formData.append('city', city);
         formData.append('state', state);
@@ -2566,51 +2619,30 @@
                 let html = '';
                 
                 if (data.data) {
-                    html = '<div class="row g-3">';
-                    html += '<div class="col-md-6">';
-                    html += '<div class="alert alert-info">';
-                    html += '<h6 class="alert-heading">地址信息</h6>';
-                    html += '<p class="mb-0">';
-                    if (data.data.address && data.data.address.street) html += `<strong>地址:</strong> ${data.data.address.street}<br>`;
-                    if (data.data.address && data.data.address.city) html += `<strong>城市:</strong> ${data.data.address.city}<br>`;
-                    if (data.data.address && data.data.address.state) html += `<strong>州:</strong> ${data.data.address.state}<br>`;
-                    if (data.data.address && data.data.address.zipcode) html += `<strong>邮编:</strong> ${data.data.address.zipcode}<br>`;
-                    html += '</p></div></div>';
-                    
-                    html += '<div class="col-md-6">';
                     const rdi = data.data.rdi || '未知';
-                    let resType = '未知';
+                    let resType = rdi; // 直接显示后端返回的值
                     let alertClass = 'alert-warning';
                     let icon = 'fa-building';
                     
-                    if (rdi === 'R') {
+                    // 同时也兼容原来的R/C/B格式
+                    if (rdi === 'R' || rdi.toLowerCase().includes('residential')) {
                         resType = '住宅地址 (Residential)';
                         alertClass = 'alert-danger';
                         icon = 'fa-home';
-                    } else if (rdi === 'C') {
+                    } else if (rdi === 'C' || rdi.toLowerCase().includes('commercial')) {
                         resType = '商业地址 (Commercial)';
                         alertClass = 'alert-success';
                         icon = 'fa-building';
-                    } else if (rdi === 'B') {
+                    } else if (rdi === 'B' || rdi.toLowerCase().includes('both')) {
                         resType = '混合地址 (Both)';
                         alertClass = 'alert-info';
                         icon = 'fa-building';
                     }
                     
-                    html += `<div class="alert ${alertClass}">`;
-                    html += '<h6 class="alert-heading">地址类型</h6>';
-                    html += `<p class="mb-0"><i class="fas ${icon} me-2"></i><strong>${resType}</strong></p>`;
-                    html += `<p class="mt-2 mb-0 text-sm"><strong>RDI值:</strong> ${rdi}</p>`;
-                    html += '</div></div></div>';
-                    
-                    // 显示原始数据
-                    html += '<div class="mt-3 pt-3 border-top">';
-                    html += '<button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#br_debug_json">';
-                    html += '<i class="fas fa-code me-1"></i> 显示原始数据';
-                    html += '</button>';
-                    html += '<div class="collapse mt-2" id="br_debug_json">';
-                    html += `<pre style="background: #f1f8e9; padding: 15px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 0.8rem; border: 1px solid #c8e6c9;">${JSON.stringify(data.data, null, 2)}</pre>`;
-                    html += '</div></div>';
+                    html = `<div class="alert ${alertClass} text-center">`;
+                    html += `<h5 class="alert-heading"><i class="fas ${icon} me-2"></i>地址类型</h5>`;
+                    html += `<p class="mb-0"><strong>${resType}</strong></p>`;
+                    html += '</div>';
                 }
                 
                 resultContent.innerHTML = html || '<p>没有返回数据</p>';
