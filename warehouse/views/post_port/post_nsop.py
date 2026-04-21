@@ -367,6 +367,8 @@ class PostNsop(View):
             return await self.handle_get_maersk_quote(request)
         elif step == "get_maersk_tracking":
             return await self.handle_get_maersk_tracking(request)
+        elif step == "check_business_residential":
+            return await self.handle_check_business_residential(request)
         elif step == 'maersk_schedule_post':
             return await self.handle_maersk_schedule_post(request)
         elif step == "bind_group_shipment":
@@ -2215,6 +2217,47 @@ class PostNsop(View):
                     if response.status == 200:
                         data = await response.json()
                         return JsonResponse({'success': True, 'data': data, 'pro_number': pro_number})
+                    text = await response.text()
+                    return JsonResponse(
+                        {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
+                        status=response.status
+                    )
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    async def handle_check_business_residential(self, request: HttpRequest) -> HttpResponse:
+        '''检查商私地址'''
+        try:
+            address = request.POST.get("address", "").strip()
+            city = request.POST.get("city", "").strip()
+            state = request.POST.get("state", "").strip()
+            zip_code = request.POST.get("zip", "").strip()
+            country = request.POST.get("country", "US").strip()
+
+            if not zip_code:
+                return JsonResponse({'success': False, 'message': '邮编是必填项'}, status=400)
+
+            api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/get_rdi"
+            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": api_key
+            }
+            
+            payload = {
+                "street": address,
+                "city": city,
+                "state": state,
+                "zipcode": zip_code,
+                "country": country
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return JsonResponse({'success': True, 'data': data})
                     text = await response.text()
                     return JsonResponse(
                         {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
