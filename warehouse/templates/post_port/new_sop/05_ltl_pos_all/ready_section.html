@@ -1422,7 +1422,7 @@
     function renderSelfPickupTable(data) {
         const contentDiv = document.getElementById('armPickupContent');
         let html = `
-            <table style="width:100%; border-collapse:collapse; font-size:13px; min-width: 1200px;" 
+            <table style="width:100%; border-collapse:collapse; font-size:13px; min-width: 1400px;" 
                 cellpadding="8" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
@@ -1434,6 +1434,7 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">箱数</th>   
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px;">Carrier</th>  
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 180px;">提货时间</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px;">备注</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 140px;">图片</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px;">操作</th>
                 </thead>
@@ -1448,7 +1449,8 @@
                 total_pallet: item.total_pallet || '',
                 total_pcs: item.total_pcs || '',
                 carrier: item.carrier || '',
-                appointment_datetime: item.appointment_datetime || ''
+                appointment_datetime: item.appointment_datetime || '',
+                note: (item.shipment_batch_number__note || item.note || '').toString().replace('None', '')
             };
             if (cleanData.total_pallet === 0) cleanData.total_pallet = 0;
             if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
@@ -1507,6 +1509,11 @@
                             data-field="appointment_datetime" 
                             value="${formatDateTimeForInput(cleanData.appointment_datetime)}" 
                             style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipment_batch_number__note" 
+                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 80px; padding: 6px; font-size: 13px;">${cleanData.note}</textarea>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64="${(item.pickup_image || '').toString().replace(/"/g,'&quot;')}"
@@ -1876,7 +1883,7 @@
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input" 
-                            data-field="container_number__container_number" 
+                            data-field="container_number" 
                             value="" 
                             style="width: 100%; border: 1px solid #ccc; background: #fff;">
                     </td>
@@ -1905,15 +1912,20 @@
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input" 
-                            data-field="shipment_batch_number__fleet_number__carrier" 
+                            data-field="carrier" 
                             value="" 
                             style="width: 100%; border: 1px solid #ccc; background: #fff;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="datetime-local" class="arm-input" 
-                            data-field="shipment_batch_number__fleet_number__appointment_datetime" 
+                            data-field="appointment_datetime" 
                             value="" 
                             style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipment_batch_number__note" 
+                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64=""

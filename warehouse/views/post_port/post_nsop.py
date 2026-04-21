@@ -2260,6 +2260,9 @@ class PostNsop(View):
                         or row.get("shipment_batch_number")
                         or ""
                     ).strip()
+                # 拼接备注
+                note = row.get('shipment_batch_number__note') or row.get('note') or ''
+                notes += note
                 arm_pickup.append(
                     [
                         row.get('container_number', '').strip(),
