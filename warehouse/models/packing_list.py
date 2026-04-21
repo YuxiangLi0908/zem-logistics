@@ -103,6 +103,7 @@ class PackingList(models.Model):
     ltl_city = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的城市")
     ltl_state = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的州")
     ltl_zipcode = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的邮编")
+    ltl_address_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价地址类型")
     history = HistoricalRecords()
 
     class Meta:
