@@ -5418,34 +5418,28 @@ class FleetManagement(View):
         error = None
         if not pallets:
             error = "查不到有效板子！"
-        pallet_mapping = {
-            p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number, p.id)
-            for p in pallets
-            if p.PO_ID
-        }
+        
+        # 按PO_ID分组
+        pallet_groups = defaultdict(list)
+        for p in pallets:
+            if p.PO_ID:
+                pallet_groups[p.PO_ID].append(p)
+        
         new_fleet_shipment_pallets = []
         now_time = timezone.now()
-        for first_pallet_id, actual_pallets in zip(
-            plt_ids, actual_shipped_pallet
-        ):
-            target_id = int(first_pallet_id)
-            matched_key = None
-            for key, value in pallet_mapping.items():
-                if value[3] == target_id:
-                    matched_key = key
-                    break
-            if matched_key is None:
-                continue
-
-            po_id, shipment, container_number, _ = pallet_mapping[matched_key]
+        
+        for po_id, pallets_in_group in pallet_groups.items():
+            # 取第一个pallet的信息（同一个PO的，信息应该一致）
+            first_pallet = pallets_in_group[0]
+            
             new_record = FleetShipmentPallet(
                 fleet_number=fleet,
                 pickup_number=fleet.pickup_number,
-                shipment_batch_number=shipment,
+                shipment_batch_number=first_pallet.shipment_batch_number,
                 PO_ID=po_id,
-                total_pallet=actual_pallets,
-                container_number=container_number,
-                expense = 0.0,
+                total_pallet=len(pallets_in_group),
+                container_number=first_pallet.container_number,
+                expense=0.0,
                 description="成本费用",
                 is_recorded=False,
                 cost_input_time=now_time,
