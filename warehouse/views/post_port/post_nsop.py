@@ -2228,6 +2228,7 @@ class PostNsop(View):
     async def handle_check_business_residential(self, request: HttpRequest) -> HttpResponse:
         '''检查商私地址'''
         try:
+            cargo_id = request.POST.get("cargo_id", "").strip()
             address = request.POST.get("address", "").strip()
             city = request.POST.get("city", "").strip()
             state = request.POST.get("state", "").strip()
@@ -2253,23 +2254,60 @@ class PostNsop(View):
                 "country": country
             }
 
+            rdi_value = None
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return JsonResponse({'success': True, 'data': data})
-                    text = await response.text()
-                    # 处理RDI找不到的情况，这不是错误，只是该地址查不到
-                    if response.status == 404 and 'RDI value not found' in text:
+                        rdi_value = data.get('rdi', '')
+                    else:
+                        text = await response.text()
+                        # 处理RDI找不到的情况，这不是错误，只是该地址查不到
+                        if response.status == 404 and 'RDI value not found' in text:
+                            return JsonResponse(
+                                {'success': False, 'message': '当前地址查不到是商业地址还是私人地址'},
+                                status=200
+                            )
+                        # 其他错误才返回真正的错误信息
                         return JsonResponse(
-                            {'success': False, 'message': '当前地址查不到是商业地址还是私人地址'},
-                            status=200
+                            {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
+                            status=response.status
                         )
-                    # 其他错误才返回真正的错误信息
-                    return JsonResponse(
-                        {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
-                        status=response.status
-                    )
+
+            # 保存到数据库
+            if cargo_id:
+                if cargo_id.startswith('plt_'):
+                    # Pallet记录
+                    plt_ids = cargo_id[4:].split(',')
+                    for plt_id in plt_ids:
+                        try:
+                            plt_id_int = int(plt_id.strip())
+                            await sync_to_async(Pallet.objects.filter(id=plt_id_int).update)(
+                                ltl_address=address,
+                                ltl_city=city,
+                                ltl_state=state,
+                                ltl_zipcode=zip_code,
+                                ltl_address_type=rdi_value
+                            )
+                        except Exception:
+                            pass
+                else:
+                    # PackingList记录
+                    pl_ids = cargo_id.split(',')
+                    for pl_id in pl_ids:
+                        try:
+                            pl_id_int = int(pl_id.strip())
+                            await sync_to_async(PackingList.objects.filter(id=pl_id_int).update)(
+                                ltl_address=address,
+                                ltl_city=city,
+                                ltl_state=state,
+                                ltl_zipcode=zip_code,
+                                ltl_address_type=rdi_value
+                            )
+                        except Exception:
+                            pass
+
+            return JsonResponse({'success': True, 'data': {'rdi': rdi_value}})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
@@ -8865,6 +8903,11 @@ class PostNsop(View):
                     "PO_ID",
                     "del_qty",
                     "ltl_correlation_id",
+                    "ltl_address",
+                    "ltl_city",
+                    "ltl_state",
+                    "ltl_zipcode",
+                    "ltl_address_type",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -9013,6 +9056,11 @@ class PostNsop(View):
                     "shipment_batch_number__arrived_at",
                     "shipment_batch_number__fleet_number__fleet_number",
                     "ltl_correlation_id",
+                    "ltl_address",
+                    "ltl_city",
+                    "ltl_state",
+                    "ltl_zipcode",
+                    "ltl_address_type",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
                     is_pass=F("is_pass"),
@@ -12528,7 +12576,8 @@ class PostNsop(View):
             pallet_ids_to_delete = pallet_ids[:pallets_to_delete]
             # 将这些pallet的shipment_batch_number设置为空
             await sync_to_async(Pallet.objects.filter(id__in=pallet_ids_to_delete).update)(
-                shipment_batch_number=None
+                shipment_batch_number=None,
+                is_dropped_pallet=True
             )
             
             context['success_messages'] = f'成功删除{pallets_to_delete}个托盘记录'
