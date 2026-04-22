@@ -1232,8 +1232,11 @@
                                         <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                                         <input type="hidden" name="customer_name"
                                                value="{{ selected_customer_id|default:'' }}">
+
+                                        <!-- ✅ 这一行必须是 name="selected_fleet_ids" -->
                                         <input type="hidden" name="selected_fleet_ids" id="selected_pending_fleet_ids"
                                                value="">
+
                                         <button type="submit" class="btn btn-warning btn-sm export-selected-btn">
                                             <i class="fas fa-file-excel"></i> 导出待确认Excel
                                         </button>
@@ -1281,18 +1284,18 @@
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="2"
-                                                data-field="车次"
-                                                placeholder="搜索车次"
-                                                data-column-name="车次"
-                                                data-search-type="multi-text">
+                                                       data-field="车次"
+                                                       placeholder="搜索车次"
+                                                       data-column-name="车次"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="3"
-                                                data-field="Carrier"
-                                                placeholder="搜索Carrier"
-                                                data-column-name="Carrier"
-                                                data-search-type="multi-text">
+                                                       data-field="Carrier"
+                                                       placeholder="搜索Carrier"
+                                                       data-column-name="Carrier"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1305,51 +1308,51 @@
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="5"
-                                                data-field="Pickup Number"
-                                                placeholder="搜索Pickup Number"
-                                                data-column-name="Pickup Number"
-                                                data-search-type="multi-text">
+                                                       data-field="Pickup Number"
+                                                       placeholder="搜索Pickup Number"
+                                                       data-column-name="Pickup Number"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="6"
-                                                data-field="ISA"
-                                                placeholder="搜索ISA"
-                                                data-column-name="ISA"
-                                                data-search-type="multi-text">
+                                                       data-field="ISA"
+                                                       placeholder="搜索ISA"
+                                                       data-column-name="ISA"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="7"
-                                                data-field="柜号"
-                                                placeholder="搜索柜号（空格分隔多个）"
-                                                data-column-name="柜号"
-                                                data-search-type="multi-text">
+                                                       data-field="柜号"
+                                                       placeholder="搜索柜号（空格分隔多个）"
+                                                       data-column-name="柜号"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="8"
-                                                data-field="目的地"
-                                                placeholder="搜索目的地"
-                                                data-column-name="目的地"
-                                                data-search-type="multi-text">
+                                                       data-field="目的地"
+                                                       placeholder="搜索目的地"
+                                                       data-column-name="目的地"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="9"
-                                                data-field="唛头"
-                                                placeholder="搜索唛头"
-                                                data-column-name="唛头"
-                                                style="width:100%;box-sizing:border-box;">
+                                                       data-field="唛头"
+                                                       placeholder="搜索唛头"
+                                                       data-column-name="唛头"
+                                                       style="width:100%;box-sizing:border-box;">
                                             </th>
                                             <th class="th">
                                                 <input type="number" class="search-input"
                                                        data-column-index="10"
-                                                data-field="板数"
-                                                min="0"
-                                                placeholder="板数≥"
-                                                data-column-name="板数"
-                                                data-search-type="number">
+                                                       data-field="板数"
+                                                       min="0"
+                                                       placeholder="板数≥"
+                                                       data-column-name="板数"
+                                                       data-search-type="number">
                                             </th>
                                             <th class="th"></th>
                                             <th class="th"></th>
@@ -1673,18 +1676,18 @@
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="2"
-                                                data-field="车次"
-                                                placeholder="搜索车次"
-                                                data-column-name="车次"
-                                                data-search-type="multi-text">
+                                                       data-field="车次"
+                                                       placeholder="搜索车次"
+                                                       data-column-name="车次"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="3"
-                                                data-field="Carrier"
-                                                placeholder="搜索Carrier"
-                                                data-column-name="Carrier"
-                                                data-search-type="multi-text">
+                                                       data-field="Carrier"
+                                                       placeholder="搜索Carrier"
+                                                       data-column-name="Carrier"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1697,53 +1700,52 @@
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="5"
-                                                data-field="Pickup Number"
-                                                placeholder="搜索Pickup Number"
-                                                data-column-name="Pickup Number"
-                                                data-search-type="multi-text">
+                                                       data-field="Pickup Number"
+                                                       placeholder="搜索Pickup Number"
+                                                       data-column-name="Pickup Number"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="6"
-                                                data-field="ISA"
-                                                placeholder="搜索ISA"
-                                                data-column-name="ISA"
-                                                data-search-type="multi-text">
+                                                       data-field="ISA"
+                                                       placeholder="搜索ISA"
+                                                       data-column-name="ISA"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="7"
-                                                data-field="柜号"
-                                                placeholder="搜索柜号（空格分隔多个）"
-                                                data-column-name="柜号"
-                                                data-search-type="multi-text">
+                                                       data-field="柜号"
+                                                       placeholder="搜索柜号（空格分隔多个）"
+                                                       data-column-name="柜号"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="8"
-                                                data-field="目的地"
-                                                placeholder="搜索目的地"
-                                                data-column-name="目的地"
-                                                data-search-type="multi-text">
+                                                       data-field="目的地"
+                                                       placeholder="搜索目的地"
+                                                       data-column-name="目的地"
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="9"
-                                                data-field="唛头"
-                                                placeholder="搜索唛头"
-                                                data-column-name="唛头"
-                                                style="width:100%;box-sizing:border-box;">
+                                                       data-field="唛头"
+                                                       placeholder="搜索唛头"
+                                                       data-column-name="唛头"
+                                                       style="width:100%;box-sizing:border-box;">
                                             </th>
                                             <th class="th">
                                                 <input type="number" class="search-input"
                                                        data-column-index="10"
-                                                data-field="板数"
-                                                min="0"
-                                                placeholder="板数≥"
-                                                data-column-name="板数"
-                                                data-search-type="number">
+                                                       data-field="板数"
+                                                       min="0"
+                                                       placeholder="板数≥"
+                                                       data-column-name="板数"
+                                                       data-search-type="number">
                                             </th>
-                                            <th class="th"></th>
                                             <th class="th"></th>
                                             <th class="th"></th>
                                             <th class="th"></th>
@@ -1969,6 +1971,8 @@
             if (countElement) {
                 countElement.textContent = `已选：${visibleChecked.length} 条`;
             }
+            if (targetCheckboxClass.includes('pending')) collectSelectedPendingFleetIds();
+            else collectSelectedFleetIds();
         }
 
         // 高亮选中行
@@ -1986,13 +1990,32 @@
             }
         }
 
-        // ========== 收集选中的Fleet ID（导出功能） ==========
         function collectSelectedPendingFleetIds() {
-            return collectSelectedFleetIdsBase('delivery-pending-checkbox', 'selected_pending_fleet_ids');
+            const checkboxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
+            const fleetIds = Array.from(checkboxes).map(cb => cb.value).filter(id => id);
+
+            if (fleetIds.length === 0) {
+                alert('请至少选择一条记录！');
+                return false;
+            }
+
+            // ✅ 修复：赋值给 name="selected_fleet_ids"
+            document.getElementById('selected_pending_fleet_ids').value = fleetIds.join(',');
+            return true;
         }
 
         function collectSelectedFleetIds() {
-            return collectSelectedFleetIdsBase('delivery-export-checkbox', 'selected_fleet_ids');
+            const checkboxes = document.querySelectorAll('.delivery-export-checkbox:checked');
+            const fleetIds = Array.from(checkboxes).map(cb => cb.value).filter(id => id);
+
+            if (fleetIds.length === 0) {
+                alert('请至少选择一条记录！');
+                return false;
+            }
+
+            // 🔥 修复：正确赋值
+            document.getElementById('selected_fleet_ids').value = fleetIds.join(',');
+            return true;
         }
 
         // 通用收集Fleet ID方法
@@ -2256,39 +2279,35 @@
             });
         }
 
-        // ========== 【安全修复版】搜索功能，不影响表格渲染 ==========
+        // ========== 【修复】搜索只作用于当前标签页 ==========
         function initTableSearch() {
             if (window.searchRunning) return;
             window.searchRunning = true;
 
-            const inputs = document.querySelectorAll('.search-input');
-            inputs.forEach(input => {
-                input.addEventListener('input', doSearch);
-                input.addEventListener('keydown', e => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        doSearch();
-                    }
-                });
-            });
-
             function doSearch() {
+                // 🔥 核心修复：只获取当前激活的表格
+                const activeTab = document.querySelector('.tab-content.active .table-container');
+                if (!activeTab) return;
+
+                // 只收集当前标签内的搜索框
+                const inputs = activeTab.querySelectorAll('.search-input');
                 let conditions = [];
-                document.querySelectorAll('.search-input').forEach(i => {
+
+                inputs.forEach(i => {
                     const field = i.dataset.field;
                     const val = i.value.trim().toLowerCase();
                     if (val) {
-                        // 🔥 核心修复：按空格分割成多个关键词
                         const keywords = val.split(/\s+/).filter(k => k);
                         conditions.push({
                             field,
-                            keywords,  // 数组：多个关键词
+                            keywords,
                             type: i.dataset.searchType
                         });
                     }
                 });
 
-                const rows = document.querySelectorAll('tbody tr:not(.search-row):not(.summary-row):not(.group-header-row)');
+                // 只搜索当前激活表格里的行
+                const rows = activeTab.querySelectorAll('tbody tr:not(.search-row):not(.summary-row):not(.group-header-row)');
                 const fleets = new Map();
 
                 rows.forEach(row => {
@@ -2313,7 +2332,8 @@
                     fleets.get(fleetId).rows.push(row);
                     const tds = row.querySelectorAll('td');
                     tds.forEach(td => {
-                        if (td.textContent.trim()) fleets.get(fleetId).texts.add(td.textContent.trim().toLowerCase());
+                        if (td.textContent.trim())
+                            fleets.get(fleetId).texts.add(td.textContent.trim().toLowerCase());
                     });
                 });
 
@@ -2321,14 +2341,12 @@
                     let show = true;
                     const allTexts = [...data.texts];
 
-                    // 🔥 遍历所有搜索条件
                     conditions.forEach(cond => {
                         if (cond.type === 'multi-text') {
-                            // 🔥 必须包含所有关键词（空格分隔）
-                            const matchAll = cond.keywords.some(keyword =>
+                            const matchAny = cond.keywords.some(keyword =>
                                 allTexts.some(text => text.includes(keyword))
                             );
-                            if (!matchAll) show = false;
+                            if (!matchAny) show = false;
                         }
                     });
 
@@ -2337,36 +2355,54 @@
                     data.rows.forEach(r => r.style.display = display);
                 });
 
+                // 只更新当前表格的总计
                 updateSummaryRow();
             }
+
+            // 绑定事件
+            document.querySelectorAll('.search-input').forEach(input => {
+                input.addEventListener('input', doSearch);
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        doSearch();
+                    }
+                });
+            });
         }
 
-        // ========== 修复：总计行只算可见 + 勾选的行 ==========
+        // ========== 修复：总计只计算当前表格 ==========
         function updateSummaryRow() {
-            const table = document.querySelector('#delivery-pending table');
-            if (!table) return;
+            const activeTable = document.querySelector('#delivery-pending.active table');
+            if (!activeTable) return;
 
             let totalPallets = 0;
             let totalCost = 0;
             let totalWriteoff = 0;
 
-            const checkedBoxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
+            const checkedBoxes = activeTable.querySelectorAll('.delivery-pending-checkbox:checked');
             checkedBoxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
                 if (row.style.display === 'none') return;
 
-                const pallets = parseFloat(row.querySelector('td:nth-child(12)')?.textContent || 0);
-                const cost = parseFloat(row.querySelector('td:nth-child(13)')?.textContent.replace('$', '') || 0);
-                const write = parseFloat(row.querySelector('td:nth-child(14) input')?.value || 0);
+                const pallets = parseFloat(row.querySelector('td:nth-child(13)')?.textContent || 0) || 0;
+                const costText = row.querySelector('td:nth-child(14)')?.textContent.replace(/[$,]/g, '') || '0';
+                const cost = parseFloat(costText) || 0;
+                const writeInput = row.querySelector('input.write-off-amount');
+                const write = writeInput ? (parseFloat(writeInput.value) || 0) : 0;
 
                 totalPallets += pallets;
                 totalCost += cost;
                 totalWriteoff += write;
             });
 
-            document.getElementById('summary-total-pallet').innerText = totalPallets;
-            document.getElementById('summary-total-cost').innerText = '$' + totalCost.toFixed(2);
-            document.getElementById('summary-writeoff').innerText = totalWriteoff.toFixed(2);
+            const totalPalletEl = document.getElementById('summary-total-pallet');
+            const totalCostEl = document.getElementById('summary-total-cost');
+            const writeoffEl = document.getElementById('summary-writeoff');
+
+            if (totalPalletEl) totalPalletEl.innerText = totalPallets;
+            if (totalCostEl) totalCostEl.innerText = '$' + totalCost.toFixed(2);
+            if (writeoffEl) writeoffEl.innerText = totalWriteoff.toFixed(2);
         }
 
         // ========== 修复：搜索初始化（只跑一次，不阻塞） ==========
@@ -2378,17 +2414,18 @@
 
         // ========== 页面加载完成后初始化所有功能 ==========
         document.addEventListener('DOMContentLoaded', function () {
-            preloadCombinedRowsMap();  // 预加载组合行映射
-            initTabSwitch();           // 标签页切换
-            initCheckboxEvents();      // 复选框事件
-            // 确保只执行一次搜索初始化
-            if (typeof searchInitialized === 'undefined') {
-                initTableSearch();         // 搜索功能（仅一次！）
+            preloadCombinedRowsMap();
+            initTabSwitch();
+            initCheckboxEvents();
+
+            // 只初始化一次搜索
+            if (!searchInitialized) {
+                initTableSearch();
                 searchInitialized = true;
             }
-            updateSummaryRow();        // 总计行初始化
 
-            // 默认激活待确认标签
+            updateSummaryRow();
+
             const pendingSubTab = document.querySelector('[data-subtab="delivery-pending"]');
             if (pendingSubTab) {
                 pendingSubTab.classList.add('active');
