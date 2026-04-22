@@ -150,6 +150,136 @@
         display: block;
     }
 
+    /* 列隐藏/显示功能样式 */
+    .fleet-column-toggle-panel {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 12px;
+        z-index: 1000;
+        min-width: 200px;
+        display: none;
+    }
+
+    .fleet-column-toggle-panel.show {
+        display: block;
+    }
+
+    .fleet-column-toggle-panel h4 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .fleet-column-toggle-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 0;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .fleet-column-toggle-item:hover {
+        background: #f5f5f5;
+        margin: 0 -12px;
+        padding: 6px 12px;
+    }
+
+    .fleet-column-toggle-item input[type="checkbox"] {
+        margin-right: 8px;
+    }
+
+    .fleet-column-toggle-btn {
+        background: #17a2b8;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .fleet-column-toggle-btn:hover {
+        background: #138496;
+    }
+
+    .fleet-column-toggle-panel {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        padding: 12px;
+        z-index: 1000;
+        min-width: 200px;
+        display: none;
+    }
+
+    .fleet-column-toggle-panel h4 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #2c3e50;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .fleet-column-toggle-item {
+        padding: 6px 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .fleet-column-toggle-item:hover {
+        background: #f5f5f5;
+        margin: 0 -12px;
+        padding: 6px 12px;
+    }
+
+    .fleet-column-toggle-item input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
+
+    .fleet-column-toggle-item label {
+        margin: 0;
+        cursor: pointer;
+        font-size: 13px;
+        user-select: none;
+    }
+
+    .fleet-hide-column-btn {
+        display: inline-block;
+        margin-left: 5px;
+        cursor: pointer;
+        opacity: 0.5;
+        font-size: 18px;
+        transition: opacity 0.2s;
+        line-height: 1;
+    }
+
+    .fleet-hide-column-btn:hover {
+        opacity: 1;
+        color: #dc3545;
+    }
+
+    .fleet-data-table th:hover .fleet-hide-column-btn {
+        opacity: 0.7;
+    }
+
+    .fleet-hidden-column {
+        display: none !important;
+    }
+
     .fleet-tooltip-content strong {
         color: #2c3e50;
         font-weight: 600;
@@ -509,6 +639,9 @@
         <button class="fleet-action-btn btn-clear-filter" onclick="fleet_clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
+        <button class="fleet-column-toggle-btn" id="fleetColumnToggleBtn" onclick="fleet_toggleColumnPanel()">
+            <i class="fas fa-columns"></i> 列显示设置
+        </button>
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
             当前显示 <strong>{{ warehouse }}</strong> 入库仓库的货物，筛选条件：
@@ -570,118 +703,227 @@
                     <th class="fleet-checkbox-cell">
                         <input type="checkbox" id="fleet_selectAllCargos">
                     </th>
-                    <th style="min-width: 80px;">关联组</th> 
-                    <th>跟进状态</th>
-                    <th class="fleet-customer-col">客户</th>
-                    <th class="fleet-date-col">拆柜日期</th>
-                    <th class="fleet-delivery-method-col">派送方式</th> 
-                    <th>柜号</th>
-                    <th>目的地</th>
-                    <th class="fleet-mark-col">唛头</th>
-                    <th class="fleet-address-col">地址</th>
-                    <th class="fleet-contact-method-col">类型</th> 
-                    <th class="fleet-note-col">备注</th>
-                    <th class="fleet-command-col">指令</th>
-                    <th>CBM</th>
-                    <th>件数</th>
-                    <th>重量kg</th>
-                    <th>重量lbs</th>
-                    <th class="fleet-pallet-col">板数</th>
-                    <th class="fleet-pallet-size-col">托盘尺寸</th>
-                    <th class="fleet-cost-col">成本</th>
-                    <th class="fleet-cost-note-col">成本备注</th>
-                    <th class="fleet-quote-col">报价</th>
-                    <th class="fleet-quote-note-col">报价备注</th>
-                    <th class="fleet-carrier-col">承运公司</th>
-                    <th class="fleet-bol-col">BOL号</th>
-                    <th class="fleet-pro-col">PRO号</th>
-                    <th class="fleet-address-type-col">地址类型</th>
-                    <th class="fleet-action-col">操作</th>
+                    <th style="min-width: 80px;" data-column="1">关联组<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(1)">×</span></th> 
+                    <th data-column="2">跟进状态<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
+                    <th class="fleet-customer-col" data-column="3">客户<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(3)">×</span></th>
+                    <th class="fleet-date-col" data-column="4">拆柜日期<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(4)">×</span></th>
+                    <th class="fleet-delivery-method-col" data-column="5">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th> 
+                    <th data-column="6">柜号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(6)">×</span></th>
+                    <th data-column="7">目的地<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(7)">×</span></th>
+                    <th class="fleet-mark-col" data-column="8">唛头<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(8)">×</span></th>
+                    <th class="fleet-address-col" data-column="9">地址<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(9)">×</span></th>
+                    <th class="fleet-contact-method-col" data-column="10">类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(10)">×</span></th> 
+                    <th class="fleet-note-col" data-column="11">备注<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(11)">×</span></th>
+                    <th class="fleet-command-col" data-column="12">指令<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(12)">×</span></th>
+                    <th data-column="13">CBM<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(13)">×</span></th>
+                    <th data-column="14">件数<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(14)">×</span></th>
+                    <th data-column="15">重量kg<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(15)">×</span></th>
+                    <th data-column="16">重量lbs<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(16)">×</span></th>
+                    <th class="fleet-pallet-col" data-column="17">板数<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(17)">×</span></th>
+                    <th class="fleet-pallet-size-col" data-column="18">托盘尺寸<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(18)">×</span></th>
+                    <th class="fleet-cost-col" data-column="19">成本<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(19)">×</span></th>
+                    <th class="fleet-cost-note-col" data-column="20">成本备注<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(20)">×</span></th>
+                    <th class="fleet-quote-col" data-column="21">报价<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(21)">×</span></th>
+                    <th class="fleet-quote-note-col" data-column="22">报价备注<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(22)">×</span></th>
+                    <th class="fleet-carrier-col" data-column="23">承运公司<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(23)">×</span></th>
+                    <th class="fleet-bol-col" data-column="24">BOL号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(24)">×</span></th>
+                    <th class="fleet-pro-col" data-column="25">PRO号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(25)">×</span></th>
+                    <th class="fleet-address-type-col" data-column="26">地址类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(26)">×</span></th>
+                    <th class="fleet-action-col" data-column="27">操作</th>
                 </tr>
             </thead>
+
+            <!-- 列显示控制面板 -->
+            <div id="fleetColumnTogglePanel" class="fleet-column-toggle-panel">
+                <h4>列显示设置</h4>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(1, this)">
+                    <input type="checkbox" id="fleetCol1Checkbox" checked>
+                    <label for="fleetCol1Checkbox">关联组</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(2, this)">
+                    <input type="checkbox" id="fleetCol2Checkbox" checked>
+                    <label for="fleetCol2Checkbox">跟进状态</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(3, this)">
+                    <input type="checkbox" id="fleetCol3Checkbox" checked>
+                    <label for="fleetCol3Checkbox">客户</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(4, this)">
+                    <input type="checkbox" id="fleetCol4Checkbox" checked>
+                    <label for="fleetCol4Checkbox">拆柜日期</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(5, this)">
+                    <input type="checkbox" id="fleetCol5Checkbox" checked>
+                    <label for="fleetCol5Checkbox">派送方式</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(6, this)">
+                    <input type="checkbox" id="fleetCol6Checkbox" checked>
+                    <label for="fleetCol6Checkbox">柜号</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(7, this)">
+                    <input type="checkbox" id="fleetCol7Checkbox" checked>
+                    <label for="fleetCol7Checkbox">目的地</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(8, this)">
+                    <input type="checkbox" id="fleetCol8Checkbox" checked>
+                    <label for="fleetCol8Checkbox">唛头</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(9, this)">
+                    <input type="checkbox" id="fleetCol9Checkbox" checked>
+                    <label for="fleetCol9Checkbox">地址</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(10, this)">
+                    <input type="checkbox" id="fleetCol10Checkbox" checked>
+                    <label for="fleetCol10Checkbox">类型</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(11, this)">
+                    <input type="checkbox" id="fleetCol11Checkbox" checked>
+                    <label for="fleetCol11Checkbox">备注</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(12, this)">
+                    <input type="checkbox" id="fleetCol12Checkbox" checked>
+                    <label for="fleetCol12Checkbox">指令</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(13, this)">
+                    <input type="checkbox" id="fleetCol13Checkbox" checked>
+                    <label for="fleetCol13Checkbox">CBM</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(14, this)">
+                    <input type="checkbox" id="fleetCol14Checkbox" checked>
+                    <label for="fleetCol14Checkbox">件数</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(15, this)">
+                    <input type="checkbox" id="fleetCol15Checkbox" checked>
+                    <label for="fleetCol15Checkbox">重量kg</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(16, this)">
+                    <input type="checkbox" id="fleetCol16Checkbox" checked>
+                    <label for="fleetCol16Checkbox">重量lbs</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(17, this)">
+                    <input type="checkbox" id="fleetCol17Checkbox" checked>
+                    <label for="fleetCol17Checkbox">板数</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(18, this)">
+                    <input type="checkbox" id="fleetCol18Checkbox" checked>
+                    <label for="fleetCol18Checkbox">托盘尺寸</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(19, this)">
+                    <input type="checkbox" id="fleetCol19Checkbox" checked>
+                    <label for="fleetCol19Checkbox">成本</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(20, this)">
+                    <input type="checkbox" id="fleetCol20Checkbox" checked>
+                    <label for="fleetCol20Checkbox">成本备注</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(21, this)">
+                    <input type="checkbox" id="fleetCol21Checkbox" checked>
+                    <label for="fleetCol21Checkbox">报价</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(22, this)">
+                    <input type="checkbox" id="fleetCol22Checkbox" checked>
+                    <label for="fleetCol22Checkbox">报价备注</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(23, this)">
+                    <input type="checkbox" id="fleetCol23Checkbox" checked>
+                    <label for="fleetCol23Checkbox">承运公司</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(24, this)">
+                    <input type="checkbox" id="fleetCol24Checkbox" checked>
+                    <label for="fleetCol24Checkbox">BOL号</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(25, this)">
+                    <input type="checkbox" id="fleetCol25Checkbox" checked>
+                    <label for="fleetCol25Checkbox">PRO号</label>
+                </div>
+                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(26, this)">
+                    <input type="checkbox" id="fleetCol26Checkbox" checked>
+                    <label for="fleetCol26Checkbox">地址类型</label>
+                </div>
+            </div>
             <tbody>
                 <!-- 筛选行 -->
                 <tr class="fleet-filter-row">
-                    <td class="fleet-checkbox-cell"></td>
-                    <td>
+                    <td class="fleet-checkbox-cell" data-column="0"></td>
+                    <td data-column="1">
                         <input type="text" class="fleet-filter-input" placeholder="筛选关联组..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="2">
                         <input type="text" class="fleet-filter-input" placeholder="筛选跟进状态..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="3">
                         <input type="text" class="fleet-filter-input" placeholder="筛选客户..." data-column="2" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="4">
                         <input type="text" class="fleet-filter-input" placeholder="筛选拆柜日期..." data-column="3" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="5">
                         <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="4" onkeyup="fleet_applyColumnFilter(this)">
                     </td> 
-                    <td>
+                    <td data-column="6">
                         <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="5" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="7">
                         <input type="text" class="fleet-filter-input" placeholder="筛选目的地..." data-column="6" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td class="fleet-mark-col">
+                    <td class="fleet-mark-col" data-column="8">
                         <input type="text" class="fleet-filter-input" placeholder="筛选唛头..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="9">
                         <input type="text" class="fleet-filter-input" placeholder="筛选地址..." data-column="8" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="10">
                         <input type="text" class="fleet-filter-input" placeholder="筛选类型..." data-column="9" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="11">
                         <input type="text" class="fleet-filter-input" placeholder="筛选备注..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="12">
                         <input type="text" class="fleet-filter-input" placeholder="筛选指令..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="13">
                         <input type="text" class="fleet-filter-input" placeholder="筛选CBM..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="14">
                         <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="15">
                         <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="16">
                         <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="17">
                         <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="18">
                         <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="19">
                         <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="20">
                         <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="21">
                         <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="20" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="22">
                         <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="21" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="23">
                         <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="22" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="24">
                         <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="23" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="25">
                         <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="24" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="26">
                         <input type="text" class="fleet-filter-input" placeholder="筛选地址类型..." data-column="25" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td class="fleet-action-col">
+                    <td class="fleet-action-col" data-column="27">
                         <!-- 操作列不需要筛选 -->
                     </td>
                 </tr>
@@ -721,13 +963,13 @@
                     data-pro="{{ cargo.ltl_pro_num|default:'' }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                     data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
-                    <td class="fleet-checkbox-cell">
+                    <td class="fleet-checkbox-cell" data-column="0">
                         <input type="checkbox" class="fleet-cargo-checkbox" 
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             onchange="fleet_updateSelectedCount()">
                     </td>
                     <!-- 取 UUID 的前 8 位作为组号显示 -->
-                    <td style="font-family: monospace; font-weight: bold; color: #555;">
+                    <td style="font-family: monospace; font-weight: bold; color: #555;" data-column="1">
                         {% if cargo.ltl_correlation_id %}
                             <span title="{{ cargo.ltl_correlation_id }}">
                                 <i class="fas fa-link"></i> #{{ cargo.ltl_correlation_id|slice:":8" }}
@@ -736,15 +978,15 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="fleet-follow-col">
+                    <td class="fleet-follow-col" data-column="2">
                         <textarea class="fleet-editable-textarea fleet-follow-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入跟进状态"
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.ltl_follow_status|default:'' }}</textarea>
                     </td>
-                    <td class="fleet-customer-col">{{ cargo.customer_name|default:"-" }}</td>
-                    <td class="fleet-date-col">
+                    <td class="fleet-customer-col" data-column="3">{{ cargo.customer_name|default:"-" }}</td>
+                    <td class="fleet-date-col" data-column="4">
                         {% if cargo.offload_at %}
                             <span class="fleet-month-day">
                                 {{ cargo.offload_at }}
@@ -760,7 +1002,7 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="fleet-delivery-method-col">
+                    <td class="fleet-delivery-method-col" data-column="5">
                         <select class="method-select fleet-delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
                             <option value="卡车派送" {% if cargo.delivery_method == "卡车派送" %}selected{% endif %}>卡车派送</option>
@@ -777,41 +1019,41 @@
                             {% endif %}
                         </select>
                     </td>
-                    <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}">
+                    <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}" data-column="6">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
-                    <td>{{ cargo.destination|default:"-" }}</td>
-                    <td class="fleet-mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
-                    <td class="fleet-address-col">
+                    <td data-column="7">{{ cargo.destination|default:"-" }}</td>
+                    <td class="fleet-mark-col" data-column="8">{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td class="fleet-address-col" data-column="9">
                         <textarea class="fleet-editable-textarea fleet-address-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入地址"
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.address|default:'' }}</textarea>
                     </td>
-                    <td class="fleet-contact-method-col">
+                    <td class="fleet-contact-method-col" data-column="10">
                         <input type="text" class="fleet-contact-method-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.ltl_contact_method|default:'' }}"
                             placeholder="输入类型">
-                    <td class="fleet-note-col">
+                    <td class="fleet-note-col" data-column="11">
                         <textarea class="fleet-editable-textarea fleet-note-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入备注"
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.note|default:'' }}</textarea>
                     </td>
-                    <td class="fleet-command-col">
+                    <td class="fleet-command-col" data-column="12">
                         <textarea class="fleet-editable-textarea fleet-command-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             oninput="fleet_autoResizeTextarea(this)"
                             style="min-height: 32px; width: 100%;">{{ cargo.ltl_release_command|default:'' }}</textarea>
                     </td>
-                    <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
-                    <td>{{ cargo.total_pcs|default:0 }}</td>
-                    <td>{{ cargo.total_weight_kg|default:0 }}</td>
-                    <td>{{ cargo.total_weight_lbs|default:0 }}</td>
-                    <td class="fleet-pallet-col">
+                    <td data-column="13">{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
+                    <td data-column="14">{{ cargo.total_pcs|default:0 }}</td>
+                    <td data-column="15">{{ cargo.total_weight_kg|default:0 }}</td>
+                    <td data-column="16">{{ cargo.total_weight_lbs|default:0 }}</td>
+                    <td class="fleet-pallet-col" data-column="17">
                         {% if cargo.total_n_pallet_act %}
                             <span class="fleet-pallet-count">{{ cargo.total_n_pallet_act }}</span>
                             <span class="fleet-pallet-tag fleet-pallet-tag-act">ACT</span>
@@ -822,7 +1064,7 @@
                             <span class="fleet-pallet-count">0</span>
                         {% endif %}
                     </td>
-                    <td class="fleet-pallet-size-col">
+                    <td class="fleet-pallet-size-col" data-column="18">
                         {% if cargo.data_source == "PALLET" %}
                             <div style="position: relative;">
                                 <textarea class="fleet-pallet-size-input"
@@ -842,7 +1084,7 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="fleet-cost-col">
+                    <td class="fleet-cost-col" data-column="19">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="fleet-cost-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -852,7 +1094,7 @@
                                 min="0">
                         {% endif %}
                     </td>
-                    <td class="fleet-cost-note-col">
+                    <td class="fleet-cost-note-col" data-column="20">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <textarea class="fleet-editable-textarea fleet-cost-note-input"
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -861,7 +1103,7 @@
                                 rows="1">{{ cargo.ltl_cost_note|default:'' }}</textarea>
                         {% endif %}
                     </td>
-                    <td class="fleet-quote-col">
+                    <td class="fleet-quote-col" data-column="21">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="fleet-quote-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -873,7 +1115,7 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="fleet-quote-note-col">
+                    <td class="fleet-quote-note-col" data-column="22">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <textarea class="fleet-editable-textarea fleet-quote-note-input"
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -889,27 +1131,27 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="fleet-carrier-col">
+                    <td class="fleet-carrier-col" data-column="23">
                         <input type="text" class="fleet-carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.carrier_company|default:'' }}"
                             placeholder="输入承运公司">
                     </td>
-                    <td class="fleet-bol-col">
+                    <td class="fleet-bol-col" data-column="24">
                         <textarea class="fleet-bol-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入BOL号"
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.ltl_bol_num|default:'' }}</textarea>
                     </td>
-                    <td class="fleet-pro-col">
+                    <td class="fleet-pro-col" data-column="25">
                         <textarea class="fleet-pro-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入PRO号"
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.ltl_pro_num|default:'' }}</textarea>
                     </td>
-                    <td class="fleet-address-type-col">
+                    <td class="fleet-address-type-col" data-column="26">
                         {% with addr_type=cargo.ltl_address_type|default:'' %}
                             {% if addr_type %}
                                 {% if addr_type == 'R' or addr_type|lower == 'residential' %}
@@ -926,7 +1168,7 @@
                             {% endif %}
                         {% endwith %}
                     </td>
-                    <td class="fleet-action-col">
+                    <td class="fleet-action-col" data-column="27">
                         <div class="fleet-action-buttons" style="display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;">
                             <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
                                 <i class="fas fa-save"></i> 保存
@@ -942,7 +1184,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="20" style="text-align: center; padding: 20px;">
+                    <td colspan="28" style="text-align: center; padding: 20px;">
                         暂无自发货物
                     </td>
                 </tr>
@@ -1456,7 +1698,146 @@
                 `;
                 document.head.appendChild(style);
             }
+
+            // 恢复列显示状态
+            fleet_loadColumnVisibility();
         }
+
+        // 切换列显示
+        // 一次性清除旧的 localStorage 数据（确保干净的开始
+        (function clearOldStorage() {
+            localStorage.removeItem('selfpickColumnVisibility');
+            localStorage.removeItem('selfDeliveryColumnVisibility');
+            localStorage.removeItem('releaseCargosColumnVisibility');
+        })();
+
+        function fleet_toggleColumn(columnIndex) {
+            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            const checkbox = document.getElementById(`fleetCol${columnIndex}Checkbox`);
+            
+            cells.forEach(cell => {
+                // 先清除旧的类名，确保不会受影响
+                cell.classList.remove('hidden-column');
+                cell.classList.remove('selfpick-hidden-column');
+                cell.classList.toggle('fleet-hidden-column');
+            });
+            
+            if (checkbox) {
+                checkbox.checked = !cells[0].classList.contains('fleet-hidden-column');
+            }
+            
+            fleet_saveColumnVisibility();
+        }
+
+        // 从控制面板切换列
+        function fleet_toggleColumnFromPanel(columnIndex, element) {
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+                cells.forEach(cell => {
+                    // 先清除旧的类名
+                    cell.classList.remove('hidden-column');
+                    cell.classList.remove('selfpick-hidden-column');
+                    cell.classList.toggle('fleet-hidden-column', !checkbox.checked);
+                });
+                fleet_saveColumnVisibility();
+            }
+        }
+
+        // 切换控制面板显示
+        function fleet_toggleColumnPanel() {
+            const panel = document.getElementById('fleetColumnTogglePanel');
+            const btn = document.getElementById('fleetColumnToggleBtn');
+            
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+            } else {
+                panel.style.display = 'block';
+                const rect = btn.getBoundingClientRect();
+                panel.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+                panel.style.left = (rect.left + window.scrollX) + 'px';
+            }
+        }
+
+        // 保存列显示状态到localStorage
+        function fleet_saveColumnVisibility() {
+            const visibility = {};
+            for (let i = 1; i <= 26; i++) {
+                const checkbox = document.getElementById(`fleetCol${i}Checkbox`);
+                if (checkbox) {
+                    visibility[i] = checkbox.checked;
+                }
+            }
+            localStorage.setItem('selfDeliveryColumnVisibility', JSON.stringify(visibility));
+        }
+
+        // 从localStorage加载列显示状态
+        function fleet_loadColumnVisibility() {
+            // 首先清除所有旧的隐藏类名，确保初始状态干净
+            const allCells = document.querySelectorAll('[data-column]');
+            allCells.forEach(cell => {
+                cell.classList.remove('hidden-column');
+                cell.classList.remove('selfpick-hidden-column');
+                cell.classList.remove('fleet-hidden-column');
+            });
+            
+            // 确保所有复选框初始状态为选中
+            for (let i = 1; i <= 26; i++) {
+                const checkbox = document.getElementById(`fleetCol${i}Checkbox`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+            }
+            
+            const saved = localStorage.getItem('selfDeliveryColumnVisibility');
+            if (saved) {
+                try {
+                    const visibility = JSON.parse(saved);
+                    let hasInvalidData = false;
+                    
+                    // 检查数据是否有效
+                    for (let i = 1; i <= 26; i++) {
+                        if (visibility[i] === undefined) {
+                            hasInvalidData = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!hasInvalidData) {
+                        // 数据有效，加载它
+                        for (let i = 1; i <= 26; i++) {
+                            const checkbox = document.getElementById(`fleetCol${i}Checkbox`);
+                            const cells = document.querySelectorAll(`[data-column="${i}"]`);
+                            if (checkbox && visibility.hasOwnProperty(i)) {
+                                checkbox.checked = visibility[i];
+                                cells.forEach(cell => {
+                                    cell.classList.toggle('fleet-hidden-column', !visibility[i]);
+                                });
+                            }
+                        }
+                        return; // 数据有效，直接返回
+                    }
+                } catch (e) {
+                    console.error('Failed to load column visibility:', e);
+                }
+            }
+            
+            // 如果没有有效数据，保存新的默认状态
+            fleet_saveColumnVisibility();
+        }
+
+        // 点击页面其他地方关闭控制面板
+        document.addEventListener('click', function(event) {
+            const panel = document.getElementById('fleetColumnTogglePanel');
+            const btn = document.getElementById('fleetColumnToggleBtn');
+            
+            if (panel && panel.style.display === 'block') {
+                if (!panel.contains(event.target) && event.target !== btn && !btn.contains(event.target)) {
+                    panel.style.display = 'none';
+                }
+            }
+        });
         // 预约出库功能
         function fleet_scheduleShipment() {
             const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
@@ -1866,6 +2247,9 @@
         window.fleet_batchUpdateDeliveryMethod = fleet_batchUpdateDeliveryMethod;
         window.fleet_batchOnePickMultiDrop = fleet_batchOnePickMultiDrop;
         window.fleet_toggleSortRules = fleet_toggleSortRules;
+        window.fleet_toggleColumn = fleet_toggleColumn;
+        window.fleet_toggleColumnFromPanel = fleet_toggleColumnFromPanel;
+        window.fleet_toggleColumnPanel = fleet_toggleColumnPanel;
     })();
 </script>
 

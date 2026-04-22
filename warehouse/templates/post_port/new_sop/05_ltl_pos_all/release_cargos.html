@@ -243,6 +243,89 @@
         border-color: #17a2b8 !important;
         color: #fff !important;
     }
+
+    /* 列隐藏/显示功能样式 */
+    .column-toggle-panel {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 12px;
+        z-index: 1000;
+        min-width: 200px;
+        display: none;
+    }
+
+    .column-toggle-panel.show {
+        display: block;
+    }
+
+    .column-toggle-panel h4 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .column-toggle-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 0;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .column-toggle-item:hover {
+        background: #f5f5f5;
+        margin: 0 -12px;
+        padding: 6px 12px;
+    }
+
+    .column-toggle-item input[type="checkbox"] {
+        margin-right: 8px;
+    }
+
+    .column-toggle-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .column-toggle-btn:hover {
+            background: #138496;
+        }
+
+        .hide-column-btn {
+            display: inline-block;
+            margin-left: 5px;
+            cursor: pointer;
+            opacity: 0.5;
+            font-size: 18px;
+            transition: opacity 0.2s;
+            line-height: 1;
+        }
+
+    .hide-column-btn:hover {
+        opacity: 1;
+        color: #dc3545;
+    }
+
+    .data-table th:hover .hide-column-btn {
+        opacity: 0.7;
+    }
+
+    .hidden-column {
+        display: none !important;
+    }
 </style>
 <div id="unscheduled-page">
     <!-- 批量操作区域 -->
@@ -269,6 +352,9 @@
         <button class="action-btn btn-secondary" onclick="clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
+        <button class="column-toggle-btn" id="columnToggleBtn" onclick="toggleColumnPanel()">
+            <i class="fas fa-columns"></i> 列显示设置
+        </button>
 
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
@@ -293,70 +379,127 @@
                     <th class="checkbox-cell">
                         <input type="checkbox" id="unscheduled_selectAllCargos">
                     </th>
-                    <th>客户</th>
-                    <th>ETA</th>
-                    <th>柜号</th>
-                    <th>目的地</th>
-                    <th class="fleet-mark-col">唛头</th>
-                    <th class="address-col">详细地址</th>
-                    <th class="note-col">备注</th>
-                    <th class="command-col">指令</th>
-                    <th>CBM</th>
-                    <th>件数</th>
-                    <th>重量(lbs)</th>
-                    <th>重量(kg)</th>
-                    <th>核实状态</th>
-                    <th class="action-col">操作</th>
+                    <th data-column="1">客户<span class="hide-column-btn" onclick="toggleColumn(1)">×</span></th>
+                    <th data-column="2">ETA<span class="hide-column-btn" onclick="toggleColumn(2)">×</span></th>
+                    <th data-column="3">柜号<span class="hide-column-btn" onclick="toggleColumn(3)">×</span></th>
+                    <th data-column="4">目的地<span class="hide-column-btn" onclick="toggleColumn(4)">×</span></th>
+                    <th class="fleet-mark-col" data-column="5">唛头<span class="hide-column-btn" onclick="toggleColumn(5)">×</span></th>
+                    <th class="address-col" data-column="6">详细地址<span class="hide-column-btn" onclick="toggleColumn(6)">×</span></th>
+                    <th class="note-col" data-column="7">备注<span class="hide-column-btn" onclick="toggleColumn(7)">×</span></th>
+                    <th class="command-col" data-column="8">指令<span class="hide-column-btn" onclick="toggleColumn(8)">×</span></th>
+                    <th data-column="9">CBM<span class="hide-column-btn" onclick="toggleColumn(9)">×</span></th>
+                    <th data-column="10">件数<span class="hide-column-btn" onclick="toggleColumn(10)">×</span></th>
+                    <th data-column="11">重量(lbs)<span class="hide-column-btn" onclick="toggleColumn(11)">×</span></th>
+                    <th data-column="12">重量(kg)<span class="hide-column-btn" onclick="toggleColumn(12)">×</span></th>
+                    <th data-column="13">核实状态<span class="hide-column-btn" onclick="toggleColumn(13)">×</span></th>
+                    <th class="action-col" data-column="14">操作</th>
                 </tr>
             </thead>
+
+            <!-- 列显示控制面板 -->
+            <div id="columnTogglePanel" class="column-toggle-panel">
+                <h4>列显示设置</h4>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(1, this)">
+                    <input type="checkbox" id="col1Checkbox" checked>
+                    <label for="col1Checkbox">客户</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(2, this)">
+                    <input type="checkbox" id="col2Checkbox" checked>
+                    <label for="col2Checkbox">ETA</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(3, this)">
+                    <input type="checkbox" id="col3Checkbox" checked>
+                    <label for="col3Checkbox">柜号</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(4, this)">
+                    <input type="checkbox" id="col4Checkbox" checked>
+                    <label for="col4Checkbox">目的地</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(5, this)">
+                    <input type="checkbox" id="col5Checkbox" checked>
+                    <label for="col5Checkbox">唛头</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(6, this)">
+                    <input type="checkbox" id="col6Checkbox" checked>
+                    <label for="col6Checkbox">详细地址</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(7, this)">
+                    <input type="checkbox" id="col7Checkbox" checked>
+                    <label for="col7Checkbox">备注</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(8, this)">
+                    <input type="checkbox" id="col8Checkbox" checked>
+                    <label for="col8Checkbox">指令</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(9, this)">
+                    <input type="checkbox" id="col9Checkbox" checked>
+                    <label for="col9Checkbox">CBM</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(10, this)">
+                    <input type="checkbox" id="col10Checkbox" checked>
+                    <label for="col10Checkbox">件数</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(11, this)">
+                    <input type="checkbox" id="col11Checkbox" checked>
+                    <label for="col11Checkbox">重量(lbs)</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(12, this)">
+                    <input type="checkbox" id="col12Checkbox" checked>
+                    <label for="col12Checkbox">重量(kg)</label>
+                </div>
+                <div class="column-toggle-item" onclick="toggleColumnFromPanel(13, this)">
+                    <input type="checkbox" id="col13Checkbox" checked>
+                    <label for="col13Checkbox">核实状态</label>
+                </div>
+            </div>
             <tbody>
                 <!-- 筛选行 -->
                 <tr class="filter-row">
                     <td class="checkbox-cell"></td>
-                    <td>
+                    <td data-column="1">
                         <input type="text" class="filter-input" placeholder="筛选客户..." data-column="0" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="2">
                         <input type="date" class="filter-input" placeholder="筛选ETA..." data-column="1" onchange="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="3">
                         <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="2" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="4">
                         <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="3" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td class="fleet-mark-col">
+                    <td class="fleet-mark-col" data-column="5">
                         <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="4" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="6">
                         <input type="text" class="filter-input" placeholder="筛选地址..." data-column="5" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="7">
                         <input type="text" class="filter-input" placeholder="筛选备注..." data-column="6" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="8">
                         <input type="text" class="filter-input" placeholder="筛选备注..." data-column="7" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="9">
                         <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="8" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="10">
                         <input type="text" class="filter-input" placeholder="筛选件数..." data-column="9" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="11">
                         <input type="text" class="filter-input" placeholder="筛选重量..." data-column="10" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="12">
                         <input type="text" class="filter-input" placeholder="筛选重量..." data-column="11" onkeyup="applyColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="13">
                         <select class="filter-select" data-column="12" onchange="applyColumnFilter(this)">
                             <option value="">全部状态</option>
                             <option value="已核实">已核实</option>
                             <option value="未核实">未核实</option>
                         </select>
                     </td>
-                    <td class="action-col">
+                    <td class="action-col" data-column="14">
                         <!-- 操作列不需要筛选 -->
                     </td>
                 </tr>
@@ -381,20 +524,20 @@
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             onchange="updateSelectedCount()">
                     </td>
-                    <td>{{ cargo.customer_name|default:"-" }}</td>
-                    <td>{{ cargo.vessel_eta|date:"Y/n/j"|default:"-" }}</td>
-                    <td class="container-col" title="{{ cargo.container_numbers|default:'' }}">
+                    <td data-column="1">{{ cargo.customer_name|default:"-" }}</td>
+                    <td data-column="2">{{ cargo.vessel_eta|date:"Y/n/j"|default:"-" }}</td>
+                    <td data-column="3" class="container-col" title="{{ cargo.container_numbers|default:'' }}">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
-                    <td>{{ cargo.destination|default:"-" }}</td>
-                    <td class="fleet-mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
-                    <td class="address-col" title="{{ cargo.address|default:'' }}">
+                    <td data-column="4">{{ cargo.destination|default:"-" }}</td>
+                    <td data-column="5" class="fleet-mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td data-column="6" class="address-col" title="{{ cargo.address|default:'' }}">
                         {{ cargo.address|default:"-" }}
                     </td>
-                    <td class="note-col" title="{{ cargo.note|default:'' }}">
+                    <td data-column="7" class="note-col" title="{{ cargo.note|default:'' }}">
                         {{ cargo.note|default_if_none:"-" }}
                     </td>
-                    <td class="command-col">
+                    <td data-column="8" class="command-col">
                         <div class="command-input-wrapper">
                             <textarea class="editable-textarea release-command-input"
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -411,17 +554,17 @@
                             </button>
                         </div>
                     </td>
-                    <td>
+                    <td data-column="9">
                         <span class="status-badge status-expired">{{ cargo.total_cbm|floatformat:3 }}</span>
                     </td>
-                    <td>{{ cargo.total_pcs|default:0 }}</td>
-                    <td>
+                    <td data-column="10">{{ cargo.total_pcs|default:0 }}</td>
+                    <td data-column="11">
                         <span class="weight-lbs">{{ cargo.total_weight_lbs|floatformat:2 }}</span>
                     </td>
-                    <td>
+                    <td data-column="12">
                         <span class="weight-kg">{{ cargo.total_weight_kg|floatformat:2 }}</span>
                     </td>
-                    <td>
+                    <td data-column="13">
                         {% if cargo.ltl_verify %}
                             <span class="verified-status">
                                 <i class="fas fa-check-circle"></i> 已核实
@@ -432,7 +575,7 @@
                             </span>
                         {% endif %}
                     </td>
-                    <td class="action-col">
+                    <td data-column="14" class="action-col">
                         {% if not cargo.ltl_verify %}
                             <form method="post" action="" class="verify-form">
                                 {% csrf_token %}
@@ -538,6 +681,9 @@
                     updateSelectedCount();
                 });
             });
+            
+            // 加载列显示状态
+            loadColumnVisibility();
             
         }
         function release_autoResizeTextarea(textarea) {
@@ -849,6 +995,94 @@
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
+        // 列隐藏/显示功能
+        function toggleColumn(columnIndex) {
+            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            const checkbox = document.getElementById(`col${columnIndex}Checkbox`);
+            
+            cells.forEach(cell => {
+                cell.classList.toggle('hidden-column');
+            });
+            
+            if (checkbox) {
+                checkbox.checked = !cells[0].classList.contains('hidden-column');
+            }
+            
+            // 保存列显示状态到localStorage
+            saveColumnVisibility();
+        }
+
+        function toggleColumnFromPanel(columnIndex, element) {
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            
+            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            cells.forEach(cell => {
+                cell.classList.toggle('hidden-column');
+            });
+            
+            // 保存列显示状态到localStorage
+            saveColumnVisibility();
+        }
+
+        function saveColumnVisibility() {
+            const visibility = {};
+            for (let i = 1; i <= 13; i++) {
+                const checkbox = document.getElementById(`col${i}Checkbox`);
+                if (checkbox) {
+                    visibility[i] = checkbox.checked;
+                }
+            }
+            localStorage.setItem('releaseCargosColumnVisibility', JSON.stringify(visibility));
+        }
+
+        function loadColumnVisibility() {
+            const saved = localStorage.getItem('releaseCargosColumnVisibility');
+            if (saved) {
+                const visibility = JSON.parse(saved);
+                for (let i = 1; i <= 13; i++) {
+                    if (visibility.hasOwnProperty(i)) {
+                        const cells = document.querySelectorAll(`[data-column="${i}"]`);
+                        const checkbox = document.getElementById(`col${i}Checkbox`);
+                        
+                        if (!visibility[i]) {
+                            cells.forEach(cell => {
+                                cell.classList.add('hidden-column');
+                            });
+                            if (checkbox) {
+                                checkbox.checked = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function toggleColumnPanel() {
+            const panel = document.getElementById('columnTogglePanel');
+            const btn = document.getElementById('columnToggleBtn');
+            
+            panel.classList.toggle('show');
+            
+            if (panel.classList.contains('show')) {
+                const rect = btn.getBoundingClientRect();
+                panel.style.top = `${rect.bottom + 10}px`;
+                panel.style.left = `${rect.left}px`;
+            }
+        }
+
+        // 点击页面其他地方关闭面板
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('columnTogglePanel');
+            const btn = document.getElementById('columnToggleBtn');
+            
+            if (panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
+                panel.classList.remove('show');
+            }
+        });
+
         
 
         // 将函数暴露到全局作用域，以便HTML中的onclick能调用
@@ -860,6 +1094,9 @@
         window.submitSingleReleaseCommand = submitSingleReleaseCommand;
         window.batchSaveReleaseCommands = batchSaveReleaseCommands;
         window.batchUpdateVerifyStatus = batchUpdateVerifyStatus;
+        window.toggleColumn = toggleColumn;
+        window.toggleColumnFromPanel = toggleColumnFromPanel;
+        window.toggleColumnPanel = toggleColumnPanel;
     })(); // 立即执行
 
     function submitSingleReleaseCommand(btn) {
