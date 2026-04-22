@@ -543,6 +543,8 @@
                     <th>跟进状态</th>
                     <th class="customer-col">客户</th>
                     <th class="date-col">拆柜日期</th>
+                    <th class="date-col">出库时间</th>
+                    <th class="date-col">送达时间</th>
                     <th class="delivery-method-col">派送方式</th>
                     <th>柜号</th>
                     <th>目的地</th>
@@ -562,8 +564,6 @@
                     <th class="bol-col">BOL号</th>                   
                     <th>承运公司</th>
                     <th class="address-col">地址</th>
-                    <th class="date-col">出库时间</th>
-                    <th class="date-col">送达时间</th>
                     <th class="date-col">预计提货日期</th>
                     <th class="action-col">操作</th>
                 </tr>
@@ -582,70 +582,70 @@
                         <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选方式..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库时间..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选送达时间..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选方式..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="mark-col">
-                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选指令..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选指令..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         {% comment %}
                         托盘尺寸筛选只对PALLET数据有效
                         {% endcomment %}
-                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库时间..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选送达时间..." data-column="23" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="23" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="24" onkeyup="applySelfPickColumnFilter(this)">
@@ -706,6 +706,20 @@
                                     <span style="color:#757575">{{ cargo.offload_tag }}</span>
                                 {% endif %}
                             </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__shipped_at %}
+                            {{ cargo.shipment_batch_number__shipped_at|date:'Y-m-d H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__arrived_at %}
+                            {{ cargo.shipment_batch_number__arrived_at|date:'Y-m-d H:i' }}
                         {% else %}
                             -
                         {% endif %}
@@ -864,20 +878,6 @@
                             >{{ cargo.address|default:'' }}</textarea>
                     </td>
                     <td>
-                        {% if cargo.shipment_batch_number__shipped_at %}
-                            {{ cargo.shipment_batch_number__shipped_at|date:'Y-m-d H:i' }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if cargo.shipment_batch_number__arrived_at %}
-                            {{ cargo.shipment_batch_number__arrived_at|date:'Y-m-d H:i' }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
                         <input type="date" class="pickup-date-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
@@ -893,7 +893,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="27" style="text-align: center; padding: 20px;">
+                    <td colspan="29" style="text-align: center; padding: 20px;">
                         暂无已放行客提货物
                     </td>
                 </tr>
