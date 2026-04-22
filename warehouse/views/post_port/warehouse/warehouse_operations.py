@@ -64,6 +64,7 @@ class WarehouseOperations(View):
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
+        "LA-91730": "LA-91730"
     }
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
