@@ -2279,87 +2279,106 @@
             });
         }
 
-        // ========== 【修复】搜索只作用于当前标签页 ==========
+        // ========== 【修复：全局搜索 - 同时支持待确认 + 已确认】 ==========
         function initTableSearch() {
             if (window.searchRunning) return;
             window.searchRunning = true;
 
             function doSearch() {
-                // 🔥 核心修复：只获取当前激活的表格
-                const activeTab = document.querySelector('.tab-content.active .table-container');
+                // 🔥 核心：获取当前激活的子标签页（支持 pending / confirm 自动识别）
+                const activeTab = document.querySelector('.sub-content-tab.active');
                 if (!activeTab) return;
+                const subtab = activeTab.dataset.subtab;
+                const tableContainer = document.getElementById(subtab);
+                if (!tableContainer) return;
 
-                // 只收集当前标签内的搜索框
-                const inputs = activeTab.querySelectorAll('.search-input');
+                const inputs = tableContainer.querySelectorAll('.search-input');
                 let conditions = [];
 
+                // 收集搜索条件
                 inputs.forEach(i => {
                     const field = i.dataset.field;
                     const val = i.value.trim().toLowerCase();
                     if (val) {
                         const keywords = val.split(/\s+/).filter(k => k);
                         conditions.push({
-                            field,
-                            keywords,
+                            field, keywords,
                             type: i.dataset.searchType
                         });
                     }
                 });
 
-                // 只搜索当前激活表格里的行
-                const rows = activeTab.querySelectorAll('tbody tr:not(.search-row):not(.summary-row):not(.group-header-row)');
-                const fleets = new Map();
+                // 自动识别当前表格的复选框 class
+                const checkboxClass = subtab === 'delivery-pending'
+                    ? '.delivery-pending-checkbox'
+                    : '.delivery-export-checkbox';
 
-                rows.forEach(row => {
-                    let fleetRow = row;
-                    while (fleetRow && !fleetRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox')) {
-                        fleetRow = fleetRow.previousElementSibling;
+                // 按车次分组（支持合并行）
+                const fleetMap = new Map();
+                const allRows = tableContainer.querySelectorAll('tbody tr:not(.search-row):not(.summary-row):not(.group-header-row)');
+
+                allRows.forEach(row => {
+                    let mainRow = row;
+                    // 向上找到拥有复选框的「主行」
+                    while (mainRow && !mainRow.querySelector(checkboxClass)) {
+                        mainRow = mainRow.previousElementSibling;
+                        if (!mainRow) break;
                     }
-                    if (!fleetRow) return;
+                    if (!mainRow) return;
 
-                    const checkbox = fleetRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox');
-                    const fleetId = checkbox ? checkbox.value : 'none';
+                    const checkbox = mainRow.querySelector(checkboxClass);
+                    if (!checkbox) return;
+                    const fleetId = checkbox.value || 'unknown';
 
-                    if (!fleets.has(fleetId)) {
-                        fleets.set(fleetId, {
-                            main: fleetRow,
-                            group: fleetRow.previousElementSibling?.classList.contains('group-header-row') ? fleetRow.previousElementSibling : null,
-                            rows: [fleetRow],
+                    if (!fleetMap.has(fleetId)) {
+                        const groupRow = mainRow.previousElementSibling?.classList.contains('group-header-row')
+                            ? mainRow.previousElementSibling
+                            : null;
+
+                        fleetMap.set(fleetId, {
+                            groupRow,
+                            mainRow,
+                            rows: [mainRow],
                             texts: new Set()
                         });
                     }
 
-                    fleets.get(fleetId).rows.push(row);
+                    fleetMap.get(fleetId).rows.push(row);
+
+                    // 收集当前行所有文字用于匹配
                     const tds = row.querySelectorAll('td');
                     tds.forEach(td => {
-                        if (td.textContent.trim())
-                            fleets.get(fleetId).texts.add(td.textContent.trim().toLowerCase());
+                        const txt = td.textContent.trim().toLowerCase();
+                        if (txt) fleetMap.get(fleetId).texts.add(txt);
                     });
                 });
 
-                fleets.forEach((data, fleetId) => {
+                // 执行搜索匹配
+                fleetMap.forEach(data => {
                     let show = true;
-                    const allTexts = [...data.texts];
+                    const texts = Array.from(data.texts);
 
                     conditions.forEach(cond => {
                         if (cond.type === 'multi-text') {
-                            const matchAny = cond.keywords.some(keyword =>
-                                allTexts.some(text => text.includes(keyword))
+                            const match = cond.keywords.some(key =>
+                                texts.some(t => t.includes(key))
                             );
-                            if (!matchAny) show = false;
+                            if (!match) show = false;
                         }
                     });
 
                     const display = show ? '' : 'none';
-                    if (data.group) data.group.style.display = display;
+                    if (data.groupRow) data.groupRow.style.display = display;
                     data.rows.forEach(r => r.style.display = display);
                 });
 
-                // 只更新当前表格的总计
-                updateSummaryRow();
+                // 自动更新总计（只在待确认页）
+                if (subtab === 'delivery-pending') {
+                    updateSummaryRow();
+                }
             }
 
-            // 绑定事件
+            // 绑定所有搜索框事件
             document.querySelectorAll('.search-input').forEach(input => {
                 input.addEventListener('input', doSearch);
                 input.addEventListener('keydown', e => {
