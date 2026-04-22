@@ -60,6 +60,7 @@ class TransferPallet(View):
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
         "LA-91766": "LA-91766",
+        "LA-91730": "LA-91730"
     }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
