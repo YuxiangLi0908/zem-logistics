@@ -13186,7 +13186,7 @@ class PostNsop(View):
                     break
         else:
             # 有值，检查是否已存在
-            if await sync_to_async(Shipment.objects.filter(appointment_id=appointment_number).exists()):
+            if await sync_to_async(Shipment.objects.filter(appointment_id=appointment_number).exists)():
                 template, search_context = await self.handle_master_shipment_check_post(request)
                 context.update(search_context)
                 return template, context
