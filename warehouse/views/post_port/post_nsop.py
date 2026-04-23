@@ -243,8 +243,26 @@ class PostNsop(View):
     async def post(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
-        step = request.POST.get("step")
-        print('step',step)
+        
+        # 检查是否是JSON请求
+        content_type = request.content_type or ''
+        if content_type.startswith('application/json'):
+            try:
+                import json
+                data = json.loads(request.body.decode('utf-8'))
+                step = data.get('step')
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                step = None
+        else:
+            step = request.POST.get("step")
+        
+        print('step', step)
+        
+        # 处理柜号仓点查询
+        if step == "search_by_container_and_destination":
+            return await self.handle_search_by_container_and_destination(request)
+        
+
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -2310,6 +2328,196 @@ class PostNsop(View):
             return JsonResponse({'success': True, 'data': {'rdi': rdi_value}})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    async def handle_search_by_container_and_destination(self, request: HttpRequest) -> JsonResponse:
+        """根据柜号和仓点查询PackingList和Pallet"""
+        try:
+            import json
+            data = json.loads(request.body.decode('utf-8'))
+            search_data = data.get('data', [])
+
+            all_packinglists = []
+            all_pallets = []
+
+            for item in search_data:
+                destination = item.get('destination', '').strip()
+                container_nos_str = item.get('container_nos', '').strip()
+
+                # 解析柜号：支持换行或逗号分隔
+                container_nos = []
+                if container_nos_str:
+                    # 先按换行分割，再按逗号分割
+                    for part in container_nos_str.split('\n'):
+                        container_nos.extend([cn.strip() for cn in part.split(',') if cn.strip()])
+
+                # 构建通用查询条件
+                base_criteria = models.Q()
+                if not destination:
+                    continue
+                    
+                if not container_nos:
+                    continue
+                base_criteria &= models.Q(
+                    destination=destination,
+                    container_number__container_number__in=container_nos,
+                    container_number__orders__cancel_notification=False,
+                    shipment_batch_number__isnull=True
+                ) & ~models.Q(container_number__orders__order_type='直送')
+
+                # PackingList额外条件：container_number__orders__offload_id__offload_at__isnull=True
+                pl_criteria = base_criteria & models.Q(container_number__orders__offload_id__offload_at__isnull=True)
+
+                # Pallet额外条件：container_number__orders__offload_id__offload_at__isnull=False
+                plt_criteria = base_criteria & models.Q(container_number__orders__offload_id__offload_at__isnull=False)
+                
+                # 查询PackingList
+                packinglists = await sync_to_async(list)(
+                    PackingList.objects.prefetch_related(
+                        "container_number",
+                        "container_number__orders",
+                        "container_number__orders__warehouse",
+                        "container_number__orders__offload_id",
+                        "container_number__orders__customer_name",
+                    )
+                    .filter(pl_criteria)
+                    .annotate(
+                        str_id=Cast("id", CharField()),
+                        str_fba_id=Cast("fba_id", CharField()),
+                        str_ref_id=Cast("ref_id", CharField()),
+                        str_container_number=Cast("container_number__container_number", CharField()),
+                        data_source=Value("PACKINGLIST", output_field=CharField()),
+                    )
+                    .values(
+                        "destination",
+                        "container_number__container_number",
+                        "delivery_method",
+                        "note",
+                        "PO_ID",
+                        "data_source",
+                    )
+                    .annotate(
+                        fba_ids=StringAgg(
+                            "str_fba_id",
+                            delimiter=",",
+                            distinct=True,
+                            ordering="str_fba_id",
+                        ),
+                        ref_ids=StringAgg(
+                            "str_ref_id",
+                            delimiter=",",
+                            distinct=True,
+                            ordering="str_ref_id",
+                        ),
+                        ids=StringAgg(
+                            "str_id", delimiter=",", distinct=True, ordering="str_id"
+                        ),
+                        total_pcs=Sum("pcs", output_field=FloatField()),
+                        total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
+                        total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()),3),
+                        total_n_pallet_est= Ceil(Sum("cbm", output_field=FloatField()) / 1.8),  # 使用原始cbm字段计算
+                        total_n_pallet_act= Ceil(Sum("cbm", output_field=FloatField()) / 1.8),  # 使用原始cbm字段计算
+                        label=Value("EST"),
+                    )
+                )
+                all_packinglists.extend(packinglists)
+
+                # 查询Pallet
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.prefetch_related(
+                        "container_number",
+                        "container_number__orders",
+                        "container_number__orders__warehouse",
+                        "container_number__orders__offload_id",
+                        "container_number__orders__customer_name",
+                    )
+                    .filter(plt_criteria)
+                    .annotate(
+                        str_id=Cast("id", CharField()),
+                        str_fba_id=Cast("fba_id", CharField()),
+                        str_ref_id=Cast("ref_id", CharField()),
+                        str_container_number=Cast("container_number__container_number", CharField()),
+                        data_source=Value("PALLET", output_field=CharField()),
+                    )
+                    .values(
+                        "destination",
+                        "container_number__container_number",
+                        "delivery_method",
+                        "note",
+                        "data_source",
+                        "PO_ID",
+                    ).annotate(
+                        fba_ids=StringAgg(
+                            "str_fba_id",
+                            delimiter=",",
+                            distinct=True,
+                            ordering="str_fba_id",
+                        ),
+                        ref_ids=StringAgg(
+                            "str_ref_id",
+                            delimiter=",",
+                            distinct=True,
+                            ordering="str_ref_id",
+                        ),
+                        plt_ids=StringAgg(
+                            "str_id", delimiter=",", distinct=True, ordering="str_id"
+                        ),
+                        total_pcs=Sum("pcs", output_field=IntegerField()),
+                        total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
+                        total_weight_lbs=Round(Sum("weight_lbs", output_field=FloatField()),3),
+                        total_n_pallet_act=Count("pallet_id", distinct=True),
+                    )
+                )
+                all_pallets.extend(pallets)
+
+            # 合并所有数据并规范格式
+            all_data = all_packinglists + all_pallets
+            
+            # 规范数据格式，确保与 openBindModal 函数期望的格式一致
+            formatted_data = []
+            for item in all_data:
+                # 根据 data_source 确定 cargo_id 和 plt_ids
+                if item.get('data_source') == 'PACKINGLIST':
+                    cargo_id = item.get('ids', '')  # 使用聚合后的ids字段
+                    plt_ids = ''
+                else:
+                    cargo_id = ''
+                    plt_ids = item.get('plt_ids', '')  # 使用聚合后的plt_ids字段
+                
+                # 获取柜号信息
+                container_no = item.get('str_container_number', '')
+                if not container_no and item.get('container_number__container_number'):
+                    container_no = str(item.get('container_number__container_number'))
+                
+                # 获取入仓时间（需要从关联的offload_id获取）
+                offload_time = '-'  # 默认值
+                
+                formatted_item = {
+                    'ids': cargo_id,  # cargo_id
+                    'plt_ids': plt_ids,
+                    'total_weight': item.get('total_weight_lbs', 0),
+                    'total_cbm': item.get('total_cbm', 0),
+                    'total_pallet': item.get('total_n_pallet_act', item.get('total_n_pallet_est', 0)),
+                    'ref_ids': item.get('ref_ids', '-'),
+                    'fba_ids': item.get('fba_ids', '-'),
+                    'container_no': container_no,
+                    'is_dropped': False,  # 默认值
+                    'offload_time': offload_time,
+                    'customer_name': item.get('customer_name', ''),  # 可能需要从关联查询获取
+                    'delivery_method': item.get('delivery_method', ''),
+                    'destination': item.get('destination', ''),  # 添加目的地字段
+                    'cns': container_no,  # 柜号列表
+                    'total_n_pallet_act': item.get('total_n_pallet_act', 0),
+                    'total_n_pallet_est': item.get('total_n_pallet_est', 0),
+                    'total_weight_lbs': item.get('total_weight_lbs', 0),
+                    'data_source': item.get('data_source', '')
+                }
+                formatted_data.append(formatted_item)
+            
+            return JsonResponse({'success': True, 'data': formatted_data})
+        except Exception as e:
+            import traceback
+            error_msg = f'查询失败: {str(e)}'
+            return JsonResponse({'success': False, 'message': error_msg}, status=500)
 
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
@@ -8887,6 +9095,17 @@ class PostNsop(View):
                     "shipment_batch_number__arrived_at",
                     "data_source",
                     "shipment_batch_number__fleet_number__fleet_number",
+                    "shipment_batch_number__destination",
+                    "shipment_batch_number__address",
+                    "shipment_batch_number__carrier",
+                    "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_BOL",
+                    "shipment_batch_number__ARM_PRO",
+                    "shipment_batch_number__is_print_label",
+                    "shipment_batch_number__shipment_type",
+                    "shipment_batch_number__note",
+                    "shipment_batch_number__fleet_number__Supplier",
+                    "shipment_batch_number__fleet_number__fleet_cost",
                     "location",
                     "is_pass",
                     "est_pickup_time",
@@ -9055,6 +9274,17 @@ class PostNsop(View):
                     "shipment_batch_number__shipped_at",
                     "shipment_batch_number__arrived_at",
                     "shipment_batch_number__fleet_number__fleet_number",
+                    "shipment_batch_number__destination",
+                    "shipment_batch_number__address",
+                    "shipment_batch_number__carrier",
+                    "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_BOL",
+                    "shipment_batch_number__ARM_PRO",
+                    "shipment_batch_number__is_print_label",
+                    "shipment_batch_number__shipment_type",
+                    "shipment_batch_number__note",
+                    "shipment_batch_number__fleet_number__Supplier",
+                    "shipment_batch_number__fleet_number__fleet_cost",
                     "ltl_correlation_id",
                     "ltl_address",
                     "ltl_city",
@@ -9232,7 +9462,6 @@ class PostNsop(View):
         color_palette = ["#e8f4fd", "#eafaf1", "#fef9e7", "#f4ecf7", "#ebf5fb", "#fdf2e9", "#e8f8f5"]
         id_to_color = {}
         color_idx = 0
-        
         for item in data:
             corr_id = item.get('ltl_correlation_id')
             if corr_id:
@@ -10610,7 +10839,6 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''回传出库单（单个或批量）'''
-        contetxt = {}
         fm = FleetManagement()
         conn = await fm._get_sharepoint_auth()
         step = request.POST.get("step")

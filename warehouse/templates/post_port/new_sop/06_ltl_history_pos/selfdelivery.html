@@ -666,7 +666,18 @@
                     data-bol="{{ cargo.ltl_bol_num|default:'' }}"
                     data-pro="{{ cargo.ltl_pro_num|default:'' }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
-                    data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
+                    data-pallet-items='{{ cargo.pallet_items_json|safe }}'
+                    data-shipment-destination="{{ cargo.shipment_batch_number__destination|default:'' }}"
+                    data-shipment-address="{{ cargo.shipment_batch_number__address|default:'' }}"
+                    data-shipment-carrier="{{ cargo.shipment_batch_number__carrier|default:'' }}"
+                    data-shipment-appointment="{{ cargo.shipment_batch_number__shipment_appointment|date:'Y-m-d H:i'|default:'' }}"
+                    data-shipment-arm-bol="{{ cargo.shipment_batch_number__ARM_BOL|default:'' }}"
+                    data-shipment-arm-pro="{{ cargo.shipment_batch_number__ARM_PRO|default:'' }}"
+                    data-shipment-is-print-label="{{ cargo.shipment_batch_number__is_print_label|default:'' }}"
+                    data-shipment-type="{{ cargo.shipment_batch_number__shipment_type|default:'' }}"
+                    data-shipment-note="{{ cargo.shipment_batch_number__note|default:'' }}"
+                    data-shipment-fleet-supplier="{{ cargo.shipment_batch_number__fleet_number__Supplier|default:'' }}"
+                    data-shipment-fleet-cost="{{ cargo.shipment_batch_number__fleet_number__fleet_cost|default:'' }}">
                     <td class="fleet-checkbox-cell">
                         <input type="checkbox" class="fleet-cargo-checkbox" 
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -1359,7 +1370,18 @@
                     cost: costInput ? parseFloat(costInput.value) || 0 : 0,
                     quote: quoteInput ? parseFloat(quoteInput.value) || 0 : 0,
                     weight_lbs: parseFloat(row.dataset.weightLbs) || 0,
-                    pallet_items
+                    pallet_items,
+                    shipmentDestination: row.dataset.shipmentDestination,
+                    shipmentAddress: row.dataset.shipmentAddress,
+                    shipmentCarrier: row.dataset.shipmentCarrier,
+                    shipmentAppointment: row.dataset.shipmentAppointment,
+                    shipmentArmBol: row.dataset.shipmentArmBol,
+                    shipmentArmPro: row.dataset.shipmentArmPro,
+                    shipmentIsPrintLabel: row.dataset.shipmentIsPrintLabel,
+                    shipmentType: row.dataset.shipmentType,
+                    shipmentNote: row.dataset.shipmentNote,
+                    shipmentFleetSupplier: row.dataset.shipmentFleetSupplier,
+                    shipmentFleetCost: row.dataset.shipmentFleetCost
                 };
             });
 
