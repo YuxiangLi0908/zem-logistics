@@ -639,6 +639,9 @@
         <button class="fleet-action-btn btn-clear-filter" onclick="fleet_clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
+        <button class="fleet-action-btn" style="background-color: #28a745 !important; color: white !important;" onclick="openPickupListModal()">
+            <i class="fas fa-clipboard-list"></i> 拣货单
+        </button>
         <button class="fleet-column-toggle-btn" id="fleetColumnToggleBtn" onclick="fleet_toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
@@ -3049,4 +3052,189 @@
             btn.innerHTML = originalText;
         });
     }
+
+    // 拣货单功能
+    function openPickupListModal() {
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
+            .filter(checkbox => {
+                const row = checkbox.closest('tr');
+                return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
+            });
+
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要生成拣货单的行');
+            return;
+        }
+
+        // 构建拣货单数据
+        const pickupListData = selectedCheckboxes.map(checkbox => {
+            const row = checkbox.closest('tr');
+            return {
+                containerNumber: row.dataset.containerNumber || '',
+                destination: row.dataset.destination || '',
+                shippingMark: row.dataset.shippingMark || '',
+                pcs: row.dataset.pcs || '0',
+                pallets: '',
+                pickup: ''
+            };
+        });
+
+        // 填充弹框表格
+        const tbody = document.getElementById('pickupListTableBody');
+        tbody.innerHTML = '';
+
+        pickupListData.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 8px; border: 1px solid #dee2e6;">
+                    <input type="text" class="pickup-input" value="${item.containerNumber}" style="width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #dee2e6;">
+                    <input type="text" class="pickup-input" value="${item.destination}" style="width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #dee2e6;">
+                    <input type="text" class="pickup-input" value="${item.shippingMark}" style="width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #dee2e6;">
+                    <input type="text" class="pickup-input" placeholder="输入板数" style="width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #dee2e6;">
+                    <input type="text" class="pickup-input" value="${item.pcs}" style="width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #dee2e6;">
+                    <input type="text" class="pickup-input" placeholder="输入pickup" style="width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px;">
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // 打开弹框
+        const modal = new bootstrap.Modal(document.getElementById('pickupListModal'));
+        modal.show();
+    }
+
+    // 生成拣货单PDF
+    function generatePickupListPDF() {
+        const rows = document.querySelectorAll('#pickupListTableBody tr');
+        const data = Array.from(rows).map(row => {
+            const inputs = row.querySelectorAll('input');
+            return {
+                containerNumber: inputs[0].value,
+                zipcode: inputs[1].value,
+                shippingMark: inputs[2].value,
+                pallets: inputs[3].value,
+                pcs: inputs[4].value,
+                pickup: inputs[5].value
+            };
+        });
+
+        // 创建打印窗口
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Pickup List</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        padding: 20px;
+                    }
+                    h1 {
+                        text-align: center;
+                        margin-bottom: 30px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                    }
+                    th, td {
+                        border: 1px solid #000;
+                        padding: 10px;
+                        text-align: center;
+                    }
+                    th {
+                        background-color: #f2f2f2;
+                        font-weight: bold;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Pickup List</h1>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>柜号</th>
+                            <th>邮编</th>
+                            <th>唛头</th>
+                            <th>板数</th>
+                            <th>箱数</th>
+                            <th>Pickup</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(item => `
+                            <tr>
+                                <td>${item.containerNumber}</td>
+                                <td>${item.zipcode}</td>
+                                <td>${item.shippingMark}</td>
+                                <td>${item.pallets}</td>
+                                <td>${item.pcs}</td>
+                                <td>${item.pickup}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        
+        // 等待内容加载完成后打印
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
+
+        // 关闭弹框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('pickupListModal'));
+        if (modal) {
+            modal.hide();
+        }
+    }
 </script>
+
+<!-- 拣货单弹框 -->
+<div class="modal fade" id="pickupListModal" tabindex="-1" aria-hidden="true" style="z-index: 1090;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-clipboard-list me-2"></i>拣货单</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa;">
+                                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: center; width: 15%;">柜号</th>
+                                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: center; width: 15%;">邮编</th>
+                                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: center; width: 25%;">唛头</th>
+                                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: center; width: 10%;">板数</th>
+                                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: center; width: 10%;">箱数</th>
+                                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: center; width: 25%;">Pickup</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pickupListTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="generatePickupListPDF()">
+                    <i class="fas fa-print me-2"></i>生成PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
