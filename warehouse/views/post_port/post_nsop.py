@@ -243,8 +243,26 @@ class PostNsop(View):
     async def post(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
-        step = request.POST.get("step")
-        print('step',step)
+        
+        # 检查是否是JSON请求
+        content_type = request.content_type or ''
+        if content_type.startswith('application/json'):
+            try:
+                import json
+                data = json.loads(request.body.decode('utf-8'))
+                step = data.get('step')
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                step = None
+        else:
+            step = request.POST.get("step")
+        
+        print('step', step)
+        
+        # 处理柜号仓点查询
+        if step == "search_by_container_and_destination":
+            return await self.handle_search_by_container_and_destination(request)
+        
+
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -2310,6 +2328,50 @@ class PostNsop(View):
             return JsonResponse({'success': True, 'data': {'rdi': rdi_value}})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    async def handle_search_by_container_and_destination(self, request: HttpRequest) -> JsonResponse:
+        """根据柜号和仓点查询PackingList和Pallet"""
+        try:
+            import json
+            data = json.loads(request.body.decode('utf-8'))
+            search_data = data.get('data', [])
+
+            # 构建通用查询条件
+            base_criteria = models.Q(pk__isnull=False) & models.Q(pk__isnull=True)  # 默认空查询
+            for item in search_data:
+                destination = item.get('destination', '').strip()
+                container_nos_str = item.get('container_nos', '').strip()
+
+                # 解析柜号：支持换行或逗号分隔
+                container_nos = []
+                if container_nos_str:
+                    for part in container_nos_str.split('\n'):
+                        container_nos.extend([cn.strip() for cn in part.split(',') if cn.strip()])
+
+                item_criteria = models.Q()
+                if destination:
+                    item_criteria &= models.Q(destination=destination)
+                if container_nos:
+                    item_criteria &= models.Q(container_number__container_number__in=container_nos)
+                
+                if destination or container_nos:
+                    base_criteria |= item_criteria
+
+            # 通用的额外条件：排除取消的订单和直送订单，只查询没有绑定shipment的
+            pl_criteria = base_criteria & models.Q(container_number__orders__cancel_notification=False) & ~models.Q(container_number__orders__order_type='直送')
+            pl_criteria &= models.Q(shipment_batch_number__isnull=True) & models.Q(container_number__orders__offload_id__offload_at__isnull=True)
+
+            plt_criteria = base_criteria & models.Q(container_number__orders__cancel_notification=False) & ~models.Q(container_number__orders__order_type='直送')
+            plt_criteria &= models.Q(shipment_batch_number__isnull=True) & models.Q(container_number__orders__offload_id__offload_at__isnull=False)
+
+            # 使用 _ltl_packing_list 方法查询数据
+            result_data = await self._ltl_packing_list(pl_criteria, plt_criteria)
+
+            return JsonResponse({'success': True, 'data': result_data})
+        except Exception as e:
+            import traceback
+            error_msg = f'查询失败: {str(e)}'
+            return JsonResponse({'success': False, 'message': error_msg}, status=500)
 
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
@@ -8887,6 +8949,17 @@ class PostNsop(View):
                     "shipment_batch_number__arrived_at",
                     "data_source",
                     "shipment_batch_number__fleet_number__fleet_number",
+                    "shipment_batch_number__destination",
+                    "shipment_batch_number__address",
+                    "shipment_batch_number__carrier",
+                    "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_BOL",
+                    "shipment_batch_number__ARM_PRO",
+                    "shipment_batch_number__is_print_label",
+                    "shipment_batch_number__shipment_type",
+                    "shipment_batch_number__note",
+                    "shipment_batch_number__fleet_number__Supplier",
+                    "shipment_batch_number__fleet_number__fleet_cost",
                     "location",
                     "is_pass",
                     "est_pickup_time",
@@ -9055,6 +9128,17 @@ class PostNsop(View):
                     "shipment_batch_number__shipped_at",
                     "shipment_batch_number__arrived_at",
                     "shipment_batch_number__fleet_number__fleet_number",
+                    "shipment_batch_number__destination",
+                    "shipment_batch_number__address",
+                    "shipment_batch_number__carrier",
+                    "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_BOL",
+                    "shipment_batch_number__ARM_PRO",
+                    "shipment_batch_number__is_print_label",
+                    "shipment_batch_number__shipment_type",
+                    "shipment_batch_number__note",
+                    "shipment_batch_number__fleet_number__Supplier",
+                    "shipment_batch_number__fleet_number__fleet_cost",
                     "ltl_correlation_id",
                     "ltl_address",
                     "ltl_city",
@@ -9232,7 +9316,6 @@ class PostNsop(View):
         color_palette = ["#e8f4fd", "#eafaf1", "#fef9e7", "#f4ecf7", "#ebf5fb", "#fdf2e9", "#e8f8f5"]
         id_to_color = {}
         color_idx = 0
-        
         for item in data:
             corr_id = item.get('ltl_correlation_id')
             if corr_id:
@@ -10610,7 +10693,6 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''回传出库单（单个或批量）'''
-        contetxt = {}
         fm = FleetManagement()
         conn = await fm._get_sharepoint_auth()
         step = request.POST.get("step")
