@@ -61,6 +61,7 @@ from warehouse.utils.constants import (
     WAREHOUSE_OPTIONS,
 )
 from warehouse.views.export_file import export_palletization_list, export_palletization_list_v2
+from warehouse.views.pre_port.pre_port_dash import PrePortDash
 
 
 class Palletization(View):
@@ -1316,11 +1317,19 @@ class Palletization(View):
                 order__container_number__container_number=container_number
             )
             retrieval_date = retrieval.target_retrieval_timestamp
+            retrieval_destination_area = retrieval.retrieval_destination_area
+            # 转换成当地时间
+            preportdash = PrePortDash()
+            retrieval_date = preportdash._convert_utc_to_local(retrieval_date, retrieval_destination_area)
             if retrieval_date:
-                retrieval_date = retrieval_date.date()
+                # 如果是字符串，先转成 datetime
+                if isinstance(retrieval_date, str):
+                    retrieval_date = datetime.strptime(retrieval_date, "%Y-%m-%d %H:%M:%S")
+                # 现在一定是 datetime，直接格式化
+                retrieval_date = retrieval_date.strftime("%m/%d")
             else:
-                retrieval_date = datetime.now().date()
-            retrieval_date = retrieval_date.strftime("%m/%d")
+                # 空值，取当前时间
+                retrieval_date = datetime.now().strftime("%m/%d")
             packing_list = await self._get_packing_list(
                 container_number=container_number, status=status
             )
