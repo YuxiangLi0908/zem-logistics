@@ -554,6 +554,9 @@ class PostNsop(View):
         elif step == "batch_shipment_confirm":
             template, context = await self.handle_batch_shipment_confirm(request)
             return render(request, template, context)
+        elif step == "fleet_leader_check_filter":
+            template, context = await self.handle_fleet_leader_check_get(request)
+            return render(request, template, context)
         elif step == "fleet_leader_check":
             template, context = await self.handle_fleet_leader_check_post(request)
             return render(request, template, context)
@@ -7065,21 +7068,66 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """获取需要核对的车队信息"""
-        # 查找需要核对的fleet记录
-        cutoff_date = timezone.datetime(2026, 4, 6, tzinfo=timezone.utc)
-        fleets = await sync_to_async(list)(Fleet.objects.filter(
+        # 获取筛选参数
+        start_date = request.POST.get('start_date') or request.GET.get('start_date')
+        end_date = request.POST.get('end_date') or request.GET.get('end_date')
+        destination = request.POST.get('destination') or request.GET.get('destination')
+        
+        # 如果没有设置时间，默认使用最近一个月
+        if not start_date and not end_date:
+            today = timezone.now().date()
+            one_month_ago = today - timezone.timedelta(days=30)
+            start_date = one_month_ago.strftime('%Y-%m-%d')
+            end_date = today.strftime('%Y-%m-%d')
+        
+        # 构建查询条件
+        query_conditions = models.Q(
             check_by_leader=False,
-            fleet_type__in=['FTL','外配','快递'],
-            appointment_datetime__gt=cutoff_date
-        ))
+            fleet_type__in=['FTL','外配','快递']
+        )
+        
+        # 添加时间筛选条件
+        if start_date:
+            start_datetime = timezone.datetime.strptime(start_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+            query_conditions &= models.Q(appointment_datetime__gte=start_datetime)
+            
+        if end_date:
+            end_datetime = timezone.datetime.strptime(end_date, '%Y-%m-%d').replace(
+                hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
+            )
+            query_conditions &= models.Q(appointment_datetime__lte=end_datetime)
+        
+        # 查找需要核对的fleet记录
+        fleets = await sync_to_async(list)(Fleet.objects.filter(query_conditions).order_by('appointment_datetime'))
+        
+        # 如果设置了目的仓筛选，进一步过滤shipment
+        if destination:
+            filtered_fleets = []
+            for fleet in fleets:
+                # 检查该fleet是否有符合条件的shipment
+                has_matching_shipment = await sync_to_async(Shipment.objects.filter(
+                    fleet_number__fleet_number=fleet.fleet_number,
+                    destination__icontains=destination
+                ).exists)()
+                
+                if has_matching_shipment:
+                    filtered_fleets.append(fleet)
+            
+            fleets = filtered_fleets
         
         # 为每个fleet获取相关的shipment、packinglist和pallet
         fleet_data = []
         for fleet in fleets:
             # 获取相关的shipment
-            shipments = await sync_to_async(list)(Shipment.objects.filter(
+            shipment_query = Shipment.objects.filter(
                 fleet_number__fleet_number=fleet.fleet_number
-            ))
+            )
+            
+            # 如果设置了目的仓，添加目的仓筛选条件
+            if destination:
+                shipment_query = shipment_query.filter(destination__icontains=destination)
+            
+            shipments = await sync_to_async(list)(shipment_query)
 
             shipment_data = []
             for shipment in shipments:
@@ -7091,8 +7139,11 @@ class PostNsop(View):
                 .values(
                     'PO_ID', 
                     'shipment_batch_number__shipment_batch_number',
+                    'shipment_batch_number',
+                    'master_shipment_batch_number',
                     'container_number__container_number',
-                    'destination'
+                    'destination',
+                    'is_dropped_pallet'
                 ).annotate(
                     pallet_count=Count('id')
                 ))
@@ -7112,7 +7163,10 @@ class PostNsop(View):
         
         context = {
             'fleets': fleet_data,
-            'warehouse_options': self.warehouse_options
+            'warehouse_options': self.warehouse_options,
+            'start_date': start_date,
+            'end_date': end_date,
+            'destination': destination
         }
         return self.template_fleet_check, context
     
