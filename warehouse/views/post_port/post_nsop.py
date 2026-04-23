@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Tuple
-from django.db.models import Prefetch, F, Subquery, OuterRef, Exists
+from django.db.models import Prefetch, F, Subquery, OuterRef, Exists, Min
 from collections import OrderedDict, defaultdict
 import pandas as pd
 import json
@@ -84,6 +84,7 @@ from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
+from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
@@ -103,6 +104,7 @@ class PostNsop(View):
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
+    template_other_selfdelivery = "post_port/new_sop/05_ltl_pos_all/other_selfdelivery.html"
     template_ltl_history_pos = "post_port/new_sop/06_ltl_history_pos/06_ltl_main.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
@@ -571,6 +573,12 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "add_pallets_to_shipment":
             template, context = await self.handle_add_pallets_to_shipment(request)
+            return render(request, template, context)
+        elif step == "other_selfdelivery":
+            template, context = await self.other_selfdelivery(request)
+            return render(request, template, context)
+        elif step == "other_selfpick_cargos":
+            template, context = await self.other_selfpick_cargos(request)
             return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
@@ -10637,7 +10645,6 @@ class PostNsop(View):
         pod_data = await self._ltl_pod_get(warehouse)
         # #待传出库单
         shipping_data = await self._ltl_shipping_get(warehouse)
-
         pod_data = sorted(
             pod_data,
             key=lambda p: p.pod_to_customer is True
@@ -10677,7 +10684,405 @@ class PostNsop(View):
         if active_tab:
             context.update({'active_tab':active_tab})
         return self.template_ltl_pos_all, context
-    
+
+    async def other_selfdelivery(self, request):
+        warehouse = request.POST.get("warehouse")
+        # LA私仓卡车派送 待拆柜
+        packinglist_not_selfdelivery = await self._get_order_not_palletized_other_selfdelivery(warehouse)
+        # LA私仓卡车派送 已拆柜
+        packinglist_selfdelivery = await self._get_order_palletized_other_selfdelivery(warehouse)
+        # LA私仓卡车派送 预约情况
+        order_with_shipment = await self._get_order_shipment_other_selfdelivery(warehouse)
+
+        context = {
+            'warehouse': warehouse,
+            'warehouse_options': self.warehouse_options,
+            "packinglist_not_selfdelivery": packinglist_not_selfdelivery,
+            "packinglist_selfdelivery": packinglist_selfdelivery,
+            "order_with_shipment": order_with_shipment
+        }
+        return self.template_other_selfdelivery, context
+
+    async def other_selfpick_cargos(self, request):
+        warehouse = request.POST.get("warehouse")
+        # LA私仓客户自提 待拆柜
+        packinglist_selfpick_cargos = await self._get_order_not_palletized_other_selfpick_cargos(warehouse)
+        # LA私仓客户自提 已拆柜
+        packinglist_selfdelivery = await self._get_order_palletized_other_selfpick_cargos(warehouse)
+        # LA私仓客户自提 预约情况
+        order_with_shipment = await self._get_order_shipment_other_selfdelivery(warehouse)
+
+        context = {
+            'warehouse': warehouse,
+            'warehouse_options': self.warehouse_options,
+            "packinglist_selfpick_cargos": packinglist_selfpick_cargos,
+            "packinglist_selfdelivery": packinglist_selfdelivery,
+            "order_with_shipment": order_with_shipment,
+        }
+        return self.template_other_selfpick_cargos, context
+
+    async def _get_order_shipment_other_selfdelivery(self, warehouse: str) -> Order:
+        """私仓卡车派送预约情况"""
+        return await sync_to_async(list)(
+            PackingList.objects.prefetch_related(
+                "container_number",
+                "container_number__orders",
+                "container_number__orders__warehouse",
+                "shipment_batch_number",
+            )
+            .filter(
+                models.Q(
+                    container_number__orders__warehouse__name=warehouse,
+                    shipment_batch_number__isnull=False,
+                    delivery_type='other',
+                    delivery_method='卡车派送',
+                )
+            )
+            .values("container_number__container_number")
+            .annotate(
+                shipment_scheduled_time=Min(
+                    "shipment_batch_number__shipment_appointment"
+                )
+            )
+        )
+
+    async def _get_order_shipment_other_selfpick_cargos(self, warehouse: str) -> Order:
+        """私仓客户自提预约情况"""
+        return await sync_to_async(list)(
+            PackingList.objects.prefetch_related(
+                "container_number",
+                "container_number__orders",
+                "container_number__orders__warehouse",
+                "shipment_batch_number",
+            )
+            .filter(
+                models.Q(
+                    container_number__orders__warehouse__name=warehouse,
+                    shipment_batch_number__isnull=False,
+                    delivery_type='other',
+                    delivery_method='客户自提',
+                )
+            )
+            .values("container_number__container_number")
+            .annotate(
+                shipment_scheduled_time=Min(
+                    "shipment_batch_number__shipment_appointment"
+                )
+            )
+        )
+
+    async def _get_order_not_palletized_other_selfdelivery(self, warehouse: str) -> Order:
+        """私仓未打板 卡车派送"""
+        packinglist = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=True,
+                    offload_id__offload_other_at__isnull=True,
+                    created_at__gte="2024-07-01",
+                    cancel_notification=False,
+                    container_number__packinglist__delivery_type='other',
+                    container_number__packinglist__delivery_method='卡车派送',
+
+                )
+            )
+            .order_by("retrieval_id__arrive_at")
+        )
+        return packinglist
+
+    async def _get_order_not_palletized_other_selfpick_cargos(self, warehouse: str) -> Order:
+        """私仓未打板 客户自提"""
+        packinglist = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=True,
+                    offload_id__offload_other_at__isnull=True,
+                    created_at__gte="2024-07-01",
+                    cancel_notification=False,
+                    container_number__packinglist__delivery_type='other',
+                    container_number__packinglist__delivery_method='客户自提',
+
+                )
+            )
+            .order_by("retrieval_id__arrive_at")
+        )
+        return packinglist
+
+    async def _get_order_palletized_other_selfdelivery(self, warehouse: str) -> Order:
+        """私仓已打板 卡车派送"""
+        return await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=False,
+                    offload_id__offload_other_at__isnull=False,
+                    cancel_notification=False,
+                    created_at__gte=timezone.now() - timedelta(days=120),
+                    container_number__packinglist__delivery_type='other',
+                    container_number__packinglist__delivery_method='卡车派送',
+                )
+            )
+            .order_by("offload_id__offload_at")
+        )
+
+    async def _get_order_palletized_other_selfpick_cargos(self, warehouse: str) -> Order:
+        """私仓已打板 客户自提"""
+        return await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=False,
+                    offload_id__offload_other_at__isnull=False,
+                    cancel_notification=False,
+                    created_at__gte=timezone.now() - timedelta(days=120),
+                    container_number__packinglist__delivery_type='other',
+                    container_number__packinglist__delivery_method='客户自提',
+                )
+            )
+            .order_by("offload_id__offload_at")
+        )
+
+    # 私仓卡车派送
+    async def _get_packing_list_other_selfdelivery(
+        self, container_number: str, status: str
+    ) -> PackingList:
+        if status == "non_palletized":
+            return await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(container_number__container_number=container_number, delivery_type='other', delivery_method='卡车派送')
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "destination",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "master_shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                    "delivery_type",
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        elif status == "palletized":
+            return await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(container_number__container_number=container_number, delivery_type='other', delivery_method='卡车派送')
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_length=Cast("length", CharField()),
+                    str_width=Cast("width", CharField()),
+                    str_height=Cast("height", CharField()),
+                    str_pcs=Cast("pcs", CharField()),
+                    str_number=Cast("sequence_number", CharField()),
+                    str_weight=Cast("weight_lbs", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "delivery_method",
+                    "destination",
+                    "fba_id",
+                    "ref_id",
+                    "shipping_mark",
+                    "note",
+                    "PO_ID",
+                    "delivery_type",
+                    "slot",
+                )
+                .annotate(
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet_id", distinct=True),
+                    ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    length=StringAgg(
+                        "str_length", delimiter=",", ordering="str_length"
+                    ),
+                    width=StringAgg("str_width", delimiter=",", ordering="str_width"),
+                    height=StringAgg(
+                        "str_height", delimiter=",", ordering="str_height"
+                    ),
+                    n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
+                    number=StringAgg(
+                        "str_number", delimiter=",", ordering="str_number"
+                    ),
+                    weight=StringAgg(
+                        "str_weight", delimiter=",", ordering="str_weight"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        else:
+            raise ValueError(f"invalid status: {status}")
+
+    # 私仓客户自提
+    async def _get_packing_list_other_selfpick_cargos(
+            self, container_number: str, status: str
+    ) -> PackingList:
+        if status == "non_palletized":
+            return await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(container_number__container_number=container_number, delivery_type='other',
+                        delivery_method='客户自提')
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="客户自提") | Q(destination="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "destination",
+                                Value("-"),
+                                "shipping_mark",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "destination",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "custom_delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "master_shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                    "delivery_type",
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        elif status == "palletized":
+            return await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(container_number__container_number=container_number, delivery_type='other',
+                        delivery_method='客户自提')
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_length=Cast("length", CharField()),
+                    str_width=Cast("width", CharField()),
+                    str_height=Cast("height", CharField()),
+                    str_pcs=Cast("pcs", CharField()),
+                    str_number=Cast("sequence_number", CharField()),
+                    str_weight=Cast("weight_lbs", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "delivery_method",
+                    "destination",
+                    "fba_id",
+                    "ref_id",
+                    "shipping_mark",
+                    "note",
+                    "PO_ID",
+                    "delivery_type",
+                    "slot",
+                )
+                .annotate(
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet_id", distinct=True),
+                    ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    length=StringAgg(
+                        "str_length", delimiter=",", ordering="str_length"
+                    ),
+                    width=StringAgg("str_width", delimiter=",", ordering="str_width"),
+                    height=StringAgg(
+                        "str_height", delimiter=",", ordering="str_height"
+                    ),
+                    n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
+                    number=StringAgg(
+                        "str_number", delimiter=",", ordering="str_number"
+                    ),
+                    weight=StringAgg(
+                        "str_weight", delimiter=",", ordering="str_weight"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        else:
+            raise ValueError(f"invalid status: {status}")
+
     async def _ltl_unscheduled_data(
         self, request: HttpRequest, warehouse:str, start_date: str | None = None, end_date: str | None = None
     ) -> tuple[str, dict[str, Any]]:
