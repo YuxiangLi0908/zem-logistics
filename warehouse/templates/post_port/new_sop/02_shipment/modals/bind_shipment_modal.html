@@ -643,13 +643,13 @@
             shipmentTypeSelect.value = shipmentType;
         }
 
-        document.getElementById('ftl-destination').value = destination;
-        document.getElementById('address_detail').value = addressDetail;
-        document.getElementById('shipment_cargo_id').value = shipmentCargoId;
-        document.getElementById('note').value = note === 'None' ? '' : note;
-        document.getElementById('origin-select-1').value = origin;
-        document.getElementById('carrier').value = carrier;
-        document.getElementById('arm_bol').value = arm_bol;
+        document.getElementById('ftl-destination').value = destination || '';
+        document.getElementById('address_detail').value = addressDetail || '';
+        document.getElementById('shipment_cargo_id').value = shipmentCargoId || '';
+        document.getElementById('note').value = note === 'None' ? '' : (note || '');
+        document.getElementById('origin-select-1').value = origin || '';
+        document.getElementById('carrier').value = carrier || '';
+        document.getElementById('arm_bol').value = arm_bol || '';
 
 
         if (loadType) {
@@ -710,7 +710,7 @@
                 <td>${c.ref_ids}</td>
                 <td>${c.fba_ids}</td>
                 <td>${c.container_no}</td>
-                <td>${destination}</td>
+                <td>${c.destination || ''}</td>
                 <td>${c.total_pallet}</td>
                 <td>${c.total_cbm}</td>
                 <td>${c.total_weight}</td>
@@ -732,6 +732,38 @@
         document.getElementById('modalPltIds').value = allPltIds.join(',');
 
         initializeCargoSelection();
+
+        // 弹框初始化时自动更新是主约列（如果warehouse包含LA）
+        if (typeof warehouse !== 'undefined' && warehouse && warehouse.includes('LA')) {
+            const currentDestination = (destination || '').trim().toUpperCase();
+            
+            // 遍历表格中的所有行
+            const allRows = document.querySelectorAll('#cargoSelectionBody tr');
+            allRows.forEach(tr => {
+                const destinationCell = tr.querySelector('td:nth-child(5)'); // 目的地列
+                const selectEl = tr.querySelector('.is-master-select'); // 是主约下拉框
+                
+                if (destinationCell && selectEl) {
+                    const rowDestination = destinationCell.textContent.trim().toUpperCase();
+                    
+                    // 检查是否有包含关系：预约信息的目的地包含表格目的地，或者表格目的地包含预约信息的目的地
+                    const hasContainment = currentDestination.includes(rowDestination) || rowDestination.includes(currentDestination);
+                    
+                    // 如果有包含关系，是主约改为"是"，否则改为"否"
+                    if (hasContainment) {
+                        if (selectEl.value === '0') {
+                            selectEl.value = '1';
+                            console.log('初始化时自动调整是主约：有包含关系，改为"是"', rowDestination, '↔', currentDestination);
+                        }
+                    } else {
+                        if (selectEl.value === '1') {
+                            selectEl.value = '0';
+                            console.log('初始化时自动调整是主约：无包含关系，改为"否"', rowDestination, '↔', currentDestination);
+                        }
+                    }
+                }
+            });
+        }
 
         document.getElementById('bindShipmentModal').style.display = 'block';
     }
@@ -882,20 +914,86 @@
         return result;
     }
 
-    document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+    // 目的地输入框失去焦点事件处理
+    document.getElementById('ftl-destination').addEventListener('blur', function() {
+        // 检查全局变量warehouse是否包含"LA"
+        if (typeof warehouse !== 'undefined' && warehouse && warehouse.includes('LA')) {
+            const currentDestination = this.value.trim().toUpperCase();
+            
+            // 遍历表格中的所有行
+            const allRows = document.querySelectorAll('#cargoSelectionBody tr');
+            allRows.forEach(tr => {
+                const destinationCell = tr.querySelector('td:nth-child(5)'); // 目的地列
+                const selectEl = tr.querySelector('.is-master-select'); // 是主约下拉框
+                
+                if (destinationCell && selectEl) {
+                    const rowDestination = destinationCell.textContent.trim().toUpperCase();
+                    
+                    // 检查是否有包含关系：预约信息的目的地包含表格目的地，或者表格目的地包含预约信息的目的地
+                    const hasContainment = currentDestination.includes(rowDestination) || rowDestination.includes(currentDestination);
+                    
+                    // 如果有包含关系，是主约改为"是"，否则改为"否"
+                    if (hasContainment) {
+                        if (selectEl.value === '0') {
+                            selectEl.value = '1';
+                            console.log('自动调整是主约：有包含关系，改为"是"', rowDestination, '↔', currentDestination);
+                        }
+                    } else {
+                        if (selectEl.value === '1') {
+                            selectEl.value = '0';
+                            console.log('自动调整是主约：无包含关系，改为"否"', rowDestination, '↔', currentDestination);
+                        }
+                    }
+                }
+            });
+        }
+    });
 
+    document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
         const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
         if (selected.length === 0) {
             alert('请至少选择一个PO！');
+            e.preventDefault();
             return;
         }
 
-        const cargoIds = selected.map(cb => cb.dataset.cargoId).filter(id => id && id.trim() !== '');
-        const pltIds = selected.map(cb => cb.dataset.pltId).filter(id => id && id.trim() !== '');
+        // 预约账号非空验证
+        const shipmentAccountSelect = document.getElementById('shipment-account-select');
+        if (shipmentAccountSelect && !shipmentAccountSelect.value.trim()) {
+            alert('请选择预约账号！');
+            shipmentAccountSelect.focus();
+            e.preventDefault();
+            return;
+        }
 
-        document.getElementById('modalCargoIds').value = cargoIds.join(',');
-        document.getElementById('modalPltIds').value = pltIds.join(',');
+        // 收集所有行的ID（包括未选中的），确保至少有一个ID被提交
+        const allCargoIds = [];
+        const allPltIds = [];
+        
+        const allCheckboxes = document.querySelectorAll('.cargo-checkbox');
+        console.log('所有checkbox数量:', allCheckboxes.length);
+        
+        allCheckboxes.forEach((cb, index) => {
+            const cargoId = cb.dataset.cargoId;
+            const pltId = cb.dataset.pltId;
+            
+            console.log(`checkbox ${index}: cargoId="${cargoId}", pltId="${pltId}"`);
+            
+            if (cargoId && cargoId.trim() !== '') {
+                allCargoIds.push(cargoId);
+            }
+            if (pltId && pltId.trim() !== '') {
+                allPltIds.push(pltId);
+            }
+        });
+        // 如果所有行都没有ID，使用选中的行（虽然这种情况不应该发生）
+        const finalCargoIds = allCargoIds.length > 0 ? allCargoIds : selected.map(cb => cb.dataset.cargoId).filter(id => id && id.trim() !== '');
+        const finalPltIds = allPltIds.length > 0 ? allPltIds : selected.map(cb => cb.dataset.pltId).filter(id => id && id.trim() !== '');
+
+
+        document.getElementById('modalCargoIds').value = finalCargoIds.join(',');
+        document.getElementById('modalPltIds').value = finalPltIds.join(',');
+    
         
         // 收集 non_master_ids
         const nonMasterIdsValue = collectNonMasterIds();
@@ -909,7 +1007,8 @@
             const btn = this.querySelector('button[type="submit"]');
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
             btn.disabled = true;
-            this.submit();
+            // 移除 this.submit() 调用，避免重复触发提交事件
+            // 表单会正常提交，因为我们没有阻止默认行为（e.preventDefault() 只在验证失败时使用）
         }
     });
 </script>

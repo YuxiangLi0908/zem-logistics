@@ -262,11 +262,16 @@
     <!-- 智能匹配建议表格 -->
     {% if matching_suggestions %}
     <div style="margin-top: 20px;">
-        <h4 style="margin-bottom: 15px; color: var(--secondary-color);">
-            <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个分组)
-            <span style="background-color: #e3f2fd; padding: 2px 8px; border-radius: 6px; display: inline-block; font-size: 0.9 rem;">
-                选中总板数: <span id="unscheduledVisiblePallets">0</span> ，选中总CBM: <span id="unscheduledVisibleCbm">0</span>
+        <h4 style="margin-bottom: 15px; color: var(--secondary-color); display: flex; justify-content: space-between; align-items: center;">
+            <span>
+                <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个分组)
+                <span style="background-color: #e3f2fd; padding: 2px 8px; border-radius: 6px; display: inline-block; font-size: 0.9 rem;">
+                    选中总板数: <span id="unscheduledVisiblePallets">0</span> ，选中总CBM: <span id="unscheduledVisibleCbm">0</span>
+                </span>
             </span>
+            <button id="openContainerSearchBtn" class="action-btn btn-primary" style="background: linear-gradient(135deg, #007bff, #4a6a8a); color: white; padding: 10px 24px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+                <i class="fas fa-link"></i>转仓预约出库
+            </button>
         </h4>
         
         <div class="table-container">
@@ -745,6 +750,54 @@
     </div>
 </div>
 
+<!-- 柜号仓点查询弹框 -->
+<div id="containerSearchModal" class="modal">
+    <div class="modal-content" style="width: 80%; max-width: 900px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-link"></i> 柜号仓点查询</h3>
+            <span class="close" id="closeContainerSearchBtn">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4><i class="fas fa-box"></i> 查询条件</h4>
+                <button id="addContainerSearchRow" class="action-btn btn-success" style="padding: 6px 12px;">
+                    <i class="fas fa-plus"></i> 添加查询条件
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="modal-table" id="containerSearchTable">
+                    <thead>
+                        <tr>
+                            <th>仓点</th>
+                            <th>柜号（支持多个，用逗号或换行分隔）</th>
+                            <th style="width: 60px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="containerSearchTableBody">
+                        <tr>
+                            <td><input type="text" class="destination-input" style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box;" placeholder="输入仓点"></td>
+                            <td><textarea class="container-nos-input" style="width: 100%; min-height: 60px; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; resize: vertical;" placeholder="输入柜号，多个用换行或逗号分隔"></textarea></td>
+                            <td style="text-align: center;">
+                                <button class="action-btn btn-danger" onclick="removeContainerSearchRow(this)" style="padding: 2px 6px;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button class="modal-btn modal-btn-success" id="confirmContainerSearch">
+                    <i class="fas fa-check"></i> 确认查询
+                </button>
+                <button class="modal-btn modal-btn-danger" id="cancelContainerSearch">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 修改指令的表单 -->
 <form id="shipmentNoteForm" method="post">
     {% csrf_token %}
@@ -775,6 +828,220 @@
     function closeExportPoModal() {
         document.getElementById('exportPoModal').style.display = 'none';
     }
+
+    // 柜号仓点查询弹框相关
+    function openContainerSearchModal() {
+        const modal = document.getElementById('containerSearchModal');
+        modal.style.display = 'block';
+    }
+    function closeContainerSearchModal() {
+        document.getElementById('containerSearchModal').style.display = 'none';
+    }
+
+    function addContainerSearchRow() {
+        const tbody = document.getElementById('containerSearchTableBody');
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td><input type="text" class="destination-input" style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box;" placeholder="输入仓点"></td>
+            <td><textarea class="container-nos-input" style="width: 100%; min-height: 60px; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; resize: vertical;" placeholder="输入柜号，多个用换行或逗号分隔"></textarea></td>
+            <td style="text-align: center;">
+                <button class="action-btn btn-danger" onclick="removeContainerSearchRow(this)" style="padding: 2px 6px;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(newRow);
+    }
+
+    function removeContainerSearchRow(btn) {
+        const tbody = document.getElementById('containerSearchTableBody');
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length <= 1) {
+            alert('至少保留一行');
+            return;
+        }
+        btn.closest('tr').remove();
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function submitContainerSearch() {
+        const tbody = document.getElementById('containerSearchTableBody');
+        const rows = tbody.querySelectorAll('tr');
+        const data = [];
+        let hasEmptyFields = false;
+
+        rows.forEach((row, index) => {
+            const destinationInput = row.querySelector('.destination-input');
+            const containerNosInput = row.querySelector('.container-nos-input');
+            const destination = destinationInput.value.trim();
+            const containerNos = containerNosInput.value.trim();
+
+            // 检查每一行的仓点和柜号是否为空
+            if (!destination || !containerNos) {
+                hasEmptyFields = true;
+                // 高亮显示空字段
+                if (!destination) {
+                    destinationInput.style.borderColor = '#dc3545';
+                } else {
+                    destinationInput.style.borderColor = '#ced4da';
+                }
+                if (!containerNos) {
+                    containerNosInput.style.borderColor = '#dc3545';
+                } else {
+                    containerNosInput.style.borderColor = '#ced4da';
+                }
+                return;
+            } else {
+                // 重置边框颜色
+                destinationInput.style.borderColor = '#ced4da';
+                containerNosInput.style.borderColor = '#ced4da';
+            }
+
+            data.push({
+                destination: destination,
+                container_nos: containerNos
+            });
+        });
+
+        if (hasEmptyFields) {
+            alert('请确保每一行的仓点和柜号都不能为空！');
+            return;
+        }
+
+        if (data.length === 0) {
+            alert('请至少填写一行数据');
+            return;
+        }
+
+        const confirmBtn = document.getElementById('confirmContainerSearch');
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查询中...';
+
+        fetch('{% url "post_nsop" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                step: 'search_by_container_and_destination',
+                data: data
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeContainerSearchModal();
+
+                console.log('后端返回的原始数据:', result.data);
+                
+                const cargos = result.data.map(item => {
+                    console.log('单个item数据:', item);
+                    
+                    const cargo_id = item.ids || '';
+                    const plt_ids = item.plt_ids || '';
+                    const total_weight = item.total_weight || 0;
+                    const total_cbm = item.total_cbm || 0;
+                    const total_pallet = item.total_pallet || 0;
+                    const ref_ids = item.ref_ids || '-';
+                    const fba_ids = item.fba_ids || '-';
+                    const container_no = item.container_no || '-';
+                    const is_dropped = item.is_dropped || false;
+                    const offload_time = item.offload_time || '-';
+                    const destination = item.destination || '';
+
+                    const cargo = {
+                        cargo_id,
+                        plt_ids,
+                        total_weight,
+                        total_cbm,
+                        total_pallet,
+                        ref_ids,
+                        fba_ids,
+                        container_no,
+                        is_dropped,
+                        offload_time,
+                        destination
+                    };
+                    
+                    console.log('转换后的cargo:', cargo);
+                    return cargo;
+                });
+
+                if (typeof openBindModal === 'function') {
+                    // 从查询结果中获取目的地信息（取第一个cargo的目的地）
+                    const firstDestination = cargos.length > 0 && cargos[0].destination ? cargos[0].destination : '';
+                    
+                    openBindModal({
+                        cargos: cargos,
+                        hasAppointment: false,
+                        operationType: 'bind',
+                        destination: firstDestination || '',
+                        addressDetail: '',
+                        note: '',
+                        shipmentCargoId: '',
+                        shipmentType: '',
+                        carrier: '',
+                        arm_bol: '',
+                        origin: '',
+                        shipmentBatchNumber: ''
+                    });
+                } else {
+                    alert('无法打开预约弹框');
+                }
+            } else {
+                const errorMsg = result.message || '未知错误';
+                const errorDetail = result.error_detail;
+                let fullError = errorMsg;
+                if (errorDetail) {
+                    fullError = errorMsg + '\n\n详情:\n' + errorDetail;
+                }
+                alert(fullError);
+                console.error('查询错误详情:', result);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            let errorMsg = '查询出错，请稍后重试';
+            if (error.message) {
+                errorMsg += '\n\n' + error.message;
+            }
+            alert(errorMsg);
+        })
+        .finally(() => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i> 确认查询';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const openBtn = document.getElementById('openContainerSearchBtn');
+        const closeBtn1 = document.getElementById('closeContainerSearchBtn');
+        const closeBtn2 = document.getElementById('cancelContainerSearch');
+        const addRowBtn = document.getElementById('addContainerSearchRow');
+        const confirmBtn = document.getElementById('confirmContainerSearch');
+
+        if (openBtn) openBtn.addEventListener('click', openContainerSearchModal);
+        if (closeBtn1) closeBtn1.addEventListener('click', closeContainerSearchModal);
+        if (closeBtn2) closeBtn2.addEventListener('click', closeContainerSearchModal);
+        if (addRowBtn) addRowBtn.addEventListener('click', addContainerSearchRow);
+        if (confirmBtn) confirmBtn.addEventListener('click', submitContainerSearch);
+    });
+
     // 搜索相关变量
     let searchState = {};
     let searchTimer;
@@ -1480,3 +1747,4 @@
 
 {% include 'post_port/new_sop/02_shipment/modals/maersk_rating.html' %}
 {% include 'post_port/new_sop/05_ltl_pos_all/modal/maersk_schedule_modal.html' %}
+{% include 'post_port/new_sop/02_shipment/modals/bind_shipment_modal.html' %}
