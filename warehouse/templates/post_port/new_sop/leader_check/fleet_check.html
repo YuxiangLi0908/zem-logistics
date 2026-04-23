@@ -26,9 +26,47 @@
     }
 </style>
 <div class="container-fluid" style="padding-left: 10%; padding-right: 10%; padding-top: 20px; padding-bottom: 20px;">
+    <!-- 时间筛选表单 -->
+    <form method="post" action="" class="mb-4" id="timeFilterForm">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="fleet_leader_check_filter">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> 筛选条件</h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-2">
+                        <label for="start_date" class="form-label">开始时间</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ start_date|default:'' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="end_date" class="form-label">结束时间</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ end_date|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="destination" class="form-label">目的仓</label>
+                        <input type="text" class="form-control" id="destination" name="destination" 
+                               placeholder="输入目的仓代码" value="{{ destination|default:'' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> 筛选
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
     <!-- 标题区域 -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 style="font-size: 24px; font-weight: 700; color: #2c3e50; margin: 0; text-align: center; flex: 1;">车次组长核对</h2>
+        <h2 style="font-size: 24px; font-weight: 700; color: #2c3e50; margin: 0; text-align: center; flex: 1;">出库批次核对</h2>
         <!-- 操作栏 -->
         <div class="d-flex gap-2">
             <div class="input-group input-group-sm" style="width: 200px;">
@@ -61,7 +99,9 @@
                     <th style="min-width: 100px; vertical-align: middle; font-weight: 700; color: white;">ISA</th>
                     <th style="min-width: 120px; vertical-align: middle; font-weight: 700; color: white;">柜号</th>
                     <th style="min-width: 120px; vertical-align: middle; font-weight: 700; color: white;">目的地</th>
-                    <th style="min-width: 80px; vertical-align: middle; font-weight: 700; color: white; border-top-right-radius: 8px;">板数</th>
+                    <th style="min-width: 80px; vertical-align: middle; font-weight: 700; color: white;">板数</th>
+                    <th style="min-width: 80px; vertical-align: middle; font-weight: 700; color: white;">甩板</th>
+                    <th style="min-width: 80px; vertical-align: middle; font-weight: 700; color: white; border-top-right-radius: 8px;">加塞</th>
                 </tr>
                 <!-- 搜索行 -->
                 <tr class="search-row">
@@ -72,6 +112,8 @@
                     <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" id="search-container"></th>
                     <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索目的地" id="search-destination"></th>
                     <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索板数" id="search-pallet"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索甩板" id="search-dropped"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索加塞" id="search-inserted"></th>
                 </tr>
             </thead>
             <tbody>
@@ -86,6 +128,16 @@
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.container_number__container_number }}</td>
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.destination }}</td>
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB; text-align: center;">{{ plt.pallet_count }}</td>
+                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB; text-align: center;">
+                                {% if plt.is_dropped_pallet %}
+                                    <span style="color: #ff4d4f; font-weight: bold;">✓</span>
+                                {% endif %}
+                            </td>
+                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB; text-align: center;">
+                                {% if not plt.master_shipment_batch_number or plt.master_shipment_batch_number != plt.shipment_batch_number %}
+                                    <span style="color: #1890ff; font-weight: bold;">✓</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     {% endfor %}
@@ -101,6 +153,7 @@
 </div>
 
 <script>
+    // 页面加载时设置默认时间范围（如果没有设置）
     document.addEventListener('DOMContentLoaded', function() {
         const table = document.getElementById('fleetTable');
         if (!table) return;
