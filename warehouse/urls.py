@@ -95,6 +95,7 @@ urlpatterns = [
     path("bol/", BOL.as_view(), name="bol"),
     path("po/", PO.as_view(), name="po"),
     path("post_nsop/", PostNsop.as_view(), name="post_nsop"),
+    path("post_nsop/<str:pk>/", PostNsop.as_view(), name="post_nsop_container"),
     path("quote/", QuoteManagement.as_view(), name="quote_management"),
     path("stuff_user/", StuffPower.as_view(), name="stuff_user"),
     path("accounting/", Accounting.as_view(), name="accounting"),

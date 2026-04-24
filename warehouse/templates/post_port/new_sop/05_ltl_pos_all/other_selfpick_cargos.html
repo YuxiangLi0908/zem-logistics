@@ -6,7 +6,7 @@
     <!-- 顶部标题栏 - 高级商务字体 -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-medium text-gray-800">
-            LA私仓卡车派送拆柜管理
+            LA私仓客户自提拆柜管理
             <span class="badge bg-gray-100 text-gray-700 ms-2 fw-normal" style="font-size:13px;">
                 仓库：{{ warehouse }}
             </span>
@@ -31,12 +31,12 @@
                     <h6 class="mb-0 fw-medium">
                         <i class="fas fa-boxes text-gray-600"></i> 待拆柜
                         <span class="badge bg-gray-200 text-gray-700 float-end">
-                            {{ packinglist_not_selfdelivery|length }} 单
+                            {{ packinglist_not_selfpick_cargos|length }} 单
                         </span>
                     </h6>
                 </div>
                 <div class="card-body p-0 flex-fill" style="min-height:calc(100vh - 180px);">
-                    {% if packinglist_not_selfdelivery %}
+                    {% if packinglist_not_selfpick_cargos %}
                     <table class="table table-hover table-sm mb-0 w-100" style="table-layout:fixed;">
                         <thead class="table-light">
                             <tr>
@@ -57,13 +57,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in packinglist_not_selfdelivery %}
+                            {% for item in packinglist_not_selfpick_cargos %}
                             <tr>
-                                <td>
-                                    <a href="/post_nsop/{{ item.id }}/?step=other_selfdelivery_container_palletization&warehouse={{ warehouse }}">
-                                        {{ item.container_number.container_number|default:"-" }}
-                                    </a>
-                                </td>
+                                <td>{{ item.container_number.container_number|default:"-" }}</td>
                                 <td>{{ item.container_number.customer_name.zem_name|default:"-" }}</td>
                                 <td>{{ item.container_number.container_type }}</td>
                                 <td>
@@ -255,12 +251,12 @@
                     <h6 class="mb-0 fw-medium">
                         <i class="fas fa-clipboard-check text-teal-600"></i> 已拆柜
                         <span class="badge bg-teal-100 text-teal-800 float-end">
-                            {{ packinglist_selfdelivery|length }} 单
+                            {{ packinglist_selfpick_cargos|length }} 单
                         </span>
                     </h6>
                 </div>
                 <div class="card-body p-0 flex-fill" style="min-height:calc(100vh - 180px);">
-                    {% if packinglist_selfdelivery %}
+                    {% if packinglist_selfpick_cargos %}
                     <table class="table table-hover table-sm mb-0 w-100" style="table-layout:fixed;">
                         <thead class="table-light">
                             <tr>
@@ -283,13 +279,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in packinglist_selfdelivery %}
+                            {% for item in packinglist_selfpick_cargos %}
                             <tr>
-                                <td>
-                                    <a href="/post_nsop/{{ item.id }}/?step=other_selfdelivery_container_palletization&warehouse={{ warehouse }}">
-                                        {{ item.container_number.container_number|default:"-" }}
-                                    </a>
-                                </td>
+                                <td>{{ item.container_number.container_number|default:"-" }}</td>
                                 <td>{{ item.container_number.customer_name.zem_name|default:"-" }}</td>
                                 <td>{{ item.container_number.container_type }}</td>
                                 <td>{{ item.offload_id.offload_at|date:"M-j" }}</td>
@@ -468,12 +460,14 @@
                                                 </small>
                                             </div>
                                         </div>
+                                        {% comment %} <script src="script.js"></script> {% endcomment %}
                                     </form>
                                 </td>
+
                                 <td>
                                     <form method="post">
                                         {% csrf_token %}
-                                        <input type="hidden" name="step" value="cancel_post_other_selfdelivery">
+                                        <input type="hidden" name="step" value="cancel_post_other_selfpick_cargos">
                                         <input type="hidden" name="container_number" value="{{ item.container_number.container_number }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <button type="submit" class="btn btn-gray btn-sm w-100">撤销拆柜</button>
