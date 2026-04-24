@@ -106,6 +106,7 @@
                     <th>总CBM</th>
                     <th>总卡板数</th>
                     <th>note</th>
+                    <th>拣货单</th>
                     <th>撤销批次</th>
                 </tr>
                 <tr class="search-row">
@@ -120,6 +121,7 @@
                     <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="8"></td>
                     <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="9"></td>
                     <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                    <td></td>
                     <td></td>
                 </tr>
             </thead>
@@ -161,7 +163,7 @@
                             {{ f.detailed_shipments|default:"[]"|safe }}
                         </script>
                         <div style="margin-top: 5px;">
-                        <form method="post" class="action-form">
+                        <form method="post" class="action-form" id="bol-form-{{ f.fleet_number }}" onsubmit="prepareBolForm('{{ f.fleet_number }}', this);">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="export_bol_fleet">
                                 <input type="hidden" name="file_type" value="BOL">
@@ -196,6 +198,11 @@
                     <td>{{ f.total_cbm|floatformat:2 }}</td>
                     <td>{{ f.total_pallet }}</td>
                     <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                    <td>
+                        <button type="button" class="action-btn btn-warning" onclick="openPickupListModal('{{ f.fleet_number }}', '{{ forloop.counter0 }}')" title="编辑拣货单">
+                            <i class="fas fa-clipboard-list"></i> 拣货单
+                        </button>
+                    </td>
                     <td>
                         {% if f.fleet_type != 'LTL' %}
                         <form method="post" action="" onsubmit="showLoadingBar()">
@@ -858,3 +865,209 @@
         });
     }
 </script>
+
+<!-- 拣货单模态框 -->
+<div id="pickupListModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 95%; max-width: 1200px; border-radius: 8px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0;">拣货单 - <span id="pickupListFleetNumber"></span></h3>
+            <div>
+                <button onclick="savePickupListData()" style="background-color: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+                <span onclick="closePickupListModal()" style="cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
+            </div>
+        </div>
+        
+        <div id="pickupListContent" style="flex: 1; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 15px;">
+            <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #f8f9fa;">
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">柜号</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">仓点</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">CBM</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">卡板</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">装车备注</th>
+                    </tr>
+                </thead>
+                <tbody id="pickupListTableBody">
+                    <!-- 动态生成的行将在这里 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 存储拣货单数据
+    let currentPickupListData = {
+        fleet_number: '',
+        data: []
+    };
+
+    // 打开拣货单模态框
+    function openPickupListModal(fleetNumber, rowIndex) {
+        currentPickupListData.fleet_number = fleetNumber;
+        
+        // 设置模态框标题
+        document.getElementById('pickupListFleetNumber').textContent = fleetNumber;
+        
+        // 清空内容
+        const tableBody = document.getElementById('pickupListTableBody');
+        tableBody.innerHTML = '';
+        
+        // 尝试从本地存储加载已保存的数据
+        const savedData = localStorage.getItem(`pickup_list_${fleetNumber}`);
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                if (data && Array.isArray(data.data)) {
+                    currentPickupListData.data = data.data;
+                    renderPickupListTable();
+                }
+            } catch (e) {
+                console.error('解析保存的拣货单数据失败:', e);
+            }
+        }
+        
+        // 如果没有保存的数据，从f.detailed_shipments获取数据
+        if (currentPickupListData.data.length === 0) {
+            const jsonElement = document.getElementById(`fleet-json-${rowIndex}`);
+            if (jsonElement) {
+                try {
+                    const jsonText = jsonElement.textContent.trim();
+                    if (jsonText && jsonText !== '[]') {
+                        const shipments = JSON.parse(jsonText);
+                        if (Array.isArray(shipments) && shipments.length > 0) {
+                            // 转换数据格式
+                            currentPickupListData.data = shipments.map(shipment => ({
+                                container_number: shipment.container_number || '',
+                                destination: shipment.destination || '',
+                                cbm: shipment.cbm || 0,
+                                pallet_count: shipment.pallet_count || 0,
+                                loading_note: '' // 装车备注初始为空
+                            }));
+                            renderPickupListTable();
+                        }
+                    }
+                } catch (e) {
+                    console.error('解析detailed_shipments数据失败:', e);
+                }
+            }
+        }
+        
+        // 如果还是没有数据，显示空表格
+        if (currentPickupListData.data.length === 0) {
+            renderPickupListTable();
+        }
+        
+        // 显示模态框
+        document.getElementById('pickupListModal').style.display = 'block';
+    }
+
+    // 关闭拣货单模态框
+    function closePickupListModal() {
+        document.getElementById('pickupListModal').style.display = 'none';
+    }
+
+    // 渲染拣货单表格
+    function renderPickupListTable() {
+        const tableBody = document.getElementById('pickupListTableBody');
+        tableBody.innerHTML = '';
+        
+        if (currentPickupListData.data.length === 0) {
+            // 显示空行提示
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = `
+                <td colspan="5" style="text-align: center; padding: 20px; color: #999;">
+                    暂无数据
+                </td>
+            `;
+            tableBody.appendChild(emptyRow);
+            return;
+        }
+        
+        // 渲染数据行
+        currentPickupListData.data.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="padding: 8px; border: 1px solid #ddd;">
+                    <input type="text" class="pickup-input" value="${item.container_number || ''}" data-field="container_number" data-index="${index}" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #ddd;">
+                    <input type="text" class="pickup-input" value="${item.destination || ''}" data-field="destination" data-index="${index}" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #ddd;">
+                    <input type="text" class="pickup-input" value="${item.cbm || ''}" data-field="cbm" data-index="${index}" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #ddd;">
+                    <input type="text" class="pickup-input" value="${item.pallet_count || ''}" data-field="pallet_count" data-index="${index}" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px;">
+                </td>
+                <td style="padding: 8px; border: 1px solid #ddd;">
+                    <input type="text" class="pickup-input" value="${item.loading_note || ''}" data-field="loading_note" data-index="${index}" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px;">
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+        
+        // 添加输入框事件监听
+        const inputs = tableBody.querySelectorAll('.pickup-input');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                const index = parseInt(this.dataset.index);
+                const field = this.dataset.field;
+                const value = this.value;
+                
+                if (currentPickupListData.data[index]) {
+                    currentPickupListData.data[index][field] = value;
+                }
+            });
+        });
+    }
+
+    // 保存拣货单数据
+    function savePickupListData() {
+        // 收集输入框数据
+        const inputs = document.querySelectorAll('.pickup-input');
+        inputs.forEach(input => {
+            const index = parseInt(input.dataset.index);
+            const field = input.dataset.field;
+            const value = input.value;
+            
+            if (currentPickupListData.data[index]) {
+                currentPickupListData.data[index][field] = value;
+            }
+        });
+        
+        // 保存到本地存储
+        localStorage.setItem(`pickup_list_${currentPickupListData.fleet_number}`, JSON.stringify(currentPickupListData));
+        
+        alert('拣货单数据已保存！');
+    }
+
+    // 准备BOL表单提交，集成拣货单数据
+    function prepareBolForm(fleetNumber, form) {
+        // 尝试获取保存的拣货单数据
+        const savedData = localStorage.getItem(`pickup_list_${fleetNumber}`);
+        
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                if (data && Array.isArray(data.data)) {
+                    // 创建隐藏字段存储拣货单数据
+                    let existingField = form.querySelector('input[name="pickup_list_data"]');
+                    if (!existingField) {
+                        existingField = document.createElement('input');
+                        existingField.type = 'hidden';
+                        existingField.name = 'pickup_list_data';
+                        form.appendChild(existingField);
+                    }
+                    existingField.value = JSON.stringify(data.data);
+                }
+            } catch (e) {
+                console.error('解析拣货单数据失败:', e);
+            }
+        }
+    }
+</script>
+
