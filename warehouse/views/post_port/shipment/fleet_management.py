@@ -105,6 +105,7 @@ class FleetManagement(View):
     template_fleet_cost_record = "post_port/shipment/fleet_cost_record.html"
     template_fleet_cost_record_ltl = "post_port/shipment/fleet_cost_record_ltl.html"
     template_bol = "export_file/bol_base_template.html"
+    template_bol_april = "export_file/april_bol_template.html"   #ada 4/24题的手动编辑拣货单的拣货单模板
     template_bol_pickup = "export_file/bol_template.html"
     template_bol_pickup_alone = "export_file/bol_template_alone.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -4810,18 +4811,20 @@ class FleetManagement(View):
         df.to_csv(path_or_buf=response, index=False, header=False)
         return response
 
-    async def handle_export_bol_post(self, request: HttpRequest) -> HttpResponse:
+    async def handle_export_bol_post(self, request: HttpRequest, pickup_list: list = None) -> HttpResponse:
         '''导出BOL文件的基础函数'''
         batch_number = request.POST.get("shipment_batch_number")
         warehouse = request.POST.get("warehouse")
         customerInfo = request.POST.get("customerInfo")
         pickupList = request.POST.get("pickupList")
         fleet_number = request.POST.get("fleet_number")
-
+        packing_list = []
+        is_april_template = pickup_list is not None   #这个是ada 4.24提的新拣货单模板，五列：柜号、仓点、cbm、卡板、装货备注
+            
         # 进行判断，如果在前端进行了表的修改，就用修改后的表，如果没有修改，就用packing_list直接查询的
         if customerInfo:
             customer_info = json.loads(customerInfo)
-            packing_list = []
+            
             for row in customer_info:
                 packing_list.append(
                     {
@@ -4847,6 +4850,7 @@ class FleetManagement(View):
 
                 if pl.ref_id:
                     pl.ref_id = pl.ref_id.replace("/", "\n")
+        
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
             if warehouse
@@ -4870,7 +4874,10 @@ class FleetManagement(View):
             else False
         )
         # 最后一页加上拣货单:
-        pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
+        if is_april_template:
+            pallet = pickup_list
+        else:
+            pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
         # 判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
@@ -4914,11 +4921,15 @@ class FleetManagement(View):
             "destination_chinese_char": destination_chinese_char,
             "note_chinese_char": note_chinese_char,
             "is_private_warehouse": is_private_warehouse,
+            "is_april_template": is_april_template,
         }
-        if warehouse == "LA-91761":
-            template = get_template(self.template_la_bol_pickup)
-        else:  # 因为目前没有库位信息，所以BOL先不加这个信息
-            template = get_template(self.template_bol_pickup)
+        if is_april_template:
+            template = get_template(self.template_bol_april)
+        else:
+            if warehouse == "LA-91761":
+                template = get_template(self.template_la_bol_pickup)
+            else:  # 因为目前没有库位信息，所以BOL先不加这个信息
+                template = get_template(self.template_bol_pickup)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = (
