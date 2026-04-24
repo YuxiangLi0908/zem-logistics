@@ -356,13 +356,20 @@
         </div>
     </div>
 </div>
-{% if warehouse == 'LA-91761'%}
-    {% block LA_packing_list_section %}
+
+{% if is_april_template %}
+    {% block april_packing_list_section %}
             
     {% endblock %}
-{%else%}
-{% block packing_list_section %}
-        
-{% endblock %}
+{% else %}
+    {% if warehouse == 'LA-91761'%}
+        {% block LA_packing_list_section %}
+                
+        {% endblock %}
+    {%else%}
+        {% block packing_list_section %}
+                
+        {% endblock %}
+    {% endif %}
 {% endif %}
 {% endblock %}

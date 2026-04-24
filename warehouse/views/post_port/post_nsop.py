@@ -3896,17 +3896,17 @@ class PostNsop(View):
     async def handle_bol_fleet_post(self, request: HttpRequest) -> HttpResponse:
         #准备参数
         pickup_list = request.POST.get("pickup_list_data")
-        print('pickup_list',pickup_list)
-        packing_list = []
+        april_pickup_list = None
 
         if pickup_list:
             outer_list = json.loads(pickup_list)
+            april_pickup_list = []
             for group in outer_list:
                 if not isinstance(group, dict):
                     continue
 
-                packing_list.append({
-                    "container_number": group.get("container_number", "").strip(),
+                april_pickup_list.append({
+                    "container_number__container_number": group.get("container_number", "").strip(),
                     "destination": group.get("destination", "").strip(),
                     "cbm": group.get("cbm", "").strip(),
                     "pallet": group.get("pallet_count", "").strip(),
@@ -3929,7 +3929,7 @@ class PostNsop(View):
                 for s in shipment:
                     s_number = s.shipment_batch_number
                     mutable_post["shipment_batch_number"] = s_number
-                    pdf_response = await fm.handle_export_bol_post(request)
+                    pdf_response = await fm.handle_export_bol_post(request, april_pickup_list)
                     zip_file.writestr(f"BOL_{s_number}.pdf", pdf_response.content)
             response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
             response["Content-Disposition"] = 'attachment; filename="orders.zip"'
@@ -3937,7 +3937,7 @@ class PostNsop(View):
             return response
         else:
             mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
-        return await fm.handle_export_bol_post(request)
+        return await fm.handle_export_bol_post(request, april_pickup_list)
         # else:
         #     raise ValueError('出库类型异常！')
         
