@@ -13231,7 +13231,7 @@ class PostNsop(View):
         return self.template_master_shipment_check, context
     
     async def handle_create_fictional_master_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """创建虚构主约"""       
+        """创建虚构主约"""      
         context = {}
         # 获取表单数据
         ids_string = request.POST.get('ids_string', '')
@@ -13299,18 +13299,25 @@ class PostNsop(View):
                 pallet_ids.append(id_str.replace('plt_', ''))
             elif id_str.startswith('pl_'):
                 packinglist_ids.append(id_str.replace('pl_', ''))
+
+        def _update():
+            updated_pallet = 0
+            updated_packing = 0
+
+            if pallet_ids and isinstance(pallet_ids, list):
+                updated_pallet = Pallet.objects.filter(id__in=pallet_ids).update(
+                    master_shipment_batch_number=new_shipment
+                )
+
+            if packinglist_ids and isinstance(packinglist_ids, list):
+                updated_packing = PackingList.objects.filter(id__in=packinglist_ids).update(
+                    master_shipment_batch_number=new_shipment
+                )
+
+            return updated_pallet, updated_packing
+
+        updated_pallet, updated_packing = await sync_to_async(_update)()
         
-        # 更新Pallet记录
-        if pallet_ids:
-            await sync_to_async(Pallet.objects.filter(id__in=pallet_ids).update)(
-                master_shipment_batch_number=new_shipment
-            )
-        
-        # 更新PackingList记录
-        if packinglist_ids:
-            await sync_to_async(PackingList.objects.filter(id__in=packinglist_ids).update)(
-                master_shipment_batch_number=new_shipment
-            )
         
         # 重新调用搜索功能，保留原有的搜索条件
         context = {
