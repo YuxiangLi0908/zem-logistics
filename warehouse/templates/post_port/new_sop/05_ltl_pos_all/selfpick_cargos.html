@@ -960,7 +960,12 @@
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
                     <td data-column="7">{{ cargo.destination|default:"-" }}</td>
-                    <td class="mark-col" data-column="8">{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td class="mark-col" data-column="8">
+                        {% if cargo.ltl_verify == False %}
+                            <span style="color: #ffc107; margin-right: 5px;" title="未核实"><i class="fas fa-exclamation-triangle"></i></span>
+                        {% endif %}
+                        {{ cargo.shipping_marks|default:"-" }}
+                    </td>
                     <td class="note-col" data-column="9">
                         <textarea class="editable-textarea note-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
