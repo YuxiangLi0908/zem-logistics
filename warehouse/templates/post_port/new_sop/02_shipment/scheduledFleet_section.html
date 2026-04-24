@@ -883,6 +883,7 @@
             <table class="data-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background-color: #f8f9fa;">
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 100px;">排序</th>
                         <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">柜号</th>
                         <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">仓点</th>
                         <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">CBM</th>
@@ -987,6 +988,24 @@
         document.getElementById('pickupListModal').style.display = 'none';
     }
 
+    // 上移一行
+    function moveUp(index) {
+        if (index <= 0) return;
+        const temp = currentPickupListData.data[index];
+        currentPickupListData.data[index] = currentPickupListData.data[index - 1];
+        currentPickupListData.data[index - 1] = temp;
+        renderPickupListTable();
+    }
+
+    // 下移一行
+    function moveDown(index) {
+        if (index >= currentPickupListData.data.length - 1) return;
+        const temp = currentPickupListData.data[index];
+        currentPickupListData.data[index] = currentPickupListData.data[index + 1];
+        currentPickupListData.data[index + 1] = temp;
+        renderPickupListTable();
+    }
+
     // 渲染拣货单表格
     function renderPickupListTable() {
         const tableBody = document.getElementById('pickupListTableBody');
@@ -996,7 +1015,7 @@
             // 显示空行提示
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `
-                <td colspan="5" style="text-align: center; padding: 20px; color: #999;">
+                <td colspan="6" style="text-align: center; padding: 20px; color: #999;">
                     暂无数据
                 </td>
             `;
@@ -1008,6 +1027,15 @@
         currentPickupListData.data.forEach((item, index) => {
             const row = document.createElement('tr');
             row.innerHTML = `
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                    <span style="font-weight: bold; margin-right: 8px;">${index + 1}</span>
+                    <button onclick="moveUp(${index})" style="background: none; border: none; cursor: pointer; color: #666; margin-right: 4px; ${index === 0 ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${index === 0 ? 'disabled' : ''}>
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button onclick="moveDown(${index})" style="background: none; border: none; cursor: pointer; color: #666; ${index === currentPickupListData.data.length - 1 ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${index === currentPickupListData.data.length - 1 ? 'disabled' : ''}>
+                        <i class="fas fa-arrow-down"></i>
+                    </button>
+                </td>
                 <td style="padding: 8px; border: 1px solid #ddd;">
                     <input type="text" class="pickup-input" value="${item.container_number || ''}" data-field="container_number" data-index="${index}" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px;">
                 </td>
