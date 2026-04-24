@@ -1,4 +1,4 @@
-﻿﻿﻿﻿{% extends 'base.html' %}
+﻿﻿﻿﻿﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -509,6 +509,14 @@
                         <option value="NJ" {% if warehouse == 'NJ' %}selected{% endif %}>NJ</option>
                         <option value="SAV" {% if warehouse == 'SAV' %}selected{% endif %}>SAV</option>
                         <option value="LA" {% if warehouse == 'LA' %}selected{% endif %}>LA</option>
+                    </select>
+                </div>
+                
+                <div class="search-group">
+                    <label for="pending_shipment">待处理约</label>
+                    <select id="pending_shipment" name="pending_shipment">
+                        <option value="True" selected>是</option>
+                        <option value="False">否</option>
                     </select>
                 </div>
                 

@@ -957,13 +957,20 @@
             return;
         }
 
-        // 预约账号非空验证
+        // 预约账号非空验证 - 只有FTL类型时才验证
+        const shipmentTypeSelect = document.getElementById('shipment-type-select');
         const shipmentAccountSelect = document.getElementById('shipment-account-select');
-        if (shipmentAccountSelect && !shipmentAccountSelect.value.trim()) {
-            alert('请选择预约账号！');
-            shipmentAccountSelect.focus();
-            e.preventDefault();
-            return;
+        if (shipmentTypeSelect && shipmentAccountSelect) {
+            const shipmentType = shipmentTypeSelect.value;
+            const shipmentAccount = shipmentAccountSelect.value.trim();
+            
+            // 只有当预约类型是FTL时才验证预约账号不能为空
+            if (shipmentType === 'FTL' && !shipmentAccount) {
+                alert('请选择预约账号！');
+                shipmentAccountSelect.focus();
+                e.preventDefault();
+                return;
+            }
         }
 
         // 只收集勾选行的ID
