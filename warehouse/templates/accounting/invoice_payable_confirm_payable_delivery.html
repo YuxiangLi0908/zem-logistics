@@ -1233,7 +1233,6 @@
                                         <input type="hidden" name="customer_name"
                                                value="{{ selected_customer_id|default:'' }}">
 
-                                        <!-- ✅ 这一行必须是 name="selected_fleet_ids" -->
                                         <input type="hidden" name="selected_fleet_ids" id="selected_pending_fleet_ids"
                                                value="">
 
@@ -1247,6 +1246,22 @@
                                             onclick="openBatchWriteoffModal()">
                                         <i class="fas fa-calculator"></i> 批量核销
                                     </button>
+
+                                    {% for group in delivery_pending_orders %}
+                                        {% for fleet_id, fleet in group.fleets.items %}
+                                            {% for pickup_number, pickup_data in fleet.fleets.items %}
+                                                {% for appointment_id, appointment_data in pickup_data.appointments.items %}
+                                                    {% for order in appointment_data.orders %}
+                                                        {% if order.error %}
+                                                            <span style="color: #dc3545; font-weight: 600; margin-left: 12px; font-size: 14px;">
+                                                                {{ order.error }}
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endfor %}
+                                            {% endfor %}
+                                        {% endfor %}
+                                    {% endfor %}
                                 </div>
 
                                 <form method="post" id="delivery-confirm-form">
@@ -1489,6 +1504,8 @@
                                                                                 {% csrf_token %}
                                                                                 <input type="hidden" name="step"
                                                                                        value="note_post_delivery">
+                                                                                <input type="hidden" name="fleet_id"
+                                                                                       value="{{ order.object.fleet_number }}">
                                                                                 <input type="hidden" name="container_id"
                                                                                        value="{{ order.object.container_number.id }}">
                                                                                 <input type="hidden"
