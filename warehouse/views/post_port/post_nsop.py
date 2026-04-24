@@ -158,6 +158,9 @@ class PostNsop(View):
         "FWT": "FWT",
         "大森林": "大森林",
         "Sunzong": "Sunzong",
+        "pengfeng": "pengfeng",
+        "fortune": "fortune",
+        "Allways": "Allways",
     }
     shipment_type_options = {
         "FTL": "FTL",
@@ -3892,6 +3895,23 @@ class PostNsop(View):
     
     async def handle_bol_fleet_post(self, request: HttpRequest) -> HttpResponse:
         #准备参数
+        pickup_list = request.POST.get("pickup_list_data")
+        print('pickup_list',pickup_list)
+        packing_list = []
+
+        if pickup_list:
+            outer_list = json.loads(pickup_list)
+            for group in outer_list:
+                if not isinstance(group, dict):
+                    continue
+
+                packing_list.append({
+                    "container_number": group.get("container_number", "").strip(),
+                    "destination": group.get("destination", "").strip(),
+                    "cbm": group.get("cbm", "").strip(),
+                    "pallet": group.get("pallet_count", "").strip(),
+                    "loading_note": group.get("loading_note", "").strip(),
+                })
         mutable_post = request.POST.copy()
         fleet_number = request.POST.get("fleet_number")
         mutable_post["customerInfo"] = None
