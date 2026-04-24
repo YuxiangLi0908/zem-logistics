@@ -76,6 +76,7 @@ from sqlalchemy.util import await_only
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.fleet import Fleet
 from warehouse.models.invoicev2 import InvoiceItemv2, InvoiceStatusv2, Invoicev2
 from warehouse.models.shipment import Shipment
 from warehouse.models.fee_detail import FeeDetail
@@ -118,7 +119,8 @@ from warehouse.utils.constants import (
     SYSTEM_FOLDER,
 )
 from warehouse.views.export_file import export_invoice
-
+import logging
+logger = logging.getLogger(__name__)
 
 @method_decorator(login_required(login_url="login"), name="dispatch")
 class Accounting(View):
@@ -3159,6 +3161,7 @@ class Accounting(View):
             end_date_confirm: str = None,
             customer: str = None,
             warehouse: str = None,
+            error: str = None
     ) -> tuple[Any, Any]:
         """财务派送 待确认 已确认（已修改：使用Pallet.ltl_correlation_id分组）"""
         logger = logging.getLogger(__name__)
@@ -3205,40 +3208,19 @@ class Accounting(View):
             .distinct()
         )
 
-        itemv2_queryset = InvoiceItemv2.objects.select_related("container_number").only(
-            "id", "container_number_id", "write_off_amount", "rate", "description", "write_off_time",
-            "note", "invoice_type"
-        )
-
-        has_written_off_delivery_itemv2 = Exists(
-            InvoiceItemv2.objects.filter(
-                container_number_id=OuterRef("container_number_id"),
-                description__contains='派送费用',
-                invoice_type='payable',
-                write_off_amount__isnull=False
-            )
-        )
-
-        # ======================
-        # 核心修改：获取 ltl_correlation_id 替代 train_related
-        # ======================
+        # 待确认核销
         delivery_pending_orders = (
             FleetShipmentPallet.objects.select_related(
                 "fleet_number",
                 "shipment_batch_number",
                 "container_number",
             )
-            .prefetch_related(
-                Prefetch(
-                    "container_number__invoice_itemv2",
-                    queryset=itemv2_queryset,
-                    to_attr="itemv2_list"
-                )
-            )
             .filter(
                 fleet_number__isnull=False,
                 expense__isnull=False,
                 PO_ID__in=delivery_po_ids,
+                write_off_time__isnull=True,
+                write_off_amount__isnull=True,
             )
             .annotate(
                 appointment_id=F("shipment_batch_number__appointment_id"),
@@ -3266,17 +3248,13 @@ class Accounting(View):
                     ).values("shipping_mark")[:1],
                     output_field=CharField()
                 ),
-                has_written_off_delivery_itemv2=has_written_off_delivery_itemv2,
             )
-            .filter(has_written_off_delivery_itemv2=False)
             .order_by("ltl_correlation_id", "fleet_number__id", "pickup_number", "container_num")
         )
 
         delivery_pending_orders_list = list(delivery_pending_orders.iterator(chunk_size=200))
 
-        # ======================
-        # 分组逻辑：使用 ltl_correlation_id
-        # ======================
+        # 一提多卸分组逻辑：使用 ltl_correlation_id
         correlation_map = {}
         for order in delivery_pending_orders_list:
             corr_id = order.ltl_correlation_id or f"fleet_{order.fleet_number_id or 'unknown'}"
@@ -3357,17 +3335,6 @@ class Accounting(View):
             cn_per_expense = (expense / Decimal(str(total_pallet))).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
             cn_total_pallet = int(order.total_pallet) if order.total_pallet else 0
 
-            itemv2_data = None
-            if hasattr(order.container_number, 'itemv2_list') and order.container_number.itemv2_list:
-                filtered_items = [
-                    item for item in order.container_number.itemv2_list
-                    if '派送费用' in (item.description or '')
-                       and item.invoice_type == 'payable'
-                       and item.write_off_amount is None
-                ]
-                if filtered_items:
-                    itemv2_data = filtered_items[0]
-
             order_data = {
                 "object": order,
                 "cn_total_pallet": cn_total_pallet,
@@ -3379,8 +3346,13 @@ class Accounting(View):
                 "carrier": deliverys[fleet_id]["carrier"],
                 "Supplier": deliverys[fleet_id]["Supplier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
-                "itemv2_data": itemv2_data,
                 "ltl_correlation_id": corr_id,
+                "itemv2_data": {
+                    "note": order.finance_note or "",
+                    "write_off_amount": None,
+                    "write_off_time": None
+                },
+                "error": error
             }
 
             appointment_data = deliverys[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id]
@@ -3436,28 +3408,18 @@ class Accounting(View):
 
         # ======================
         # 已确认订单：同样替换为 ltl_correlation_id
-        # ======================
         base_delivery_orders = (
             FleetShipmentPallet.objects.select_related(
                 "fleet_number",
                 "shipment_batch_number",
                 "container_number",
             )
-            .prefetch_related(
-                Prefetch(
-                    "container_number__invoice_itemv2",
-                    queryset=InvoiceItemv2.objects.filter(
-                        description="派送费用",
-                        invoice_type="payable",
-                        write_off_amount__isnull=False
-                    ),
-                    to_attr="itemv2_list"
-                )
-            )
             .filter(
                 fleet_number__isnull=False,
                 expense__isnull=False,
                 PO_ID__in=delivery_po_ids,
+                write_off_time__isnull=False,
+                write_off_amount__isnull=False,
             )
             .annotate(
                 appointment_id=F("shipment_batch_number__appointment_id"),
@@ -3490,14 +3452,7 @@ class Accounting(View):
         )
 
         container_ids = base_delivery_orders.values_list("container_number_id", flat=True).distinct()
-        valid_cids = InvoiceItemv2.objects.filter(
-            container_number_id__in=container_ids,
-            write_off_amount__isnull=False,
-            description='派送费用',
-            invoice_type='payable',
-        ).values_list("container_number_id", flat=True)
-
-        confirmed = base_delivery_orders.filter(container_number_id__in=valid_cids)
+        confirmed = base_delivery_orders.filter(container_number_id__in=container_ids)
         confirmed_list = list(confirmed.iterator(chunk_size=200))
 
         confirm_corr_map = {}
@@ -3571,9 +3526,6 @@ class Accounting(View):
             cpe = (ex / Decimal(str(tp))).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
             ctp = int(o.total_pallet) if o.total_pallet else 0
 
-            itemv2_data = o.container_number.itemv2_list[0] if hasattr(o.container_number,
-                                                                       'itemv2_list') and o.container_number.itemv2_list else None
-
             od = {
                 "object": o,
                 "cn_total_pallet": ctp,
@@ -3585,8 +3537,12 @@ class Accounting(View):
                 "carrier": confirm_fleets[fid]["carrier"],
                 "Supplier": confirm_fleets[fid]["Supplier"],
                 "fleet_number": confirm_fleets[fid]["fleet_number"],
-                "itemv2_data": itemv2_data,
                 "ltl_correlation_id": cid,
+                "itemv2_data": {
+                    "note": o.finance_note or "",
+                    "write_off_amount": float(o.write_off_amount or 0),
+                    "write_off_time": o.write_off_time
+                }
             }
 
             ad = confirm_fleets[fid]["fleets"][pn]["appointments"][aid]
@@ -5768,58 +5724,36 @@ class Accounting(View):
         try:
             write_off_amount = float(write_off_amount_str)
             if write_off_amount <= 0:
+                error = "核销金额不可小于等于0"
                 return self.handle_invoice_confirm_get_v1_delivery(
-                    request, start_date_confirm, end_date_confirm, customer, warehouse_filter
+                    request, start_date_confirm, end_date_confirm, customer, warehouse_filter, error
                 )
         except (ValueError, TypeError):
             return self.handle_invoice_confirm_get_v1_delivery(
-                request, start_date_confirm, end_date_confirm, customer, warehouse_filter
+                request, start_date_confirm, end_date_confirm, customer, warehouse_filter,
             )
 
         current_date = datetime.now().date()
 
         try:
-            # ========== 【正确】获取该车次下所有柜号 ID
-            container_ids = list(FleetShipmentPallet.objects.filter(
+            # 一车多柜全部查出
+            fleet_pallet_list = FleetShipmentPallet.objects.filter(
                 fleet_number_id=fleet_id
-            ).values_list('container_number_id', flat=True))
+            )
 
-            if not container_ids:
+            if not fleet_pallet_list:
+                error = f"该车次id{fleet_id}不存在于FleetShipmentPallet表内"
                 return self.handle_invoice_confirm_get_v1_delivery(
-                    request, start_date_confirm, end_date_confirm, customer, warehouse_filter
+                    request, start_date_confirm, end_date_confirm, customer, warehouse_filter, error
                 )
 
-            # ========== 一车多柜 → 循环每个柜号核销
-            for container_id in container_ids:
-                order = Order.objects.select_related(
-                    "customer_name", "container_number"
-                ).get(container_number_id=container_id)
-                current_date = datetime.now().date()
-                order_id = str(order.id)
-                customer_id = order.customer_name.id
-                # 发票主表
-                invoicev2, _ = Invoicev2.objects.get_or_create(
-                    container_number_id=container_id,
-                    is_master_bill=True,
-                    invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
-                    created_at=current_date,
-                )
-
-                # 发票项（核销）
-                InvoiceItemv2.objects.update_or_create(
-                    container_number_id=container_id,
-                    description="派送费用",
-                    invoice_type="payable",
-                    defaults={
-                        "write_off_amount": write_off_amount,
-                        "write_off_time": current_date,
-                        "invoice_number": invoicev2,
-                    }
-                )
+            # 一车多柜：批量更新核销金额 + 核销时间
+            for pallet in fleet_pallet_list:
+                pallet.write_off_amount = write_off_amount
+                pallet.write_off_time = current_date
+                pallet.save()
 
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"派送核销失败：{str(e)}")
 
         return self.handle_invoice_confirm_get_v1_delivery(
@@ -5839,15 +5773,17 @@ class Accounting(View):
             customer = order_form.cleaned_data.get("customer_name")
 
         if not batch_writeoff_items:
+            error = "请勾选勾选框"
             return self.handle_invoice_confirm_get_v1_delivery(
-                request, start_date_confirm, end_date_confirm, customer, warehouse
+                request, start_date_confirm, end_date_confirm, customer, warehouse, error
             )
 
         try:
             batch_items = json.loads(batch_writeoff_items)
             if not isinstance(batch_items, list) or len(batch_items) == 0:
+                error = "请勾选勾选框"
                 return self.handle_invoice_confirm_get_v1_delivery(
-                    request, start_date_confirm, end_date_confirm, customer, warehouse
+                    request, start_date_confirm, end_date_confirm, customer, warehouse, error
                 )
         except json.JSONDecodeError as e:
             return self.handle_invoice_confirm_get_v1_delivery(
@@ -5855,7 +5791,6 @@ class Accounting(View):
             )
 
         current_date = datetime.now().date()
-        success_count = 0
         failed_items = []
 
         try:
@@ -5872,63 +5807,25 @@ class Accounting(View):
                         write_off_amount = 0
 
                     if write_off_amount <= 0:
-                        failed_items.append(f"车次{fleet_id}：金额无效")
+                        failed_items.append(f"车次{fleet_id}：金额无效,核销金额需要大于0")
                         continue
 
-                    # ========== 【正确】获取该车次下所有柜号
-                    container_ids = list(FleetShipmentPallet.objects.filter(
+                    fleet_pallet_list = FleetShipmentPallet.objects.filter(
                         fleet_number_id=fleet_id
-                    ).values_list('container_number_id', flat=True))
+                    )
 
-                    if not container_ids:
-                        failed_items.append(f"车次{fleet_id}：无关联柜号")
-                        continue
+                    if not fleet_pallet_list:
+                        error = f"该车次id{fleet_id}不存在于FleetShipmentPallet表内"
+                        return self.handle_invoice_confirm_get_v1_delivery(
+                            request, start_date_confirm, end_date_confirm, customer, warehouse, error
+                        )
 
-                    # ========== 一车多柜 → 循环核销每个柜号
-                    for container_id in container_ids:
-                        try:
-                            # 发票主表
-                            order = Order.objects.select_related(
-                                "customer_name", "container_number"
-                            ).get(id=container_id)
-                            current_date = datetime.now().date()
-                            order_id = str(order.id)
-                            customer_id = order.customer_name.id
-
-                            invoicev2, created = Invoicev2.objects.get_or_create(
-                                container_number_id=container_id,
-                                is_master_bill=True,
-                                invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
-                                created_at=current_date,
-                            )
-
-                            # 发票项
-                            invoiceitemv2, item_created = InvoiceItemv2.objects.get_or_create(
-                                container_number_id=container_id,
-                                description='派送费用',
-                                invoice_type='payable',
-                                defaults={
-                                    'write_off_amount': write_off_amount,
-                                    'write_off_time': current_date,
-                                    'invoice_number': invoicev2,
-                                    'note': note,
-                                }
-                            )
-
-                            if not item_created:
-                                invoiceitemv2.write_off_amount = write_off_amount
-                                invoiceitemv2.write_off_time = current_date
-                                invoiceitemv2.note = note
-                                invoiceitemv2.invoice_number = invoicev2
-                                invoiceitemv2.save(update_fields=[
-                                    'write_off_amount', 'write_off_time', 'invoice_number', 'note'
-                                ])
-
-                        except Exception as e:
-                            failed_items.append(f"车次{fleet_id} 柜号{container_id} 失败：{str(e)}")
-
-                    success_count += 1
-
+                    # 一车多柜：批量更新核销金额 + 核销时间 + 财务核销备注
+                    for pallet in fleet_pallet_list:
+                        pallet.write_off_amount = write_off_amount
+                        pallet.write_off_time = current_date
+                        pallet.finance_note = note
+                        pallet.save()
         except Exception as e:
             return self.handle_invoice_confirm_get_v1_delivery(
                 request, start_date_confirm, end_date_confirm, customer, warehouse
@@ -6013,7 +5910,8 @@ class Accounting(View):
         """单个派送输入备注"""
         # 1. 获取前端参数
         container_id_str = request.POST.get('container_id')  # 单个柜号ID
-        note_delivery = request.POST.getlist('note')[0]
+        fleet_number = request.POST.get("fleet_id")
+        note_delivery = request.POST.getlist('note_delivery')[0]
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
         warehouse = request.POST.get("warehouse_filter")
@@ -6021,48 +5919,21 @@ class Accounting(View):
         order_form = OrderForm(request.POST)
         if order_form.is_valid():
             customer = order_form.cleaned_data.get("customer_name")
-
-        if not container_id_str:
-            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
-                                                      warehouse)
-
-        current_date = datetime.now().date()
         try:
-            with transaction.atomic():  # 事务：要么全成功，要么全回滚
-                order = Order.objects.select_related(
-                    "customer_name", "container_number"
-                ).get(container_number_id=container_id_str)
-                current_date = datetime.now().date()
-                order_id = str(order.id)
-                customer_id = order.customer_name.id
+            fleet = Fleet.objects.get(fleet_number=fleet_number)
+            fleet_pallet_list = FleetShipmentPallet.objects.filter(
+                fleet_number_id=fleet.id
+            )
 
-                invoicev2, invoicev2_created = Invoicev2.objects.get_or_create(
-                    container_number_id=container_id_str,
-                    is_master_bill=True,
-                    invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
-                    created_at=current_date,
-                )
-
-                # ========== 处理InvoiceItemv2（发票项表） ==========
-                invoiceitemv2, invoiceitemv2_created = InvoiceItemv2.objects.get_or_create(
-                    description='派送费用',
-                    container_number_id=container_id_str,
-                    invoice_type='payable',
-                    defaults={
-                        'note': note_delivery,
-                        'invoice_number': invoicev2,
-                    }
-                )
-                # 已有记录：更新备注
-                if not invoiceitemv2_created:
-                    invoiceitemv2.note = note_delivery
-                    invoiceitemv2.invoice_number = invoicev2
-                    # 只更新修改的字段，提升性能
-                    invoiceitemv2.save(update_fields=['note', 'invoice_number'])
-
+            if not fleet_pallet_list:
+                error = f"该车次id{fleet_number}不存在于FleetShipmentPallet表内"
+                return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm,
+                                                                   customer,warehouse, error)
+            # 一车多柜：批量更新核销备注
+            for pallet in fleet_pallet_list:
+                pallet.finance_note = note_delivery
+                pallet.save()
         except Exception as e:
-            import logging
-            logger = logging.getLogger('django')
             logger.error(f"派送费用核销失败：柜号ID={container_id_str}，错误={str(e)}")
             return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,warehouse)
 
@@ -6123,25 +5994,6 @@ class Accounting(View):
                         PO_ID=OuterRef("PO_ID"),
                         shipment_batch_number=OuterRef("shipment_batch_number"),
                     ).values("destination")[:1]
-                ),
-                # 修复：Subquery指定output_field，处理空值
-                write_off_amount=Subquery(
-                    InvoiceItemv2.objects.filter(
-                        container_number=OuterRef("container_number"),
-                    ).values("write_off_amount")[:1],
-                    output_field=models.DecimalField(max_digits=10, decimal_places=2, default=0)
-                ),
-                write_off_time=Subquery(
-                    InvoiceItemv2.objects.filter(
-                        container_number=OuterRef("container_number")
-                    ).values("write_off_time")[:1],
-                    output_field=models.DateTimeField(null=True, blank=True)
-                ),
-                note=Subquery(
-                    InvoiceItemv2.objects.filter(
-                        container_number=OuterRef("container_number")
-                    ).values("note")[:1],
-                    output_field=models.CharField(max_length=255, null=True, blank=True)
                 )
             ).order_by("fleet_number", "pickup_number", "container_num")
 
@@ -6207,7 +6059,7 @@ class Accounting(View):
                     "cn_per_expense": per_expense,
                     "write_off_amount": write_off_amount,
                     "write_off_time": write_off_time_str,
-                    "note": order.note or '无',
+                    "finance_note": order.finance_note or '无',
                 }
 
                 # 累加统计数据
@@ -6261,7 +6113,7 @@ class Accounting(View):
                                 pickup_data["ISA_total_expense"] or 0,  # 车次总成本
                                 order["write_off_amount"] or 0,  # 核销金额
                                 order["write_off_time"] or '未核销',  # 核销时间
-                                order["note"] or '无',  # 备注
+                                order["finance_note"] or '无',  # 备注
                             ]
                             excel_data.append(row)
 
