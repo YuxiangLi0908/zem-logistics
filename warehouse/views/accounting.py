@@ -5920,13 +5920,13 @@ class Accounting(View):
         if order_form.is_valid():
             customer = order_form.cleaned_data.get("customer_name")
         try:
-            fleet = Fleet.objects.filter(fleet_number=fleet_number)
+            fleet = Fleet.objects.get(fleet_number=fleet_number)
             fleet_pallet_list = FleetShipmentPallet.objects.filter(
                 fleet_number_id=fleet.id
             )
 
             if not fleet_pallet_list:
-                error = f"该车次id{fleet_id}不存在于FleetShipmentPallet表内"
+                error = f"该车次id{fleet_number}不存在于FleetShipmentPallet表内"
                 return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm,
                                                                    customer,warehouse, error)
             # 一车多柜：批量更新核销备注
