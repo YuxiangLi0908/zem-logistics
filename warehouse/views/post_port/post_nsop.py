@@ -13214,6 +13214,7 @@ class PostNsop(View):
     
     async def handle_create_fictional_master_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         """创建虚构主约"""       
+        context = {}
         # 获取表单数据
         ids_string = request.POST.get('ids_string', '')
         appointment_type = request.POST.get('appointment_type', '')
