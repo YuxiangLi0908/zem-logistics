@@ -13066,6 +13066,7 @@ class PostNsop(View):
         destination = request.POST.get('destination', '').strip()
         warehouse = request.POST.get('warehouse', '').strip()
         delivery_type = request.POST.get('delivery_type', 'public').strip()
+        pending_shipment = request.POST.get('pending_shipment', 'True').strip()
         
         # 将搜索条件传递到前端
         context.update({
@@ -13074,7 +13075,8 @@ class PostNsop(View):
             'container_number': container_number,
             'destination': destination,
             'warehouse': warehouse,
-            'delivery_type': delivery_type
+            'delivery_type': delivery_type,
+            'pending_shipment': pending_shipment
         })
         
         # 如果没有输入任何值，默认最近三个月
@@ -13108,6 +13110,20 @@ class PostNsop(View):
             base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
         
         base_criteria &= Q(delivery_type=delivery_type)
+
+        # 待处理约筛选条件
+        if pending_shipment == 'True':
+            # shipment_batch_number不为空
+            base_criteria &= Q(shipment_batch_number__isnull=False)
+            
+            # 并且 (master_shipment_batch_number为空 或者 (is_virtual_sp为真 并且 master_shipment_batch_number外键指向的shipment的pod_link为空))
+            base_criteria &= (
+                Q(master_shipment_batch_number__isnull=True) |
+                (
+                    Q(master_shipment_batch_number__is_virtual_sp=True) &
+                    Q(master_shipment_batch_number__pod_link__isnull=True)
+                )
+            )
 
         # 分别构建Pallet和PackingList的查询条件
         pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
