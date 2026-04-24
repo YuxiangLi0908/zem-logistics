@@ -1937,7 +1937,7 @@ class ReceivableAccounting(View):
             invoice_updated = Invoicev2.objects.filter(
                 id__in=invoice_id_list
             ).update(
-                is_invoice_delivered=False,
+                #is_invoice_delivered=False,   # 财务4.24说，有的账单开给客户了，但是退回到待开后他就不记得是不是给客户通知了，所以重开也不改变这个状态了
                 receivable_is_locked=False
             )
 
