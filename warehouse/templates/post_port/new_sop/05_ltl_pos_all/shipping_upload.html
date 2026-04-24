@@ -203,15 +203,20 @@
                 {% if not f.shipping_order_link or f.shipping_order_link == "No Link" %}
                     {% if f.shipping_order_link != "No Link" %}
                     <!-- 单个上传和批量上传共用的表单 -->
-                    <form id="upload-form-{{ f.shipment_batch_number }}" method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                    <form id="upload-form-{{ f.shipment_batch_number }}" method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center; flex-direction: column;">
                         {% csrf_token %}
-                        <input type="file" name="file" class="table-input shipping-file-input" style="font-size: 0.8rem; width: 130px;" data-batch="{{ f.shipment_batch_number }}" title="选择文件">
+                        <div class="drag-drop-area" data-batch="{{ f.shipment_batch_number }}" style="border: 2px dashed #ccc; border-radius: 8px; padding: 10px; text-align: center; width: 150px; cursor: pointer; transition: all 0.3s ease;">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 24px; color: #6c757d; margin-bottom: 5px;"></i>
+                            <div style="font-size: 0.7rem; color: #6c757d;">点击或拖拽文件</div>
+                            <input type="file" name="file" class="shipping-file-input" style="display: none;" data-batch="{{ f.shipment_batch_number }}">
+                        </div>
+                        <div class="file-name-display" style="font-size: 0.7rem; color: #28a745; max-width: 150px; word-break: break-all;"></div>
                         <input type="hidden" name="step" value="shipping_order_upload">
                         <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                         <input type="hidden" name="active_tab" value="shipping">
                         <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
-                        <button type="submit" class="table-btn btn-success-small" style="font-size: 0.75rem;">上传</button>
+                        <button type="submit" class="table-btn btn-success-small" style="font-size: 0.75rem; margin-top: 5px;">上传</button>
                     </form>
                     {% endif %}
                 {% endif %}
@@ -236,6 +241,68 @@
 </table>
 
 <script>
+    // 拖拽上传功能
+    function initializeDragDrop() {
+        const dragDropAreas = document.querySelectorAll('.drag-drop-area');
+        
+        dragDropAreas.forEach(area => {
+            // 点击事件
+            area.addEventListener('click', function(e) {
+                const fileInput = this.querySelector('.shipping-file-input');
+                fileInput.click();
+            });
+            
+            // 拖拽事件
+            area.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#28a745';
+                this.style.backgroundColor = '#f8fff9';
+            });
+            
+            area.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ccc';
+                this.style.backgroundColor = '';
+            });
+            
+            area.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ccc';
+                this.style.backgroundColor = '';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const fileInput = this.querySelector('.shipping-file-input');
+                    const fileDisplay = this.closest('form').querySelector('.file-name-display');
+                    
+                    // 创建新的FileList对象（因为直接赋值files不可行）
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(files[0]);
+                    fileInput.files = dataTransfer.files;
+                    
+                    // 显示文件名
+                    fileDisplay.textContent = files[0].name;
+                    fileDisplay.style.display = 'block';
+                }
+            });
+        });
+        
+        // 文件输入变化事件
+        const fileInputs = document.querySelectorAll('.shipping-file-input');
+        fileInputs.forEach(input => {
+            input.addEventListener('change', function(e) {
+                const fileDisplay = this.closest('form').querySelector('.file-name-display');
+                if (this.files.length > 0) {
+                    fileDisplay.textContent = this.files[0].name;
+                    fileDisplay.style.display = 'block';
+                } else {
+                    fileDisplay.textContent = '';
+                    fileDisplay.style.display = 'none';
+                }
+            });
+        });
+    }
+
     function handleBatchShippingSubmit(form) {
         const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
         if (checkboxes.length === 0) {
@@ -332,5 +399,6 @@
     // 页面加载完成后初始化
     document.addEventListener('DOMContentLoaded', function() {
         initializeShippingSection();
+        initializeDragDrop();
     });
 </script>
