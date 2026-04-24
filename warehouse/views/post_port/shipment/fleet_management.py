@@ -4826,12 +4826,24 @@ class FleetManagement(View):
             customer_info = json.loads(customerInfo)
             
             for row in customer_info:
+                shipping_mark = row[1].strip()
+                fba_id = row[2].strip()
+                ref_id = row[3].strip()
+                
+                # 把逗号和斜杠都替换成HTML换行标签<br>
+                if shipping_mark:
+                    shipping_mark = shipping_mark.replace(",", "<br>").replace("/", "<br>")
+                if fba_id:
+                    fba_id = fba_id.replace(",", "<br>").replace("/", "<br>")
+                if ref_id:
+                    ref_id = ref_id.replace(",", "<br>").replace("/", "<br>")
+                
                 packing_list.append(
                     {
                         "container_number": row[0].strip(),
-                        "shipping_mark": row[1].strip(),
-                        "fba_id": row[2].strip(),
-                        "ref_id": row[3].strip(),
+                        "shipping_mark": shipping_mark,
+                        "fba_id": fba_id,
+                        "ref_id": ref_id,
                         "pcs": row[4].strip(),
                     }
                 )
@@ -4843,13 +4855,13 @@ class FleetManagement(View):
             )
             for pl in packing_list:
                 if pl.shipping_mark:
-                    pl.shipping_mark = pl.shipping_mark.replace("/", "\n")
+                    pl.shipping_mark = pl.shipping_mark.replace(",", "<br>").replace("/", "<br>")
 
                 if pl.fba_id:
-                    pl.fba_id = pl.fba_id.replace("/", "\n")
+                    pl.fba_id = pl.fba_id.replace(",", "<br>").replace("/", "<br>")
 
                 if pl.ref_id:
-                    pl.ref_id = pl.ref_id.replace("/", "\n")
+                    pl.ref_id = pl.ref_id.replace(",", "<br>").replace("/", "<br>")
         
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
