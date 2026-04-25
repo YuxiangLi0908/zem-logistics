@@ -9520,14 +9520,33 @@ class PostNsop(View):
                 return True
             return False
 
-        # 3. 分别对两组数据进行排序
-        # Pallet 数据排序
+        # 3. 分离出 ltl_follow_status 有日期的数据混排，其他的保持原来的顺序
+        date_group_data = []  # 存放 ltl_follow_status 有日期的所有数据
+        remaining_pallet_data = []  # 存放 pallet_data 中没有日期的数据
+        remaining_packinglist_data = []  # 存放 packinglist_data 中没有日期的数据
+
         if pallet_data_to_sort:
-            pallet_data_to_sort.sort(key=lambda x: (
-                # 第一组：ltl_follow_status 有日期的
-                0 if has_date_in_status(x.get('ltl_follow_status', '')) else 1,
-                # 这组里按日期从小到大
-                get_pickup_date_key(x.get('ltl_follow_status', '')),
+            for item in pallet_data_to_sort:
+                if has_date_in_status(item.get('ltl_follow_status', '')):
+                    date_group_data.append(item)
+                else:
+                    remaining_pallet_data.append(item)
+        
+        if packinglist_data_to_sort:
+            for item in packinglist_data_to_sort:
+                if has_date_in_status(item.get('ltl_follow_status', '')):
+                    date_group_data.append(item)
+                else:
+                    remaining_packinglist_data.append(item)
+
+        # 对有日期的组按日期从小到大排序
+        if date_group_data:
+            date_group_data.sort(key=lambda x: get_pickup_date_key(x.get('ltl_follow_status', '')))
+            data += date_group_data
+
+        # 对剩余的 pallet_data 按原来的规则排序
+        if remaining_pallet_data:
+            remaining_pallet_data.sort(key=lambda x: (
                 # 第二组：ltl_correlation_id 有值的
                 0 if x.get('ltl_correlation_id') else 1,
                 # 相同的 ltl_correlation_id 排在一起
@@ -9541,21 +9560,25 @@ class PostNsop(View):
                 x.get('destination') or '',
                 x.get('shipping_marks') or x.get('shipping_mark') or ''
             ))
-            data += pallet_data_to_sort
+            data += remaining_pallet_data
 
-        # PackingList 数据排序
-        if packinglist_data_to_sort:
-            packinglist_data_to_sort.sort(key=lambda x: (
-                # 第一组：offload_tag 有实际提柜的
+        # 对剩余的 packinglist_data 按原来的规则排序
+        if remaining_packinglist_data:
+            remaining_packinglist_data.sort(key=lambda x: (
+                # 第一组：ltl_follow_status 有值的（没有日期的，因为有日期的已经在前面了）
+                0 if x.get('ltl_follow_status') else 1,
+                # 第二组：offload_tag 有实际提柜的
                 0 if x.get('offload_tag') == '实际提柜' else 1,
-                # 第二组：offload_tag 有实际放行的
+                # 第三组：offload_tag 有实际放行的
                 0 if x.get('offload_tag') == '实际放行' else 1,
+                # 同一柜号的排在一起
+                x.get('container_numbers') or x.get('cns') or '',
                 # 后续排序
                 x.get('offload_at') or '',
                 x.get('destination') or '',
                 x.get('shipping_marks') or x.get('shipping_mark') or ''
             ))
-            data += packinglist_data_to_sort
+            data += remaining_packinglist_data
         # 已拆柜的，按照下面排序：
             # 第一优先级：pickup 有日期的，
             # 第二优先级：日期按从小到大排列，
