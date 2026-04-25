@@ -9565,9 +9565,11 @@ class PostNsop(View):
         # 对剩余的 packinglist_data 按原来的规则排序
         if remaining_packinglist_data:
             remaining_packinglist_data.sort(key=lambda x: (
-                # 第一组：offload_tag 有实际提柜的
+                # 第一组：ltl_follow_status 有值的（没有日期的，因为有日期的已经在前面了）
+                0 if x.get('ltl_follow_status') else 1,
+                # 第二组：offload_tag 有实际提柜的
                 0 if x.get('offload_tag') == '实际提柜' else 1,
-                # 第二组：offload_tag 有实际放行的
+                # 第三组：offload_tag 有实际放行的
                 0 if x.get('offload_tag') == '实际放行' else 1,
                 # 后续排序
                 x.get('offload_at') or '',
