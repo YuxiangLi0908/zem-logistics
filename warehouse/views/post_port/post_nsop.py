@@ -372,6 +372,12 @@ class PostNsop(View):
         elif step == "shipping_order_upload" or step == "batch_shipping_order_upload":
             template, context = await self.handle_shipping_order_upload(request)
             return render(request, template, context)
+        elif step == "batch_pod_upload":
+            fm = FleetManagement()
+            context = await fm.handle_pod_upload_post(request,'post_nsop')
+            template, context = await self.handle_fleet_schedule_post(request)
+            context.update({"success_messages": '批量POD上传成功!'})
+            return render(request, template, context)
         elif step == "pod_upload":
             fm = FleetManagement()
             context = await fm.handle_pod_upload_post(request,'post_nsop')
@@ -384,6 +390,7 @@ class PostNsop(View):
                 template, context = await self.handle_master_shipment_check_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
+
             context.update({"success_messages": 'POD上传成功!'})           
             return render(request, template, context)
         elif step == "get_maersk_quote":

@@ -1,6 +1,12 @@
         <!-- 待传POD批次标签页 -->
         <div class="content-section" id="pod-section">
             <div class="table-container">
+                <div style="margin-bottom: 15px;">
+                    <button type="button" class="table-btn btn-success-small" id="batchPodUploadBtn" onclick="submitBatchPodUpload()" style="background-color: #27ae60;">
+                        <i class="fas fa-upload"></i> 批量上传POD
+                    </button>
+                    <span id="batchPodUploadInfo" style="margin-left: 10px; font-size: 0.85rem; color: #7f8c8d;"></span>
+                </div>
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -55,22 +61,15 @@
                             <td>{{ f.shipped_pallet|floatformat:0 }}</td>
                             <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
                             <td>
-                                <form method="post" enctype="multipart/form-data" id="podForm-{{ f.shipment_batch_number }}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="pod_upload">
-                                    <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
+                                <div class="pod-upload-container">
+                                    <input type="hidden" class="pod-shipment-batch" value="{{ f.shipment_batch_number }}">
                                     <div class="pod-drop-zone" id="dropZone-{{ f.shipment_batch_number }}" onclick="document.getElementById('podFileInput-{{ f.shipment_batch_number }}').click()">
                                         <i class="fas fa-cloud-upload-alt"></i>
                                         <div class="pod-drop-text">点击或拖拽文件</div>
                                     </div>
-                                    <input type="file" name="file" id="podFileInput-{{ f.shipment_batch_number }}" accept="image/*,.pdf" required style="display: none;">
+                                    <input type="file" name="file" id="podFileInput-{{ f.shipment_batch_number }}" class="pod-file-input" accept="image/*,.pdf" style="display: none;">
                                     <div class="pod-file-preview" id="filePreview-{{ f.shipment_batch_number }}"></div>
-                                    <button type="submit" class="table-btn btn-success-small pod-upload-btn" id="podUploadBtn-{{ f.shipment_batch_number }}" disabled>
-                                        <i class="fas fa-check"></i> 上传
-                                    </button>
-                                </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -78,6 +77,14 @@
                 </table>
             </div>
         </div>
+
+        <form method="post" enctype="multipart/form-data" id="batchPodUploadForm" style="display: none;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="batch_pod_upload">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
+            <div id="batchPodInputs"></div>
+        </form>
 
 <style>
     .pod-drop-zone {
@@ -119,24 +126,22 @@
         word-break: break-all;
         min-height: 18px;
     }
-
-    .pod-upload-btn {
-        width: 100%;
-    }
 </style>
 
 <script>
+let podFiles = []; // 存储已选择的文件对象数组，每个元素包含 shipmentBatchNumber 和 file
+
 document.addEventListener('DOMContentLoaded', function() {
     {% for f in pod_shipments %}
     initPodUpload('{{ f.shipment_batch_number }}');
     {% endfor %}
+    updateBatchUploadInfo();
 });
 
 function initPodUpload(shipmentBatchNumber) {
     const dropZone = document.getElementById('dropZone-' + shipmentBatchNumber);
     const fileInput = document.getElementById('podFileInput-' + shipmentBatchNumber);
     const filePreview = document.getElementById('filePreview-' + shipmentBatchNumber);
-    const uploadBtn = document.getElementById('podUploadBtn-' + shipmentBatchNumber);
     
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
@@ -148,8 +153,16 @@ function initPodUpload(shipmentBatchNumber) {
     
     function handleFileSelect(file) {
         if (file) {
+            removePodFile(shipmentBatchNumber);
+            podFiles.push({
+                shipmentBatchNumber: shipmentBatchNumber,
+                file: file
+            });
             filePreview.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
-            uploadBtn.disabled = false;
+            dropZone.style.borderColor = '#27ae60';
+            dropZone.style.backgroundColor = '#e8f8f0';
+            dropZone.querySelector('i').style.color = '#27ae60';
+            updateBatchUploadInfo();
         }
     }
     
@@ -186,5 +199,51 @@ function initPodUpload(shipmentBatchNumber) {
             handleFileSelect(files[0]);
         }
     });
+}
+
+function removePodFile(shipmentBatchNumber) {
+    podFiles = podFiles.filter(item => item.shipmentBatchNumber !== shipmentBatchNumber);
+}
+
+function updateBatchUploadInfo() {
+    const count = podFiles.length;
+    const infoEl = document.getElementById('batchPodUploadInfo');
+    if (count > 0) {
+        infoEl.textContent = '已选择 ' + count + ' 个文件';
+        infoEl.style.color = '#27ae60';
+    } else {
+        infoEl.textContent = '';
+    }
+}
+
+function submitBatchPodUpload() {
+    if (podFiles.length === 0) {
+        alert('请至少选择一个文件');
+        return;
+    }
+    
+    const form = document.getElementById('batchPodUploadForm');
+    const batchPodInputs = document.getElementById('batchPodInputs');
+    
+    batchPodInputs.innerHTML = '';
+    
+    podFiles.forEach(function(item) {
+        const shipmentInput = document.createElement('input');
+        shipmentInput.type = 'hidden';
+        shipmentInput.name = 'shipment_batch_number';
+        shipmentInput.value = item.shipmentBatchNumber;
+        batchPodInputs.appendChild(shipmentInput);
+        
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(item.file);
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.name = 'file';
+        fileInput.files = dataTransfer.files;
+        fileInput.style.display = 'none';
+        batchPodInputs.appendChild(fileInput);
+    });
+    
+    form.submit();
 }
 </script>
