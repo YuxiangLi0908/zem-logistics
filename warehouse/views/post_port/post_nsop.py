@@ -293,7 +293,9 @@ class PostNsop(View):
         elif step == "export_pos":
             return await self.handle_export_pos(request)
         elif step == "shipment_export_po":
-            return await self.handle_shipment_export_pos(request)     
+            return await self.handle_shipment_export_pos(request)    
+        elif step =="fleet_export_po":
+            return await self.handle_fleet_export_pos(request) 
         elif step == "appointment_time_modify":
             template, context = await self.handle_appointment_time(request)
             return render(request, template, context)
@@ -6597,6 +6599,31 @@ class PostNsop(View):
             return await self.handle_unscheduled_pos_post(request,context)
         else:
             return await self.handle_appointment_management_post(request,context)
+
+    async def handle_fleet_export_pos(self, request: HttpRequest) -> HttpResponse:
+        '''已排车的PO导出'''
+        fleet_number = request.POST.get("export_po_fleet_number")
+        if not fleet_number:
+            raise ValueError('没有获取到车次号')
+        
+        try:
+            shipments = [shipment async for shipment in Shipment.objects.filter(fleet_number__fleet_number=fleet_number)]
+        except Shipment.DoesNotExist:
+            raise ValueError(f'没有找到{fleet_number}的约')
+        
+        pl_ids = [
+            pk async for pk in PackingList.objects.filter(
+                shipment_batch_number__in=shipments
+            ).values_list('id', flat=True)
+        ]
+        plt_ids = [
+            pk async for pk in Pallet.objects.filter(
+                shipment_batch_number__in=shipments
+            ).values_list('id', flat=True)
+        ]
+        if not pl_ids and not plt_ids:
+            raise ValueError(f'{fleet_number}车里没有任何po没有获取到id')
+        return await self._execute_export_logic(pl_ids, plt_ids)
 
     async def handle_shipment_export_pos(self, request: HttpRequest) -> HttpResponse:
         '''已排约的PO导出'''
