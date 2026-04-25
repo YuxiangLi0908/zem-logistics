@@ -664,12 +664,12 @@
         <div id="fleet_sortRulesContent" class="sorting-notice" style="display: none; font-size: 13px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-top: 10px;">
             <strong>数据排序规则：</strong>
             <div style="margin-top: 6px; margin-left: 22px;">
-                <div><strong>1. Pallet 数据在前，PackingList 数据在后</strong></div>
+                <div><strong>1. 已打板 数据在前，未打板 数据在后</strong></div>
                 <div style="display: flex; gap: 30px; margin-top: 8px;">
                     <div style="flex: 1;">
-                        <strong>Pallet 数据排序：</strong>
+                        <strong>已打板 数据排序：</strong>
                         <div style="margin-left: 15px; margin-top: 4px;">
-                            • 第一组：跟进状态有日期的（日期格式 4/1 或 4.1），按日期从小到大排序
+                            • 第一组：跟进状态有日期的（日期格式 4/1 或 4.1），按日期从小到大排序（已打板未打板都有）
                         </div>
                         <div style="margin-left: 15px;">
                             • 第二组：有关联 ID 的，相同关联 ID 排在一起
@@ -682,12 +682,12 @@
                         </div>
                     </div>
                     <div style="flex: 1;">
-                        <strong>PackingList 数据排序：</strong>
+                        <strong> 数据排序：</strong>
                         <div style="margin-left: 15px; margin-top: 4px;">
-                            • 第一组：有实际提柜时间的
+                            • 第一组：有实际提柜时间的，按柜号排
                         </div>
                         <div style="margin-left: 15px;">
-                            • 第二组：有实际放行时间的
+                            • 第二组：有实际放行时间的，按柜号排
                         </div>
                     </div>
                 </div>

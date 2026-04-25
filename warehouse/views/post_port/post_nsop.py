@@ -9571,6 +9571,8 @@ class PostNsop(View):
                 0 if x.get('offload_tag') == '实际提柜' else 1,
                 # 第三组：offload_tag 有实际放行的
                 0 if x.get('offload_tag') == '实际放行' else 1,
+                # 同一柜号的排在一起
+                x.get('container_numbers') or x.get('cns') or '',
                 # 后续排序
                 x.get('offload_at') or '',
                 x.get('destination') or '',
