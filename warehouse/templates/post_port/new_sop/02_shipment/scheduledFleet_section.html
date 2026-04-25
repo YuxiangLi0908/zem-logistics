@@ -107,6 +107,7 @@
                     <th>总卡板数</th>
                     <th>note</th>
                     <th>拣货单</th>
+                    <th>导出PO</th>
                     <th>撤销批次</th>
                 </tr>
                 <tr class="search-row">
@@ -123,6 +124,7 @@
                     <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
                     <td></td>
                     <td></td>
+                    <td></td>
                 </tr>
             </thead>
             <tbody>
@@ -134,7 +136,7 @@
                     data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
                     data-dot-number="{{ f.dot_number|default_if_none:'' }}"
                     >
-                    <td style="max-width: 120px; word-break: break-all;">
+                    <td style="max-width: 160px; min-width: 140px; width: 140px; word-break: break-all;">
                         <span 
                             class="fleet-link"
                             data-fleet-number="{{ f.fleet_number }}"
@@ -179,7 +181,7 @@
                     <td class="shipment-batch-cell">
                         {{ f.shipment_batch_numbers }}
                     </td>
-                    <td>{{ f.appointment_ids }}</td>
+                    <td style="max-width: 120px; min-width: 100px; width: 100px; word-break: break-all;">{{ f.appointment_ids }}</td>
                     <td>{{ f.carrier }}</td>
                     <td>{{ f.load_type }}</td>
                     <td>
@@ -202,6 +204,18 @@
                         <button type="button" class="action-btn btn-warning" onclick="openPickupListModal('{{ f.fleet_number }}', '{{ forloop.counter0 }}')" title="编辑拣货单">
                             <i class="fas fa-clipboard-list"></i> 拣货单
                         </button>
+                    </td>
+                    <td style="width: 120px;">
+                        <form method="post" action="" onsubmit="showLoadingBar()">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="fleet_export_po">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="active_tab" value="scheduledFleet">
+                            <input type="hidden" name="export_po_fleet_number" value="{{ f.fleet_number }}">
+                            <button type="submit" class="action-btn btn-success">
+                                <i class="fas fa-download"></i> 导出PO
+                            </button>
+                        </form>
                     </td>
                     <td>
                         {% if f.fleet_type != 'LTL' %}
