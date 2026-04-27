@@ -1440,11 +1440,11 @@ class ShippingManagement(View):
                         "shipment_account", ""
                     ).strip()
                     shipmentappointment = request.POST.get("shipment_appointment", None)
-                    
-                    shipment.shipment_appointment = shipmentappointment
-                    shipment.shipment_appointment_utc = self._parse_ts(
-                        shipmentappointment, tzinfo
-                    )
+                    if shipment.shipment_type != '外配':
+                        shipment.shipment_appointment = shipmentappointment
+                        shipment.shipment_appointment_utc = self._parse_ts(
+                            shipmentappointment, tzinfo
+                        )
                     # LTL的需要存ARM-BOL和ARM-PRO
                     shipment.ARM_BOL = (
                         request.POST.get("arm_bol")
