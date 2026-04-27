@@ -29,6 +29,7 @@ from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.pallet_destroyed import PalletDestroyed
+from warehouse.models.pallet_exception import PalletException
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.quote import Quote
@@ -75,6 +76,7 @@ admin.site.register(QuotationMaster)
 admin.site.register(FeeDetail)
 admin.site.register(Transaction)
 admin.site.register(PalletDestroyed, SimpleHistoryAdmin)
+admin.site.register(PalletException, SimpleHistoryAdmin)
 admin.site.register(Invoicev2, SimpleHistoryAdmin)
 admin.site.register(InvoiceItemv2, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatusv2, SimpleHistoryAdmin)
