@@ -1524,6 +1524,7 @@ class Palletization(View):
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number,
                 delivery_type="public"
+
             ).delete
         )()
         await sync_to_async(offload.save)()
