@@ -9006,8 +9006,7 @@ class PostNsop(View):
             if batch_number not in grouped_data:
                 try:
                     shipment = await sync_to_async(Shipment.objects.get)(
-                        shipment_batch_number=batch_number,
-                        shipment_appointment__gte=datetime(2025, 1, 1)
+                        shipment_batch_number=batch_number
                     )
                 except Shipment.DoesNotExist:
                     continue
