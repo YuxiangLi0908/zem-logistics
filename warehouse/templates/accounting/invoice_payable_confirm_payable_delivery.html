@@ -1194,6 +1194,7 @@
                 <div class="container-section">
                     <div class="section-header">
                         <h3>派送账单</h3>
+                        <span style="font-size:12px; color:#888;">待确认/已确认 一提多卸分组下显示为1条记录</span>
                     </div>
 
                     <!-- 子标签页 -->
@@ -2077,7 +2078,7 @@
                 // 获取车次信息
                 const fleetNumber = fleetRow.querySelector('td:nth-child(2)')?.textContent || '未知车次';
                 const carrier = fleetRow.querySelector('td:nth-child(3)')?.textContent || '未知承运商';
-                const totalCost = fleetRow.querySelector('td:nth-child(13)')?.textContent || '$0.00';
+                const totalCost = fleetRow.querySelector('td:nth-child(14)')?.textContent || '$0.00';
                 const container_id = fleetRow.querySelector('td:nth-child(6)')?.textContent || '未知柜号';
                 const note = fleetRow.querySelector('td:nth-child(15)')?.textContent || '';
 
