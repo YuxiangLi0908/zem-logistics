@@ -1440,6 +1440,7 @@ class ShippingManagement(View):
                         "shipment_account", ""
                     ).strip()
                     shipmentappointment = request.POST.get("shipment_appointment", None)
+                    
                     shipment.shipment_appointment = shipmentappointment
                     shipment.shipment_appointment_utc = self._parse_ts(
                         shipmentappointment, tzinfo
@@ -1512,8 +1513,8 @@ class ShippingManagement(View):
                         shipmentappointment = pickup_time
                         shipmentappointment_utc = pickup_time
                     else:
-                        shipmentappointment_utc = self._parse_ts(
-                            shipmentappointment, tzinfo
+                        pickup_time_utc = self._parse_ts(
+                            pickup_time, tzinfo
                         )
                     shipment_data["express_number"] = (
                         request.POST.get("express_number")
@@ -1521,11 +1522,11 @@ class ShippingManagement(View):
                         else ""
                     )
                     shipment_data["is_shipped"] = True
-                    shipment_data["shipped_at"] = shipmentappointment
-                    shipment_data["shipped_at_utc"] = shipmentappointment_utc
+                    shipment_data["shipped_at"] = pickup_time
+                    shipment_data["shipped_at_utc"] = pickup_time_utc
                     shipment_data["is_arrived"] = True
-                    shipment_data["arrived_at"] = shipmentappointment
-                    shipment_data["arrived_at_utc"] = shipmentappointment_utc
+                    shipment_data["arrived_at"] = pickup_time
+                    shipment_data["arrived_at_utc"] = pickup_time_utc
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
@@ -1552,10 +1553,11 @@ class ShippingManagement(View):
                 shipment_data["shipment_account"] = request.POST.get(
                     "shipment_account", ""
                 ).strip()
-                shipment_data["shipment_appointment"] = (
-                    shipmentappointment  # FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
-                )
-                shipment_data["shipment_appointment_utc"] = shipmentappointment_utc
+                if shipment_type != "外配":
+                    shipment_data["shipment_appointment"] = (
+                        shipmentappointment  # FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
+                    )
+                    shipment_data["shipment_appointment_utc"] = shipmentappointment_utc
                 if is_print_label:
                     shipment_data["is_print_label"] = (is_print_label == "是")
                 shipment_data["in_use"] = True
@@ -1770,10 +1772,11 @@ class ShippingManagement(View):
             shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
             note = request.POST.get("note")
             shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
-            shipment.shipment_appointment = parse(shipment_appointment).replace(
-                tzinfo=None
-            )
-            shipment.shipment_appointment_utc = shipment_appointment_utc
+            if shipment.shipment_type != '外配':
+                shipment.shipment_appointment = parse(shipment_appointment).replace(
+                    tzinfo=None
+                )
+                shipment.shipment_appointment_utc = shipment_appointment_utc
             shipment.note = note
             shipment.is_shipment_schduled = True
             shipment.shipment_schduled_at = current_time
