@@ -117,6 +117,7 @@ class PostNsop(View):
     template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
     template_fleet_check = "post_port/new_sop/leader_check/fleet_check.html"
     template_master_shipment_check = "post_port/new_sop/leader_check/master_shipment_check.html"
+    template_client_exception = "post_port/new_sop/leader_check/client_exception.html"
     template_pod_reupload = "post_port/new_sop/leader_check/pod_reupload.html"
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_bol = "export_file/bol_base_template.html"
@@ -223,11 +224,9 @@ class PostNsop(View):
                 )
             return render(request, self.template_fleet_po_check, {}) 
         elif step == "master_shipment_check":
-            if not await self._validate_user_check_po_group(request.user):
-                return HttpResponseForbidden(
-                    "You are not authenticated to access this page!"
-                )
             return render(request, self.template_master_shipment_check, {})
+        elif step == "client_exception":
+            return render(request, self.template_client_exception, {})
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
@@ -606,6 +605,15 @@ class PostNsop(View):
         elif step == "master_shipment_search":
             template, context = await self.handle_master_shipment_check_post(request)
             return render(request, template, context)
+        elif step == "client_exception_search":
+            template, context = await self.handle_client_exception_search_post(request)
+            return render(request, template, context)
+        elif step == "load_exceptions":
+            return await self.handle_load_exceptions_post(request)
+        elif step == "add_exception":
+            return await self.handle_add_exception_post(request)
+        elif step == "delete_exception":
+            return await self.handle_delete_exception_post(request)
         elif step == "create_fictional_master":
             template, context = await self.handle_create_fictional_master_post(request)
             return render(request, template, context)
@@ -6533,6 +6541,7 @@ class PostNsop(View):
                 else:
                     return await self.handle_td_shipment_post(request,context)          
 
+            shipment_type = request.POST.get('shipment_type')
             shipment_data = {
                 'shipment_batch_number': shipment_batch_number,
                 'destination': destination,
@@ -6541,11 +6550,10 @@ class PostNsop(View):
                 'total_pallet': total_pallet,
                 'total_pcs': total_pcs,
                 'total_pallet': total_pallet,
-                'shipment_type': request.POST.get('shipment_type'),
+                'shipment_type': shipment_type,
                 'shipment_account': request.POST.get('shipment_account'),
                 'appointment_id': appointment_id,
                 'shipment_cargo_id': shipment_cargo_id,
-                'shipment_appointment': request.POST.get('shipment_appointment'),
                 'load_type': request.POST.get('load_type'),
                 'origin': request.POST.get('warehouse'),
                 'note': request.POST.get('note'),
@@ -6554,6 +6562,11 @@ class PostNsop(View):
                 'pickup_time': request.POST.get('pickup_time'),
             }
             request.POST = request.POST.copy()
+
+            if shipment_type != '外配':
+                shipment_data['shipment_appointment'] = request.POST.get('shipment_appointment')
+                request.POST['shipment_appointment'] = request.POST.get('shipment_appointment')
+            
             request.POST['shipment_data'] = str(shipment_data)
             request.POST['batch_number'] = shipment_batch_number   
             request.POST['address'] = address      
@@ -7717,7 +7730,11 @@ class PostNsop(View):
         if group and 'ltl' in group.lower():  # 如果group包含ltl（不区分大小写）
             criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
         else:
-            criteria = criteria & models.Q(shipment_type="FTL")
+            criteria = criteria & (
+                models.Q(shipment_type='FTL')
+                |
+                models.Q(shipment_type='外配', shipment_schduled_at__gte='2026-04-27')
+            )
 
         if four_major_whs == "four_major_whs":
             criteria &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
@@ -8999,13 +9016,13 @@ class PostNsop(View):
 
     async def sp_external_distribution_data(self, warehouse: str, user) -> list:
         """获取外配的约数据 - shipment_type为外配且pod_link为空"""
-        target_date = datetime(2025, 10, 10)
+        target_date = datetime(2026, 4, 20)
 
         pl_criteria = models.Q(
             container_number__orders__warehouse__name=warehouse,
             shipment_batch_number__isnull=False,
             container_number__orders__offload_id__offload_at__isnull=True,
-            shipment_batch_number__shipment_appointment__gt=target_date,
+            shipment_batch_number__pickup_time__gt=target_date,
             shipment_batch_number__shipment_type="外配",
             shipment_batch_number__pod_link__isnull=True,
         )
@@ -9014,7 +9031,7 @@ class PostNsop(View):
             location=warehouse,
             shipment_batch_number__isnull=False,           
             container_number__orders__offload_id__offload_at__isnull=False,
-            shipment_batch_number__shipment_appointment__gt=target_date,
+            shipment_batch_number__pickup_time__gt=target_date,
             shipment_batch_number__shipment_type="外配",
             shipment_batch_number__pod_link__isnull=True,            
         )
@@ -9035,8 +9052,7 @@ class PostNsop(View):
             if batch_number not in grouped_data:
                 try:
                     shipment = await sync_to_async(Shipment.objects.get)(
-                        shipment_batch_number=batch_number,
-                        shipment_appointment__gte=datetime(2025, 1, 1)
+                        shipment_batch_number=batch_number
                     )
                 except Shipment.DoesNotExist:
                     continue
@@ -14587,6 +14603,330 @@ class PostNsop(View):
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request, context)
 
+    async def handle_client_exception_search_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
+        """客户端异常详情搜索功能"""  
+        if not context:
+            context = {}
+        
+        # 获取搜索条件
+        start_date = request.POST.get('start_date', '').strip()
+        end_date = request.POST.get('end_date', '').strip()
+        container_number = request.POST.get('container_number', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        warehouse = request.POST.get('warehouse', '').strip()
+        delivery_type = request.POST.get('delivery_type', 'public').strip()
+
+        # 将搜索条件传递到前端
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'container_number': container_number,
+            'destination': destination,
+            'warehouse': warehouse,
+            'delivery_type': delivery_type
+        })
+        
+        # 如果没有输入任何值，默认最近三个月
+        if not any([start_date, end_date, container_number, destination, warehouse]):
+            today = datetime.now().date()
+            three_months_ago = today - timedelta(days=30)
+            start_date = three_months_ago.strftime('%Y-%m-%d')
+            end_date = today.strftime('%Y-%m-%d')
+            context['start_date'] = start_date
+            context['end_date'] = end_date
+        
+        # 先查询符合条件的 pallets
+        pallet_criteria = Q()
+        
+        # 时间查询 - 通过container_number->orders->offload_id->offload_at
+        if start_date:
+            pallet_criteria &= Q(container_number__orders__offload_id__offload_at__gte=start_date)
+        if end_date:
+            pallet_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
+        
+        # 柜号查询
+        if container_number:
+            pallet_criteria &= Q(container_number__container_number__icontains=container_number)
+        
+        # 仓点查询
+        if destination:
+            pallet_criteria &= Q(destination__icontains=destination)
+        
+        # 仓库查询 - 通过container_number->orders->retrieval_id->retrieval_destination_area
+        if warehouse:
+            pallet_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
+        
+        pallet_criteria &= Q(delivery_type=delivery_type)
+        
+        pallets = await sync_to_async(list)(
+            Pallet.objects
+            .select_related('master_shipment_batch_number', 'container_number')
+            .filter(pallet_criteria)
+            .order_by('-id')
+        )
+        
+        from django.apps import apps
+        PalletException = apps.get_model('warehouse', 'PalletException')
+        
+        # 收集所有 pallet id
+        all_pallet_ids = [p.id for p in pallets]
+        
+        # 查询所有异常
+        exceptions = []
+        if all_pallet_ids:
+            exceptions = await sync_to_async(list)(
+                PalletException.objects
+                .filter(pallet_id__in=all_pallet_ids)
+                .order_by('-created_at')
+            )
+        
+        # 创建异常字典，按 pallet id 分组
+        exception_dict = {}
+        for exc in exceptions:
+            if exc.pallet_id not in exception_dict:
+                exception_dict[exc.pallet_id] = []
+            exception_dict[exc.pallet_id].append(exc)
+        
+        # 如果是 other 类型，先按分组键分组，再处理
+        if delivery_type == 'other':
+            # 创建分组字典
+            grouped_pallets = {}
+            for pallet in pallets:
+                container_num = ''
+                if pallet and pallet.container_number:
+                    container_num = pallet.container_number.container_number or ''
+                destination_val = pallet.destination or ''
+                shipping_mark_val = pallet.shipping_mark or ''
+                
+                # 创建分组键
+                group_key = f'{container_num}_{destination_val}_{shipping_mark_val}'
+                
+                if group_key not in grouped_pallets:
+                    grouped_pallets[group_key] = {
+                        'container_number': container_num,
+                        'destination': destination_val,
+                        'shipping_mark': shipping_mark_val,
+                        'pallets': []
+                    }
+                
+                grouped_pallets[group_key]['pallets'].append(pallet)
+            
+            # 构建结果列表
+            results = []
+            for group_key, group_data in grouped_pallets.items():
+                # 获取第一个 pallet 计算状态（假设同一个组的状态一致）
+                first_pallet = group_data['pallets'][0]
+                status = '未预约'
+                status_class = 'unappointed'
+                master_shipment = first_pallet.master_shipment_batch_number
+                if master_shipment:
+                    if master_shipment.pod_link and master_shipment.pod_uploaded_at:
+                        status = '已完成'
+                        status_class = 'completed'
+                    elif master_shipment.arrived_at:
+                        status = '已送达'
+                        status_class = 'arrived'
+                    elif master_shipment.shipped_at:
+                        status = '已出库'
+                        status_class = 'shipped'
+                    elif master_shipment:
+                        status = '已预约'
+                        status_class = 'appointed'
+                
+                # 收集该组所有 pallet ids
+                pallet_ids = [p.id for p in group_data['pallets']]
+                ids_string_list = [f'plt_{p.id}' for p in group_data['pallets']]
+                ids_string = ','.join(ids_string_list)
+                
+                # 收集该组所有异常
+                group_exceptions = []
+                for p_id in pallet_ids:
+                    if p_id in exception_dict:
+                        group_exceptions.extend(exception_dict[p_id])
+                
+                if group_exceptions:
+                    for exc in group_exceptions:
+                        results.append({
+                            'id': exc.id,
+                            'container_number': group_data['container_number'],
+                            'destination': group_data['destination'],
+                            'shipping_mark': group_data['shipping_mark'],
+                            'status': status,
+                            'status_class': status_class,
+                            'exception_type': exc.exception_type,
+                            'exception_type_display': exc.get_exception_type_display(),
+                            'exception_reason': exc.exception_reason,
+                            'ids_string': ids_string,
+                        })
+                else:
+                    # 没有异常的组也添加一条记录
+                    results.append({
+                        'id': None,
+                        'container_number': group_data['container_number'],
+                        'destination': group_data['destination'],
+                        'shipping_mark': group_data['shipping_mark'],
+                        'status': status,
+                        'status_class': status_class,
+                        'exception_type': '',
+                        'exception_type_display': '',
+                        'exception_reason': '',
+                        'ids_string': ids_string,
+                    })
+        else:
+            # public 类型，保持原来的逻辑
+            results = []
+            for pallet in pallets:
+                container_num = ''
+                if pallet and pallet.container_number:
+                    container_num = pallet.container_number.container_number or ''
+                
+                destination_val = pallet.destination or ''
+                
+                # 计算状态
+                status = '未预约'
+                status_class = 'unappointed'
+                master_shipment = pallet.master_shipment_batch_number
+                if master_shipment:
+                    if master_shipment.pod_link and master_shipment.pod_uploaded_at:
+                        status = '已完成'
+                        status_class = 'completed'
+                    elif master_shipment.arrived_at:
+                        status = '已送达'
+                        status_class = 'arrived'
+                    elif master_shipment.shipped_at:
+                        status = '已出库'
+                        status_class = 'shipped'
+                    elif master_shipment:
+                        status = '已预约'
+                        status_class = 'appointed'
+                
+                # 添加异常记录（如果有的话）
+                if pallet.id in exception_dict:
+                    for exc in exception_dict[pallet.id]:
+                        results.append({
+                            'id': exc.id,
+                            'container_number': container_num,
+                            'destination': destination_val,
+                            'status': status,
+                            'status_class': status_class,
+                            'exception_type': exc.exception_type,
+                            'exception_type_display': exc.get_exception_type_display(),
+                            'exception_reason': exc.exception_reason,
+                            'ids_string': f'plt_{pallet.id}',
+                        })
+                else:
+                    # 没有异常的 pallet 也添加一条记录
+                    results.append({
+                        'id': None,
+                        'container_number': container_num,
+                        'destination': destination_val,
+                        'status': status,
+                        'status_class': status_class,
+                        'exception_type': '',
+                        'exception_type_display': '',
+                        'exception_reason': '',
+                        'ids_string': f'plt_{pallet.id}',
+                    })
+        
+        context['results'] = results
+        return self.template_client_exception, context
+
+    async def handle_load_exceptions_post(self, request: HttpRequest) -> JsonResponse:
+        """加载异常列表"""
+        try:
+            ids_string = request.POST.get('ids_string', '').strip()
+            if not ids_string:
+                return JsonResponse({'success': False, 'message': '没有选择任何记录'})
+            
+            # 解析 ids，提取 pallet_id
+            pallet_ids = []
+            for item_id in ids_string.split(','):
+                if item_id.startswith('plt_'):
+                    pallet_ids.append(int(item_id.replace('plt_', '')))
+            
+            if not pallet_ids:
+                return JsonResponse({'success': True, 'exceptions': []})
+            
+            # 查询异常
+            from django.apps import apps
+            PalletException = apps.get_model('warehouse', 'PalletException')
+            exceptions = await sync_to_async(list)(
+                PalletException.objects
+                .filter(pallet_id__in=pallet_ids)
+                .select_related('pallet')
+                .order_by('-created_at')
+            )
+            
+            # 序列化异常数据
+            exception_list = []
+            for exc in exceptions:
+                exception_list.append({
+                    'id': exc.id,
+                    'exception_type': exc.exception_type,
+                    'exception_type_display': exc.get_exception_type_display(),
+                    'exception_reason': exc.exception_reason,
+                    'created_at': exc.created_at.strftime('%Y-%m-%d %H:%M:%S') if exc.created_at else ''
+                })
+            
+            return JsonResponse({'success': True, 'exceptions': exception_list})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+    async def handle_add_exception_post(self, request: HttpRequest) -> JsonResponse:
+        """添加异常"""
+        try:
+            ids_string = request.POST.get('ids_string', '').strip()
+            exception_type = request.POST.get('exception_type', '').strip()
+            exception_reason = request.POST.get('exception_reason', '').strip()
+            
+            if not ids_string:
+                return JsonResponse({'success': False, 'message': '没有选择任何记录'})
+            if not exception_type:
+                return JsonResponse({'success': False, 'message': '请选择异常类型'})
+            if not exception_reason:
+                return JsonResponse({'success': False, 'message': '请输入异常原因'})
+            
+            # 解析 ids，提取 pallet_id
+            pallet_ids = []
+            for item_id in ids_string.split(','):
+                if item_id.startswith('plt_'):
+                    pallet_ids.append(int(item_id.replace('plt_', '')))
+            
+            if not pallet_ids:
+                return JsonResponse({'success': False, 'message': '没有可添加异常的记录'})
+            
+            # 导入模型
+            from django.apps import apps
+            PalletException = apps.get_model('warehouse', 'PalletException')
+            
+            # 为每个 pallet 添加异常
+            for pallet_id in pallet_ids:
+                await sync_to_async(PalletException.objects.create)(
+                    pallet_id=pallet_id,
+                    exception_type=exception_type,
+                    exception_reason=exception_reason
+                )
+            
+            return JsonResponse({'success': True, 'message': '添加成功'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+    async def handle_delete_exception_post(self, request: HttpRequest) -> JsonResponse:
+        """删除异常"""
+        try:
+            exception_id = request.POST.get('exception_id', '').strip()
+            if not exception_id:
+                return JsonResponse({'success': False, 'message': '请选择要删除的异常'})
+            
+            from django.apps import apps
+            PalletException = apps.get_model('warehouse', 'PalletException')
+            await sync_to_async(PalletException.objects.filter(id=int(exception_id)).delete)()
+            
+            return JsonResponse({'success': True, 'message': '删除成功'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+
     async def handle_master_shipment_check_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
         """客户端约详情搜索功能"""  
         if not context:
@@ -14831,23 +15171,20 @@ class PostNsop(View):
             elif id_str.startswith('pl_'):
                 packinglist_ids.append(id_str.replace('pl_', ''))
 
-        def _update():
-            updated_pallet = 0
-            updated_packing = 0
+        updated_pallet = 0
+        updated_packing = 0
 
-            if pallet_ids and isinstance(pallet_ids, list):
-                updated_pallet = Pallet.objects.filter(id__in=pallet_ids).update(
-                    master_shipment_batch_number=new_shipment
-                )
+        if pallet_ids:
+            updated_pallet = await sync_to_async(
+                Pallet.objects.filter(id__in=pallet_ids).update,
+                thread_sensitive=True
+            )(master_shipment_batch_number_id=new_shipment.id)
 
-            if packinglist_ids and isinstance(packinglist_ids, list):
-                updated_packing = PackingList.objects.filter(id__in=packinglist_ids).update(
-                    master_shipment_batch_number=new_shipment
-                )
-
-            return updated_pallet, updated_packing
-
-        updated_pallet, updated_packing = await sync_to_async(_update)()
+        if packinglist_ids:
+            updated_packing = await sync_to_async(
+                PackingList.objects.filter(id__in=packinglist_ids).update,
+                thread_sensitive=True
+            )(master_shipment_batch_number_id=new_shipment.id)
         
         
         # 重新调用搜索功能，保留原有的搜索条件

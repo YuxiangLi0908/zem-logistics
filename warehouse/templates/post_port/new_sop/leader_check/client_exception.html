@@ -1,0 +1,795 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .master-shipment-check {
+        max-width: 98%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .master-shipment-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .master-shipment-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .master-shipment-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .combined-search-section {
+        width: 98%;
+        margin: 20px auto;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        padding: 0;
+        margin-top: 0;
+        width: 100%;
+    }
+
+    .search-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 150px;
+    }
+
+    .search-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #2c3e50;
+    }
+
+    .search-controls input,
+    .search-controls select {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.9rem;
+        min-width: 150px;
+    }
+
+    .search-controls button {
+        padding: 10px 20px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        align-self: flex-end;
+        margin-top: 20px;
+    }
+
+    .search-controls button:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .results-section {
+        padding: 25px;
+    }
+
+    .group-table {
+        width: 98%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .group-table th {
+        background: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        font-size: 0.9rem;
+    }
+
+    .search-row {
+        background: #f1f3f4;
+    }
+    
+    .search-row td {
+        background: #f1f3f4;
+    }
+
+    .search-row td {
+        padding: 6px 4px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table-search-input,
+    .table-search-select {
+        width: 100%;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        box-sizing: border-box;
+    }
+
+    .table-search-input:focus,
+    .table-search-select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .group-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+
+    .group-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .group-header {
+        background: #e3f2fd !important;
+        font-weight: bold;
+        font-size: 1rem !important;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .status-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-arrived {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .status-shipped {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-appointed {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .status-unappointed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        width: 98%;
+        margin: 0 auto;
+        max-height: 500px;
+        overflow-y: auto;
+        position: relative;
+    }
+    
+    .group-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .group-table thead tr:first-child th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #f8f9fa;
+    }
+    
+    .group-table thead tr.search-row td {
+        position: sticky;
+        top: 52px;
+        z-index: 9;
+        background: #f1f3f4;
+    }
+
+    .table-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .btn-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .btn-info:hover {
+        background: #138496;
+    }
+
+    .exception-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+    }
+
+    .exception-unpack {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .exception-appointment {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        width: 700px;
+        max-width: 90%;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+    }
+
+    .form-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    .modal-close:hover {
+        color: #212529;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        padding: 20px;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        box-sizing: border-box;
+    }
+
+    .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+    }
+
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #c82333;
+    }
+
+    .btn-disabled {
+        background: #6c757d;
+        color: white;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .btn-disabled:hover {
+        background: #6c757d;
+    }
+
+    .pallet-info-section {
+        background: #e8f5e9;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+
+    .add-exception-section {
+        background: #fff3e0;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        font-weight: 600;
+        margin-bottom: 15px;
+        font-size: 1rem;
+        color: #2c3e50;
+    }
+</style>
+
+<div class="master-shipment-check">
+    <div class="master-shipment-header">
+        <div class="master-shipment-logo">
+            <i class="fas fa-truck-loading"></i>
+            客户端的异常详情
+        </div>
+    </div>
+
+    <div class="combined-search-section">
+        <form method="POST" id="searchForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="client_exception_search">
+            
+            <div class="search-controls">
+                <div class="search-group">
+                    <label for="start_date">打板开始时间</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="end_date">打板结束时间</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="container_number">柜号</label>
+                    <input type="text" id="container_number" name="container_number" placeholder="输入柜号" value="{{ container_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="destination">仓点</label>
+                    <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
+                </div>
+
+                <div class="search-group">
+                    <label for="delivery_type">仓点类型</label>
+                    <select id="delivery_type" name="delivery_type">
+                        <option value="public" {% if delivery_type == 'public' %}selected{% endif %}>公仓</option>
+                        <option value="other" {% if delivery_type == 'other' %}selected{% endif %}>私仓</option>
+                    </select>
+                </div>
+                
+                <div class="search-group">
+                    <label for="warehouse">仓库</label>
+                    <select id="warehouse" name="warehouse">
+                        <option value="">全部仓库</option>
+                        <option value="NJ" {% if warehouse == 'NJ' %}selected{% endif %}>NJ</option>
+                        <option value="SAV" {% if warehouse == 'SAV' %}selected{% endif %}>SAV</option>
+                        <option value="LA" {% if warehouse == 'LA' %}selected{% endif %}>LA</option>
+                    </select>
+                </div>
+                
+                <button type="submit">搜索</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="results-section">
+        {% if results %}
+        <div class="table-wrapper">
+            <table class="group-table" id="masterShipmentTable">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>仓点</th>
+                        {% if delivery_type == 'other' %}
+                        <th>唛头</th>
+                        {% endif %}
+                        <th>客户端的约状态</th>
+                        <th>操作</th>
+                        <th>异常类型</th>
+                        <th>异常原因</th>
+                        <th>删除</th>
+                    </tr>
+                    <tr class="search-row">
+                        <td><input type="text" class="table-search-input" placeholder="搜索柜号" data-col="0"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索仓点" data-col="1"></td>
+                        {% if delivery_type == 'other' %}
+                        <td><input type="text" class="table-search-input" placeholder="搜索唛头" data-col="2"></td>
+                        {% endif %}
+                        <td>
+                            <select class="table-search-select" data-col="{% if delivery_type == 'other' %}3{% else %}2{% endif %}">
+                                <option value="">全部状态</option>
+                                <option value="已完成">已完成</option>
+                                <option value="已送达">已送达</option>
+                                <option value="已出库">已出库</option>
+                                <option value="已预约">已预约</option>
+                                <option value="未预约">未预约</option>
+                            </select>
+                        </td>
+                        <td></td>
+                        <td>
+                            <select class="table-search-select" data-col="{% if delivery_type == 'other' %}5{% else %}4{% endif %}">
+                                <option value="">全部异常类型</option>
+                                <option value="拆柜异常">拆柜异常</option>
+                                <option value="拿约异常">拿约异常</option>
+                            </select>
+                        </td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in results %}
+                    <tr data-exception-id="{{ item.id|default:'' }}">
+                        <td>{{ item.container_number|default:'-' }}</td>
+                        <td>{{ item.destination|default:'-' }}</td>
+                        {% if delivery_type == 'other' %}
+                        <td>{{ item.shipping_mark|default:'-' }}</td>
+                        {% endif %}
+                        <td>
+                            <span class="status-badge status-{{ item.status_class }}">{{ item.status }}</span>
+                        </td>
+                        <td>
+                            <button class="table-btn btn-info" onclick="openExceptionModal('{{ item.ids_string }}', '{{ item.container_number|default:'' }}', '{{ item.destination|default:'' }}', '{{ item.shipping_mark|default:'' }}')">
+                                <i class="fas fa-plus"></i> 异常添加
+                            </button>
+                        </td>
+                        <td>
+                            {% if item.exception_type_display %}
+                                <span class="exception-badge exception-{{ item.exception_type }}">
+                                    {{ item.exception_type_display }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ item.exception_reason|default:'-' }}</td>
+                        <td>
+                            {% if item.id %}
+                                <button class="table-btn btn-danger" onclick="deleteException({{ item.id }})">
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            {% else %}
+                                <button class="table-btn btn-disabled" disabled>
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-results">
+            <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
+            没有查询到任何信息
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 异常添加模态框 -->
+<div class="modal-overlay" id="exceptionModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">异常添加</h3>
+            <button class="modal-close" onclick="closeExceptionModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- 板子信息 -->
+            <div class="pallet-info-section">
+                <div class="section-title">板子信息</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>柜号</label>
+                        <input type="text" id="modalContainerNumber" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>仓点</label>
+                        <input type="text" id="modalDestination" readonly>
+                    </div>
+                    {% if delivery_type == 'other' %}
+                    <div class="form-group">
+                        <label>唛头</label>
+                        <input type="text" id="modalShippingMark" readonly>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 添加异常 -->
+            <div class="add-exception-section">
+                <div class="section-title">添加异常</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="exceptionType">异常类型</label>
+                        <select id="exceptionType">
+                            <option value="unpack">拆柜异常</option>
+                            <option value="appointment">拿约异常</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="exceptionReason">异常原因</label>
+                        <textarea id="exceptionReason" placeholder="请输入异常原因（最多500字）" maxlength="500"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="table-btn btn-secondary" onclick="closeExceptionModal()">关闭</button>
+            <button class="table-btn btn-success" onclick="addException()">
+                确认添加
+            </button>
+        </div>
+    </div>
+</div>
+
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/message_modal.html' %}
+<script>
+    let currentIdsString = '';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('masterShipmentTable');
+        if (table) {
+            const tbody = table.querySelector('tbody');
+            const searchInputs = table.querySelectorAll('.table-search-input, .table-search-select');
+
+            searchInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    filterTable();
+                });
+                input.addEventListener('change', function() {
+                    filterTable();
+                });
+            });
+
+            function filterTable() {
+                const rows = tbody.querySelectorAll('tr');
+                const searchValues = [];
+
+                searchInputs.forEach(input => {
+                    const col = input.getAttribute('data-col');
+                    searchValues[col] = input.value.toLowerCase();
+                });
+
+                rows.forEach(row => {
+                    let show = true;
+                    const cells = row.querySelectorAll('td');
+
+                    searchInputs.forEach(input => {
+                        const col = parseInt(input.getAttribute('data-col'));
+                        const searchValue = searchValues[col];
+
+                        if (searchValue) {
+                            const cell = cells[col];
+                            if (cell) {
+                                const cellText = cell.textContent.toLowerCase();
+                                if (!cellText.includes(searchValue)) {
+                                    show = false;
+                                }
+                            }
+                        }
+                    });
+
+                    row.style.display = show ? '' : 'none';
+                });
+            }
+        }
+    });
+
+    function openExceptionModal(idsString, containerNumber, destination, shippingMark) {
+        currentIdsString = idsString;
+        document.getElementById('modalContainerNumber').value = containerNumber || '-';
+        document.getElementById('modalDestination').value = destination || '-';
+        {% if delivery_type == 'other' %}
+        document.getElementById('modalShippingMark').value = shippingMark || '-';
+        {% endif %}
+        document.getElementById('exceptionReason').value = '';
+        
+        document.getElementById('exceptionModal').classList.add('active');
+    }
+
+    function closeExceptionModal() {
+        document.getElementById('exceptionModal').classList.remove('active');
+        currentIdsString = '';
+    }
+
+    async function addException() {
+        const exceptionType = document.getElementById('exceptionType').value;
+        const exceptionReason = document.getElementById('exceptionReason').value.trim();
+        
+        if (!exceptionReason) {
+            alert('请输入异常原因');
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('step', 'add_exception');
+            formData.append('ids_string', currentIdsString);
+            formData.append('exception_type', exceptionType);
+            formData.append('exception_reason', exceptionReason);
+            
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('添加异常成功');
+                closeExceptionModal();
+                // 刷新页面
+                document.getElementById('searchForm').submit();
+            } else {
+                alert(`添加失败: ${data.message}`);
+            }
+        } catch (error) {
+            alert(`添加失败: ${error.message}`);
+        }
+    }
+
+    async function deleteException(exceptionId) {
+        if (!confirm('确定要删除这条异常记录吗？')) {
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('step', 'delete_exception');
+            formData.append('exception_id', exceptionId);
+            
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('删除成功');
+                // 刷新页面
+                document.getElementById('searchForm').submit();
+            } else {
+                alert(`删除失败: ${data.message}`);
+            }
+        } catch (error) {
+            alert(`删除失败: ${error.message}`);
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}
