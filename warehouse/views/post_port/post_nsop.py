@@ -13354,96 +13354,114 @@ class PostNsop(View):
             context['start_date'] = start_date
             context['end_date'] = end_date
         
-        # 构建统一的查询条件
-        base_criteria = Q()
+        # 先查询符合条件的 pallets
+        pallet_criteria = Q()
         
         # 时间查询 - 通过container_number->orders->offload_id->offload_at
         if start_date:
-            base_criteria &= Q(container_number__orders__offload_id__offload_at__gte=start_date)
+            pallet_criteria &= Q(container_number__orders__offload_id__offload_at__gte=start_date)
         if end_date:
-            base_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
+            pallet_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
         
         # 柜号查询
         if container_number:
-            base_criteria &= Q(container_number__container_number__icontains=container_number)
+            pallet_criteria &= Q(container_number__container_number__icontains=container_number)
         
         # 仓点查询
         if destination:
-            base_criteria &= Q(destination__icontains=destination)
+            pallet_criteria &= Q(destination__icontains=destination)
         
         # 仓库查询 - 通过container_number->orders->retrieval_id->retrieval_destination_area
         if warehouse:
-            base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
+            pallet_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
         
-        base_criteria &= Q(delivery_type=delivery_type)
-
-        # 分别构建Pallet和PackingList的查询条件
-        pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
-        packinglist_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=True)
+        pallet_criteria &= Q(delivery_type=delivery_type)
         
-        results = []
-        combined_dict = {}
-        
-        # 使用 values() 和 annotate() 在数据库层面分组查询 Pallet 数据
-        pallet_groups = await sync_to_async(list)(
+        pallets = await sync_to_async(list)(
             Pallet.objects
+            .select_related('master_shipment_batch_number', 'container_number')
             .filter(pallet_criteria)
-            .select_related('container_number', 'master_shipment_batch_number')
-            .values(
-                'PO_ID',
-                'container_number__container_number',
-                'destination',
-                'master_shipment_batch_number_id',
-                'master_shipment_batch_number__shipment_batch_number',
-                'master_shipment_batch_number__appointment_id',
-                'master_shipment_batch_number__pod_link',
-                'master_shipment_batch_number__arrived_at',
-                'master_shipment_batch_number__shipped_at',
-                'master_shipment_batch_number__shipment_appointment',
-                'master_shipment_batch_number__is_virtual_sp',
-            )
-            .annotate(pallet_count=Count('id'))
-            .order_by('PO_ID', 'container_number__container_number', 'destination')
+            .order_by('-id')
         )
         
-        # 收集所有 pallet_id，用于查询异常
-        all_pallet_ids = []
-        for key, value in combined_dict.items():
-            for item_id in value['ids']:
-                if item_id.startswith('plt_'):
-                    all_pallet_ids.append(int(item_id.replace('plt_', '')))
+        from django.apps import apps
+        PalletException = apps.get_model('warehouse', 'PalletException')
         
-        # 查询所有相关的异常
+        # 收集所有 pallet id
+        all_pallet_ids = [p.id for p in pallets]
+        
+        # 查询所有异常
+        exceptions = []
         if all_pallet_ids:
-            from django.apps import apps
-            try:
-                PalletException = apps.get_model('warehouse', 'PalletException')
-                exceptions = await sync_to_async(list)(
-                    PalletException.objects
-                    .filter(pallet_id__in=all_pallet_ids)
-                    .select_related('pallet')
-                    .order_by('-created_at')
-                )
-                # 创建一个字典，按 pallet id 分组
-                exception_dict = {}
-                for exc in exceptions:
-                    if exc.pallet_id not in exception_dict:
-                        exception_dict[exc.pallet_id] = []
-                    exception_dict[exc.pallet_id].append(exc)
-                
-                # 将异常添加到对应的数据项中
-                for key, value in combined_dict.items():
-                    item_exceptions = []
-                    for item_id in value['ids']:
-                        if item_id.startswith('plt_'):
-                            pallet_id = int(item_id.replace('plt_', ''))
-                            if pallet_id in exception_dict:
-                                item_exceptions.extend(exception_dict[pallet_id])
-                    value['exceptions'] = item_exceptions
-            except Exception:
-                pass
+            exceptions = await sync_to_async(list)(
+                PalletException.objects
+                .filter(pallet_id__in=all_pallet_ids)
+                .order_by('-created_at')
+            )
         
-        context['results'] = list(combined_dict.values())
+        # 创建异常字典，按 pallet id 分组
+        exception_dict = {}
+        for exc in exceptions:
+            if exc.pallet_id not in exception_dict:
+                exception_dict[exc.pallet_id] = []
+            exception_dict[exc.pallet_id].append(exc)
+        
+        # 构建结果列表
+        results = []
+        for pallet in pallets:
+            container_num = ''
+            if pallet and pallet.container_number:
+                container_num = pallet.container_number.container_number or ''
+            
+            destination_val = pallet.destination or ''
+            
+            # 计算状态
+            status = '未预约'
+            status_class = 'unappointed'
+            master_shipment = pallet.master_shipment_batch_number
+            if master_shipment:
+                if master_shipment.pod_link and master_shipment.pod_uploaded_at:
+                    status = '已完成'
+                    status_class = 'completed'
+                elif master_shipment.arrived_at:
+                    status = '已送达'
+                    status_class = 'arrived'
+                elif master_shipment.shipped_at:
+                    status = '已出库'
+                    status_class = 'shipped'
+                elif master_shipment.shipment_appointment:
+                    status = '已预约'
+                    status_class = 'appointed'
+            
+            # 添加异常记录（如果有的话）
+            if pallet.id in exception_dict:
+                for exc in exception_dict[pallet.id]:
+                    results.append({
+                        'id': exc.id,
+                        'container_number': container_num,
+                        'destination': destination_val,
+                        'status': status,
+                        'status_class': status_class,
+                        'exception_type': exc.exception_type,
+                        'exception_type_display': exc.get_exception_type_display(),
+                        'exception_reason': exc.exception_reason,
+                        'ids_string': f'plt_{pallet.id}',
+                    })
+            else:
+                # 没有异常的 pallet 也添加一条记录
+                results.append({
+                    'id': None,
+                    'container_number': container_num,
+                    'destination': destination_val,
+                    'status': status,
+                    'status_class': status_class,
+                    'exception_type': '',
+                    'exception_type_display': '',
+                    'exception_reason': '',
+                    'ids_string': f'plt_{pallet.id}',
+                })
+        
+        context['results'] = results
         return self.template_client_exception, context
 
     async def handle_load_exceptions_post(self, request: HttpRequest) -> JsonResponse:
