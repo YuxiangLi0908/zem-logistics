@@ -46,10 +46,12 @@
                                 <th style="width:14%;">到仓时间</th>
                                 <th style="width:14%;">预约情况</th>
                                 <th style="width:28%;">操作</th>
+                                <th style="width:14%;">公仓拆柜时间</th>
                             </tr>
                             <tr style="position:sticky; top:0; background:#f8f9fa;">
                                 <th><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" oninput="filterTable()"></th>
                                 <th><input type="text" class="form-control form-control-sm" placeholder="搜索客户" oninput="filterTable()"></th>
+                                <th></th>
                                 <th></th>
                                 <th></th>
                                 <th></th>
@@ -234,6 +236,9 @@
                                     </div>
                                 </form>
                             </td>
+                            <td class="td">
+                                <span class="badge bg-red-100 text-red-700">{{ item.offload_id.offload_at|date:"m-d" }}</span>
+                            </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -271,10 +276,12 @@
                                 <th style="width:10%;">打板数</th>
                                 <th style="width:18%;">导出</th>
                                 <th style="width:14%;">撤销</th>
+                                <th style="width:14%;">公仓拆柜时间</th>
                             </tr>
                             <tr style="position:sticky; top:0; background:#f8f9fa;">
                                 <th><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" oninput="filterTable()"></th>
                                 <th><input type="text" class="form-control form-control-sm" placeholder="搜索客户" oninput="filterTable()"></th>
+                                <th></th>
                                 <th></th>
                                 <th></th>
                                 <th></th>
@@ -478,6 +485,9 @@
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <button type="submit" class="btn btn-gray btn-sm w-100">撤销拆柜</button>
                                     </form>
+                                </td>
+                                <td class="td">
+                                    <span class="badge bg-red-100 text-red-700">{{ item.offload_id.offload_at|date:"m-d" }}</span>
                                 </td>
                             </tr>
                             {% endfor %}
