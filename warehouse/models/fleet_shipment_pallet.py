@@ -41,6 +41,22 @@ class FleetShipmentPallet(models.Model):
         verbose_name="操作人员",
         help_text="录入/更新成本的操作人员"
     )
+    write_off_time = models.DateTimeField(
+        verbose_name="核销时间",
+        null=True,
+        blank=True,
+        default=None,
+    )
+
+    write_off_amount = models.DecimalField(
+        verbose_name="核销金额",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+    )
+    finance_note = models.CharField(max_length=2000, null=True, blank=True, verbose_name="财务备注")
     history = HistoricalRecords()
 
     def __str__(self) -> str:

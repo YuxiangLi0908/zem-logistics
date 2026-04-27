@@ -1,0 +1,55 @@
+{% extends 'export_file/bol_base_template.html' %}
+
+{% block april_packing_list_section %}
+
+<div class="page-break" style="position: relative; min-height: 100%;">
+    <div style="text-align: center; padding-top: 60px; margin-bottom: 15px;">
+        <h2 style="font-size: 18pt; margin: 0;">
+            <b>Packing List</b>
+            <br>
+            <b>
+                <span>Pickup Number:</span>
+                <span>{{ pickup_number }}</span>
+            </b>
+        </h2>
+    </div>
+    <div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed;">
+            <colgroup>
+                <col style="width: 16%;"> 
+                <col style="width: 20%;">
+                <col style="width: 8%;"> 
+                <col style="width: 8%;"> 
+                <col style="width: 8%;">  
+                <col style="width: 20%;"> 
+                <col style="width: 10%;">
+                <col style="width: 2%;">  
+            </colgroup>
+            <thead>
+                <tr style="height: 80px;">
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; background-color: #f2f2f2;">Container Number</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; background-color: #f2f2f2;">Destination</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; background-color: #f2f2f2;">CBM</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; background-color: #f2f2f2;">Pallet</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; background-color: #f2f2f2;">Loading Remarks</th>
+                    <th style="border-left: 1px solid #000; background-color: #fff;"> </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in pallet %}
+                <tr style="height: 80px;">
+                    <td style="border: 1px solid #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width:16%;">
+                        {{ c.container_number__container_number }}
+                    </td>
+                    <td style="border: 1px solid #000; text-align: center;">{{ c.destination }}</td>
+                    <td style="border: 1px solid #000; text-align: center;">{{ c.cbm }}</td>
+                    <td style="border: 1px solid #000; text-align: center;">{{ c.pallet }}</td>
+                    <td style="border: 1px solid #000; text-align: center; font-family: STSong-Light;">{{ c.loading_note }}</td>
+                    <td style="border-left: 1px solid #000;"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

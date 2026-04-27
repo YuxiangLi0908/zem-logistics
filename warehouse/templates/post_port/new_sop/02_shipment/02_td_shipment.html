@@ -555,6 +555,9 @@
             <div class="tab" data-tab="scheduledFleet">
                 已排车 <span class="badge">{{ summary.schedule_fl_count }}</span>
             </div>
+            <div class="tab" data-tab="external-distribution">
+                外配的约 <span class="badge">{{ summary.external_distribution_count|default:0 }}</span>
+            </div>
         </div>
 
         <!-- 包含三个标签页 -->
@@ -562,6 +565,7 @@
         {% include 'post_port/new_sop/02_shipment/scheduled_section.html' %}
         {% include 'post_port/new_sop/02_shipment/unscheduled_fleet.html' %}
         {% include 'post_port/new_sop/02_shipment/scheduledFleet_section.html' %}
+        {% include 'post_port/new_sop/02_shipment/external_distribution.html' %}
     </div>
 </div>
 
@@ -632,8 +636,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'unscheduled': 'unscheduled-section',
             'scheduled': 'scheduled-section',
             'ready_ship': 'ready-section',
-            'scheduledFleet': 'scheduledFleet-section',  // 添加这一行
-            'scheduled-fleet': 'scheduledFleet-section'
+            'scheduledFleet': 'scheduledFleet-section',
+            'scheduled-fleet': 'scheduledFleet-section',
+            'external-distribution': 'external-distribution-section'
         };
         if (aliasMap[tabName]) candidates.unshift(aliasMap[tabName]);
 

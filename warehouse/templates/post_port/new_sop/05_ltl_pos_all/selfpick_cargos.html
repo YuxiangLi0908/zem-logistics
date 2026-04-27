@@ -95,6 +95,89 @@
         z-index: 10;
     }
 
+    /* 列隐藏/显示功能样式 */
+    .selfpick-column-toggle-panel {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 12px;
+        z-index: 1000;
+        min-width: 200px;
+        display: none;
+    }
+
+    .selfpick-column-toggle-panel.show {
+        display: block;
+    }
+
+    .selfpick-column-toggle-panel h4 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .selfpick-column-toggle-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 0;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .selfpick-column-toggle-item:hover {
+        background: #f5f5f5;
+        margin: 0 -12px;
+        padding: 6px 12px;
+    }
+
+    .selfpick-column-toggle-item input[type="checkbox"] {
+        margin-right: 8px;
+    }
+
+    .selfpick-column-toggle-btn {
+        background: #17a2b8;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .selfpick-column-toggle-btn:hover {
+        background: #138496;
+    }
+
+    .selfpick-hide-column-btn {
+        display: inline-block;
+        margin-left: 5px;
+        cursor: pointer;
+        opacity: 0.5;
+        font-size: 18px;
+        transition: opacity 0.2s;
+        line-height: 1;
+    }
+
+    .selfpick-hide-column-btn:hover {
+        opacity: 1;
+        color: #dc3545;
+    }
+
+    .data-table th:hover .selfpick-hide-column-btn {
+        opacity: 0.7;
+    }
+
+    .selfpick-hidden-column {
+        display: none !important;
+    }
+
     /* 工具提示内容 - 默认隐藏 */
     .tooltip-content {
         display: none;
@@ -536,6 +619,9 @@
         <button class="action-btn btn-clear-filter" onclick="clearSelfPickAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
+        <button class="selfpick-column-toggle-btn" id="selfpickColumnToggleBtn" onclick="selfpick_toggleColumnPanel()">
+            <i class="fas fa-columns"></i> 列显示设置
+        </button>
         {% if 'LA' in warehouse %}
             <form action="" method="post">
                 {% csrf_token %}
@@ -565,12 +651,12 @@
         <div id="selfpick_sortRulesContent" class="sorting-notice" style="display: none; font-size: 13px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-top: 10px;">
             <strong>数据排序规则：</strong>
             <div style="margin-top: 6px; margin-left: 22px;">
-                <div><strong>1. Pallet 数据在前，PackingList 数据在后</strong></div>
+                <div><strong>1. 已打板 数据在前，未打板 数据在后</strong></div>
                 <div style="display: flex; gap: 30px; margin-top: 8px;">
                     <div style="flex: 1;">
-                        <strong>Pallet 数据排序：</strong>
+                        <strong>已打板 数据排序：</strong>
                         <div style="margin-left: 15px; margin-top: 4px;">
-                            • 第一组：跟进状态有日期的（日期格式 4/1 或 4.1），按日期从小到大排序
+                            • 第一组：跟进状态有日期的（日期格式 4/1 或 4.1），按日期从小到大排序（已打板未打板都有）
                         </div>
                         <div style="margin-left: 15px;">
                             • 第二组：有关联 ID 的，相同关联 ID 排在一起
@@ -585,10 +671,10 @@
                     <div style="flex: 1;">
                         <strong>PackingList 数据排序：</strong>
                         <div style="margin-left: 15px; margin-top: 4px;">
-                            • 第一组：有实际提柜时间的
+                            • 第一组：有实际提柜时间的，按柜号排
                         </div>
                         <div style="margin-left: 15px;">
-                            • 第二组：有实际放行时间的
+                            • 第二组：有实际放行时间的，按柜号排
                         </div>
                     </div>
                 </div>
@@ -607,109 +693,206 @@
                     <th class="checkbox-cell">
                         <input type="checkbox" id="selfpick_selectAllCargos">
                     </th>
-                    <th>跟进状态</th>
-                    <th class="date-col">预计提货日期</th>
-                    <th class="customer-col">客户</th>
-                    <th class="date-col">拆柜日期</th>
-                    <th class="delivery-method-col">派送方式</th>
-                    <th>柜号</th>
-                    <th>目的地</th>
-                    <th class="mark-col">唛头</th>
-                    <th class="note-col">备注</th> 
-                    <th class="command-col">指令</th>
-                    <th>CBM</th>
-                    <th>件数</th>
-                    <th>重量kg</th>
-                    <th>重量lbs</th>
-                    <th class="pallet-col">板数</th>
-                    <th class="pallet-size-col">托盘尺寸</th>
-                    <th class="quote-col">出库数量</th> 
-                    <th class="quote-col">单板费</th> 
-                    <th class="quote-col">出库费</th> 
-                    <th class="quote-note-col">出库费备注</th> 
-                    <th class="bol-col">BOL号</th>                   
-                    <th>承运公司</th>
-                    <th class="address-col">地址</th>
-                    <th class="action-col">操作</th>
+                    <th data-column="1">跟进状态<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(1)">×</span></th>
+                    <th class="date-col" data-column="2">预计提货日期<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(2)">×</span></th>
+                    <th class="customer-col" data-column="3">客户<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(3)">×</span></th>
+                    <th class="date-col" data-column="4">拆柜日期<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(4)">×</span></th>
+                    <th class="delivery-method-col" data-column="5">派送方式<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(5)">×</span></th>
+                    <th data-column="6">柜号<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(6)">×</span></th>
+                    <th data-column="7">目的地<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(7)">×</span></th>
+                    <th class="mark-col" data-column="8">唛头<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(8)">×</span></th>
+                    <th class="note-col" data-column="9">备注<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(9)">×</span></th>
+                    <th class="command-col" data-column="10">指令<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(10)">×</span></th>
+                    <th data-column="11">CBM<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(11)">×</span></th>
+                    <th data-column="12">件数<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(12)">×</span></th>
+                    <th data-column="13">重量kg<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(13)">×</span></th>
+                    <th data-column="14">重量lbs<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(14)">×</span></th>
+                    <th class="pallet-col" data-column="15">板数<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(15)">×</span></th>
+                    <th class="pallet-size-col" data-column="16">托盘尺寸<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(16)">×</span></th>
+                    <th class="quote-col" data-column="17">出库数量<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(17)">×</span></th>
+                    <th class="quote-col" data-column="18">单板费<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(18)">×</span></th>
+                    <th class="quote-col" data-column="19">出库费<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(19)">×</span></th>
+                    <th class="quote-note-col" data-column="20">出库费备注<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(20)">×</span></th>
+                    <th class="bol-col" data-column="21">BOL号<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(21)">×</span></th>
+                    <th data-column="22">承运公司<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(22)">×</span></th>
+                    <th class="address-col" data-column="23">地址<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(23)">×</span></th>
+                    <th class="action-col" data-column="24">操作</th>
                 </tr>
             </thead>
+
+            <!-- 列显示控制面板 -->
+            <div id="selfpickColumnTogglePanel" class="selfpick-column-toggle-panel">
+                <h4>列显示设置</h4>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(1, this)">
+                    <input type="checkbox" id="selfpickCol1Checkbox" checked>
+                    <label for="selfpickCol1Checkbox">跟进状态</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(2, this)">
+                    <input type="checkbox" id="selfpickCol2Checkbox" checked>
+                    <label for="selfpickCol2Checkbox">预计提货日期</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(3, this)">
+                    <input type="checkbox" id="selfpickCol3Checkbox" checked>
+                    <label for="selfpickCol3Checkbox">客户</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(4, this)">
+                    <input type="checkbox" id="selfpickCol4Checkbox" checked>
+                    <label for="selfpickCol4Checkbox">拆柜日期</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(5, this)">
+                    <input type="checkbox" id="selfpickCol5Checkbox" checked>
+                    <label for="selfpickCol5Checkbox">派送方式</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(6, this)">
+                    <input type="checkbox" id="selfpickCol6Checkbox" checked>
+                    <label for="selfpickCol6Checkbox">柜号</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(7, this)">
+                    <input type="checkbox" id="selfpickCol7Checkbox" checked>
+                    <label for="selfpickCol7Checkbox">目的地</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(8, this)">
+                    <input type="checkbox" id="selfpickCol8Checkbox" checked>
+                    <label for="selfpickCol8Checkbox">唛头</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(9, this)">
+                    <input type="checkbox" id="selfpickCol9Checkbox" checked>
+                    <label for="selfpickCol9Checkbox">备注</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(10, this)">
+                    <input type="checkbox" id="selfpickCol10Checkbox" checked>
+                    <label for="selfpickCol10Checkbox">指令</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(11, this)">
+                    <input type="checkbox" id="selfpickCol11Checkbox" checked>
+                    <label for="selfpickCol11Checkbox">CBM</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(12, this)">
+                    <input type="checkbox" id="selfpickCol12Checkbox" checked>
+                    <label for="selfpickCol12Checkbox">件数</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(13, this)">
+                    <input type="checkbox" id="selfpickCol13Checkbox" checked>
+                    <label for="selfpickCol13Checkbox">重量kg</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(14, this)">
+                    <input type="checkbox" id="selfpickCol14Checkbox" checked>
+                    <label for="selfpickCol14Checkbox">重量lbs</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(15, this)">
+                    <input type="checkbox" id="selfpickCol15Checkbox" checked>
+                    <label for="selfpickCol15Checkbox">板数</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(16, this)">
+                    <input type="checkbox" id="selfpickCol16Checkbox" checked>
+                    <label for="selfpickCol16Checkbox">托盘尺寸</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(17, this)">
+                    <input type="checkbox" id="selfpickCol17Checkbox" checked>
+                    <label for="selfpickCol17Checkbox">出库数量</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(18, this)">
+                    <input type="checkbox" id="selfpickCol18Checkbox" checked>
+                    <label for="selfpickCol18Checkbox">单板费</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(19, this)">
+                    <input type="checkbox" id="selfpickCol19Checkbox" checked>
+                    <label for="selfpickCol19Checkbox">出库费</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(20, this)">
+                    <input type="checkbox" id="selfpickCol20Checkbox" checked>
+                    <label for="selfpickCol20Checkbox">出库费备注</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(21, this)">
+                    <input type="checkbox" id="selfpickCol21Checkbox" checked>
+                    <label for="selfpickCol21Checkbox">BOL号</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(22, this)">
+                    <input type="checkbox" id="selfpickCol22Checkbox" checked>
+                    <label for="selfpickCol22Checkbox">承运公司</label>
+                </div>
+                <div class="selfpick-column-toggle-item" onclick="selfpick_toggleColumnFromPanel(23, this)">
+                    <input type="checkbox" id="selfpickCol23Checkbox" checked>
+                    <label for="selfpickCol23Checkbox">地址</label>
+                </div>
+            </div>
             <tbody>
                 <!-- 筛选行 -->
                 <tr class="filter-row">
-                    <td class="checkbox-cell"></td>
-                    <td>
+                    <td class="checkbox-cell" data-column="0"></td>
+                    <td data-column="1">
                         <input type="text" class="filter-input" placeholder="筛选跟进状态..." data-column="0" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="2">
                         <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="1" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="3">
                         <input type="text" class="filter-input" placeholder="筛选客户..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="4">
                         <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="5">
                         <input type="text" class="filter-input" placeholder="筛选方式..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="6">
                         <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="7">
                         <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td class="mark-col">
+                    <td class="mark-col" data-column="8">
                         <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="9">
                         <input type="text" class="filter-input" placeholder="筛选备注..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="10">
                         <input type="text" class="filter-input" placeholder="筛选指令..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
-                    <td>
+                    <td data-column="11">
                         <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="12">
                         <input type="text" class="filter-input" placeholder="筛选件数..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="13">
                         <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="14">
                         <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="15">
                         <input type="text" class="filter-input" placeholder="筛选板数..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="16">
                         {% comment %}
                         托盘尺寸筛选只对PALLET数据有效
                         {% endcomment %}
                         <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="17">
                         <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
-                    <td>
+                    <td data-column="18">
                         <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
-                    <td>
+                    <td data-column="19">
                         <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
-                    <td>
+                    <td data-column="20">
                         <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
-                    <td>
+                    <td data-column="21">
                         <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
-                    <td>
+                    <td data-column="22">
                         <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td data-column="23">
                         <input type="text" class="filter-input" placeholder="筛选地址..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td class="action-col">
+                    <td class="action-col" data-column="24">
                         <!-- 操作列不需要筛选 -->
                     </td>
                 </tr>
@@ -740,26 +923,26 @@
                     data-address="{{ cargo.address|default:'' }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                     data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
-                    <td class="checkbox-cell">
+                    <td class="checkbox-cell" data-column="0">
                         <input type="checkbox" class="self-cargo-checkbox" 
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             onchange="updateSelfPickSelectedCount()">
                     </td>
-                    <td class="follow-col">
+                    <td class="follow-col" data-column="1">
                         <textarea class="editable-textarea follow-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入跟进状态"
                             oninput="autoResizeTextarea(this)"                  
                             >{{ cargo.ltl_follow_status|default:'' }}</textarea>
                     </td>
-                    <td>
+                    <td data-column="2">
                         <input type="date" class="pickup-date-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
                             placeholder="选择预计提货日期">
                     </td>
-                    <td class="customer-col">{{ cargo.customer_name|default:"-" }}</td>                   
-                    <td class="date-col">
+                    <td class="customer-col" data-column="3">{{ cargo.customer_name|default:"-" }}</td>
+                    <td class="date-col" data-column="4">
                         {% if cargo.offload_at %}
                             <span class="fleet-month-day">
                                 {{ cargo.offload_at }}
@@ -775,7 +958,7 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="delivery-method-col">
+                    <td class="delivery-method-col" data-column="5">
                         <select class="method-select delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
                             <option value="卡车派送" {% if cargo.delivery_method == "卡车派送" %}selected{% endif %}>卡车派送</option>
@@ -789,12 +972,17 @@
                             <option value="TNT" {% if cargo.delivery_method == "TNT" %}selected{% endif %}>TNT</option>
                         </select>
                     </td>
-                    <td class="container-col" title="{{ cargo.container_numbers|default:'' }}">
+                    <td class="container-col" data-column="6" title="{{ cargo.container_numbers|default:'' }}">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
-                    <td>{{ cargo.destination|default:"-" }}</td>
-                    <td class="mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
-                    <td class="note-col">
+                    <td data-column="7">{{ cargo.destination|default:"-" }}</td>
+                    <td class="mark-col" data-column="8">
+                        {% if cargo.ltl_verify == False %}
+                            <span style="color: #ffc107; margin-right: 5px;" title="未核实"><i class="fas fa-exclamation-triangle"></i></span>
+                        {% endif %}
+                        {{ cargo.shipping_marks|default:"-" }}
+                    </td>
+                    <td class="note-col" data-column="9">
                         <textarea class="editable-textarea note-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入备注..."
@@ -802,18 +990,18 @@
                             style="min-height: 32px; width: 100%;">{{ cargo.note|default:'' }}
                         </textarea>
                     </td>
-                    <td class="command-col">
+                    <td class="command-col" data-column="10">
                         <textarea class="editable-textarea command-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             oninput="autoResizeTextarea(this)"
                             style="min-height: 32px; width: 100%;">{{ cargo.ltl_release_command|default:'' }}
                         </textarea>
                     </td>
-                    <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
-                    <td>{{ cargo.total_pcs|default:0 }}</td>
-                    <td>{{ cargo.total_weight_kg|default:0 }}</td>
-                    <td>{{ cargo.total_weight_lbs|default:0 }}</td>
-                    <td class="pallet-col">
+                    <td data-column="11">{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
+                    <td data-column="12">{{ cargo.total_pcs|default:0 }}</td>
+                    <td data-column="13">{{ cargo.total_weight_kg|default:0 }}</td>
+                    <td data-column="14">{{ cargo.total_weight_lbs|default:0 }}</td>
+                    <td class="pallet-col" data-column="15">
                         {% if cargo.total_n_pallet_act %}
                             <span class="pallet-count">{{ cargo.total_n_pallet_act }}</span>
                             <span class="pallet-tag pallet-tag-act">ACT</span>
@@ -824,7 +1012,7 @@
                             <span class="pallet-count">0</span>
                         {% endif %}
                     </td>
-                    <td class="pallet-size-col">
+                    <td class="pallet-size-col" data-column="16">
                         {% if cargo.data_source == "PALLET" %}
                             <div style="position: relative;">
                                 <textarea class="pallet-size-input"
@@ -845,7 +1033,7 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="quote-col">
+                    <td class="quote-col" data-column="17">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="qty-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -861,7 +1049,7 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="quote-col">
+                    <td class="quote-col" data-column="18">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="unit-quote-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -877,7 +1065,7 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="quote-col">
+                    <td class="quote-col" data-column="19">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="outbound-fee-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -893,7 +1081,7 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="quote-note-col">
+                    <td class="quote-note-col" data-column="20">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="text" class="outbound-fee-note-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -908,27 +1096,27 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
-                    <td class="bol-col">
+                    <td class="bol-col" data-column="21">
                         <textarea class="bol-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入BOL号"
                             oninput="autoResizeTextarea(this)"
                             >{{ cargo.ltl_bol_num|default:'' }}</textarea>
                     </td>
-                    <td class="company-col">
+                    <td class="company-col" data-column="22">
                         <input type="text" class="carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.carrier_company|default:'' }}"
                             placeholder="输入承运公司">
                     </td>
-                    <td class="address-col">
+                    <td class="address-col" data-column="23">
                         <textarea class="address-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入详细地址"
                             oninput="autoResizeTextarea(this)"
                             >{{ cargo.address|default:'' }}</textarea>
                     </td>
-                    <td class="action-col">
+                    <td class="action-col" data-column="24">
                         <div class="action-buttons">
                             <button class="action-btn btn-success small-btn" onclick="saveRowData(this)">
                                 <i class="fas fa-save"></i> 保存
@@ -938,7 +1126,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="27" style="text-align: center; padding: 20px;">
+                    <td colspan="25" style="text-align: center; padding: 20px;">
                         暂无已放行客提货物
                     </td>
                 </tr>
@@ -1919,6 +2107,9 @@
         window.selfpick_batchSaveRows = selfpick_batchSaveRows;
         window.batchUpdateDeliveryMethod = batchUpdateDeliveryMethod;
         window.selfpick_toggleSortRules = selfpick_toggleSortRules;
+        window.toggleColumn = toggleColumn;
+        window.toggleColumnFromPanel = toggleColumnFromPanel;
+        window.toggleColumnPanel = toggleColumnPanel;
 
         // 预计提货日期输入框事件监听，动态添加/移除底色
         document.addEventListener('DOMContentLoaded', function() {
@@ -1938,5 +2129,143 @@
                 tr.classList.remove('pickup-date-has-value');
             }
         }
+
+        // 一次性清除旧的 localStorage 数据（确保干净的开始
+        (function clearOldStorage() {
+            localStorage.removeItem('selfpickColumnVisibility');
+            localStorage.removeItem('selfDeliveryColumnVisibility');
+            localStorage.removeItem('releaseCargosColumnVisibility');
+        })();
+
+        // 列隐藏/显示功能
+        function selfpick_toggleColumn(columnIndex) {
+            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            const checkbox = document.getElementById(`selfpickCol${columnIndex}Checkbox`);
+
+            cells.forEach(cell => {
+                // 先清除旧的类名，确保不会受影响
+                cell.classList.remove('hidden-column');
+                cell.classList.remove('fleet-hidden-column');
+                cell.classList.toggle('selfpick-hidden-column');
+            });
+
+            if (checkbox) {
+                checkbox.checked = !cells[0].classList.contains('selfpick-hidden-column');
+            }
+
+            selfpick_saveColumnVisibility();
+        }
+
+        function selfpick_toggleColumnFromPanel(columnIndex, panelItem) {
+            const checkbox = panelItem.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            selfpick_toggleColumn(columnIndex);
+        }
+
+        function selfpick_toggleColumnPanel() {
+            const panel = document.getElementById('selfpickColumnTogglePanel');
+            const btn = document.getElementById('selfpickColumnToggleBtn');
+
+            if (panel.classList.contains('show')) {
+                panel.classList.remove('show');
+            } else {
+                panel.classList.add('show');
+                const rect = btn.getBoundingClientRect();
+                panel.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+                panel.style.left = (rect.left + window.scrollX) + 'px';
+            }
+        }
+
+        function selfpick_saveColumnVisibility() {
+            const visibilityState = {};
+            for (let i = 1; i <= 23; i++) {
+                const checkbox = document.getElementById(`selfpickCol${i}Checkbox`);
+                if (checkbox) {
+                    visibilityState[i] = checkbox.checked;
+                }
+            }
+            localStorage.setItem('selfpickColumnVisibility', JSON.stringify(visibilityState));
+        }
+
+        function selfpick_loadColumnVisibility() {
+            // 首先清除所有旧的隐藏类名，确保初始状态干净
+            const allCells = document.querySelectorAll('[data-column]');
+            allCells.forEach(cell => {
+                cell.classList.remove('hidden-column');
+                cell.classList.remove('fleet-hidden-column');
+                cell.classList.remove('selfpick-hidden-column');
+            });
+
+            // 确保所有复选框初始状态为选中
+            for (let i = 1; i <= 23; i++) {
+                const checkbox = document.getElementById(`selfpickCol${i}Checkbox`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+            }
+
+            const savedState = localStorage.getItem('selfpickColumnVisibility');
+            if (savedState) {
+                try {
+                    const visibilityState = JSON.parse(savedState);
+                    let hasInvalidData = false;
+
+                    // 检查数据是否有效
+                    for (let i = 1; i <= 23; i++) {
+                        if (visibilityState[i] === undefined) {
+                            hasInvalidData = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasInvalidData) {
+                        // 数据有效，加载它
+                        for (let i = 1; i <= 23; i++) {
+                            if (visibilityState[i] !== undefined && !visibilityState[i]) {
+                                const cells = document.querySelectorAll(`[data-column="${i}"]`);
+                                const checkbox = document.getElementById(`selfpickCol${i}Checkbox`);
+
+                                cells.forEach(cell => {
+                                    cell.classList.add('selfpick-hidden-column');
+                                });
+
+                                if (checkbox) {
+                                    checkbox.checked = false;
+                                }
+                            }
+                        }
+                        return; // 数据有效，直接返回
+                    }
+                } catch (e) {
+                    console.error('加载列显示状态失败', e);
+                }
+            }
+
+            // 如果没有有效数据，保存新的默认状态
+            selfpick_saveColumnVisibility();
+        }
+
+        // 点击页面其他地方关闭面板
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('selfpickColumnTogglePanel');
+            const toggleBtn = document.getElementById('selfpickColumnToggleBtn');
+
+            if (panel && toggleBtn && !panel.contains(e.target) && !toggleBtn.contains(e.target)) {
+                panel.classList.remove('show');
+            }
+        });
+
+        // 在 initializeSelfpickPage 中调用 loadColumnVisibility
+        const originalInitializeSelfpickPage = initializeSelfpickPage;
+        window.initializeSelfpickPage = function() {
+            originalInitializeSelfpickPage();
+            selfpick_loadColumnVisibility();
+        };
+
+        window.selfpick_toggleColumn = selfpick_toggleColumn;
+        window.selfpick_toggleColumnFromPanel = selfpick_toggleColumnFromPanel;
+        window.selfpick_toggleColumnPanel = selfpick_toggleColumnPanel;
     })(); // 立即执行
 </script>

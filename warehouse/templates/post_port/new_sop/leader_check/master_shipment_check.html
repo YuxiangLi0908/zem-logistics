@@ -1,4 +1,4 @@
-﻿﻿﻿﻿{% extends 'base.html' %}
+﻿﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -475,12 +475,12 @@
             
             <div class="search-controls">
                 <div class="search-group">
-                    <label for="start_date">开始时间</label>
+                    <label for="start_date">打板开始时间</label>
                     <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}">
                 </div>
                 
                 <div class="search-group">
-                    <label for="end_date">结束时间</label>
+                    <label for="end_date">打板结束时间</label>
                     <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}">
                 </div>
                 
@@ -509,6 +509,14 @@
                         <option value="NJ" {% if warehouse == 'NJ' %}selected{% endif %}>NJ</option>
                         <option value="SAV" {% if warehouse == 'SAV' %}selected{% endif %}>SAV</option>
                         <option value="LA" {% if warehouse == 'LA' %}selected{% endif %}>LA</option>
+                    </select>
+                </div>
+                
+                <div class="search-group">
+                    <label for="pending_shipment">待处理约</label>
+                    <select id="pending_shipment" name="pending_shipment">
+                        <option value="True" selected>是</option>
+                        <option value="False">否</option>
                     </select>
                 </div>
                 
@@ -778,6 +786,7 @@
         </div>
     </div>
 
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/message_modal.html' %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const table = document.getElementById('masterShipmentTable');

@@ -202,10 +202,10 @@
                     <tr>
                         <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.container_number }}</td>
                         {% if is_private_warehouse %}
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.shipping_mark }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.shipping_mark|safe }}</td>
                         {% endif %}
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.fba_id }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.ref_id }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.fba_id|safe }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.ref_id|safe }}</td>
                         <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.pcs }}</td>
                         {% if is_NJ_private %}
                         <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ pallet_count }}</td>
@@ -356,13 +356,20 @@
         </div>
     </div>
 </div>
-{% if warehouse == 'LA-91761'%}
-    {% block LA_packing_list_section %}
+
+{% if is_april_template %}
+    {% block april_packing_list_section %}
             
     {% endblock %}
-{%else%}
-{% block packing_list_section %}
-        
-{% endblock %}
+{% else %}
+    {% if warehouse == 'LA-91761'%}
+        {% block LA_packing_list_section %}
+                
+        {% endblock %}
+    {%else%}
+        {% block packing_list_section %}
+                
+        {% endblock %}
+    {% endif %}
 {% endif %}
 {% endblock %}

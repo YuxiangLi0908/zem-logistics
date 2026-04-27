@@ -521,6 +521,8 @@
                     <th>跟进状态</th>
                     <th class="fleet-customer-col">客户</th>
                     <th class="fleet-date-col">拆柜日期</th>
+                    <th class="fleet-date-col">出库时间</th>
+                    <th class="fleet-date-col">送达时间</th>
                     <th class="fleet-delivery-method-col">派送方式</th> 
                     <th>柜号</th>
                     <th>目的地</th>
@@ -542,8 +544,6 @@
                     <th class="fleet-carrier-col">承运公司</th>
                     <th class="fleet-bol-col">BOL号</th>
                     <th class="fleet-pro-col">PRO号</th>
-                    <th class="fleet-date-col">出库时间</th>
-                    <th class="fleet-date-col">送达时间</th>
                     <th class="fleet-action-col">操作</th>
                 </tr>
             </thead>
@@ -564,73 +564,73 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选拆柜日期..." data-column="3" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="4" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选出库时间..." data-column="4" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选送达时间..." data-column="5" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="6" onkeyup="fleet_applyColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="5" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选目的地..." data-column="6" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选目的地..." data-column="8" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-mark-col">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选唛头..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选唛头..." data-column="9" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选地址..." data-column="8" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选地址..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选类型..." data-column="9" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选类型..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选备注..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选备注..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选指令..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选指令..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选CBM..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选CBM..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="20" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="21" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="20" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="22" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="21" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="23" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="22" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="24" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="23" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="25" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="24" onkeyup="fleet_applyColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选出库时间..." data-column="25" onkeyup="fleet_applyColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选送达时间..." data-column="26" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="26" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-action-col">
                         <!-- 操作列不需要筛选 -->
@@ -666,7 +666,18 @@
                     data-bol="{{ cargo.ltl_bol_num|default:'' }}"
                     data-pro="{{ cargo.ltl_pro_num|default:'' }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
-                    data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
+                    data-pallet-items='{{ cargo.pallet_items_json|safe }}'
+                    data-shipment-destination="{{ cargo.shipment_batch_number__destination|default:'' }}"
+                    data-shipment-address="{{ cargo.shipment_batch_number__address|default:'' }}"
+                    data-shipment-carrier="{{ cargo.shipment_batch_number__carrier|default:'' }}"
+                    data-shipment-appointment="{{ cargo.shipment_batch_number__shipment_appointment|date:'Y-m-d H:i'|default:'' }}"
+                    data-shipment-arm-bol="{{ cargo.shipment_batch_number__ARM_BOL|default:'' }}"
+                    data-shipment-arm-pro="{{ cargo.shipment_batch_number__ARM_PRO|default:'' }}"
+                    data-shipment-is-print-label="{{ cargo.shipment_batch_number__is_print_label|default:'' }}"
+                    data-shipment-type="{{ cargo.shipment_batch_number__shipment_type|default:'' }}"
+                    data-shipment-note="{{ cargo.shipment_batch_number__note|default:'' }}"
+                    data-shipment-fleet-supplier="{{ cargo.shipment_batch_number__fleet_number__Supplier|default:'' }}"
+                    data-shipment-fleet-cost="{{ cargo.shipment_batch_number__fleet_number__fleet_cost|default:'' }}">
                     <td class="fleet-checkbox-cell">
                         <input type="checkbox" class="fleet-cargo-checkbox" 
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -702,6 +713,20 @@
                                     <span style="color:#757575">{{ cargo.offload_tag }}</span>
                                 {% endif %}
                             </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__shipped_at %}
+                            {{ cargo.shipment_batch_number__shipped_at|date:'Y-m-d H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cargo.shipment_batch_number__arrived_at %}
+                            {{ cargo.shipment_batch_number__arrived_at|date:'Y-m-d H:i' }}
                         {% else %}
                             -
                         {% endif %}
@@ -852,20 +877,6 @@
                             oninput="fleet_autoResizeTextarea(this)"
                             rows="1">{{ cargo.ltl_pro_num|default:'' }}</textarea>
                     </td>
-                    <td>
-                        {% if cargo.shipment_batch_number__shipped_at %}
-                            {{ cargo.shipment_batch_number__shipped_at|date:'Y-m-d H:i' }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if cargo.shipment_batch_number__arrived_at %}
-                            {{ cargo.shipment_batch_number__arrived_at|date:'Y-m-d H:i' }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
                     <td class="fleet-action-col">
                         <div class="fleet-action-buttons">
                             <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
@@ -876,7 +887,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="21" style="text-align: center; padding: 20px;">
+                    <td colspan="29" style="text-align: center; padding: 20px;">
                         暂无自发货物
                     </td>
                 </tr>
@@ -1359,7 +1370,18 @@
                     cost: costInput ? parseFloat(costInput.value) || 0 : 0,
                     quote: quoteInput ? parseFloat(quoteInput.value) || 0 : 0,
                     weight_lbs: parseFloat(row.dataset.weightLbs) || 0,
-                    pallet_items
+                    pallet_items,
+                    shipmentDestination: row.dataset.shipmentDestination,
+                    shipmentAddress: row.dataset.shipmentAddress,
+                    shipmentCarrier: row.dataset.shipmentCarrier,
+                    shipmentAppointment: row.dataset.shipmentAppointment,
+                    shipmentArmBol: row.dataset.shipmentArmBol,
+                    shipmentArmPro: row.dataset.shipmentArmPro,
+                    shipmentIsPrintLabel: row.dataset.shipmentIsPrintLabel,
+                    shipmentType: row.dataset.shipmentType,
+                    shipmentNote: row.dataset.shipmentNote,
+                    shipmentFleetSupplier: row.dataset.shipmentFleetSupplier,
+                    shipmentFleetCost: row.dataset.shipmentFleetCost
                 };
             });
 

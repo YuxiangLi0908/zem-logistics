@@ -253,10 +253,10 @@
                                 <th>目的地</th>
                                 <th>地址</th>
                                 <th>承运公司</th>
+                                <th>供应商</th>
                                 <th>提货时间</th>
+                                <th>车次成本</th>
                             </tr>
-                        </thead>
-                        <tbody>
                             <tr>
                                 <td>
                                     <input type="text" name="destination" id="ftl-destination" class="form-input" required>
@@ -271,15 +271,27 @@
                                     <div class="field-hint">手动填写</div>
                                 </td>
                                 <td>
+                                    <select name="supplier" id="supplier" class="form-select">
+                                        <option value="">请选择</option>
+                                    </select>
+                                    <div class="field-hint">根据目的地自动生成</div>
+                                </td>
+                                <td>
                                     <input type="datetime-local" id="pickup-time-input" name="shipment_appointment" class="form-input" required>
                                     <div class="field-hint">自动从选中记录获取，如不同则需手动填写</div>
+                                </td>
+                                <td>
+                                    <input type="text" name="fleet_cost" id="fleet_cost" class="form-input">
+                                    <div class="field-hint">需要自动排车时录入</div>
                                 </td>
                             </tr>
                             <tr>
                                 <th>BOL号</th>
                                 <th>PRO号</th>
-                                <th>是否需要打印Label</th>
+                                <th>Label</th>
                                 <th>预约类型</th>
+                                <th>自动排车</th>
+                                <th>备注</th>
                             </tr>
                             <tr>
                                 <td>
@@ -290,20 +302,31 @@
                                     <input type="text" name="arm_pro" id="arm_pro" class="form-input">
                                     <div class="field-hint">自动从选中记录合并</div>
                                 </td>
-                                <td>
+                                <td style="width: 80px;">
                                     <select name="is_print_label" id="is-print-label" class="form-select">
                                         <option value="false">否</option>
                                         <option value="true">是</option>
                                     </select>
                                 </td>
-                                <td>
-                                    <select name="shipment_type" id="shipment-type-select" class="form-select">
+                                <td style="width: 100px;">
+                                    <select name="shipment_type" id="ltl-shipment-type-select" class="form-select">
                                         <option value="LTL">LTL</option>
-                                        <option value="SELF_PICKUP">客户自提</option>
+                                        <option value="客户自提">客户自提</option>
                                     </select>
                                 </td>
+                                <td style="width: 80px;">
+                                    <select name="auto_fleet" id="auto-fleet-select" class="form-select">
+                                        <option value="true" selected>是</option>
+                                        <option value="false">否</option>
+                                    </select>
+                                    <div class="field-hint">选择"是"将自动排车</div>
+                                </td>
+                                <td>
+                                    <input type="text" name="note" id="note" class="form-input">
+                                    <div class="field-hint">可选备注</div>
+                                </td>
                             </tr>
-                        </tbody>
+                        </thead>
                     </table>
                 </div>
                 
@@ -420,6 +443,44 @@
         }
     }
 
+    // 全局变量，存储供应商映射
+    const SUPPLIER_MAPPING = {
+        "ARM": "ARM",
+        "ASH": "ASH",
+        "Lifeng": "Lifeng",
+        "ZEM": "ZEM",
+        "TRANSITO INC": "TRANSITO INC",
+        "ISSY TRUCKING": "ISSY TRUCKING",
+        "LLT Freight Inc": "LLT Freight Inc",
+        "AMF": "AMF",
+        "FWT": "FWT",
+        "Fastline": "Fastline",
+        "fortune": "fortune",
+        "FOREST SHIPPING USA INC": "FOREST SHIPPING USA INC",
+        "Forest Shipping New York INC": "Forest Shipping New York INC",
+        "FUTURE": "FUTURE",
+        "EAZ": "EAZ",
+        "client pickup": "client pickup",
+    };
+
+    // 更新供应商下拉框
+    function updateSupplierOptions() {
+        const supplierSelect = document.getElementById('supplier');
+        
+        if (!supplierSelect) return;
+        
+        // 清空现有选项
+        supplierSelect.innerHTML = '<option value="">请选择</option>';
+        
+        // 添加所有供应商选项
+        for (const [key, value] of Object.entries(SUPPLIER_MAPPING)) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            supplierSelect.appendChild(option);
+        }
+    }
+
     // 验证预约表单
     function validateShipmentForm() {
         const destinationInput = document.getElementById('ftl-destination');
@@ -448,7 +509,7 @@
         }
         
         // 验证预约类型
-        const shipmentTypeSelect = document.getElementById('shipment-type-select');
+        const shipmentTypeSelect = document.getElementById('ltl-shipment-type-select');
         if (!shipmentTypeSelect || !shipmentTypeSelect.value) {
             alert('请选择预约类型！');
             if (shipmentTypeSelect) shipmentTypeSelect.focus();
@@ -456,6 +517,133 @@
         }
         
         return true;
+    }
+
+    // 打开预约模态框 - 从查询结果打开
+    function openWithSearchResult(searchResults, options = {}) {
+        console.log('从查询结果打开预约弹框:', searchResults);
+        
+        // 清空之前的数据
+        const tbody = document.getElementById('cargoSelectionBody');
+        if (!tbody) {
+            console.error('找不到 cargoSelectionBody 元素');
+            return;
+        }
+        tbody.innerHTML = '';
+        
+        // 重置标题和按钮
+        const modalHeader = document.querySelector('#bindShipmentModal .modal-header h3');
+        const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
+        const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
+        
+        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 绑定/预约';
+        if (submitButton) submitButton.innerHTML = '<i class="fas fa-check"></i> 确认绑定/预约';
+        if (cargoSelectionTitle) cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要绑定/预约的PO';
+        
+        // 设置隐藏字段
+        const operationTypeInput = document.getElementById('operationType');
+        if (operationTypeInput) operationTypeInput.value = 'bind';
+        
+        // 设置active_tab
+        const activeTabInput = document.getElementById('modalActiveTab');
+        if (activeTabInput) {
+            activeTabInput.value = options.active_tab || 'cargo';
+        }
+        
+        // 清空预约信息表格（用户手动填写）
+        const destinationInput = document.getElementById('ftl-destination');
+        const addressInput = document.getElementById('address_detail');
+        const carrierInput = document.getElementById('carrier');
+        const pickupTimeInput = document.getElementById('pickup-time-input');
+        const armBolInput = document.getElementById('arm_bol');
+        const armProInput = document.getElementById('arm_pro');
+        const supplierSelect = document.getElementById('supplier');
+        const fleetCostInput = document.getElementById('fleet_cost');
+        const noteInput = document.getElementById('note');
+        const shipmentTypeSelect = document.getElementById('ltl-shipment-type-select');
+        const isPrintLabelSelect = document.getElementById('is-print-label');
+        const autoFleetSelect = document.getElementById('auto-fleet-select');
+        
+        if (destinationInput) destinationInput.value = '';
+        if (addressInput) addressInput.value = '';
+        if (carrierInput) carrierInput.value = '';
+        if (pickupTimeInput) pickupTimeInput.value = '';
+        if (armBolInput) armBolInput.value = '';
+        if (armProInput) armProInput.value = '';
+        if (supplierSelect) supplierSelect.value = '';
+        if (fleetCostInput) fleetCostInput.value = '';
+        if (noteInput) noteInput.value = '';
+        if (shipmentTypeSelect) shipmentTypeSelect.value = '';
+        if (isPrintLabelSelect) isPrintLabelSelect.value = '';
+        if (autoFleetSelect) autoFleetSelect.value = '';
+        
+        // 生成货物表格，按PO聚合展示
+        let allPltIds = [];
+        let allCargoIds = [];
+        
+        searchResults.forEach(poGroup => {
+            poGroup.items.forEach(item => {
+                const dataSource = item.data_source;
+                
+                if (dataSource === 'PALLET') {
+                    // Pallet数据
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="checkbox-col">
+                            <input type="checkbox"
+                                class="cargo-checkbox"
+                                data-cargo-type="pallet"
+                                data-cargo-id="${item.id}"
+                                checked>
+                        </td>
+                        <td>${item.destination || '-'}</td>
+                        <td>${item.str_container_number || item.container_number || '-'}</td>
+                        <td>${item.shipping_mark || '-'}</td>
+                        <td class="pallet-size-cell">-</td>
+                        <td>${item.total_n_pallet_act || item.total_n_pallet_est || 1}</td>
+                        <td>${(item.total_cbm || 0).toFixed(3)}</td>
+                        <td>${(item.weight_lbs || 0).toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                } else {
+                    // PackingList数据
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="checkbox-col">
+                            <input type="checkbox" class="cargo-checkbox" 
+                                data-cargo-type="packinglist" 
+                                data-cargo-id="${item.id}" 
+                                checked>
+                        </td>
+                        <td>${item.destination || '-'}</td>
+                        <td>${item.str_container_number || item.container_number || '-'}</td>
+                        <td>${item.shipping_mark || '-'}</td>
+                        <td class="pallet-size-cell">-</td>
+                        <td>${item.total_n_pallet_act || item.total_n_pallet_est || 1}</td>
+                        <td>${(item.total_cbm || 0).toFixed(3)}</td>
+                        <td>${(item.total_weight_lbs || 0).toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+        });
+        
+        // 初始化供应商下拉框
+        updateSupplierOptions();
+        
+        // 初始化全选功能
+        initializeCargoSelection();
+        
+        // 显示模态框
+        const modal = document.getElementById('bindShipmentModal');
+        if (modal) {
+            modal.style.display = 'block';
+            
+            // 触发打开回调
+            if (shipmentModalCallbacks.onOpen && typeof shipmentModalCallbacks.onOpen === 'function') {
+                shipmentModalCallbacks.onOpen(searchResults, options);
+            }
+        }
     }
 
     // 打开预约模态框
@@ -514,31 +702,86 @@
         const bols = new Set();
         const pros = new Set();
         const pickupTimes = new Set();
+        const carriers = new Set();
+        const suppliers = new Set();
+        const fleetCosts = new Set();
+        const isPrintLabels = new Set();
+        const shipmentTypes = new Set();
+        const autoFleets = new Set();
+        const notes = new Set();
         
         selectedCargos.forEach(cargo => {
-            // 收集信息用于自动填充
-            if (cargo.destination && cargo.destination.trim() !== '') {
+            // 优先收集 shipment 的信息，如果没有则收集普通的
+            if (cargo.shipmentDestination && cargo.shipmentDestination.trim() !== '') {
+                destinations.add(cargo.shipmentDestination);
+            } else if (cargo.destination && cargo.destination.trim() !== '') {
                 destinations.add(cargo.destination);
             }
-            if (cargo.address && cargo.address.trim() !== '') {
+            
+            if (cargo.shipmentAddress && cargo.shipmentAddress.trim() !== '') {
+                addresses.add(cargo.shipmentAddress);
+            } else if (cargo.address && cargo.address.trim() !== '') {
                 addresses.add(cargo.address);
             }
-            if (cargo.bol && cargo.bol.trim() !== '') {
+            
+            if (cargo.shipmentArmBol && cargo.shipmentArmBol.trim() !== '') {
+                bols.add(cargo.shipmentArmBol);
+            } else if (cargo.bol && cargo.bol.trim() !== '') {
                 bols.add(cargo.bol);
             }
             
-            // 从原始数据行获取PRO号
-            const originalRow = document.querySelector(`tr[data-cargo-id="${cargo.id}"]`);
-            if (originalRow) {
-                const proInput = originalRow.querySelector('.pro-input');
-                if (proInput && proInput.value.trim() !== '') {
-                    pros.add(proInput.value.trim());
+            if (cargo.shipmentArmPro && cargo.shipmentArmPro.trim() !== '') {
+                pros.add(cargo.shipmentArmPro);
+            }
+            
+            // 从原始数据行获取PRO号（如果没有 shipment 的）
+            if (pros.size === 0) {
+                const originalRow = document.querySelector(`tr[data-cargo-id="${cargo.id}"]`);
+                if (originalRow) {
+                    const proInput = originalRow.querySelector('.pro-input');
+                    if (proInput && proInput.value.trim() !== '') {
+                        pros.add(proInput.value.trim());
+                    }
                 }
             }
             
             // 获取pickupTime
-            if (cargo.pickupTime && cargo.pickupTime.trim() !== '') {
+            if (cargo.shipmentAppointment && cargo.shipmentAppointment.trim() !== '') {
+                pickupTimes.add(cargo.shipmentAppointment);
+            } else if (cargo.pickupTime && cargo.pickupTime.trim() !== '') {
                 pickupTimes.add(cargo.pickupTime);
+            }
+            
+            // 收集 carrier
+            if (cargo.shipmentCarrier && cargo.shipmentCarrier.trim() !== '') {
+                carriers.add(cargo.shipmentCarrier);
+            } else if (cargo.carrier && cargo.carrier.trim() !== '') {
+                carriers.add(cargo.carrier);
+            }
+            
+            // 收集 supplier
+            if (cargo.shipmentFleetSupplier && cargo.shipmentFleetSupplier.trim() !== '') {
+                suppliers.add(cargo.shipmentFleetSupplier);
+            }
+            
+            // 收集 fleet_cost
+            if (cargo.shipmentFleetCost !== undefined && cargo.shipmentFleetCost !== null && cargo.shipmentFleetCost !== '') {
+                fleetCosts.add(cargo.shipmentFleetCost);
+            }
+            
+            // 收集 is_print_label
+            if (cargo.shipmentIsPrintLabel !== undefined && cargo.shipmentIsPrintLabel !== null && cargo.shipmentIsPrintLabel !== '') {
+                isPrintLabels.add(cargo.shipmentIsPrintLabel);
+            }
+            
+            // 收集 shipment_type
+            if (cargo.shipmentType && cargo.shipmentType.trim() !== '') {
+                shipmentTypes.add(cargo.shipmentType);
+            }
+            
+            // 收集 note
+            if (cargo.shipmentNote && cargo.shipmentNote.trim() !== '') {
+                notes.add(cargo.shipmentNote);
             }
             if (cargo.id.startsWith('plt_')) {
                 console.log('cargo.pallet_items:', cargo.pallet_items);
@@ -633,6 +876,75 @@
         if (pros.size > 0 && armProInput) {
             armProInput.value = Array.from(pros).join('-');
         }
+        
+        // 填充 carrier
+        if (carriers.size > 0 && carrierInput) {
+            carrierInput.value = Array.from(carriers).join('-');
+        }
+        
+        // 填充 is_print_label
+        if (isPrintLabels.size === 1) {
+            const isPrintLabelSelect = document.getElementById('is-print-label');
+            if (isPrintLabelSelect) {
+                const labelValue = Array.from(isPrintLabels)[0];
+                isPrintLabelSelect.value = (labelValue === true || labelValue === 'true' || labelValue === 1) ? 'true' : 'false';
+            }
+        }
+        
+        // 填充 shipment_type
+        if (shipmentTypes.size === 1) {
+            const shipmentTypeSelect = document.getElementById('ltl-shipment-type-select');
+            if (shipmentTypeSelect) {
+                const typeValue = Array.from(shipmentTypes)[0];
+                // 尝试匹配选项
+                for (let option of shipmentTypeSelect.options) {
+                    if (option.value === typeValue || option.textContent.includes(typeValue)) {
+                        shipmentTypeSelect.value = option.value;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 填充 supplier
+        if (suppliers.size > 0) {
+            const supplierSelect = document.getElementById('supplier');
+            if (supplierSelect) {
+                const supplierValue = Array.from(suppliers).join('-');
+                // 尝试匹配选项
+                let found = false;
+                for (let option of supplierSelect.options) {
+                    if (option.value === supplierValue || option.textContent === supplierValue) {
+                        supplierSelect.value = option.value;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // 如果没有找到匹配的，把值填入自定义输入框
+                    supplierSelect.value = supplierValue;
+                }
+            }
+        }
+        
+        // 填充 fleet_cost
+        if (fleetCosts.size === 1) {
+            const fleetCostInput = document.getElementById('fleet_cost');
+            if (fleetCostInput) {
+                fleetCostInput.value = Array.from(fleetCosts)[0];
+            }
+        }
+        
+        // 填充 note
+        if (notes.size > 0) {
+            const noteInput = document.getElementById('note');
+            if (noteInput) {
+                noteInput.value = Array.from(notes).join('-');
+            }
+        }
+        
+        // 初始化供应商下拉框
+        updateSupplierOptions();
         
         // 提货时间
         if (pickupTimes.size === 1 && pickupTimeInput) {
@@ -769,6 +1081,7 @@
     // 公共API - 暴露给外部页面使用
     window.ShipmentModal = {
         open: openScheduleDialog,
+        openWithSearchResult: openWithSearchResult,
         close: closeBindModal,
         init: initShipmentModal,
         setCallbacks: setShipmentModalCallbacks

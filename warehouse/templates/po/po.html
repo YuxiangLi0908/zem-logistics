@@ -4,7 +4,7 @@
 {% load static custom_mod %}
 {% load static custom_floor_division %}
 
-<h4 style="margin-bottom: 10px;">PO导出</h4>
+<h4 style="margin-bottom: 10px;">PO导出列表</h4>
 <form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
@@ -32,6 +32,7 @@
 <form method="post" action="">
     {% csrf_token %}
     <b style="margin-bottom: 5px;">Packing List</b>
+    <span style="margin-left: 10px; color: #666;">已选中: <strong id="selected-count" style="color: #007bff;">0</strong> 条</span>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table id="packing-list-table" class="table" style="font-size: 12px;">
             <thead>
@@ -280,11 +281,13 @@
         var total_cbm = 0;
         var total_pcs = 0;
         var total_weight = 0;
+        var selected_count = 0;
 
         // Iterate over all checked checkboxes
         var checkboxes = document.getElementsByName('is_selected');
         for (var i = 0; i < checkboxes.length; i++) {
             if (checkboxes[i].checked) {
+                selected_count++;
                 // Get the corresponding row and update totals
                 var row = checkboxes[i].closest('tr');
                 total_cbm += parseFloat(row.querySelector('.td:nth-child(7)').textContent);
@@ -297,6 +300,8 @@
         document.getElementById('table_summary_cbm').textContent = total_cbm.toFixed(2);
         document.getElementById('table_summary_pcs').textContent = total_pcs;
         document.getElementById('table_summary_weight').textContent = total_weight.toFixed(2);
+        // Update selected count
+        document.getElementById('selected-count').textContent = selected_count;
     }
 
     // Attach event listeners to checkboxes

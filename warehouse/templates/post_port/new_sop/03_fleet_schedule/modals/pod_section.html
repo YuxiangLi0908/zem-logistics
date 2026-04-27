@@ -1,0 +1,249 @@
+        <!-- 待传POD批次标签页 -->
+        <div class="content-section" id="pod-section">
+            <div class="table-container">
+                <div style="margin-bottom: 15px;">
+                    <button type="button" class="table-btn btn-success-small" id="batchPodUploadBtn" onclick="submitBatchPodUpload()" style="background-color: #27ae60;">
+                        <i class="fas fa-upload"></i> 批量上传POD
+                    </button>
+                    <span id="batchPodUploadInfo" style="margin-left: 10px; font-size: 0.85rem; color: #7f8c8d;"></span>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>出库批次</th>
+                            <th>预约批次</th>
+                            <th>客户名</th>
+                            <th>预约号</th>
+                            <th>Carrier</th>
+                            <th>预约发车日期</th>
+                            <th>实际发车日期</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                            <th>备注</th>
+                            <th>POD上传</th>
+                        </tr>
+                        <tr class="search-row">
+                            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="2"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="3"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索Carrier" data-column="4"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="5"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="6"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索总重" data-column="7"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="8"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="9"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                            <td></td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in pod_shipments %}
+                        <tr>
+                            <td style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
+                            <td>{{ f.shipment_batch_number }}</td>
+                            <td>{{ f.customer }}</td>
+                            <td>{{ f.appointment_id|default_if_none:"" }}</td>
+                            <td>{{ f.carrier|default_if_none:"" }}</td>
+                            <td>{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
+                            <td>
+                                {% if f.arrival_status == "past_due" %}
+                                <span class="status-span-red">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% elif f.arrival_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% else %}
+                                {{ f.fleet_number.departured_at|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td>{{ f.shipped_weight|floatformat:2 }}</td>
+                            <td>{{ f.shipped_cbm|floatformat:2 }}</td>
+                            <td>{{ f.shipped_pallet|floatformat:0 }}</td>
+                            <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                            <td>
+                                <div class="pod-upload-container">
+                                    <input type="hidden" class="pod-shipment-batch" value="{{ f.shipment_batch_number }}">
+                                    <div class="pod-drop-zone" id="dropZone-{{ f.shipment_batch_number }}" onclick="document.getElementById('podFileInput-{{ f.shipment_batch_number }}').click()">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <div class="pod-drop-text">点击或拖拽文件</div>
+                                    </div>
+                                    <input type="file" name="file" id="podFileInput-{{ f.shipment_batch_number }}" class="pod-file-input" accept="image/*,.pdf" style="display: none;">
+                                    <div class="pod-file-preview" id="filePreview-{{ f.shipment_batch_number }}"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="batchPodUploadForm" style="display: none;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="batch_pod_upload">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
+            <div id="batchPodInputs"></div>
+        </form>
+
+<style>
+    .pod-drop-zone {
+        border: 3px dashed #dce1e6;
+        border-radius: 8px;
+        padding: 20px 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f9fafb;
+        margin-bottom: 8px;
+    }
+
+    .pod-drop-zone:hover,
+    .pod-drop-zone.drag-over {
+        border-color: #2ecc71;
+        background: #e8f8f0;
+    }
+
+    .pod-drop-zone i {
+        font-size: 2rem;
+        color: #95a5a6;
+        margin-bottom: 8px;
+    }
+
+    .pod-drop-zone:hover i {
+        color: #2ecc71;
+    }
+
+    .pod-drop-text {
+        font-size: 0.85rem;
+        color: #7f8c8d;
+    }
+
+    .pod-file-preview {
+        font-size: 0.75rem;
+        color: #27ae60;
+        margin-bottom: 8px;
+        word-break: break-all;
+        min-height: 18px;
+    }
+</style>
+
+<script>
+let podFiles = []; // 存储已选择的文件对象数组，每个元素包含 shipmentBatchNumber 和 file
+
+document.addEventListener('DOMContentLoaded', function() {
+    {% for f in pod_shipments %}
+    initPodUpload('{{ f.shipment_batch_number }}');
+    {% endfor %}
+    updateBatchUploadInfo();
+});
+
+function initPodUpload(shipmentBatchNumber) {
+    const dropZone = document.getElementById('dropZone-' + shipmentBatchNumber);
+    const fileInput = document.getElementById('podFileInput-' + shipmentBatchNumber);
+    const filePreview = document.getElementById('filePreview-' + shipmentBatchNumber);
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]);
+    }
+    
+    function handleFileSelect(file) {
+        if (file) {
+            removePodFile(shipmentBatchNumber);
+            podFiles.push({
+                shipmentBatchNumber: shipmentBatchNumber,
+                file: file
+            });
+            filePreview.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+            dropZone.style.borderColor = '#27ae60';
+            dropZone.style.backgroundColor = '#e8f8f0';
+            dropZone.querySelector('i').style.color = '#27ae60';
+            updateBatchUploadInfo();
+        }
+    }
+    
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+    
+    dropZone.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        this.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(files[0]);
+            fileInput.files = dataTransfer.files;
+            handleFileSelect(files[0]);
+        }
+    });
+}
+
+function removePodFile(shipmentBatchNumber) {
+    podFiles = podFiles.filter(item => item.shipmentBatchNumber !== shipmentBatchNumber);
+}
+
+function updateBatchUploadInfo() {
+    const count = podFiles.length;
+    const infoEl = document.getElementById('batchPodUploadInfo');
+    if (count > 0) {
+        infoEl.textContent = '已选择 ' + count + ' 个文件';
+        infoEl.style.color = '#27ae60';
+    } else {
+        infoEl.textContent = '';
+    }
+}
+
+function submitBatchPodUpload() {
+    if (podFiles.length === 0) {
+        alert('请至少选择一个文件');
+        return;
+    }
+    
+    const form = document.getElementById('batchPodUploadForm');
+    const batchPodInputs = document.getElementById('batchPodInputs');
+    
+    batchPodInputs.innerHTML = '';
+    
+    podFiles.forEach(function(item) {
+        const shipmentInput = document.createElement('input');
+        shipmentInput.type = 'hidden';
+        shipmentInput.name = 'shipment_batch_number';
+        shipmentInput.value = item.shipmentBatchNumber;
+        batchPodInputs.appendChild(shipmentInput);
+        
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(item.file);
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.name = 'file';
+        fileInput.files = dataTransfer.files;
+        fileInput.style.display = 'none';
+        batchPodInputs.appendChild(fileInput);
+    });
+    
+    form.submit();
+}
+</script>
