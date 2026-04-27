@@ -8970,7 +8970,7 @@ class PostNsop(View):
 
     async def sp_external_distribution_data(self, warehouse: str, user) -> list:
         """获取外配的约数据 - shipment_type为外配且pod_link为空"""
-        target_date = datetime(2025, 10, 10)
+        target_date = datetime(2026, 4, 20)
 
         pl_criteria = models.Q(
             container_number__orders__warehouse__name=warehouse,
@@ -13406,123 +13406,6 @@ class PostNsop(View):
             .annotate(pallet_count=Count('id'))
             .order_by('PO_ID', 'container_number__container_number', 'destination')
         )
-        
-        # 处理 Pallet 分组结果
-        for group in pallet_groups:
-            po_id = group['PO_ID'] or ''
-            container_num = group['container_number__container_number'] or ''
-            dest = group['destination'] or ''
-            
-            if po_id and container_num and dest:
-                key = f"{po_id}_{container_num}_{dest}"
-            elif container_num and dest:
-                key = f"{container_num}_{dest}"
-            else:
-                key = f"pallet_{po_id}_{container_num}_{dest}"
-            
-            if key not in combined_dict:
-                combined_dict[key] = self._process_master_shipment_item(group, 'pallet')
-                combined_dict[key]['ids'] = []
-        
-        # 查询所有 Pallet 的 id，用于收集 ids
-        pallet_ids = await sync_to_async(list)(
-            Pallet.objects
-            .filter(pallet_criteria)
-            .values(
-                'id',
-                'PO_ID',
-                'container_number__container_number',
-                'destination'
-            )
-        )
-        
-        for pallet in pallet_ids:
-            po_id = pallet['PO_ID'] or ''
-            container_num = pallet['container_number__container_number'] or ''
-            dest = pallet['destination'] or ''
-            
-            if po_id and container_num and dest:
-                key = f"{po_id}_{container_num}_{dest}"
-            elif container_num and dest:
-                key = f"{container_num}_{dest}"
-            else:
-                key = f"pallet_{po_id}_{container_num}_{dest}"
-            
-            if key in combined_dict:
-                combined_dict[key]['ids'].append(f"plt_{pallet['id']}")
-        
-        # 使用 values() 和 annotate() 在数据库层面分组查询 PackingList 数据
-        packinglist_groups = await sync_to_async(list)(
-            PackingList.objects
-            .filter(packinglist_criteria)
-            .select_related('container_number', 'master_shipment_batch_number')
-            .values(
-                'PO_ID',
-                'container_number__container_number',
-                'destination',
-                'master_shipment_batch_number_id',
-                'master_shipment_batch_number__shipment_batch_number',
-                'master_shipment_batch_number__appointment_id',
-                'master_shipment_batch_number__pod_link',
-                'master_shipment_batch_number__arrived_at',
-                'master_shipment_batch_number__shipped_at',
-                'master_shipment_batch_number__shipment_appointment',
-                'master_shipment_batch_number__is_virtual_sp',
-            )
-            .order_by('PO_ID', 'container_number__container_number', 'destination')
-        )
-        
-        # 查询所有 PackingList 的 id 和 cbm，用于计算板数和收集 ids
-        packinglist_details = await sync_to_async(list)(
-            PackingList.objects
-            .filter(packinglist_criteria)
-            .values(
-                'id',
-                'PO_ID',
-                'container_number__container_number',
-                'destination',
-                'cbm'
-            )
-        )
-        
-        # 处理 PackingList 分组结果
-        for pl in packinglist_details:
-            po_id = pl['PO_ID'] or ''
-            container_num = pl['container_number__container_number'] or ''
-            dest = pl['destination'] or ''
-            
-            if po_id and container_num and dest:
-                key = f"{po_id}_{container_num}_{dest}"
-            elif container_num and dest:
-                key = f"{container_num}_{dest}"
-            else:
-                key = f"packinglist_{po_id}_{container_num}_{dest}"
-            
-            if key not in combined_dict:
-                # 从分组中查找完整的信息
-                item_dict = None
-                for group in packinglist_groups:
-                    if (group['PO_ID'] == pl['PO_ID'] and
-                        group['container_number__container_number'] == container_num and
-                        group['destination'] == dest):
-                        item_dict = group
-                        break
-                if not item_dict:
-                    item_dict = {
-                        'PO_ID': pl['PO_ID'],
-                        'container_number__container_number': container_num,
-                        'destination': dest,
-                        'master_shipment_batch_number_id': None,
-                    }
-                combined_dict[key] = self._process_master_shipment_item(item_dict, 'packinglist')
-                combined_dict[key]['ids'] = []
-            
-            combined_dict[key]['ids'].append(f"pl_{pl['id']}")
-        
-        # 转换ids为字符串，并添加其他字段
-        for key, value in combined_dict.items():
-            value['ids_string'] = ','.join(value['ids'])
-            value['has_master_shipment'] = bool(value.get('shipment_batch_number'))
         
         # 收集所有 pallet_id，用于查询异常
         all_pallet_ids = []
