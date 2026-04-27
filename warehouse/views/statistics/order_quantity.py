@@ -893,6 +893,43 @@ class OrderQuantity(View):
             start_date = one_month_ago.strftime("%Y-%m-%d")
         if not end_date:
             end_date = today.strftime("%Y-%m-%d")
+        # 查询符合条件的Pallet记录，按container_number和destination归类
+        # 首先获取所有相关的Order记录，根据date_type筛选
+        if date_type == "eta":
+            order_criteria = Q(
+                vessel_id__vessel_eta__gte=start_date,
+                vessel_id__vessel_eta__lte=end_date
+            )
+        elif date_type == "etd":  # etd
+            order_criteria = Q(
+                vessel_id__vessel_etd__gte=start_date,
+                vessel_id__vessel_etd__lte=end_date
+            )
+        else:
+            
+            order_criteria = Q(
+                offload_id__offload_at__gte=start_date,
+                offload_id__offload_at__lte=end_date
+            )
+        
+        # 添加warehouse筛选条件
+        if warehouse:
+            order_criteria &= Q(warehouse__name__contains=warehouse)
+        
+        # 获取符合条件的Order记录
+        orders = await sync_to_async(list)(
+            Order.objects.filter(order_criteria).select_related("container_number", "vessel_id", "offload_id")
+        )
+        
+        # 获取这些Order关联的Container编号
+        container_numbers = [order.container_number.container_number for order in orders if order.container_number]
+        
+        # 获取与这些Container相关的Pallet记录，且绑定的shipment的shipped_at不为空
+        # 构建基础查询条件
+        base_filter = Q(
+            container_number__container_number__in=container_numbers,
+            shipment_batch_number__shipped_at__isnull=False  # 绑定的shipment的shipped_at不为空
+        )
         
         # 区域到仓点的映射
         region_warehouse_mapping = {
@@ -932,43 +969,6 @@ class OrderQuantity(View):
                 else:
                     processed_destinations.append(destination)
             destinations = processed_destinations
-        
-        # 查询符合条件的Pallet记录，按container_number和destination归类
-        # 首先获取所有相关的Order记录，根据date_type筛选
-        if date_type == "eta":
-            order_criteria = Q(
-                vessel_id__vessel_eta__gte=start_date,
-                vessel_id__vessel_eta__lte=end_date
-            )
-        elif date_type == "etd":  # etd
-            order_criteria = Q(
-                vessel_id__vessel_etd__gte=start_date,
-                vessel_id__vessel_etd__lte=end_date
-            )
-        else:
-            
-            order_criteria = Q(
-                offload_id__offload_at__gte=start_date,
-                offload_id__offload_at__lte=end_date
-            )
-        
-        # 添加warehouse筛选条件
-        if warehouse:
-            order_criteria &= Q(warehouse__name__contains=warehouse)
-        # 获取符合条件的Order记录
-        orders = await sync_to_async(list)(
-            Order.objects.filter(order_criteria).select_related("container_number", "vessel_id", "offload_id")
-        )
-        
-        # 获取这些Order关联的Container编号
-        container_numbers = [order.container_number.container_number for order in orders if order.container_number]
-        
-        # 获取与这些Container相关的Pallet记录，且绑定的shipment的shipped_at不为空
-        # 构建基础查询条件
-        base_filter = Q(
-            container_number__container_number__in=container_numbers,
-            shipment_batch_number__shipped_at__isnull=False  # 绑定的shipment的shipped_at不为空
-        )
         
         # 如果不是"不分区"，添加destination筛选条件
         if region != "不分区":
