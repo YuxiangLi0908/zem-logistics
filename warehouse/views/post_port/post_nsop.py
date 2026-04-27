@@ -108,6 +108,7 @@ class PostNsop(View):
     template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
     template_fleet_check = "post_port/new_sop/leader_check/fleet_check.html"
     template_master_shipment_check = "post_port/new_sop/leader_check/master_shipment_check.html"
+    template_client_exception = "post_port/new_sop/leader_check/client_exception.html"
     template_pod_reupload = "post_port/new_sop/leader_check/pod_reupload.html"
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_bol = "export_file/bol_base_template.html"
@@ -213,11 +214,9 @@ class PostNsop(View):
                 )
             return render(request, self.template_fleet_po_check, {}) 
         elif step == "master_shipment_check":
-            if not await self._validate_user_check_po_group(request.user):
-                return HttpResponseForbidden(
-                    "You are not authenticated to access this page!"
-                )
             return render(request, self.template_master_shipment_check, {})
+        elif step == "client_exception":
+            return render(request, self.template_client_exception, {})
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
@@ -580,6 +579,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "master_shipment_search":
             template, context = await self.handle_master_shipment_check_post(request)
+            return render(request, template, context)
+        elif step == "client_exception_search":
+            template, context = await self.handle_client_exception_search_post(request)
             return render(request, template, context)
         elif step == "create_fictional_master":
             template, context = await self.handle_create_fictional_master_post(request)
@@ -7671,7 +7673,11 @@ class PostNsop(View):
         if group and 'ltl' in group.lower():  # 如果group包含ltl（不区分大小写）
             criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
         else:
-            criteria = criteria & models.Q(shipment_type="FTL")
+            criteria = criteria & (
+                models.Q(shipment_type='FTL')
+                |
+                models.Q(shipment_type='外配', shipment_schduled_at__gte='2026-04-27')
+            )
 
         if four_major_whs == "four_major_whs":
             criteria &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
@@ -13305,6 +13311,225 @@ class PostNsop(View):
             )
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request, context)
+
+    async def handle_client_exception_search_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
+        """客户端异常详情搜索功能"""  
+        if not context:
+            context = {}
+        
+        # 获取搜索条件
+        start_date = request.POST.get('start_date', '').strip()
+        end_date = request.POST.get('end_date', '').strip()
+        container_number = request.POST.get('container_number', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        warehouse = request.POST.get('warehouse', '').strip()
+        delivery_type = request.POST.get('delivery_type', 'public').strip()
+
+        # 将搜索条件传递到前端
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'container_number': container_number,
+            'destination': destination,
+            'warehouse': warehouse,
+            'delivery_type': delivery_type
+        })
+        
+        # 如果没有输入任何值，默认最近三个月
+        if not any([start_date, end_date, container_number, destination, warehouse]):
+            today = datetime.now().date()
+            three_months_ago = today - timedelta(days=90)
+            start_date = three_months_ago.strftime('%Y-%m-%d')
+            end_date = today.strftime('%Y-%m-%d')
+            context['start_date'] = start_date
+            context['end_date'] = end_date
+        
+        # 构建统一的查询条件
+        base_criteria = Q()
+        
+        # 时间查询 - 通过container_number->orders->offload_id->offload_at
+        if start_date:
+            base_criteria &= Q(container_number__orders__offload_id__offload_at__gte=start_date)
+        if end_date:
+            base_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
+        
+        # 柜号查询
+        if container_number:
+            base_criteria &= Q(container_number__container_number__icontains=container_number)
+        
+        # 仓点查询
+        if destination:
+            base_criteria &= Q(destination__icontains=destination)
+        
+        # 仓库查询 - 通过container_number->orders->retrieval_id->retrieval_destination_area
+        if warehouse:
+            base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
+        
+        base_criteria &= Q(delivery_type=delivery_type)
+
+        # 分别构建Pallet和PackingList的查询条件
+        pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
+        packinglist_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=True)
+        
+        results = []
+        combined_dict = {}
+        
+        # 使用 values() 和 annotate() 在数据库层面分组查询 Pallet 数据
+        pallet_groups = await sync_to_async(list)(
+            Pallet.objects
+            .filter(pallet_criteria)
+            .select_related('container_number', 'master_shipment_batch_number')
+            .values(
+                'PO_ID',
+                'container_number__container_number',
+                'destination',
+                'master_shipment_batch_number_id',
+                'master_shipment_batch_number__shipment_batch_number',
+                'master_shipment_batch_number__appointment_id',
+                'master_shipment_batch_number__pod_link',
+                'master_shipment_batch_number__pod_uploaded_at',
+                'master_shipment_batch_number__arrived_at',
+                'master_shipment_batch_number__shipped_at',
+                'master_shipment_batch_number__shipment_appointment',
+                'master_shipment_batch_number__is_virtual_sp',
+            )
+            .annotate(pallet_count=Count('id'))
+            .order_by('PO_ID', 'container_number__container_number', 'destination')
+        )
+        
+        # 处理 Pallet 分组结果
+        for group in pallet_groups:
+            po_id = group['PO_ID'] or ''
+            container_number = group['container_number__container_number'] or ''
+            destination = group['destination'] or ''
+            
+            if po_id and container_number and destination:
+                key = f"{po_id}_{container_number}_{destination}"
+            elif container_number and destination:
+                key = f"{container_number}_{destination}"
+            else:
+                key = f"pallet_{group['PO_ID']}_{container_number}_{destination}"
+            
+            if key not in combined_dict:
+                combined_dict[key] = self._process_master_shipment_item(group, 'pallet')
+                combined_dict[key]['pallet_count'] = group['pallet_count']
+                combined_dict[key]['ids'] = []
+            else:
+                if group['pallet_count'] > combined_dict[key]['pallet_count']:
+                    combined_dict[key]['pallet_count'] = group['pallet_count']
+        
+        # 查询所有 Pallet 的 id，用于收集 ids
+        pallet_ids = await sync_to_async(list)(
+            Pallet.objects
+            .filter(pallet_criteria)
+            .values(
+                'id',
+                'PO_ID',
+                'container_number__container_number',
+                'destination'
+            )
+        )
+        
+        for pallet in pallet_ids:
+            po_id = pallet['PO_ID'] or ''
+            container_number = pallet['container_number__container_number'] or ''
+            destination = pallet['destination'] or ''
+            
+            if po_id and container_number and destination:
+                key = f"{po_id}_{container_number}_{destination}"
+            elif container_number and destination:
+                key = f"{container_number}_{destination}"
+            else:
+                key = f"pallet_{po_id}_{container_number}_{destination}"
+            
+            if key in combined_dict:
+                combined_dict[key]['ids'].append(f"plt_{pallet['id']}")
+        
+        # 使用 values() 和 annotate() 在数据库层面分组查询 PackingList 数据
+        packinglist_groups = await sync_to_async(list)(
+            PackingList.objects
+            .filter(packinglist_criteria)
+            .select_related('container_number', 'master_shipment_batch_number')
+            .values(
+                'PO_ID',
+                'container_number__container_number',
+                'destination',
+                'master_shipment_batch_number_id',
+                'master_shipment_batch_number__shipment_batch_number',
+                'master_shipment_batch_number__appointment_id',
+                'master_shipment_batch_number__pod_link',
+                'master_shipment_batch_number__pod_uploaded_at',
+                'master_shipment_batch_number__arrived_at',
+                'master_shipment_batch_number__shipped_at',
+                'master_shipment_batch_number__shipment_appointment',
+                'master_shipment_batch_number__is_virtual_sp',
+            )
+            .order_by('PO_ID', 'container_number__container_number', 'destination')
+        )
+        
+        # 查询所有 PackingList 的 id 和 cbm，用于计算板数和收集 ids
+        packinglist_details = await sync_to_async(list)(
+            PackingList.objects
+            .filter(packinglist_criteria)
+            .values(
+                'id',
+                'PO_ID',
+                'container_number__container_number',
+                'destination',
+                'cbm'
+            )
+        )
+        
+        # 处理 PackingList 分组结果
+        for pl in packinglist_details:
+            po_id = pl['PO_ID'] or ''
+            container_number = pl['container_number__container_number'] or ''
+            destination = pl['destination'] or ''
+            
+            if po_id and container_number and destination:
+                key = f"{po_id}_{container_number}_{destination}"
+            elif container_number and destination:
+                key = f"{container_number}_{destination}"
+            else:
+                key = f"packinglist_{po_id}_{container_number}_{destination}"
+            
+            if key not in combined_dict:
+                # 从分组中查找完整的信息
+                item_dict = None
+                for group in packinglist_groups:
+                    if (group['PO_ID'] == pl['PO_ID'] and
+                        group['container_number__container_number'] == container_number and
+                        group['destination'] == destination):
+                        item_dict = group
+                        break
+                if not item_dict:
+                    item_dict = {
+                        'PO_ID': pl['PO_ID'],
+                        'container_number__container_number': container_number,
+                        'destination': destination,
+                        'master_shipment_batch_number_id': None,
+                    }
+                combined_dict[key] = self._process_master_shipment_item(item_dict, 'packinglist')
+                combined_dict[key]['pallet_count'] = 0
+                combined_dict[key]['ids'] = []
+            
+            # 计算 PackingList 的板数
+            total_cbm = pl['cbm'] or 0
+            pl_count = math.ceil(total_cbm / 1.8) if total_cbm else 0
+            if pl_count > combined_dict[key]['pallet_count']:
+                combined_dict[key]['pallet_count'] = pl_count
+            combined_dict[key]['ids'].append(f"pl_{pl['id']}")
+        
+        # 转换ids为字符串，并添加其他字段
+        for key, value in combined_dict.items():
+            value['ids_string'] = ','.join(value['ids'])
+            value['has_master_shipment'] = bool(value.get('shipment_batch_number'))
+        
+        results = list(combined_dict.values())
+        
+        context['results'] = results
+        return self.template_client_exception, context
+
 
     async def handle_master_shipment_check_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
         """客户端约详情搜索功能"""  
