@@ -9195,6 +9195,7 @@ class PostNsop(View):
                     "carrier_company",
                     "ltl_bol_num",
                     "ltl_pro_num",
+                    'ltl_supplier',
                     "PickupAddr",
                     "container_number",
                     "address", 
@@ -9374,6 +9375,7 @@ class PostNsop(View):
                     "carrier_company",
                     "ltl_bol_num",
                     "ltl_pro_num",
+                    'ltl_supplier',
                     "PickupAddr",
                     "est_pickup_time",
                     "ltl_follow_status",
@@ -9946,6 +9948,7 @@ class PostNsop(View):
         '''LTL保存自行编辑的货物信息'''
         # 1. 判断是批量保存还是单行保存
         batch_data_raw = request.POST.get('batch_data')
+        print(request.POST)
         if batch_data_raw:
             try:
                 update_items = json.loads(batch_data_raw)
@@ -9968,6 +9971,7 @@ class PostNsop(View):
                 'ltl_quote': request.POST.get('ltl_quote', '').strip(),
                 'delivery_method': request.POST.get('delivery_method', '').strip(),
                 'ltl_release_command': request.POST.get('ltl_release_command', '').strip(),
+                'ltl_supplier': request.POST.get('ltl_supplier', '').strip(),
             }]
 
         total_status_messages = []
@@ -9990,6 +9994,7 @@ class PostNsop(View):
             contact_method = item.get('contact_method', '')
             delivery_method = item.get('delivery_method')
             ltl_release_command = item.get('ltl_release_command')
+            ltl_supplier = item.get('ltl_supplier', '')
 
             ltl_cost_raw = item.get('ltl_cost', '')
             has_ltl_cost_param = bool(ltl_cost_raw)
@@ -10024,6 +10029,7 @@ class PostNsop(View):
             if pallet_size: update_data["ltl_plt_size_note"] = pallet_size
             if delivery_method is not None: update_data['delivery_method'] = delivery_method
             if ltl_release_command is not None: update_data['ltl_release_command'] = ltl_release_command
+            if ltl_supplier: update_data['ltl_supplier'] = ltl_supplier
 
             # 批量更新通用字段
             if update_data:

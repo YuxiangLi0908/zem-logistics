@@ -209,10 +209,17 @@
     }
     
     /* 多选框列 */
-    .checkbox-col {
-        width: 50px;
-        text-align: center;
-    }
+        .checkbox-col {
+            width: 50px;
+            text-align: center;
+        }
+        
+        /* 供应商列 - 更窄 */
+        .modal-table th:nth-child(4),
+        .modal-table td:nth-child(4) {
+            width: 90px;
+            max-width: 90px;
+        }
     
     /* 滚动容器 */
     .cargo-selection-container {
@@ -271,7 +278,7 @@
                                     <div class="field-hint">手动填写</div>
                                 </td>
                                 <td>
-                                    <select name="supplier" id="supplier" class="form-select">
+                                    <select name="supplier" id="supplier" class="form-select" style="width: 100%;">
                                         <option value="">请选择</option>
                                     </select>
                                     <div class="field-hint">根据目的地自动生成</div>
@@ -575,6 +582,7 @@
         const bols = new Set();
         const pros = new Set();
         const pickupTimes = new Set();
+        const suppliers = new Set();
         
         selectedCargos.forEach(cargo => {
             // 收集信息用于自动填充
@@ -586,6 +594,9 @@
             }
             if (cargo.bol && cargo.bol.trim() !== '') {
                 bols.add(cargo.bol);
+            }
+            if (cargo.supplier && cargo.supplier.trim() !== '') {
+                suppliers.add(cargo.supplier);
             }
             
             // 从原始数据行获取PRO号
@@ -697,6 +708,29 @@
         
         // 初始化供应商下拉框
         updateSupplierOptions();
+        
+        // 设置供应商下拉框
+        const supplierSelect = document.getElementById('supplier');
+        if (suppliers.size === 1 && supplierSelect) {
+            const supplierValue = Array.from(suppliers)[0];
+            // 检查下拉框中是否存在该选项
+            let optionExists = false;
+            for (let i = 0; i < supplierSelect.options.length; i++) {
+                if (supplierSelect.options[i].value === supplierValue) {
+                    optionExists = true;
+                    break;
+                }
+            }
+            // 如果不存在，添加该选项
+            if (!optionExists) {
+                const option = document.createElement('option');
+                option.value = supplierValue;
+                option.textContent = supplierValue;
+                supplierSelect.appendChild(option);
+            }
+            // 设置选中
+            supplierSelect.value = supplierValue;
+        }
         
         // 提货时间
         if (pickupTimes.size === 1 && pickupTimeInput) {

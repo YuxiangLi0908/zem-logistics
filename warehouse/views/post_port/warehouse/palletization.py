@@ -1011,6 +1011,14 @@ class Palletization(View):
                     'ltl_release_command': pl.ltl_release_command,
                     'ltl_contact_method': pl.ltl_contact_method,
                     'ltl_quote_note': pl.ltl_release_command,
+                    'ltl_supplier': pl.ltl_supplier,
+                    'ltl_address': pl.ltl_address,
+                    'ltl_city': pl.ltl_city,
+                    'ltl_state': pl.ltl_state,
+                    'ltl_zipcode': pl.ltl_zipcode,
+                    'ltl_address_type': pl.ltl_address_type,
+                    'ltl_correlation_id': pl.ltl_correlation_id,
+                    'shipment_note': pl.shipment_note,
                 }
         
         # 字段映射关系：PackingList字段 -> Pallet字段
@@ -1024,6 +1032,14 @@ class Palletization(View):
             'ltl_release_command': 'ltl_release_command',
             'ltl_contact_method': 'ltl_contact_method',
             'ltl_quote_note': 'ltl_quote_note',
+            'ltl_supplier': 'ltl_supplier',
+            'ltl_address': 'ltl_address',
+            'ltl_city': 'ltl_city',
+            'ltl_state': 'ltl_state',
+            'ltl_zipcode': 'ltl_zipcode',
+            'ltl_address_type': 'ltl_address_type',
+            'ltl_correlation_id': 'ltl_correlation_id',
+            'shipment_note': 'shipment_note'
         }
         # 更新pallet数据
         updated_pallets = []
