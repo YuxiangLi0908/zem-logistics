@@ -13348,7 +13348,7 @@ class PostNsop(View):
         # 如果没有输入任何值，默认最近三个月
         if not any([start_date, end_date, container_number, destination, warehouse]):
             today = datetime.now().date()
-            three_months_ago = today - timedelta(days=90)
+            three_months_ago = today - timedelta(days=30)
             start_date = three_months_ago.strftime('%Y-%m-%d')
             end_date = today.strftime('%Y-%m-%d')
             context['start_date'] = start_date
