@@ -8976,7 +8976,7 @@ class PostNsop(View):
             container_number__orders__warehouse__name=warehouse,
             shipment_batch_number__isnull=False,
             container_number__orders__offload_id__offload_at__isnull=True,
-            shipment_batch_number__shipment_appointment__gt=target_date,
+            shipment_batch_number__pickup_time__gt=target_date,
             shipment_batch_number__shipment_type="外配",
             shipment_batch_number__pod_link__isnull=True,
         )
@@ -8985,7 +8985,7 @@ class PostNsop(View):
             location=warehouse,
             shipment_batch_number__isnull=False,           
             container_number__orders__offload_id__offload_at__isnull=False,
-            shipment_batch_number__shipment_appointment__gt=target_date,
+            shipment_batch_number__pickup_time__gt=target_date,
             shipment_batch_number__shipment_type="外配",
             shipment_batch_number__pod_link__isnull=True,            
         )
