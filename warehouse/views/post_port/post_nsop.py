@@ -7572,11 +7572,13 @@ class PostNsop(View):
             is_shipped=True,
             origin=warehouse,
             fleet_number__isnull=False,
-            shipping_order_link__isnull=False,
         ) & ~Q(status="Exception")
 
         if group and 'ltl' in group.lower():  # 如果group包含ltl（不区分大小写）
-            criteria = base_criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
+            criteria = base_criteria & models.Q(
+                shipment_type__in=['LTL', '客户自提'],
+                shipping_order_link__isnull=False
+            )
         else:
             criteria = base_criteria & models.Q(shipment_type="FTL")
 
