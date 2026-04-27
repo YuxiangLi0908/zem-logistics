@@ -13786,23 +13786,20 @@ class PostNsop(View):
             elif id_str.startswith('pl_'):
                 packinglist_ids.append(id_str.replace('pl_', ''))
 
-        def _update():
-            updated_pallet = 0
-            updated_packing = 0
+        updated_pallet = 0
+        updated_packing = 0
 
-            if pallet_ids and isinstance(pallet_ids, list):
-                updated_pallet = Pallet.objects.filter(id__in=pallet_ids).update(
-                    master_shipment_batch_number=new_shipment
-                )
+        if pallet_ids:
+            updated_pallet = await sync_to_async(
+                Pallet.objects.filter(id__in=pallet_ids).update,
+                thread_sensitive=True
+            )(master_shipment_batch_number_id=new_shipment.id)
 
-            if packinglist_ids and isinstance(packinglist_ids, list):
-                updated_packing = PackingList.objects.filter(id__in=packinglist_ids).update(
-                    master_shipment_batch_number=new_shipment
-                )
-
-            return updated_pallet, updated_packing
-
-        updated_pallet, updated_packing = await sync_to_async(_update)()
+        if packinglist_ids:
+            updated_packing = await sync_to_async(
+                PackingList.objects.filter(id__in=packinglist_ids).update,
+                thread_sensitive=True
+            )(master_shipment_batch_number_id=new_shipment.id)
         
         
         # 重新调用搜索功能，保留原有的搜索条件
