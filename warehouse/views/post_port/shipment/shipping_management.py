@@ -1512,10 +1512,9 @@ class ShippingManagement(View):
                     if not shipmentappointment or shipmentappointment == "":                      
                         shipmentappointment = pickup_time
                         shipmentappointment_utc = pickup_time
-                    else:
-                        pickup_time_utc = self._parse_ts(
-                            pickup_time, tzinfo
-                        )
+                    pickup_time_utc = self._parse_ts(
+                        pickup_time, tzinfo
+                    )
                     shipment_data["express_number"] = (
                         request.POST.get("express_number")
                         if request.POST.get("express_number")
