@@ -145,6 +145,11 @@ class Palletization(View):
             pk = kwargs.get("pk")
             template, context = await self.handle_packing_list_post(request, pk)
             return render(request, template, context)
+        elif step == "palletize_la_public":
+            pk = kwargs.get("pk")
+            template, context = await self.handle_packing_la_public_list_post(request, pk)
+            return render(request, template, context)
+
         elif step == "back":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -157,6 +162,10 @@ class Palletization(View):
         elif step == "cancel":
             template, context = await self.handle_cancel_post(request)
             return render(request, template, context)
+        elif step == "cancel_la_public":
+            template, context = await self.handle_cancel_la_public_post(request)
+            return render(request, template, context)
+
         elif step == "amend_abnormal":
             template, context = await self.handle_amend_abnormal_post(request)
             return render(request, template, context)
@@ -480,15 +489,36 @@ class Palletization(View):
         container = order_selected.container_number
         offload = order_selected.offload_id
         order_packing_list = []
+        warehouse = request.GET.get("warehouse").split("-")[0].strip()
         if (
             request.GET.get("step", None) == "container_palletization"
-            and offload.offload_at is None
+            and offload.offload_at is None and warehouse == "LA"
+        ):
+            packing_list = await self._get_packing_list_public(
+                container_number=container.container_number, status="non_palletized"
+            )
+            context = {
+                "status": "non_palletized",
+            }
+        elif (
+            request.GET.get("step", None) == "container_palletization"
+            and offload.offload_at is None and warehouse != "LA"
         ):
             packing_list = await self._get_packing_list(
                 container_number=container.container_number, status="non_palletized"
             )
             context = {
                 "status": "non_palletized",
+            }
+        elif(
+            request.GET.get("step", None) == "container_palletization"
+            and offload.offload_at is not None and warehouse == "LA"
+        ):
+            packing_list = await self._get_packing_list_public(
+                container_number=container.container_number, status="palletized"
+            )
+            context = {
+                "status": "palletized",
             }
         else:
             packing_list = await self._get_packing_list(
@@ -984,6 +1014,329 @@ class Palletization(View):
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
 
+    async def handle_packing_la_public_list_post(
+        self, request: HttpRequest, pk: int
+    ) -> tuple[str, dict[str, Any]]:
+        '''la 公仓 拆柜录入的确认'''
+        order_selected = await sync_to_async(
+            Order.objects.select_related(
+                "offload_id", "warehouse", "container_number"
+            ).get
+        )(pk=pk)
+        offload = order_selected.offload_id
+        container = order_selected.container_number
+        additional_pallets = request.POST.getlist("new_destinations")
+        warehouse = order_selected.warehouse.name
+        if not offload.offload_at:
+            offload_time = request.POST.get("offload_time")
+            if not offload_time:
+                offload_time = datetime.now()
+            ids = request.POST.getlist("ids")
+            ids = [i.split(",") for i in ids]
+            n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
+            pcs_actual = [int(n) for n in request.POST.getlist("pcs_actul")]
+            pcs_reported = [int(d) for d in request.POST.getlist("pcs_reported")]
+            cbm = [float(c) for c in request.POST.getlist("cbms")]
+            weight = [float(c) for c in request.POST.getlist("weights")]
+            destinations = [d for d in request.POST.getlist("destinations")]
+            addresses = [d for d in request.POST.getlist("address")]
+            zipcodes = [d for d in request.POST.getlist("zipcode")]
+            contact_names = [d for d in request.POST.getlist("contact_name")]
+            delivery_method = [d for d in request.POST.getlist("delivery_method")]
+            delivery_type = [d for d in request.POST.getlist("delivery_type")]
+            shipment_batch_number = [
+                d for d in request.POST.getlist("shipment_batch_number")
+            ]
+            master_shipment_batch_number = [
+                d for d in request.POST.getlist("master_shipment_batch_number")
+            ]
+            shipping_marks = request.POST.getlist("shipping_marks")
+            fba_ids = request.POST.getlist("fba_ids")
+            ref_ids = request.POST.getlist("ref_ids")
+            # 因为库位只有LA仓库有，所以前端没传过来值，就构建一个空的
+            slots = (
+                request.POST.getlist("slots")
+                if "slots" in request.POST
+                else [None] * len(n_pallet)
+            )
+            dw_sts = request.POST.getlist("delivery_window_starts")
+            dw_ends = request.POST.getlist("delivery_window_ends")
+            notes = [d for d in request.POST.getlist("notes")]
+            po_ids = request.POST.getlist("po_ids")
+            total_pallet = sum(n_pallet)
+            abnormal_offloads = []
+            pallet_data = []
+            for (
+                n,
+                p_a,
+                p_r,
+                c,
+                w,
+                dest,
+                d_m,
+                d_t,
+                note,
+                shipment,
+                master_shipment,
+                shipping_mark,
+                fba_id,
+                ref_id,
+                addr,
+                zipcode,
+                contact_name,
+                po_id,
+                dw_st,
+                dw_end,
+                slot,
+            ) in zip(
+                n_pallet,
+                pcs_actual,
+                pcs_reported,
+                cbm,
+                weight,
+                destinations,
+                delivery_method,
+                delivery_type,
+                notes,
+                shipment_batch_number,
+                master_shipment_batch_number,
+                shipping_marks,
+                fba_ids,
+                ref_ids,
+                addresses,
+                zipcodes,
+                contact_names,
+                po_ids,
+                dw_sts,
+                dw_ends,
+                slots,
+            ):
+                if p_a > 0:  # 如果实际箱数大于0，才构建板子的信息
+                    if isinstance(dw_st, str):
+                        if dw_st == "None" or dw_st.strip() == "":
+                            dw_st = None
+                        else:
+                            dw_st = dw_st.replace("Sept.", "Sep").replace("Sept", "Sep")
+                            dw_st = re.sub(r"(\w{3})\.", r"\1", dw_st)
+                            dw_st = datetime.strptime(dw_st, "%b %d, %Y").date()
+
+                    if isinstance(dw_end, str):
+                        if dw_end == "None" or dw_end.strip() == "":
+                            dw_end = None
+                        else:
+                            dw_end = dw_end.replace("Sept.", "Sep").replace(
+                                "Sept", "Sep"
+                            )
+                            dw_end = re.sub(r"(\w{3})\.", r"\1", dw_end)
+                            dw_end = datetime.strptime(dw_end, "%b %d, %Y").date()
+                    pallet_data += await self._split_pallet(
+                        order_selected,
+                        n,
+                        p_a,
+                        p_r,
+                        c,
+                        w,
+                        dest,
+                        d_m,
+                        d_t,
+                        note,
+                        shipment,
+                        master_shipment,
+                        shipping_mark,
+                        fba_id,
+                        ref_id,
+                        po_id,
+                        pk,
+                        addr,
+                        zipcode,
+                        contact_name,
+                        dw_st,
+                        dw_end,
+                        slot,
+                    )  # 循环遍历每个汇总的板数
+                if p_a != p_r:
+                    abnormal_offloads.append(
+                        {
+                            "offload": offload,
+                            "container_number": container,
+                            "created_at": offload_time,
+                            "is_resolved": False,
+                            "destination": dest,
+                            "delivery_method": d_m,
+                            "delivery_type": d_t,
+                            "pcs_reported": p_r,
+                            "pcs_actual": p_a,
+                        }
+                    )
+            if additional_pallets:
+                # 如果有多货的情况，因为前端目前新增行的时候通过clone id="palletization-row-empty"的行，所以会增加input，值为空，所以下面就进行了去重工作
+                # 计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
+                new_destinations = request.POST.getlist("new_destinations")
+                new_delivery_method = request.POST.getlist("new_delivery_method")
+                new_pcs_actul = [
+                    int(value) for value in request.POST.getlist("new_pcs_actul")
+                ]
+                new_pallets = [
+                    int(value) for value in request.POST.getlist("new_pallets")
+                ]
+                shipping_marks = request.POST.getlist("new_shipping_marks")
+                fba_ids = request.POST.getlist("new_fba_ids")
+                ref_ids = request.POST.getlist("new_ref_ids")
+                new_dw_sts = request.POST.getlist("new_delivery_window_starts")
+                new_dw_ends = request.POST.getlist("new_delivery_window_ends")
+                new_slots = request.POST.getlist("new_slots")
+                new_notes = request.POST.getlist("new_notes")
+                new_cbm = [
+                    float(value) if value else 0
+                    for value in request.POST.getlist("new_cbms")
+                ]
+                # 生成新的PO_ID
+                new_po_ids = []
+                seq_num = 0
+                for dm, dest in zip(new_delivery_method, new_destinations):
+                    if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                        po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    elif dm == "客户自提" or dest == "客户自提":
+                        po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    else:
+                        po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    random.seed(container.container_number[-4:])
+                    random_code = "".join(
+                        random.choices(string.ascii_uppercase + string.digits, k=6)
+                    )
+                    new_po_ids.append(f"A{random_code}{po_id_seg}{seq_num}")
+                    seq_num += 1
+
+                for (
+                    n,
+                    p_a,
+                    c,
+                    dest,
+                    d_m,
+                    note,
+                    shipping_mark,
+                    fba_id,
+                    ref_id,
+                    po_id,
+                    dw_st,
+                    dw_end,
+                    slot,
+                ) in zip(
+                    new_pallets,
+                    new_pcs_actul,
+                    new_cbm,
+                    new_destinations,
+                    new_delivery_method,
+                    new_notes,
+                    shipping_marks,
+                    fba_ids,
+                    ref_ids,
+                    new_po_ids,
+                    new_dw_sts,
+                    new_dw_ends,
+                    new_slots,
+                ):
+                    delivery_type = (
+                        "public" if self.is_public_destination(dest) else "other"
+                    )
+                    if isinstance(dw_st, str):
+                        if dw_st == "None" or dw_st.strip() == "":
+                            dw_st = None
+                        else:
+                            dw_st = datetime.strptime(dw_st, "%Y-%m-%d").date()
+
+                    if isinstance(dw_end, str):
+                        if dw_end == "None" or dw_end.strip() == "":
+                            dw_end = None
+                        else:
+                            dw_end = datetime.strptime(dw_end, "%Y-%m-%d").date()
+                    pallet_data += await self._split_pallet(
+                        order_selected,
+                        n,
+                        p_a,
+                        0,
+                        c,
+                        0,
+                        dest,
+                        d_m,
+                        delivery_type,
+                        note,
+                        "None",
+                        "None",
+                        shipping_mark,
+                        fba_id,
+                        ref_id,
+                        po_id,
+                        pk,
+                        addr,
+                        zipcode,
+                        contact_name,
+                        dw_st,
+                        dw_end,
+                        slot,
+                        seed=1,
+                    )
+
+                    # 记录异常拆柜
+                    abnormal_offloads.append(
+                        {
+                            "offload": offload,
+                            "container_number": container,
+                            "created_at": offload_time,
+                            "is_resolved": False,
+                            "destination": dest,
+                            "delivery_method": d_m,
+                            "delivery_type": d_t,
+                            "pcs_reported": 0,
+                            "pcs_actual": p_a,
+                            "delivery_window_start": dw_st,
+                            "delivery_window_end": dw_end,
+                        }
+                    )
+            offload.public_total_pallet = total_pallet
+            if offload.total_pallet is None:
+                offload.total_pallet = total_pallet
+            else:
+                offload.total_pallet += total_pallet
+            offload.offload_at = offload_time
+            await sync_to_async(offload.save)()
+            pallet_instances = [Pallet(**d) for d in pallet_data]
+            await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+
+            await self._update_shipment_stats(ids)
+
+            abnormal_offload_instances = [
+                AbnormalOffloadStatus(**d) for d in abnormal_offloads
+            ]
+            await sync_to_async(bulk_create_with_history)(
+                abnormal_offload_instances, AbnormalOffloadStatus
+            )
+        # 更新柜子的delivery_type
+        pallet = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number__container_number=container.container_number
+            )
+        )
+        types = set(plt.delivery_type for plt in pallet if plt.delivery_type)
+        if not types:
+            raise ValueError("缺少派送类型")
+        new_type = types.pop() if len(types) == 1 else "mixed"
+        co = await sync_to_async(Container.objects.get, thread_sensitive=True)(
+            container_number=container.container_number
+        )
+        co.delivery_type = new_type
+        await sync_to_async(co.save, thread_sensitive=True)()
+
+        #批量将LTL的参数从pl转到plt
+        await self._ltl_parameter_transfer(container)
+
+        mutable_post = request.POST.copy()
+        mutable_post["name"] = order_selected.warehouse.name
+        request.POST = mutable_post
+        return await self.handle_warehouse_post(request)
+
+
+
     async def _ltl_parameter_transfer(self, container):
         '''将LTL的相关参数从packinglist转移到pallet'''
         pls = await sync_to_async(list)(
@@ -1127,6 +1480,50 @@ class Palletization(View):
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number
+            ).delete
+        )()
+        await sync_to_async(offload.save)()
+        await self._update_shipment_abnormal_palletization(shipment)
+        mutable_post = request.POST.copy()
+        mutable_post["name"] = order.warehouse.name
+        request.POST = mutable_post
+        return await self.handle_warehouse_post(request)
+
+    async def handle_cancel_la_public_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """la public 撤销拆柜"""
+        container_number = request.POST.get("container_number")
+        warehouse = request.POST.get("warehouse")
+        order = await sync_to_async(
+            Order.objects.select_related("offload_id", "warehouse").get
+        )(container_number__container_number=container_number)
+        offload = order.offload_id
+        offload.total_pallet -= offload.public_total_pallet
+        offload.public_total_pallet = None
+        offload.offload_at = None
+        try:
+            offload.devanning_company = None
+            offload.devanning_fee = None
+        except:
+            pass
+        pallet = await sync_to_async(list)(
+            Pallet.objects.select_related("shipment_batch_number").filter(
+                container_number__container_number=container_number, delivery_type="public", location=warehouse
+            )
+        )
+        shipment = set()
+        shipment.update([p.shipment_batch_number for p in pallet if p])
+        await sync_to_async(
+            Pallet.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="public", location=warehouse
+            ).delete
+        )()
+        await sync_to_async(
+            AbnormalOffloadStatus.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="public", location=warehouse
             ).delete
         )()
         await sync_to_async(offload.save)()
@@ -1810,6 +2207,127 @@ class Palletization(View):
                 Fleet,
                 fields=["total_cbm", "total_pallet", "total_weight", "total_pcs"],
             )
+
+    async def _get_packing_list_public(
+        self, container_number: str, status: str
+    ) -> PackingList:
+        if status == "non_palletized":
+            return await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(container_number__container_number=container_number, delivery_type='public')
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "fba_id",
+                                Value("-"),
+                                "id",
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") | Q(destination="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "destination",
+                                Value("-"),
+                                "shipping_mark",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "destination",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "custom_delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "master_shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                    "delivery_type",
+                    "delivery_method"
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        elif status == "palletized":
+            return await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(container_number__container_number=container_number, delivery_type='public')
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_length=Cast("length", CharField()),
+                    str_width=Cast("width", CharField()),
+                    str_height=Cast("height", CharField()),
+                    str_pcs=Cast("pcs", CharField()),
+                    str_number=Cast("sequence_number", CharField()),
+                    str_weight=Cast("weight_lbs", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "delivery_method",
+                    "destination",
+                    "fba_id",
+                    "ref_id",
+                    "shipping_mark",
+                    "note",
+                    "PO_ID",
+                    "delivery_type",
+                    "slot",
+                )
+                .annotate(
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet_id", distinct=True),
+                    ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    length=StringAgg(
+                        "str_length", delimiter=",", ordering="str_length"
+                    ),
+                    width=StringAgg("str_width", delimiter=",", ordering="str_width"),
+                    height=StringAgg(
+                        "str_height", delimiter=",", ordering="str_height"
+                    ),
+                    n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
+                    number=StringAgg(
+                        "str_number", delimiter=",", ordering="str_number"
+                    ),
+                    weight=StringAgg(
+                        "str_weight", delimiter=",", ordering="str_weight"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        else:
+            raise ValueError(f"invalid status: {status}")
 
     async def _get_packing_list(
         self, container_number: str, status: str

@@ -645,6 +645,16 @@
         <button class="fleet-column-toggle-btn" id="fleetColumnToggleBtn" onclick="fleet_toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
+        {% if 'LA' in warehouse %}
+            <form action="" method="post">
+                {% csrf_token %}
+                <button class="action-btn btn-other-filter">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="step" value="other_selfdelivery">
+                    <i class="fas"></i> LA私仓卡车派送拆柜
+                </button>
+            </form>
+        {% endif %}
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
             当前显示 <strong>{{ warehouse }}</strong> 入库仓库的货物，筛选条件：
@@ -706,16 +716,16 @@
                     <th class="fleet-checkbox-cell">
                         <input type="checkbox" id="fleet_selectAllCargos">
                     </th>
-                    <th style="min-width: 80px;" data-column="1">关联组<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(1)">×</span></th> 
+                    <th style="min-width: 80px;" data-column="1">关联组<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(1)">×</span></th>
                     <th data-column="2">跟进状态<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
                     <th class="fleet-customer-col" data-column="3">客户<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(3)">×</span></th>
                     <th class="fleet-date-col" data-column="4">拆柜日期<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(4)">×</span></th>
-                    <th class="fleet-delivery-method-col" data-column="5">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th> 
+                    <th class="fleet-delivery-method-col" data-column="5">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th>
                     <th data-column="6">柜号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(6)">×</span></th>
                     <th data-column="7">目的地<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(7)">×</span></th>
                     <th class="fleet-mark-col" data-column="8">唛头<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(8)">×</span></th>
                     <th class="fleet-address-col" data-column="9">地址<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(9)">×</span></th>
-                    <th class="fleet-contact-method-col" data-column="10">类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(10)">×</span></th> 
+                    <th class="fleet-contact-method-col" data-column="10">类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(10)">×</span></th>
                     <th class="fleet-note-col" data-column="11">备注<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(11)">×</span></th>
                     <th class="fleet-command-col" data-column="12">指令<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(12)">×</span></th>
                     <th data-column="13">CBM<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(13)">×</span></th>
@@ -1101,7 +1111,7 @@
                         {% endif %}
                     </td>
                     <td class="fleet-supplier-col" data-column="19">
-                        <input type="text" class="fleet-supplier-input" 
+                        <input type="text" class="fleet-supplier-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.ltl_supplier|default:'' }}"
                             placeholder="输入供应商">
@@ -1464,7 +1474,7 @@
             const ltlReleaseCommandInputField = document.getElementById('fleet_commandInput');
             const saveForm = document.getElementById('fleet_saveForm');
             
-            if (cargoIdInput && carrierInputField && supplierInputField && addressInputField && noteInputField && 
+            if (cargoIdInput && carrierInputField && supplierInputField && addressInputField && noteInputField &&
                 contactMethodInputField && costInputField && costNoteInputField && quoteInputField && 
                 quoteNoteInputField && bolNumberInputField && proNumberInputField && 
                 palletSizeInputField && followInputField && deliveryMethodInputField && ltlReleaseCommandInputField && saveForm) {
@@ -1741,18 +1751,18 @@
         function fleet_toggleColumn(columnIndex) {
             const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
             const checkbox = document.getElementById(`fleetCol${columnIndex}Checkbox`);
-            
+
             cells.forEach(cell => {
                 // 先清除旧的类名，确保不会受影响
                 cell.classList.remove('hidden-column');
                 cell.classList.remove('selfpick-hidden-column');
                 cell.classList.toggle('fleet-hidden-column');
             });
-            
+
             if (checkbox) {
                 checkbox.checked = !cells[0].classList.contains('fleet-hidden-column');
             }
-            
+
             fleet_saveColumnVisibility();
         }
 
@@ -1776,7 +1786,7 @@
         function fleet_toggleColumnPanel() {
             const panel = document.getElementById('fleetColumnTogglePanel');
             const btn = document.getElementById('fleetColumnToggleBtn');
-            
+
             if (panel.style.display === 'block') {
                 panel.style.display = 'none';
             } else {
@@ -1808,7 +1818,7 @@
                 cell.classList.remove('selfpick-hidden-column');
                 cell.classList.remove('fleet-hidden-column');
             });
-            
+
             // 确保所有复选框初始状态为选中
             for (let i = 1; i <= 27; i++) {
                 const checkbox = document.getElementById(`fleetCol${i}Checkbox`);
@@ -1816,13 +1826,13 @@
                     checkbox.checked = true;
                 }
             }
-            
+
             const saved = localStorage.getItem('selfDeliveryColumnVisibility');
             if (saved) {
                 try {
                     const visibility = JSON.parse(saved);
                     let hasInvalidData = false;
-                    
+
                     // 检查数据是否有效
                     for (let i = 1; i <= 27; i++) {
                         if (visibility[i] === undefined) {
@@ -1830,7 +1840,7 @@
                             break;
                         }
                     }
-                    
+
                     if (!hasInvalidData) {
                         // 数据有效，加载它
                         for (let i = 1; i <= 27; i++) {
@@ -1849,7 +1859,7 @@
                     console.error('Failed to load column visibility:', e);
                 }
             }
-            
+
             // 如果没有有效数据，保存新的默认状态
             fleet_saveColumnVisibility();
         }
@@ -1858,7 +1868,7 @@
         document.addEventListener('click', function(event) {
             const panel = document.getElementById('fleetColumnTogglePanel');
             const btn = document.getElementById('fleetColumnToggleBtn');
-            
+
             if (panel && panel.style.display === 'block') {
                 if (!panel.contains(event.target) && event.target !== btn && !btn.contains(event.target)) {
                     panel.style.display = 'none';
@@ -2946,12 +2956,12 @@
         const savedLtlCity = row.getAttribute('data-ltl-city') || '';
         const savedLtlState = row.getAttribute('data-ltl-state') || '';
         const savedLtlZipcode = row.getAttribute('data-ltl-zipcode') || '';
-        
+
         // 设置原始地址
         document.getElementById('br_raw_address').value = rawAddress;
         
         let addressToUse, cityToUse, stateToUse, zipToUse;
-        
+
         // 检查是否有已保存的值，如果有就优先使用
         if (savedLtlAddress || savedLtlCity || savedLtlState || savedLtlZipcode) {
             addressToUse = savedLtlAddress;
@@ -2973,7 +2983,7 @@
         document.getElementById('br_state').value = stateToUse;
         document.getElementById('br_zip').value = zipToUse;
         document.getElementById('br_country').value = 'US'; // 国家默认为US
-        
+
         // 保存 cargoId 到表单，用于后续 API 调用
         document.getElementById('br_cargo_id').value = cargoId;
         
@@ -3216,7 +3226,7 @@
             </html>
         `);
         printWindow.document.close();
-        
+
         // 等待内容加载完成后打印
         setTimeout(() => {
             printWindow.print();

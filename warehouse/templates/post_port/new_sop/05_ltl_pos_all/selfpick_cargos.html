@@ -358,6 +358,12 @@
         background-color: #95a5a6 !important;
         color: white !important;
     }
+
+    .btn-other-filter {
+        background-color: #c1e12b !important;
+        color: white !important;
+    }
+
     .selected-stats {
         display: flex; 
         align-items: center;
@@ -616,6 +622,16 @@
         <button class="selfpick-column-toggle-btn" id="selfpickColumnToggleBtn" onclick="selfpick_toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
+        {% if 'LA' in warehouse %}
+            <form action="" method="post">
+                {% csrf_token %}
+                <button class="action-btn btn-other-filter">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="step" value="other_selfpick_cargos">
+                    <i class="fas"></i> LA私仓客户自提拆柜
+                </button>
+            </form>
+        {% endif %}
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
             当前显示 <strong>{{ warehouse }}</strong> 入库仓库的货物，筛选条件：
@@ -685,7 +701,7 @@
                     <th data-column="6">柜号<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(6)">×</span></th>
                     <th data-column="7">目的地<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(7)">×</span></th>
                     <th class="mark-col" data-column="8">唛头<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(8)">×</span></th>
-                    <th class="note-col" data-column="9">备注<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(9)">×</span></th> 
+                    <th class="note-col" data-column="9">备注<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(9)">×</span></th>
                     <th class="command-col" data-column="10">指令<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(10)">×</span></th>
                     <th data-column="11">CBM<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(11)">×</span></th>
                     <th data-column="12">件数<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(12)">×</span></th>
@@ -693,11 +709,11 @@
                     <th data-column="14">重量lbs<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(14)">×</span></th>
                     <th class="pallet-col" data-column="15">板数<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(15)">×</span></th>
                     <th class="pallet-size-col" data-column="16">托盘尺寸<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(16)">×</span></th>
-                    <th class="quote-col" data-column="17">出库数量<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(17)">×</span></th> 
-                    <th class="quote-col" data-column="18">单板费<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(18)">×</span></th> 
-                    <th class="quote-col" data-column="19">出库费<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(19)">×</span></th> 
-                    <th class="quote-note-col" data-column="20">出库费备注<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(20)">×</span></th> 
-                    <th class="bol-col" data-column="21">BOL号<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(21)">×</span></th>                   
+                    <th class="quote-col" data-column="17">出库数量<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(17)">×</span></th>
+                    <th class="quote-col" data-column="18">单板费<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(18)">×</span></th>
+                    <th class="quote-col" data-column="19">出库费<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(19)">×</span></th>
+                    <th class="quote-note-col" data-column="20">出库费备注<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(20)">×</span></th>
+                    <th class="bol-col" data-column="21">BOL号<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(21)">×</span></th>
                     <th data-column="22">承运公司<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(22)">×</span></th>
                     <th class="address-col" data-column="23">地址<span class="selfpick-hide-column-btn" onclick="selfpick_toggleColumn(23)">×</span></th>
                     <th class="action-col" data-column="24">操作</th>
@@ -925,7 +941,7 @@
                             value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
                             placeholder="选择预计提货日期">
                     </td>
-                    <td class="customer-col" data-column="3">{{ cargo.customer_name|default:"-" }}</td>                   
+                    <td class="customer-col" data-column="3">{{ cargo.customer_name|default:"-" }}</td>
                     <td class="date-col" data-column="4">
                         {% if cargo.offload_at %}
                             <span class="fleet-month-day">
@@ -2125,18 +2141,18 @@
         function selfpick_toggleColumn(columnIndex) {
             const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
             const checkbox = document.getElementById(`selfpickCol${columnIndex}Checkbox`);
-            
+
             cells.forEach(cell => {
                 // 先清除旧的类名，确保不会受影响
                 cell.classList.remove('hidden-column');
                 cell.classList.remove('fleet-hidden-column');
                 cell.classList.toggle('selfpick-hidden-column');
             });
-            
+
             if (checkbox) {
                 checkbox.checked = !cells[0].classList.contains('selfpick-hidden-column');
             }
-            
+
             selfpick_saveColumnVisibility();
         }
 
@@ -2151,7 +2167,7 @@
         function selfpick_toggleColumnPanel() {
             const panel = document.getElementById('selfpickColumnTogglePanel');
             const btn = document.getElementById('selfpickColumnToggleBtn');
-            
+
             if (panel.classList.contains('show')) {
                 panel.classList.remove('show');
             } else {
@@ -2181,7 +2197,7 @@
                 cell.classList.remove('fleet-hidden-column');
                 cell.classList.remove('selfpick-hidden-column');
             });
-            
+
             // 确保所有复选框初始状态为选中
             for (let i = 1; i <= 23; i++) {
                 const checkbox = document.getElementById(`selfpickCol${i}Checkbox`);
@@ -2189,13 +2205,13 @@
                     checkbox.checked = true;
                 }
             }
-            
+
             const savedState = localStorage.getItem('selfpickColumnVisibility');
             if (savedState) {
                 try {
                     const visibilityState = JSON.parse(savedState);
                     let hasInvalidData = false;
-                    
+
                     // 检查数据是否有效
                     for (let i = 1; i <= 23; i++) {
                         if (visibilityState[i] === undefined) {
@@ -2203,18 +2219,18 @@
                             break;
                         }
                     }
-                    
+
                     if (!hasInvalidData) {
                         // 数据有效，加载它
                         for (let i = 1; i <= 23; i++) {
                             if (visibilityState[i] !== undefined && !visibilityState[i]) {
                                 const cells = document.querySelectorAll(`[data-column="${i}"]`);
                                 const checkbox = document.getElementById(`selfpickCol${i}Checkbox`);
-                                
+
                                 cells.forEach(cell => {
                                     cell.classList.add('selfpick-hidden-column');
                                 });
-                                
+
                                 if (checkbox) {
                                     checkbox.checked = false;
                                 }
@@ -2226,7 +2242,7 @@
                     console.error('加载列显示状态失败', e);
                 }
             }
-            
+
             // 如果没有有效数据，保存新的默认状态
             selfpick_saveColumnVisibility();
         }
@@ -2235,7 +2251,7 @@
         document.addEventListener('click', function(e) {
             const panel = document.getElementById('selfpickColumnTogglePanel');
             const toggleBtn = document.getElementById('selfpickColumnToggleBtn');
-            
+
             if (panel && toggleBtn && !panel.contains(e.target) && !toggleBtn.contains(e.target)) {
                 panel.classList.remove('show');
             }

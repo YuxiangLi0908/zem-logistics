@@ -427,14 +427,26 @@
                                 </form> 
                             </td>
                             <td class="td">
-                                <form method="post" action="">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="cancel">
-                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                    <button type="submit" class="btn btn-danger" style="font-size: 13px;">
-                                        <i class="bi bi-x-octagon"></i>
-                                    </button>
-                                </form>
+                                {% if 'LA' in warehouse %}
+                                    <form method="post" action="">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="cancel_la_public">
+                                        <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <button type="submit" class="btn btn-danger" style="font-size: 13px;">
+                                            <i class="bi bi-x-octagon"></i>
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <form method="post" action="">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="cancel">
+                                        <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                        <button type="submit" class="btn btn-danger" style="font-size: 13px;">
+                                            <i class="bi bi-x-octagon"></i>
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}

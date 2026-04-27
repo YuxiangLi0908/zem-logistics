@@ -189,10 +189,23 @@
                     <input type="hidden" name="name" value="{{ warehouse }}">
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
                 {% else %}
-                    <input type="hidden" name="step" value="palletize">
-                    <input type="datetime-local" name="offload_time" class="form-input" style="height: 35px; padding: 0 8px;">
-                    <!-- 修改：按钮为type=button，触发processForm -->
-                    <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
+                    {% if 'LA' in warehosue %}
+                        <input type="hidden" name="step" value="palletize_la_public">
+                        <input type="datetime-local" name="offload_time" class="form-input"
+                               style="height: 35px; padding: 0 8px;">
+                        <input type="hidden" name="name" value="{{ warehouse }}">
+                        <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;"
+                                onclick="processForm()">确认
+                        </button>
+                    {% else %}
+                        <input type="hidden" name="step" value="palletize">
+                        <input type="datetime-local" name="offload_time" class="form-input"
+                               style="height: 35px; padding: 0 8px;">
+                        <!-- 修改：按钮为type=button，触发processForm -->
+                        <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;"
+                                onclick="processForm()">确认
+                        </button>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
