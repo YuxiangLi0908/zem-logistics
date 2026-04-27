@@ -472,6 +472,9 @@ class PostNsop(View):
         elif step == "edit_appointment":
             template, context = await self.handle_edit_appointment_post(request)
             return render(request, template, context) 
+        elif step == "save_external_shipment":
+            template, context = await self.handle_save_external_shipment_post(request)
+            return render(request, template, context) 
         elif step == "edit_note_sp":
             template, context = await self.handle_edit_note_sp_post(request)
             return render(request, template, context) 
@@ -5886,6 +5889,48 @@ class PostNsop(View):
                 return await self.handle_appointment_management_post(request,context)
             return await self.handle_td_shipment_post(request,context)
     
+    async def handle_save_external_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """保存外配的约的修改"""
+        context = {}
+        shipment_id = request.POST.get('shipment_id', '').strip()
+        appointment_id_new = request.POST.get('appointment_id', '').strip()
+        shipment_appointment = request.POST.get('shipment_appointment')
+        pickup_time = request.POST.get('pickup_time')
+        
+        if not shipment_id:
+            context.update({'error_messages': '未提供 shipment_id!'})
+            return await self.handle_td_shipment_post(request, context)
+        
+        old_shipments = await sync_to_async(list)(
+            Shipment.objects.filter(id=shipment_id)
+        )
+        
+        if not old_shipments:
+            context.update({'error_messages': f"未找到 ID={shipment_id}!"})
+            return await self.handle_td_shipment_post(request, context)
+        
+        old_shipment = old_shipments[0]
+        appointment_id_old = old_shipment.appointment_id
+        
+        if appointment_id_new == appointment_id_old:
+            # 预约号不变，只更新其他字段
+            old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
+            old_shipment.pickup_time = pickup_time if pickup_time else None
+            await sync_to_async(old_shipment.save)()
+            context.update({'success_messages': f"{appointment_id_old}预约信息修改成功！"})
+        else:
+            # 预约号变化，检查重复
+            context = await self._check_ISA_is_repetition(appointment_id_new, old_shipment.destination)
+            if context.get('success_messages'):
+                old_shipment.appointment_id = appointment_id_new
+                old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
+                old_shipment.pickup_time = pickup_time if pickup_time else None
+                await sync_to_async(old_shipment.save)()
+                if not context.get('success_messages'):
+                    context.update({'success_messages': f"{appointment_id_old}预约信息修改成功！"})
+        
+        return await self.handle_td_shipment_post(request, context)
+    
     async def _check_ISA_is_repetition(self,appointment_id,destination):
         context = {}
         try:
@@ -8152,11 +8197,13 @@ class PostNsop(View):
         unschedule_fleet_data = fleets['shipment_list']
         #已排车
         schedule_fleet_data = fleets['fleet_list']
+        #外配的约
+        external_distribution_data = await self.sp_external_distribution_data(warehouse, request.user)
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
         # 计算统计数据
-        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, schedule_fleet_data, unschedule_fleet_data)       
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, schedule_fleet_data, unschedule_fleet_data, external_distribution_data)       
 
         if not context:
             context = {}
@@ -8172,6 +8219,7 @@ class PostNsop(View):
             'scheduled_data': scheduled_data,
             'unschedule_fleet': unschedule_fleet_data,
             'fleet_list': schedule_fleet_data,   #已排车
+            'external_distribution_data': external_distribution_data,   #外配的约
             'unscheduled_fl_count': len(unschedule_fleet_data),
             'available_shipments': available_shipments,
             'summary': summary,
@@ -8563,12 +8611,16 @@ class PostNsop(View):
                 models.Q(container_number__orders__retrieval_id__retrieval_destination_precise__in=["NJ-07001", "SAV-31326"]) |
                 models.Q(container_number__orders__warehouse__name__in=["NJ-07001", "SAV-31326"])
             )
-
+        # 智能找PO的筛选条件
+        target_date = datetime(2025, 10, 10)
+                
         intelligent_pos = await self._get_packing_list(
             user,
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__orders__offload_id__offload_at__isnull=True,
+                container_number__orders__add_to_t49=True,
+                container_number__orders__vessel_id__vessel_eta__gte=target_date,
                 destination=destination,
                 delivery_type='public',
                 
@@ -8897,6 +8949,117 @@ class PostNsop(View):
                 }
         return list(grouped_data.values())
 
+    async def sp_external_distribution_data(self, warehouse: str, user) -> list:
+        """获取外配的约数据 - shipment_type为外配且pod_link为空"""
+        target_date = datetime(2025, 10, 10)
+
+        pl_criteria = models.Q(
+            container_number__orders__warehouse__name=warehouse,
+            shipment_batch_number__isnull=False,
+            container_number__orders__offload_id__offload_at__isnull=True,
+            shipment_batch_number__shipment_appointment__gt=target_date,
+            shipment_batch_number__shipment_type="外配",
+            shipment_batch_number__pod_link__isnull=True,
+        )
+
+        plt_criteria = models.Q(
+            location=warehouse,
+            shipment_batch_number__isnull=False,           
+            container_number__orders__offload_id__offload_at__isnull=False,
+            shipment_batch_number__shipment_appointment__gt=target_date,
+            shipment_batch_number__shipment_type="外配",
+            shipment_batch_number__pod_link__isnull=True,            
+        )
+
+        raw_data = await self._get_packing_list(
+            user,
+            pl_criteria,
+            plt_criteria,
+        )
+        
+        grouped_data = {}
+        processed_batch_numbers = set()
+
+        for item in raw_data:
+            batch_number = item.get('shipment_batch_number__shipment_batch_number')
+            if "库存盘点" in batch_number:
+                continue
+            if batch_number not in grouped_data:
+                try:
+                    shipment = await sync_to_async(Shipment.objects.get)(
+                        shipment_batch_number=batch_number,
+                        shipment_appointment__gte=datetime(2025, 1, 1)
+                    )
+                except Shipment.DoesNotExist:
+                    continue
+                except MultipleObjectsReturned:
+                    raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
+                if shipment.status == "Exception":
+                    continue
+                address = await self.get_address(shipment.destination)
+                grouped_data[batch_number] = {
+                    'id': shipment.id,
+                    'appointment_id': shipment.appointment_id,
+                    'shipment_cargo_id': shipment.shipment_cargo_id,
+                    'shipment_batch_number': shipment.shipment_batch_number,
+                    'shipment_type': shipment.shipment_type,
+                    'destination': shipment.destination,
+                    'shipment_appointment': shipment.shipment_appointment,
+                    'load_type': shipment.load_type,
+                    'shipment_account': shipment.shipment_account,
+                    'address': shipment.address,
+                    'address_detail': address,
+                    'cargos': [],
+                    'pickup_time': shipment.pickup_time,
+                    'pickup_number': shipment.pickup_number,
+                    'carrier': shipment.carrier,
+                    'note': shipment.note,
+                    'ARM_BOL': shipment.ARM_BOL,
+                }
+                processed_batch_numbers.add(batch_number)
+            grouped_data[batch_number]['cargos'].append(item)
+        
+        base_q = Q(
+            shipment_appointment__gt=target_date,
+            shipment_type="外配",
+            pod_link__isnull=True,
+            is_canceled=False,
+            in_use=True,
+            is_virtual_sp=False
+        )
+        
+        exclude_q = ~Q(shipment_batch_number__in=processed_batch_numbers)
+        empty_shipments = await sync_to_async(list)(
+            Shipment.objects.filter(base_q).exclude(exclude_q)
+        )
+        
+        for shipment in empty_shipments:
+            has_packinglists = await sync_to_async(PackingList.objects.filter(shipment_batch_number=shipment).exists)()
+            has_pallets = await sync_to_async(Pallet.objects.filter(shipment_batch_number=shipment).exists)()
+            
+            if has_packinglists or has_pallets:
+                continue
+            batch_number = shipment.shipment_batch_number
+            if batch_number not in grouped_data:
+                address = await self.get_address(shipment.destination)
+                grouped_data[batch_number] = {
+                    'id': shipment.id,
+                    'appointment_id': shipment.appointment_id,
+                    'shipment_cargo_id': shipment.shipment_cargo_id,
+                    'shipment_batch_number': shipment.shipment_batch_number,
+                    'shipment_type': shipment.shipment_type,
+                    'destination': shipment.destination,
+                    'shipment_appointment': shipment.shipment_appointment,
+                    'load_type': shipment.load_type,
+                    'shipment_account': shipment.shipment_account,
+                    'address': shipment.address,
+                    'address_detail': address,
+                    'cargos': [],
+                    'pickup_time': shipment.pickup_time,
+                    'pickup_number': shipment.pickup_number,
+                }
+        return list(grouped_data.values())
+
     async def _sp_ready_to_ship_data(self, warehouse: str, user, four_major_whs: str | None = None, group: str | None = None) -> list:
         """获取待出库数据 - 按fleet_number分组"""
         # 获取指定仓库的未出发且未取消的fleet
@@ -9109,13 +9272,14 @@ class PostNsop(View):
         
         return False
 
-    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, schedule_fleet_data: list, unscheduled_fl) -> dict:
+    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, schedule_fleet_data: list, unscheduled_fl, external_distribution_data: list = None) -> dict:
         """计算统计数据"""
         # 计算各类数量
         unscheduled_sp_count = len(unscheduled)
         scheduled_sp_count = len(scheduled)
         schedule_fl_count = len(schedule_fleet_data)
         unscheduled_fl_count = len(unscheduled_fl)
+        external_distribution_count = len(external_distribution_data) if external_distribution_data else 0
         # 计算总板数
         total_pallets = 0
         for cargo in unscheduled:
@@ -9126,6 +9290,7 @@ class PostNsop(View):
             'scheduled_sp_count': scheduled_sp_count,
             'schedule_fl_count': schedule_fl_count,
             'unscheduled_fl_count': unscheduled_fl_count,
+            'external_distribution_count': external_distribution_count,
             'total_pallets': int(total_pallets),
         }
 

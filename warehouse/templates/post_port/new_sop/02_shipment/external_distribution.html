@@ -1,0 +1,275 @@
+<!-- 外配的约标签页 -->
+{% load custom_filters %}
+<style>
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+</style>
+<div class="content-section" id="external-distribution-section">
+    <div class="filter-notice">
+        <i class="fas fa-filter"></i> 
+        当前显示 <strong>{{ warehouse }}</strong> 仓库的外配的约
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>预约批次</th>
+                    <th>预约号</th>
+                    <th>目的地</th>
+                    <th>预约时间</th>
+                    <th>提货时间</th>
+                    <th>装车类型</th>
+                    <th>柜号</th>
+                    <th>目的地</th>
+                    <th>板数</th>
+                    <th>CBM</th>
+                    <th>入仓时间</th>
+                    <th>REF ID</th>
+                    <th>FBA ID</th>
+                    <th>操作</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="0"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="1"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="2"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="3"></td>
+                    <td><input type="date" class="header-search" placeholder="选择提货时间" data-column="4" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索仓点" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="10"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="11"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="12"></td>
+                </tr>
+            </thead>
+            <tbody>
+                {% for shipment_group in external_distribution_data %}
+                <td colspan="14" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                                height: 2px; padding: 0;"></td>
+                {% if shipment_group.cargos %}
+                    <!-- 有PO的-->
+                    {% for cargo in shipment_group.cargos %}
+                    <tr data-shipment-id="{{ shipment_group.id }}"
+                        data-shipment-group="{{ shipment_group.appointment_id }}">
+                        {% if forloop.first %}
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            <input type="text" class="form-input external-appointment-id" 
+                                   value="{{ shipment_group.appointment_id|default_if_none:'' }}"
+                                   data-shipment-id="{{ shipment_group.id }}">
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.destination }}
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            <input type="datetime-local" class="form-input external-scheduled-time" 
+                                   value="{{ shipment_group.shipment_appointment|date:'Y-m-d\TH:i' }}"
+                                   data-shipment-id="{{ shipment_group.id }}">
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            <input type="datetime-local" class="form-input external-pickup-time" 
+                                   value="{{ shipment_group.pickup_time|date:'Y-m-d\TH:i'|default:'' }}"
+                                   data-shipment-id="{{ shipment_group.id }}">
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.load_type }}
+                        </td>
+                        {% endif %}
+                        <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                            {{ cargo.cns|linebreaks_cn }}
+                        </td>
+                        <td class="location-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                            {{ cargo.destination }}
+                        </td>
+                        <td class="pallet-col">
+                            {% if cargo.label == 'ACT' %}
+                                {{ cargo.total_n_pallet_act|default:0 }} ACT
+                            {% else %}
+                                {{ cargo.total_n_pallet_est|default:0 }} EST
+                            {% endif %}
+                        </td>
+                        <td class="cbm-col">{{ cargo.total_cbm|default:0 }}</td>
+                        <td class="offload-time-col">
+                            {{ cargo.offload_time }}
+                        </td>
+                        <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                        <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                        {% if forloop.first %}
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
+                            <button class="action-btn btn-success save-external-shipment" 
+                                    data-shipment-id="{{ shipment_group.id }}">
+                                <i class="fas fa-save"></i> 保存
+                            </button>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <!-- 没有PO的 -->
+                    <tr data-shipment-id="{{ shipment_group.id }}"
+                        data-shipment-group="{{ shipment_group.appointment_id }}">
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        <input type="text" class="form-input external-appointment-id" 
+                               value="{{ shipment_group.appointment_id|default_if_none:'' }}"
+                               data-shipment-id="{{ shipment_group.id }}">
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.destination }}
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        <input type="datetime-local" class="form-input external-scheduled-time" 
+                               value="{{ shipment_group.shipment_appointment|date:'Y-m-d\TH:i' }}"
+                               data-shipment-id="{{ shipment_group.id }}">
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        <input type="datetime-local" class="form-input external-pickup-time" 
+                               value="{{ shipment_group.pickup_time|date:'Y-m-d\TH:i'|default:'' }}"
+                               data-shipment-id="{{ shipment_group.id }}">
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.load_type }}
+                    </td>
+                    <td colspan="7" style="text-align: center; color: #999; background-color: #f8f9fa;">
+                        无PO
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <button class="action-btn btn-success save-external-shipment" 
+                                data-shipment-id="{{ shipment_group.id }}">
+                            <i class="fas fa-save"></i> 保存
+                        </button>
+                    </td>
+                </tr>
+            {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="14" style="text-align: center; padding: 20px;">
+                        暂无外配的约
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form method="post" id="externalShipmentSaveForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="save_external_shipment">
+    <input type="hidden" name="shipment_id" id="externalShipmentId">
+    <input type="hidden" name="appointment_id" id="externalAppointmentId">
+    <input type="hidden" name="shipment_appointment" id="externalScheduledTime">
+    <input type="hidden" name="pickup_time" id="externalPickupTime">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInputs = document.querySelectorAll('#external-distribution-section .header-search');
+        const rows = document.querySelectorAll('#external-distribution-section tbody tr');
+
+        let searchState = {};
+        let searchTimer;
+
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyExternalMultiFilter, 250);
+            });
+
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimer);
+                    applyExternalMultiFilter();
+                }
+            });
+        });
+
+        document.querySelectorAll('.save-external-shipment').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const shipmentId = this.dataset.shipmentId;
+                const row = this.closest('tr');
+
+                const appointmentIdInput = row.querySelector('.external-appointment-id') || 
+                                           document.querySelector(`.external-appointment-id[data-shipment-id="${shipmentId}"]`);
+                const scheduledTimeInput = row.querySelector('.external-scheduled-time') || 
+                                           document.querySelector(`.external-scheduled-time[data-shipment-id="${shipmentId}"]`);
+                const pickupTimeInput = row.querySelector('.external-pickup-time') || 
+                                        document.querySelector(`.external-pickup-time[data-shipment-id="${shipmentId}"]`);
+
+                if (!appointmentIdInput || !scheduledTimeInput) {
+                    alert('无法找到必要的输入框');
+                    return;
+                }
+
+                document.getElementById('externalShipmentId').value = shipmentId;
+                document.getElementById('externalAppointmentId').value = appointmentIdInput.value;
+                document.getElementById('externalScheduledTime').value = scheduledTimeInput.value;
+                
+                if (pickupTimeInput) {
+                    document.getElementById('externalPickupTime').value = pickupTimeInput.value;
+                }
+
+                if (confirm('确定保存修改吗？')) {
+                    document.getElementById('externalShipmentSaveForm').submit();
+                }
+            });
+        });
+    });
+
+    function applyExternalMultiFilter() {
+        const rows = document.querySelectorAll('#external-distribution-section tbody tr');
+        const searchInputs = document.querySelectorAll('#external-distribution-section .header-search');
+        const searchState = {};
+        
+        searchInputs.forEach(input => {
+            const col = input.dataset.column;
+            const val = input.value.trim().toLowerCase();
+            if (val) searchState[col] = val;
+        });
+
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groupId) return;
+
+            const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+            if (!firstRow) return;
+
+            let inputPass = true;
+            for (let col in searchState) {
+                const term = searchState[col];
+                if (!term) continue;
+
+                const text = firstRow.innerText.toLowerCase();
+                if (!text.includes(term)) {
+                    inputPass = false;
+                    break;
+                }
+            }
+
+            rows.forEach(r => {
+                if (r.dataset.shipmentGroup === groupId) {
+                    r.style.display = inputPass ? '' : 'none';
+                }
+            });
+        });
+    }
+</script>
