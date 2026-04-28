@@ -56,12 +56,15 @@
         flex-direction: column;
         gap: 5px;
         min-width: 150px;
+        align-items: flex-start;
     }
 
     .search-group label {
         font-weight: 600;
         font-size: 0.9rem;
         color: #2c3e50;
+        display: block;
+        margin-bottom: 5px;
     }
 
     .search-controls input,
@@ -71,7 +74,8 @@
         border-radius: 6px;
         background: white;
         font-size: 0.9rem;
-        min-width: 150px;
+        width: 150px;
+        display: block;
     }
 
     .search-controls button {
@@ -341,6 +345,40 @@
         gap: 10px;
     }
 
+    .cargo-item {
+        margin-bottom: 8px;
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        background: #fafafa;
+    }
+
+    .cargo-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .cargo-checkbox input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+    }
+
+    .cargo-checkbox label {
+        margin: 0;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    .cargo-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        padding: 10px;
+        background: white;
+        border-radius: 4px;
+    }
+
     .form-group {
         margin-bottom: 15px;
     }
@@ -442,23 +480,36 @@
             
             <div class="search-controls">
                 <div class="search-group">
-                    <label for="start_date">打板开始时间</label>
+                    <label for="search_subject">搜索主体</label>
+                    <select id="search_subject" name="search_subject">
+                        <option value="container" {% if search_subject == 'container' %}selected{% endif %}>柜号</option>
+                        <option value="batch" {% if search_subject == 'batch' %}selected{% endif %}>批次号</option>
+                    </select>
+                </div>
+                
+                <div class="search-group">
+                    <label for="start_date" id="start_date_label">打板开始时间</label>
                     <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}">
                 </div>
                 
                 <div class="search-group">
-                    <label for="end_date">打板结束时间</label>
+                    <label for="end_date" id="end_date_label">打板结束时间</label>
                     <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}">
                 </div>
                 
-                <div class="search-group">
+                <div class="search-group" id="container_group">
                     <label for="container_number">柜号</label>
                     <input type="text" id="container_number" name="container_number" placeholder="输入柜号" value="{{ container_number|default:'' }}">
                 </div>
                 
-                <div class="search-group">
+                <div class="search-group" id="destination_group">
                     <label for="destination">仓点</label>
                     <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
+                </div>
+                
+                <div class="search-group" id="batch_number_group">
+                    <label for="batch_number">批次号</label>
+                    <input type="text" id="batch_number" name="batch_number" placeholder="输入批次号" value="{{ batch_number|default:'' }}">
                 </div>
 
                 <div class="search-group">
@@ -486,6 +537,90 @@
 
     <div class="results-section">
         {% if results %}
+        {% if search_mode == 'batch' %}
+        <!-- 批次号模式表格 -->
+        <div class="table-wrapper">
+            <table class="group-table" id="batchShipmentTable">
+                <thead>
+                    <tr>
+                        <th>批次号</th>
+                        <th>预约号</th>
+                        <th>柜号-仓点</th>
+                        <th>客户端的约状态</th>
+                        <th>操作</th>
+                        <th>异常类型</th>
+                        <th>异常原因</th>
+                        <th>删除</th>
+                    </tr>
+                    <tr class="search-row">
+                        <td><input type="text" class="table-search-input" placeholder="搜索批次号" data-col="0"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约号" data-col="1"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索柜号或仓点" data-col="2"></td>
+                        <td>
+                            <select class="table-search-select" data-col="3">
+                                <option value="">全部状态</option>
+                                <option value="已完成">已完成</option>
+                                <option value="已送达">已送达</option>
+                                <option value="已出库">已出库</option>
+                                <option value="已预约">已预约</option>
+                                <option value="未预约">未预约</option>
+                            </select>
+                        </td>
+                        <td></td>
+                        <td>
+                            <select class="table-search-select" data-col="5">
+                                <option value="">全部异常类型</option>
+                                <option value="拿约异常">拿约异常</option>
+                            </select>
+                        </td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in results %}
+                    <tr data-shipment-id="{{ item.shipment_id }}">
+                        {% if item.is_first_row %}
+                        <td rowspan="{{ item.row_span }}" style="vertical-align: middle;">{{ item.batch_number|default:'-' }}</td>
+                        <td rowspan="{{ item.row_span }}" style="vertical-align: middle;">{{ item.appointment_id|default:'-' }}</td>
+                        <td rowspan="{{ item.row_span }}" style="white-space: pre-line; vertical-align: middle;">{{ item.container_destination_text|default:'-' }}</td>
+                        <td rowspan="{{ item.row_span }}" style="vertical-align: middle;">
+                            <span class="status-badge status-{{ item.status_class }}">{{ item.status }}</span>
+                        </td>
+                        <td rowspan="{{ item.row_span }}" style="vertical-align: middle;">
+                            <button class="table-btn btn-info" onclick="openBatchExceptionModal('{{ item.shipment_id }}', '{{ item.batch_number|default:'' }}', '{{ item.appointment_id|default:'' }}', event)" data-cargos='{{ item.cargos_json|safe }}'>
+                                <i class="fas fa-plus"></i> 异常添加
+                            </button>
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% if item.exception_type_display %}
+                                <span class="exception-badge exception-{{ item.exception_type }}">
+                                    {{ item.exception_type_display }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ item.exception_reason|default:'-' }}</td>
+                        <td>
+                            {% if item.exception_ids %}
+                                <button class="table-btn btn-danger" onclick="deleteBatchExceptions('{{ item.exception_ids|join:',' }}')">
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            {% else %}
+                                <button class="table-btn btn-disabled" disabled>
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- 柜号模式表格 -->
         <div class="table-wrapper">
             <table class="group-table" id="masterShipmentTable">
                 <thead>
@@ -577,6 +712,7 @@
                 </tbody>
             </table>
         </div>
+        {% endif %}
         {% else %}
         <div class="no-results">
             <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
@@ -645,8 +781,18 @@
 {% include 'post_port/new_sop/05_ltl_pos_all/modal/message_modal.html' %}
 <script>
     let currentIdsString = '';
+    let currentShipmentId = '';
 
     document.addEventListener('DOMContentLoaded', function() {
+        // 处理搜索主体切换
+        const searchSubjectSelect = document.getElementById('search_subject');
+        if (searchSubjectSelect) {
+            updateSearchSubject(searchSubjectSelect.value);
+            searchSubjectSelect.addEventListener('change', function() {
+                updateSearchSubject(this.value);
+            });
+        }
+
         const table = document.getElementById('masterShipmentTable');
         if (table) {
             const tbody = table.querySelector('tbody');
@@ -694,6 +840,36 @@
             }
         }
     });
+
+    function updateSearchSubject(subject) {
+        const containerGroup = document.getElementById('container_group');
+        const destinationGroup = document.getElementById('destination_group');
+        const batchNumberGroup = document.getElementById('batch_number_group');
+        const startDateLabel = document.getElementById('start_date_label');
+        const endDateLabel = document.getElementById('end_date_label');
+        const containerInput = document.getElementById('container_number');
+        const destinationInput = document.getElementById('destination');
+
+        if (subject === 'batch') {
+            // 批次号模式
+            containerGroup.style.setProperty('display', 'none', 'important');
+            destinationGroup.style.setProperty('display', 'none', 'important');
+            batchNumberGroup.style.setProperty('display', 'flex', 'important');
+            containerInput.disabled = true;
+            destinationInput.disabled = true;
+            startDateLabel.textContent = '预约时间开始时间';
+            endDateLabel.textContent = '预约结束时间';
+        } else {
+            // 柜号模式
+            containerGroup.style.setProperty('display', 'flex', 'important');
+            destinationGroup.style.setProperty('display', 'flex', 'important');
+            batchNumberGroup.style.setProperty('display', 'none', 'important');
+            containerInput.disabled = false;
+            destinationInput.disabled = false;
+            startDateLabel.textContent = '打板开始时间';
+            endDateLabel.textContent = '打板结束时间';
+        }
+    }
 
     function openExceptionModal(idsString, containerNumber, destination, shippingMark) {
         currentIdsString = idsString;
@@ -783,6 +959,143 @@
         }
     }
 
+    function openBatchExceptionModal(shipmentId, batchNumber, appointmentId, event) {
+        currentShipmentId = shipmentId;
+        document.getElementById('modalBatchNumberText').textContent = batchNumber || '-';
+        document.getElementById('modalAppointmentIdText').textContent = appointmentId || '-';
+        document.getElementById('batchExceptionReason').value = '';
+        
+        // 清空之前的勾选列表
+        const cargoList = document.getElementById('cargoList');
+        if (cargoList) {
+            cargoList.innerHTML = '';
+        }
+        
+        // 获取当前点击的按钮
+        const clickedButton = event.target.closest('.table-btn');
+        if (clickedButton) {
+            try {
+                // 从data属性获取cargos数据
+                const cargosData = clickedButton.getAttribute('data-cargos');
+                let cargos = [];
+                
+                if (cargosData && cargosData !== 'None' && cargosData !== '[]') {
+                    // 解析JSON字符串
+                    cargos = JSON.parse(cargosData);
+                }
+                
+                // 添加勾选列表
+                if (cargos && cargos.length > 0) {
+                    cargos.forEach(cargo => {
+                        const cargoItem = document.createElement('div');
+                        cargoItem.className = 'cargo-item';
+                        cargoItem.innerHTML = `
+                            <div class="cargo-checkbox">
+                                <input type="checkbox" id="cargo_${cargo.id}" value="${cargo.id}" checked>
+                                <label for="cargo_${cargo.id}">${cargo.container_number}-${cargo.destination}</label>
+                            </div>
+                        `;
+                        cargoList.appendChild(cargoItem);
+                    });
+                }
+            } catch (error) {
+                console.error('解析cargos数据失败:', error);
+            }
+        }
+        
+        const modal = document.getElementById('batchExceptionModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+    }
+
+    async function deleteBatchExceptions(exceptionIdsStr) {
+        if (!confirm('确定要删除这些异常记录吗？')) {
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('step', 'delete_batch_exceptions');
+            formData.append('exception_ids', exceptionIdsStr);
+            
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('删除成功');
+                document.getElementById('searchForm').submit();
+            } else {
+                alert(`删除失败: ${data.message}`);
+            }
+        } catch (error) {
+            alert(`删除失败: ${error.message}`);
+        }
+    }
+
+    function closeBatchExceptionModal() {
+        document.getElementById('batchExceptionModal').classList.remove('active');
+        currentShipmentId = '';
+    }
+
+    async function addBatchException() {
+        const exceptionReason = document.getElementById('batchExceptionReason').value.trim();
+        
+        if (!exceptionReason) {
+            alert('请输入异常原因');
+            return;
+        }
+        
+        // 获取选中的 cargo ids
+        const selectedCargos = [];
+        const checkboxes = document.querySelectorAll('#cargoList input[type="checkbox"]:checked');
+        checkboxes.forEach(checkbox => {
+            selectedCargos.push(checkbox.value);
+        });
+        
+        if (selectedCargos.length === 0) {
+            alert('请至少选择一个柜号');
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('step', 'add_batch_exception');
+            formData.append('shipment_id', currentShipmentId);
+            formData.append('exception_type', 'appointment');
+            formData.append('exception_reason', exceptionReason);
+            formData.append('selected_cargos', selectedCargos.join(','));
+            
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('添加异常成功');
+                closeBatchExceptionModal();
+                // 刷新页面
+                document.getElementById('searchForm').submit();
+            } else {
+                alert(`添加失败: ${data.message}`);
+            }
+        } catch (error) {
+            alert(`添加失败: ${error.message}`);
+        }
+    }
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -798,4 +1111,48 @@
         return cookieValue;
     }
 </script>
+
+<!-- 批次号模式异常添加模态框 -->
+<div id="batchExceptionModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header" style="flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 20px; width: 100%;">
+                <h3 style="margin: 0;">异常添加</h3>
+                <div style="display: flex; gap: 15px; margin-left: auto;">
+                    <span><strong>批次号:</strong> <span id="modalBatchNumberText">-</span></span>
+                    <span><strong>预约号:</strong> <span id="modalAppointmentIdText">-</span></span>
+                </div>
+            </div>
+            <button type="button" class="modal-close" onclick="closeBatchExceptionModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="add-exception-section">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>异常类型</label>
+                        <select id="batchExceptionType" disabled>
+                            <option value="appointment">拿约异常</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 2;">
+                        <label>异常原因</label>
+                        <textarea id="batchExceptionReason" placeholder="请输入异常原因" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cargo-selection-section" style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-top: 20px;">
+                <h4 style="margin: 0 0 10px 0;">选择柜号</h4>
+                <div id="cargoList" class="cargo-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white;">
+                    <!-- 动态生成的勾选列表 -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="table-btn btn-secondary" onclick="closeBatchExceptionModal()">取消</button>
+            <button type="button" class="table-btn btn-primary" onclick="addBatchException()">确认添加</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

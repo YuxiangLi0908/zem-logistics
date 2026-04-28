@@ -5540,6 +5540,8 @@ class ReceivableAccounting(View):
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
+        if not container_type:
+            raise ValueError('找建单补一下柜型！')
         
         #查找报价表
         quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
