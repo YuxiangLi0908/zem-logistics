@@ -587,8 +587,12 @@ class PostNsop(View):
             return await self.handle_load_exceptions_post(request)
         elif step == "add_exception":
             return await self.handle_add_exception_post(request)
+        elif step == "add_batch_exception":
+            return await self.handle_add_batch_exception_post(request)
         elif step == "delete_exception":
             return await self.handle_delete_exception_post(request)
+        elif step == "delete_batch_exceptions":
+            return await self.handle_delete_batch_exceptions_post(request)
         elif step == "create_fictional_master":
             template, context = await self.handle_create_fictional_master_post(request)
             return render(request, template, context)
@@ -13334,6 +13338,8 @@ class PostNsop(View):
         destination = request.POST.get('destination', '').strip()
         warehouse = request.POST.get('warehouse', '').strip()
         delivery_type = request.POST.get('delivery_type', 'public').strip()
+        search_subject = request.POST.get('search_subject', 'container').strip()
+        batch_number = request.POST.get('batch_number', '').strip()
 
         # 将搜索条件传递到前端
         context.update({
@@ -13342,11 +13348,13 @@ class PostNsop(View):
             'container_number': container_number,
             'destination': destination,
             'warehouse': warehouse,
-            'delivery_type': delivery_type
+            'delivery_type': delivery_type,
+            'search_subject': search_subject,
+            'batch_number': batch_number
         })
         
         # 如果没有输入任何值，默认最近三个月
-        if not any([start_date, end_date, container_number, destination, warehouse]):
+        if not any([start_date, end_date, container_number, destination, warehouse, batch_number]):
             today = datetime.now().date()
             three_months_ago = today - timedelta(days=30)
             start_date = three_months_ago.strftime('%Y-%m-%d')
@@ -13354,19 +13362,205 @@ class PostNsop(View):
             context['start_date'] = start_date
             context['end_date'] = end_date
         
+        # 根据搜索主体选择不同的查询逻辑
+        if search_subject == 'batch':
+            # 批次号模式 - 以 shipment 表为主体
+            results = await self.search_by_batch_mode(start_date, end_date, batch_number, delivery_type)
+            context['results'] = results
+            context['search_mode'] = 'batch'
+        else:
+            # 柜号模式 - 原有逻辑
+            results = await self.search_by_container_mode(start_date, end_date, container_number, destination, warehouse, delivery_type)
+            context['results'] = results
+            context['search_mode'] = 'container'
+        
+        return self.template_client_exception, context
+
+    async def search_by_batch_mode(self, start_date, end_date, batch_number, delivery_type):
+        """批次号模式查询 - 以 shipment 表为主体，按异常类型和原因合并显示"""
+        import json
+        from django.apps import apps
+        Shipment = apps.get_model('warehouse', 'Shipment')
+        Pallet = apps.get_model('warehouse', 'Pallet')
+        PalletException = apps.get_model('warehouse', 'PalletException')
+        
+        # 查询 shipment 表
+        shipment_criteria = Q()
+        
+        # 时间查询
+        if start_date:
+            shipment_criteria &= Q(shipment_appointment__date__gte=start_date)
+        if end_date:
+            shipment_criteria &= Q(shipment_appointment__date__lte=end_date)
+        
+        # 批次号查询
+        if batch_number:
+            shipment_criteria &= Q(shipment_batch_number__icontains=batch_number)
+        
+        # 查询符合条件的 shipments
+        shipments = await sync_to_async(list)(
+            Shipment.objects
+            .filter(shipment_criteria)
+            .order_by('-id')
+            .values('id', 'shipment_batch_number', 'appointment_id', 'pod_link', 'pod_uploaded_at', 
+                   'arrived_at', 'shipped_at', 'shipment_appointment')
+        )
+        
+        results = []
+        
+        for shipment in shipments:
+            # 计算状态
+            status = '未预约'
+            status_class = 'unappointed'
+            
+            pod_link = shipment.get('pod_link')
+            pod_uploaded_at = shipment.get('pod_uploaded_at')
+            arrived_at = shipment.get('arrived_at')
+            shipped_at = shipment.get('shipped_at')
+            shipment_appointment = shipment.get('shipment_appointment')
+            
+            if pod_link and pod_uploaded_at:
+                status = '已完成'
+                status_class = 'completed'
+            elif arrived_at:
+                status = '已送达'
+                status_class = 'arrived'
+            elif shipped_at:
+                status = '已出库'
+                status_class = 'shipped'
+            elif shipment_appointment:
+                status = '已预约'
+                status_class = 'appointed'
+            
+            # 查询绑定到该 shipment 的 pallets（cargos）
+            pallets = await sync_to_async(list)(
+                Pallet.objects
+                .filter(master_shipment_batch_number_id=shipment['id'], delivery_type=delivery_type)
+                .values('id', 'container_number__container_number', 'destination', 'shipping_mark')
+            )
+            
+            # 收集所有 pallet ids
+            pallet_ids = [p['id'] for p in pallets]
+            
+            # 查询这些 pallets 的异常（只查询 appointment 类型的异常）
+            exceptions = []
+            if pallet_ids:
+                exceptions = await sync_to_async(list)(
+                    PalletException.objects
+                    .filter(pallet_id__in=pallet_ids, exception_type='appointment')
+                    .order_by('-created_at')
+                )
+            
+            # 构建 cargos 信息
+            cargos = []
+            for pallet in pallets:
+                cargos.append({
+                    'id': pallet['id'],
+                    'container_number': pallet.get('container_number__container_number', '') or '',
+                    'destination': pallet.get('destination', '') or '',
+                    'shipping_mark': pallet.get('shipping_mark', '') or '',
+                })
+            
+            # 构建柜号仓点显示文本
+            container_destination_text = '\n'.join([
+                f"{cargo['container_number']}-{cargo['destination']}" 
+                for cargo in cargos
+            ]) if cargos else ''
+            
+            # 按异常类型和原因进行合并分组
+            exception_groups = {}
+            if exceptions:
+                for exc in exceptions:
+                    # 找到对应的 pallet
+                    pallet = next((p for p in pallets if p['id'] == exc.pallet_id), None)
+                    if pallet:
+                        # 使用 (exception_type, exception_reason) 作为分组键
+                        key = (exc.exception_type, exc.exception_reason)
+                        if key not in exception_groups:
+                            exception_groups[key] = {
+                                'exception_type': exc.exception_type,
+                                'exception_type_display': exc.get_exception_type_display(),
+                                'exception_reason': exc.exception_reason,
+                                'exception_ids': [],
+                                'container_numbers': set(),
+                                'destinations': set(),
+                            }
+                        # 添加异常ID
+                        exception_groups[key]['exception_ids'].append(exc.id)
+                        # 添加柜号和仓点
+                        container_num = pallet.get('container_number__container_number', '') or ''
+                        dest = pallet.get('destination', '') or ''
+                        if container_num:
+                            exception_groups[key]['container_numbers'].add(container_num)
+                        if dest:
+                            exception_groups[key]['destinations'].add(dest)
+            
+            # 计算这个 shipment 对应的总行数
+            row_count = len(exception_groups) if exception_groups else 1
+            
+            # 如果有异常分组，每个分组作为一条记录
+            if exception_groups:
+                is_first = True
+                for group in exception_groups.values():
+                    result = {
+                        'shipment_id': shipment['id'],
+                        'batch_number': shipment['shipment_batch_number'] or '',
+                        'appointment_id': shipment['appointment_id'] or '',
+                        'status': status,
+                        'status_class': status_class,
+                        'container_destination_text': container_destination_text,
+                        'cargos': cargos,
+                        'cargos_json': json.dumps(cargos, ensure_ascii=False),
+                        'exception_type': group['exception_type'],
+                        'exception_type_display': group['exception_type_display'],
+                        'exception_reason': group['exception_reason'],
+                        'exception_ids': group['exception_ids'],
+                        'search_mode': 'batch',
+                        'is_first_row': is_first,
+                        'row_span': row_count
+                    }
+                    results.append(result)
+                    is_first = False
+            else:
+                # 没有异常时，一个 shipment 对应一条记录
+                result = {
+                    'shipment_id': shipment['id'],
+                    'batch_number': shipment['shipment_batch_number'] or '',
+                    'appointment_id': shipment['appointment_id'] or '',
+                    'status': status,
+                    'status_class': status_class,
+                    'container_destination_text': container_destination_text,
+                    'cargos': cargos,
+                    'cargos_json': json.dumps(cargos, ensure_ascii=False),
+                    'exception_type': '',
+                    'exception_type_display': '',
+                    'exception_reason': '',
+                    'exception_ids': [],
+                    'search_mode': 'batch',
+                    'is_first_row': True,
+                    'row_span': 1
+                }
+                results.append(result)
+        
+        return results
+
+    async def search_by_container_mode(self, start_date, end_date, container_number, destination, warehouse, delivery_type):
+        """柜号模式查询 - 原有逻辑"""
+        from django.apps import apps
+        Pallet = apps.get_model('warehouse', 'Pallet')
+        PalletException = apps.get_model('warehouse', 'PalletException')
+        
         # 先查询符合条件的 pallets
         pallet_criteria = Q()
         
-        # 时间查询 - 通过container_number->orders->offload_id->offload_at
+        # 柜号模式 - 通过container_number->orders->offload_id->offload_at
         if start_date:
             pallet_criteria &= Q(container_number__orders__offload_id__offload_at__gte=start_date)
         if end_date:
-            pallet_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
-        
+            pallet_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)         
         # 柜号查询
         if container_number:
-            pallet_criteria &= Q(container_number__container_number__icontains=container_number)
-        
+            pallet_criteria &= Q(container_number__container_number__icontains=container_number)    
         # 仓点查询
         if destination:
             pallet_criteria &= Q(destination__icontains=destination)
@@ -13377,18 +13571,59 @@ class PostNsop(View):
         
         pallet_criteria &= Q(delivery_type=delivery_type)
         
+        def calculate_status(pallet):
+            """计算状态"""
+            status = '未预约'
+            status_class = 'unappointed'
+            
+            pod_link = pallet.get('master_shipment_batch_number__pod_link')
+            pod_uploaded_at = pallet.get('master_shipment_batch_number__pod_uploaded_at')
+            arrived_at = pallet.get('master_shipment_batch_number__arrived_at')
+            shipped_at = pallet.get('master_shipment_batch_number__shipped_at')
+            shipment_appointment = pallet.get('master_shipment_batch_number__shipment_appointment')
+            
+            if pod_link and pod_uploaded_at:
+                status = '已完成'
+                status_class = 'completed'
+            elif arrived_at:
+                status = '已送达'
+                status_class = 'arrived'
+            elif shipped_at:
+                status = '已出库'
+                status_class = 'shipped'
+            elif shipment_appointment:
+                status = '已预约'
+                status_class = 'appointed'
+            
+            return status, status_class
+        
+        # 使用 values 查询，根据 delivery_type 决定是否加 shipping_mark
+        values_fields = [
+            'id',
+            'destination',
+            'container_number__container_number',
+            'master_shipment_batch_number__shipment_batch_number',
+            'master_shipment_batch_number__appointment_id',
+            'master_shipment_batch_number__pod_link',
+            'master_shipment_batch_number__pod_uploaded_at',
+            'master_shipment_batch_number__arrived_at',
+            'master_shipment_batch_number__shipped_at',
+            'master_shipment_batch_number__shipment_appointment',
+        ]
+        
+        if delivery_type == 'other':
+            values_fields.append('shipping_mark')
+        
+        # 查询 pallets
         pallets = await sync_to_async(list)(
             Pallet.objects
-            .select_related('master_shipment_batch_number', 'container_number')
             .filter(pallet_criteria)
             .order_by('-id')
+            .values(*values_fields)
         )
         
-        from django.apps import apps
-        PalletException = apps.get_model('warehouse', 'PalletException')
-        
         # 收集所有 pallet id
-        all_pallet_ids = [p.id for p in pallets]
+        all_pallet_ids = [p['id'] for p in pallets]
         
         # 查询所有异常
         exceptions = []
@@ -13406,165 +13641,90 @@ class PostNsop(View):
                 exception_dict[exc.pallet_id] = []
             exception_dict[exc.pallet_id].append(exc)
         
-        # 如果是 other 类型，先按分组键分组，再处理
-        if delivery_type == 'other':
-            # 创建分组字典
-            grouped_pallets = {}
-            for pallet in pallets:
-                container_num = ''
-                if pallet and pallet.container_number:
-                    container_num = pallet.container_number.container_number or ''
-                destination_val = pallet.destination or ''
-                shipping_mark_val = pallet.shipping_mark or ''
-                
-                # 创建分组键
-                group_key = f'{container_num}_{destination_val}_{shipping_mark_val}'
-                
-                if group_key not in grouped_pallets:
-                    grouped_pallets[group_key] = {
-                        'container_number': container_num,
-                        'destination': destination_val,
-                        'shipping_mark': shipping_mark_val,
-                        'pallets': []
-                    }
-                
-                grouped_pallets[group_key]['pallets'].append(pallet)
-            
-            # 构建结果列表
-            results = []
-            for group_key, group_data in grouped_pallets.items():
-                # 获取第一个 pallet 计算状态（假设同一个组的状态一致）
-                first_pallet = group_data['pallets'][0]
-                status = '未预约'
-                status_class = 'unappointed'
-                master_shipment = first_pallet.master_shipment_batch_number
-                shipment_batch_number = ''
-                appointment_id = ''
-                if master_shipment:
-                    shipment_batch_number = master_shipment.shipment_batch_number or ''
-                    appointment_id = master_shipment.appointment_id or ''
-                    if master_shipment.pod_link and master_shipment.pod_uploaded_at:
-                        status = '已完成'
-                        status_class = 'completed'
-                    elif master_shipment.arrived_at:
-                        status = '已送达'
-                        status_class = 'arrived'
-                    elif master_shipment.shipped_at:
-                        status = '已出库'
-                        status_class = 'shipped'
-                    elif master_shipment:
-                        status = '已预约'
-                        status_class = 'appointed'
-                
-                # 收集该组所有 pallet ids
-                pallet_ids = [p.id for p in group_data['pallets']]
-                ids_string_list = [f'plt_{p.id}' for p in group_data['pallets']]
-                ids_string = ','.join(ids_string_list)
-                
-                # 收集该组所有异常
-                group_exceptions = []
-                for p_id in pallet_ids:
-                    if p_id in exception_dict:
-                        group_exceptions.extend(exception_dict[p_id])
-                
-                if group_exceptions:
-                    for exc in group_exceptions:
-                        results.append({
-                            'id': exc.id,
-                            'container_number': group_data['container_number'],
-                            'destination': group_data['destination'],
-                            'shipping_mark': group_data['shipping_mark'],
-                            'batch_number': shipment_batch_number,
-                            'appointment_id': appointment_id,
-                            'status': status,
-                            'status_class': status_class,
-                            'exception_type': exc.exception_type,
-                            'exception_type_display': exc.get_exception_type_display(),
-                            'exception_reason': exc.exception_reason,
-                            'ids_string': ids_string,
-                        })
-                else:
-                    # 没有异常的组也添加一条记录
-                    results.append({
-                        'id': None,
-                        'container_number': group_data['container_number'],
-                        'destination': group_data['destination'],
-                        'shipping_mark': group_data['shipping_mark'],
-                        'batch_number': shipment_batch_number,
-                        'appointment_id': appointment_id,
-                        'status': status,
-                        'status_class': status_class,
-                        'exception_type': '',
-                        'exception_type_display': '',
-                        'exception_reason': '',
-                        'ids_string': ids_string,
-                    })
-        else:
-            # public 类型，保持原来的逻辑
-            results = []
-            for pallet in pallets:
-                container_num = ''
-                if pallet and pallet.container_number:
-                    container_num = pallet.container_number.container_number or ''
-                
-                destination_val = pallet.destination or ''
-                
-                # 计算状态
-                status = '未预约'
-                status_class = 'unappointed'
-                master_shipment = pallet.master_shipment_batch_number
-                shipment_batch_number = ''
-                appointment_id = ''
-                if master_shipment:
-                    shipment_batch_number = master_shipment.shipment_batch_number or ''
-                    appointment_id = master_shipment.appointment_id or ''
-                    if master_shipment.pod_link and master_shipment.pod_uploaded_at:
-                        status = '已完成'
-                        status_class = 'completed'
-                    elif master_shipment.arrived_at:
-                        status = '已送达'
-                        status_class = 'arrived'
-                    elif master_shipment.shipped_at:
-                        status = '已出库'
-                        status_class = 'shipped'
-                    elif master_shipment:
-                        status = '已预约'
-                        status_class = 'appointed'
-                
-                # 添加异常记录（如果有的话）
-                if pallet.id in exception_dict:
-                    for exc in exception_dict[pallet.id]:
-                        results.append({
-                            'id': exc.id,
-                            'container_number': container_num,
-                            'destination': destination_val,
-                            'batch_number': shipment_batch_number,
-                            'appointment_id': appointment_id,
-                            'status': status,
-                            'status_class': status_class,
-                            'exception_type': exc.exception_type,
-                            'exception_type_display': exc.get_exception_type_display(),
-                            'exception_reason': exc.exception_reason,
-                            'ids_string': f'plt_{pallet.id}',
-                        })
-                else:
-                    # 没有异常的 pallet 也添加一条记录
-                    results.append({
-                        'id': None,
-                        'container_number': container_num,
-                        'destination': destination_val,
-                        'batch_number': shipment_batch_number,
-                        'appointment_id': appointment_id,
-                        'status': status,
-                        'status_class': status_class,
-                        'exception_type': '',
-                        'exception_type_display': '',
-                        'exception_reason': '',
-                        'ids_string': f'plt_{pallet.id}',
-                    })
+        # 构建分组和结果
+        results = []
         
-        context['results'] = results
-        return self.template_client_exception, context
+        # 先构建分组
+        groups = []
+        grouped = {}
+        
+        for pallet in pallets:
+            container_num = pallet.get('container_number__container_number', '') or ''
+            destination_val = pallet.get('destination', '') or ''
+            
+            # 构建分组键：other 模式包含 shipping_mark，public 模式不包含
+            shipping_mark_val = pallet.get('shipping_mark', '') or ''
+            group_key = f'{container_num}_{destination_val}_{shipping_mark_val}' if delivery_type == 'other' else f'{container_num}_{destination_val}'
+            
+            if group_key not in grouped:
+                grouped[group_key] = {
+                    'container_number': container_num,
+                    'destination': destination_val,
+                    'shipping_mark': shipping_mark_val if delivery_type == 'other' else '',
+                    'pallets': [],
+                    'batch_number': pallet.get('master_shipment_batch_number__shipment_batch_number', '') or '',
+                    'appointment_id': pallet.get('master_shipment_batch_number__appointment_id', '') or '',
+                }
+            
+            grouped[group_key]['pallets'].append(pallet)
+        
+        groups = list(grouped.values())
+        
+        # 处理每个分组
+        for group in groups:
+            first_pallet = group['pallets'][0] if group['pallets'] else None
+            status, status_class = calculate_status(first_pallet) if first_pallet else ('未预约', 'unappointed')
+            
+            # 收集该组所有 pallet ids
+            pallet_ids = [p['id'] for p in group['pallets']]
+            ids_string_list = [f'plt_{p_id}' for p_id in pallet_ids]
+            ids_string = ','.join(ids_string_list)
+            
+            # 收集该组所有异常
+            group_exceptions = []
+            for p_id in pallet_ids:
+                if p_id in exception_dict:
+                    group_exceptions.extend(exception_dict[p_id])
+            
+            if group_exceptions:
+                for exc in group_exceptions:
+                    result = {
+                        'id': exc.id,
+                        'container_number': group['container_number'],
+                        'destination': group['destination'],
+                        'batch_number': group['batch_number'],
+                        'appointment_id': group['appointment_id'],
+                        'status': status,
+                        'status_class': status_class,
+                        'exception_type': exc.exception_type,
+                        'exception_type_display': exc.get_exception_type_display(),
+                        'exception_reason': exc.exception_reason,
+                        'ids_string': ids_string,
+                        'search_mode': 'container'
+                    }
+                    if delivery_type == 'other':
+                        result['shipping_mark'] = group['shipping_mark']
+                    results.append(result)
+            else:
+                result = {
+                    'id': None,
+                    'container_number': group['container_number'],
+                    'destination': group['destination'],
+                    'batch_number': group['batch_number'],
+                    'appointment_id': group['appointment_id'],
+                    'status': status,
+                    'status_class': status_class,
+                    'exception_type': '',
+                    'exception_type_display': '',
+                    'exception_reason': '',
+                    'ids_string': ids_string,
+                    'search_mode': 'container'
+                }
+                if delivery_type == 'other':
+                    result['shipping_mark'] = group['shipping_mark']
+                results.append(result)
+        
+        return results
 
     async def handle_load_exceptions_post(self, request: HttpRequest) -> JsonResponse:
         """加载异常列表"""
@@ -13646,6 +13806,54 @@ class PostNsop(View):
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
 
+    async def handle_add_batch_exception_post(self, request: HttpRequest) -> JsonResponse:
+        """批次号模式添加异常 - 支持勾选多个柜号"""
+        try:
+            shipment_id = request.POST.get('shipment_id', '').strip()
+            exception_type = request.POST.get('exception_type', '').strip()
+            exception_reason = request.POST.get('exception_reason', '').strip()
+            selected_cargos = request.POST.get('selected_cargos', '').strip()
+            
+            if not shipment_id:
+                return JsonResponse({'success': False, 'message': '没有选择任何记录'})
+            if not exception_type:
+                return JsonResponse({'success': False, 'message': '请选择异常类型'})
+            if not exception_reason:
+                return JsonResponse({'success': False, 'message': '请输入异常原因'})
+            if not selected_cargos:
+                return JsonResponse({'success': False, 'message': '请至少选择一个柜号'})
+            
+            # 导入模型
+            from django.apps import apps
+            Shipment = apps.get_model('warehouse', 'Shipment')
+            Pallet = apps.get_model('warehouse', 'Pallet')
+            PalletException = apps.get_model('warehouse', 'PalletException')
+            
+            # 解析选中的 cargo ids
+            cargo_ids = [int(cargo_id) for cargo_id in selected_cargos.split(',') if cargo_id.strip()]
+            
+            # 验证 cargo ids 是否属于该 shipment
+            valid_pallets = await sync_to_async(list)(
+                Pallet.objects
+                .filter(id__in=cargo_ids, master_shipment_batch_number_id=int(shipment_id))
+                .values('id')
+            )
+            
+            if len(valid_pallets) != len(cargo_ids):
+                return JsonResponse({'success': False, 'message': '选择的柜号不合法'})
+            
+            # 为每个选中的 pallet 添加异常
+            for pallet_id in cargo_ids:
+                await sync_to_async(PalletException.objects.create)(
+                    pallet_id=pallet_id,
+                    exception_type=exception_type,
+                    exception_reason=exception_reason
+                )
+            
+            return JsonResponse({'success': True, 'message': f'成功为 {len(cargo_ids)} 个柜号添加异常'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
     async def handle_delete_exception_post(self, request: HttpRequest) -> JsonResponse:
         """删除异常"""
         try:
@@ -13658,6 +13866,28 @@ class PostNsop(View):
             await sync_to_async(PalletException.objects.filter(id=int(exception_id)).delete)()
             
             return JsonResponse({'success': True, 'message': '删除成功'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+    async def handle_delete_batch_exceptions_post(self, request: HttpRequest) -> JsonResponse:
+        """批量删除异常（批次号模式）"""
+        try:
+            exception_ids_str = request.POST.get('exception_ids', '').strip()
+            if not exception_ids_str:
+                return JsonResponse({'success': False, 'message': '请选择要删除的异常'})
+            
+            # 解析异常ID列表
+            exception_ids = [int(eid) for eid in exception_ids_str.split(',') if eid.strip()]
+            
+            from django.apps import apps
+            PalletException = apps.get_model('warehouse', 'PalletException')
+            
+            # 删除所有指定的异常
+            deleted_count = await sync_to_async(
+                PalletException.objects.filter(id__in=exception_ids).delete
+            )()
+            
+            return JsonResponse({'success': True, 'message': f'成功删除 {len(exception_ids)} 条异常记录'})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
 
