@@ -11351,7 +11351,7 @@ class PostNsop(View):
         # LA私仓客户自提 已拆柜
         packinglist_selfpick_cargos = await self._get_order_palletized_other_selfpick_cargos(warehouse)
         # LA私仓客户自提 预约情况
-        order_with_shipment = await self._get_order_shipment_other_selfdelivery(warehouse)
+        order_with_shipment = await self._get_order_shipment_other_selfpick_cargos(warehouse)
 
         context = {
             'warehouse': warehouse,
@@ -11772,7 +11772,7 @@ class PostNsop(View):
         offload = order_selected.offload_id
         container = order_selected.container_number
         additional_pallets = request.POST.getlist("new_destinations")
-        if not offload.offload_other_selfdelivery_at:
+        if not offload.offload_other_at:
             offload_time = request.POST.get("offload_time")
             if not offload_time:
                 offload_time = datetime.now()
@@ -12074,6 +12074,7 @@ class PostNsop(View):
         await sync_to_async(co.save, thread_sensitive=True)()
 
         # 批量将LTL的参数从pl转到plt
+        palletization = Palletization()
         await palletization._ltl_parameter_transfer(container)
 
         mutable_post = request.POST.copy()
@@ -12239,7 +12240,7 @@ class PostNsop(View):
                     offload_id__offload_other_at__isnull=False,
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
-                    container_number__packinglist__delivery_type='other',
+                    container_number__pallet__delivery_type='other',
                 )
             )
             .order_by("offload_id__offload_at")

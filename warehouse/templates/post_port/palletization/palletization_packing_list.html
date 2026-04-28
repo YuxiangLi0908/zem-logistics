@@ -189,7 +189,7 @@
                     <input type="hidden" name="name" value="{{ warehouse }}">
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
                 {% else %}
-                    {% if 'LA' in warehosue %}
+                    {% if 'LA' in warehouse %}
                         <input type="hidden" name="step" value="palletize_la_public">
                         <input type="datetime-local" name="offload_time" class="form-input"
                                style="height: 35px; padding: 0 8px;">
