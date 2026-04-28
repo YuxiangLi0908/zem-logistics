@@ -183,13 +183,10 @@
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
                             {% if s.carrier == 'Maersk' %}
-                                <div style="margin-top: 6px;">
-                                    {% if s.ARM_PRO %}
-                                        <button type="button" class="table-btn btn-primary-small" onclick="openMaerskTrackingModalByPro('{{ s.ARM_PRO }}')">查询物流</button>
-                                    {% else %}
-                                        <button type="button" class="table-btn btn-primary-small" disabled style="opacity: 0.6; cursor: not-allowed;">查询物流</button>
-                                    {% endif %}
-                                </div>
+                                <br>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ s.fleet_number.fleet_number }}')" style="margin-top: 4px;">
+                                    物流追踪
+                                </button>
                             {% endif %}
                         </td>
                         <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
@@ -256,13 +253,10 @@
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
                             {% if s.carrier == 'Maersk' %}
-                                <div style="margin-top: 6px;">
-                                    {% if s.ARM_PRO %}
-                                        <button type="button" class="table-btn btn-primary-small" onclick="openMaerskTrackingModalByPro('{{ s.ARM_PRO }}')">查询物流</button>
-                                    {% else %}
-                                        <button type="button" class="table-btn btn-primary-small" disabled style="opacity: 0.6; cursor: not-allowed;">查询物流</button>
-                                    {% endif %}
-                                </div>
+                                <br>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ s.fleet_number.fleet_number }}')" style="margin-top: 4px;">
+                                    物流追踪
+                                </button>
                             {% endif %}
                         </td>
                         <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
