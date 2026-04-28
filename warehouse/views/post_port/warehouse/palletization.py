@@ -2271,7 +2271,7 @@ class Palletization(View):
                     ids=StringAgg("str_id", delimiter=",", distinct=True),
                     pcs=Sum("pcs", output_field=IntegerField()),
                     cbm=Sum("cbm", output_field=FloatField()),
-                    n_pallet=Count("pallet__pallet_id", distinct=True, filter=Q(delivery_type='other')),
+                    n_pallet=Count("pallet__pallet_id", distinct=True, filter=Q(pallet__delivery_type='other')),
                     weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                     plt_ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
