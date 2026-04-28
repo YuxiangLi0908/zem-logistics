@@ -463,6 +463,13 @@
         font-size: 1rem;
         color: #2c3e50;
     }
+    
+    .shipping-mark-col {
+        max-width: 200px;
+        word-wrap: break-word;
+        word-break: break-all;
+        white-space: normal;
+    }
 </style>
 
 <div class="master-shipment-check">
@@ -628,7 +635,7 @@
                         <th>柜号</th>
                         <th>仓点</th>
                         {% if delivery_type == 'other' %}
-                        <th>唛头</th>
+                        <th class="shipping-mark-col">唛头</th>
                         {% endif %}
                         <th>批次号</th>
                         <th>预约号</th>
@@ -674,7 +681,7 @@
                         <td>{{ item.container_number|default:'-' }}</td>
                         <td>{{ item.destination|default:'-' }}</td>
                         {% if delivery_type == 'other' %}
-                        <td>{{ item.shipping_mark|default:'-' }}</td>
+                        <td class="shipping-mark-col">{{ item.shipping_mark|default:'-' }}</td>
                         {% endif %}
                         <td>{{ item.batch_number|default:'-' }}</td>
                         <td>{{ item.appointment_id|default:'-' }}</td>
