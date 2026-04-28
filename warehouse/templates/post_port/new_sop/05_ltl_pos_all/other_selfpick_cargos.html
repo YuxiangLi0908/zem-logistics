@@ -300,7 +300,7 @@
                                 <td>{{ item.container_number.customer_name.zem_name|default:"-" }}</td>
                                 <td>{{ item.container_number.container_type }}</td>
                                 <td>{{ item.offload_id.offload_at|date:"M-j" }}</td>
-                                <td>{{ item.offload_id.total_pallet|default:"-" }}</td>
+                                <td>{{ item.offload_id.other_total_pallet|default:"-" }}</td>
                                 <td class="td">
                                     <form method="post" action="" style="display: inline-block;">
                                         {% csrf_token %}

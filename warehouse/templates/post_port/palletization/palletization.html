@@ -298,7 +298,11 @@
                             <td class="td">{{ c.customer_name }}</td>
                             <td class="td">{{ c.container_number.container_type }}</td>
                             <td class="td">{{ c.offload_id.offload_at|date:"M-j" }}</td>
-                            <td class="td">{{ c.offload_id.total_pallet }}</td>
+                            {% if 'LA' in warehouse %}
+                                <td class="td">{{ c.offload_id.public_total_pallet }}</td>
+                            {% else %}
+                                <td class="td">{{ c.offload_id.total_pallet }}</td>
+                            {% endif %}
                             <td class="td">
                                 <form method="post" action="" style="display: inline-block;">
                                     {% csrf_token %}
