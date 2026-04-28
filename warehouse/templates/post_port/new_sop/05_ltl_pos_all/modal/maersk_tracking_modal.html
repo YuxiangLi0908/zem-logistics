@@ -1,4 +1,4 @@
-<div id="maerskTrackingModal" class="modal" style="display:none; position: fixed; z-index: 1200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+<div id="maerskTrackingModal" class="modal" style="display:none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
     <div class="modal-content" style="background-color: #fefefe; margin: 6% auto; border: 1px solid #888; width: 92%; max-width: 900px; border-radius: 8px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
         <div style="display:flex; justify-content: space-between; align-items:center; padding: 14px 16px; background: #4a90e2; color: #fff;">
             <div style="font-size: 16px; font-weight: 600;">Maersk 物流追踪 <span id="maerskTrackingProLabel" style="margin-left: 8px; font-weight: 500; opacity: 0.95;"></span></div>
@@ -27,11 +27,18 @@
     }
 
     function openMaerskTrackingModal({ proNumber, fleetNumber }) {
+        console.log('openMaerskTrackingModal called', { proNumber, fleetNumber });
         const modal = document.getElementById('maerskTrackingModal');
+        console.log('modal element:', modal);
         const proLabel = document.getElementById('maerskTrackingProLabel');
         const loading = document.getElementById('maerskTrackingLoading');
         const errorEl = document.getElementById('maerskTrackingError');
         const content = document.getElementById('maerskTrackingContent');
+
+        if (!modal) {
+            alert('找不到 modal 元素');
+            return;
+        }
 
         if (!proNumber && !fleetNumber) {
             alert('缺少 PRO number 或 fleet number');
