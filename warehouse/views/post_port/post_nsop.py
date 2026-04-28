@@ -11340,7 +11340,7 @@ class PostNsop(View):
         return self.template_other_selfdelivery, context
 
     async def other_selfpick_cargos(self, request):
-        """la私仓客户自提 待拆柜 已拆柜"""
+        """la私仓客户自提，卡车派送，暂扣留仓 待拆柜 已拆柜"""
         warehouse = request.POST.get("warehouse")
         # LA私仓客户自提 待拆柜
         packinglist_not_selfpick_cargos = await self._get_order_not_palletized_other_selfpick_cargos(warehouse)
@@ -11409,7 +11409,7 @@ class PostNsop(View):
         warehouse = request.GET.get("warehouse").split("-")[0].strip()
         if (
             request.GET.get("step", None) == "other_selfpick_cargos_container_palletization"
-            and offload.offload_other_selfpick_cargos_at is None and warehouse == "LA"
+            and offload.offload_other_at is None and warehouse == "LA"
         ):
             packing_list = await self._get_packing_list_other_selfpick_cargos(container_number=container.container_number, status="non_palletized")
             context = {
@@ -12035,12 +12035,12 @@ class PostNsop(View):
                             "delivery_window_end": dw_end,
                         }
                     )
-            offload.other_selfpick_cargos_total_pallet = total_pallet
+            offload.other_total_pallet = total_pallet
             if offload.total_pallet is None:
                 offload.total_pallet = total_pallet
             else:
                 offload.total_pallet += total_pallet
-            offload.offload_other_selfpick_cargos_at = offload_time
+            offload.offload_other_at = offload_time
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
@@ -12093,7 +12093,6 @@ class PostNsop(View):
                     container_number__orders__warehouse__name=warehouse,
                     shipment_batch_number__isnull=False,
                     delivery_type='other',
-                    delivery_method='卡车派送',
                 )
             )
             .values("container_number__container_number")
@@ -12118,7 +12117,6 @@ class PostNsop(View):
                     container_number__orders__warehouse__name=warehouse,
                     shipment_batch_number__isnull=False,
                     delivery_type='other',
-                    delivery_method='客户自提',
                 )
             )
             .values("container_number__container_number")
@@ -12175,12 +12173,10 @@ class PostNsop(View):
                 models.Q(
                     warehouse__name=warehouse,
                     offload_id__offload_required=True,
-                    offload_id__offload_other_selfpick_cargos_at=None,
+                    offload_id__offload_other_at=None,
                     created_at__gte="2024-07-01",
                     cancel_notification=False,
                     container_number__packinglist__delivery_type='other',
-                    container_number__packinglist__delivery_method='客户自提',
-
                 )
             )
             .order_by("retrieval_id__arrive_at")
@@ -12236,11 +12232,10 @@ class PostNsop(View):
                 models.Q(
                     warehouse__name=warehouse,
                     offload_id__offload_required=True,
-                    offload_id__offload_other_selfpick_cargos_at__isnull=False,
+                    offload_id__offload_other_at__isnull=False,
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
                     container_number__packinglist__delivery_type='other',
-                    container_number__packinglist__delivery_method='客户自提',
                 )
             )
             .order_by("offload_id__offload_at")
@@ -12356,10 +12351,20 @@ class PostNsop(View):
         if status == "non_palletized":
             return await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
-                .filter(container_number__container_number=container_number, delivery_type='other',
-                        delivery_method='客户自提')
+                .filter(container_number__container_number=container_number, delivery_type='other')
                 .annotate(
                     custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "fba_id",
+                                Value("-"),
+                                "id",
+                            ),
+                        ),
                         When(
                             Q(delivery_method="客户自提") | Q(destination="客户自提"),
                             then=Concat(
@@ -12412,8 +12417,7 @@ class PostNsop(View):
         elif status == "palletized":
             return await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
-                .filter(container_number__container_number=container_number, delivery_type='other',
-                        delivery_method='客户自提')
+                .filter(container_number__container_number=container_number, delivery_type='other')
                 .annotate(
                     str_id=Cast("id", CharField()),
                     str_length=Cast("length", CharField()),
@@ -12519,10 +12523,10 @@ class PostNsop(View):
         )(container_number__container_number=container_number)
         offload = order.offload_id
         # la私仓客户自提总板数
-        other_selfpick_cargos_total_pallet = offload.other_selfpick_cargos_total_pallet
-        offload.total_pallet -= other_selfpick_cargos_total_pallet
-        offload.other_selfpick_cargos_total_pallet = None
-        offload.offload_other_selfpick_cargos_at = None
+        other_total_pallet = offload.other_total_pallet
+        offload.total_pallet -= other_total_pallet
+        offload.other_total_pallet = None
+        offload.offload_other_at = None
         try:
             offload.devanning_company = None
             offload.devanning_fee = None
@@ -12531,7 +12535,6 @@ class PostNsop(View):
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
                 container_number__container_number=container_number, delivery_type='other',
-                delivery_method='客户自提'
             )
         )
         shipment = set()
@@ -12539,13 +12542,11 @@ class PostNsop(View):
         await sync_to_async(
             Pallet.objects.filter(
                 container_number__container_number=container_number, delivery_type='other',
-                delivery_method='客户自提'
             ).delete
         )()
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number, delivery_type='other',
-                delivery_method='客户自提'
             ).delete
         )()
         await sync_to_async(offload.save)()
