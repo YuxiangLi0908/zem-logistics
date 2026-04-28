@@ -645,16 +645,6 @@
         <button class="fleet-column-toggle-btn" id="fleetColumnToggleBtn" onclick="fleet_toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
-        {% if 'LA' in warehouse %}
-            <form action="" method="post">
-                {% csrf_token %}
-                <button class="action-btn btn-other-filter">
-                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <input type="hidden" name="step" value="other_selfdelivery">
-                    <i class="fas"></i> LA私仓卡车派送拆柜
-                </button>
-            </form>
-        {% endif %}
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
             当前显示 <strong>{{ warehouse }}</strong> 入库仓库的货物，筛选条件：
