@@ -642,7 +642,7 @@ class QuoteManagement(View):
         max_col = 0
         for idx, row in df.iterrows():
             for col_idx, cell in enumerate(row.iloc[0:]):
-                if isinstance(cell, str) and "价格" in cell:
+                if isinstance(cell, str) and "柜子拒收再送回仓库费" in cell:
                     max_col = col_idx - 1
         # 获取各列的位置映射
         col_mapping = {

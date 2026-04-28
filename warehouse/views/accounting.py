@@ -12265,8 +12265,17 @@ class Accounting(View):
                 chassis_fee = data["chassis_fee"]
                 actual_day = data["actual_day"]
             else:
-                data = self._calculate_chassis_fee_91(context,
-                                                      fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+                if preport_carrier == "东海岸":
+                    data = self._calculate_chassis_fee_91(context,
+                                                          fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+                elif preport_carrier == "Best":
+                    data = self._calculate_chassis_fee_91_best(context,
+                                                          fee_detail[warehouse][warehouse_precise][preport_carrier],
+                                                          order)
+                elif preport_carrier == "new world":
+                    data = self._calculate_chassis_fee_91_new_world(context,
+                                                          fee_detail[warehouse][warehouse_precise][preport_carrier],
+                                                          order)
                 chassis_fee = data["chassis_fee"]
                 actual_day = data["actual_day"]
 
@@ -12566,6 +12575,56 @@ class Accounting(View):
             fees["actual_day"] = None
             fees["chassis_fee"] = None
         return fees
+
+    def _calculate_chassis_fee_91_best(self, fees, pickup_details, order):
+        #就用还空和实际提柜时间比较，4天内免费
+        if pickup_details.get("chassis") not in (None, "/") and pickup_details.get(
+            "chassis_free_day"
+        ) not in (None, "/"):
+            empty_returned_at = order.retrieval_id.empty_returned_at
+            act_pick_time = order.retrieval_id.actual_retrieval_timestamp
+
+            returned_date = empty_returned_at.date()
+            arrive_date = act_pick_time.date()
+            delta_days = (returned_date - arrive_date).days
+            delta = delta_days + 1
+            if delta > 4:
+                fees["chassis_fee"] = (delta - 4) * pickup_details.get("chassis")
+                fees["actual_day"] = int(delta - 4)
+            else:
+                fees["actual_day"] = None
+                fees["chassis_fee"] = None
+        else:
+            fees["actual_day"] = None
+            fees["chassis_fee"] = None
+        return fees
+
+    def _calculate_chassis_fee_91_new_world(self, fees, pickup_details, order):
+        #就用还空和实际提柜时间比较，40尺的免费3天
+        if pickup_details.get("chassis") not in (None, "/") and pickup_details.get(
+            "chassis_free_day"
+        ) not in (None, "/"):
+            empty_returned_at = order.retrieval_id.empty_returned_at
+            act_pick_time = order.retrieval_id.actual_retrieval_timestamp
+            returned_date = empty_returned_at.date()
+            arrive_date = act_pick_time.date()
+            delta_days = (returned_date - arrive_date).days
+            delta = delta_days + 1
+            if pickup_details.get("basic_40"):
+                if delta > 3:
+                    fees["chassis_fee"] = (delta - 3) * pickup_details.get("chassis")
+                    fees["actual_day"] = int(delta - 3)
+                else:
+                    fees["actual_day"] = None
+                    fees["chassis_fee"] = None
+            else:
+                fees["chassis_fee"] = delta * pickup_details.get("chassis")
+                fees["actual_day"] = int(delta)
+        else:
+            fees["actual_day"] = None
+            fees["chassis_fee"] = None
+        return fees
+
 
 
     def _calculate_chassis_fee(self, fees, pickup_details, order):
