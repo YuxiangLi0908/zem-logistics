@@ -14720,7 +14720,11 @@ class PostNsop(View):
                 status = '未预约'
                 status_class = 'unappointed'
                 master_shipment = first_pallet.master_shipment_batch_number
+                shipment_batch_number = ''
+                appointment_id = ''
                 if master_shipment:
+                    shipment_batch_number = master_shipment.shipment_batch_number or ''
+                    appointment_id = master_shipment.appointment_id or ''
                     if master_shipment.pod_link and master_shipment.pod_uploaded_at:
                         status = '已完成'
                         status_class = 'completed'
@@ -14752,6 +14756,8 @@ class PostNsop(View):
                             'container_number': group_data['container_number'],
                             'destination': group_data['destination'],
                             'shipping_mark': group_data['shipping_mark'],
+                            'batch_number': shipment_batch_number,
+                            'appointment_id': appointment_id,
                             'status': status,
                             'status_class': status_class,
                             'exception_type': exc.exception_type,
@@ -14766,6 +14772,8 @@ class PostNsop(View):
                         'container_number': group_data['container_number'],
                         'destination': group_data['destination'],
                         'shipping_mark': group_data['shipping_mark'],
+                        'batch_number': shipment_batch_number,
+                        'appointment_id': appointment_id,
                         'status': status,
                         'status_class': status_class,
                         'exception_type': '',
@@ -14787,7 +14795,11 @@ class PostNsop(View):
                 status = '未预约'
                 status_class = 'unappointed'
                 master_shipment = pallet.master_shipment_batch_number
+                shipment_batch_number = ''
+                appointment_id = ''
                 if master_shipment:
+                    shipment_batch_number = master_shipment.shipment_batch_number or ''
+                    appointment_id = master_shipment.appointment_id or ''
                     if master_shipment.pod_link and master_shipment.pod_uploaded_at:
                         status = '已完成'
                         status_class = 'completed'
@@ -14808,6 +14820,8 @@ class PostNsop(View):
                             'id': exc.id,
                             'container_number': container_num,
                             'destination': destination_val,
+                            'batch_number': shipment_batch_number,
+                            'appointment_id': appointment_id,
                             'status': status,
                             'status_class': status_class,
                             'exception_type': exc.exception_type,
@@ -14821,6 +14835,8 @@ class PostNsop(View):
                         'id': None,
                         'container_number': container_num,
                         'destination': destination_val,
+                        'batch_number': shipment_batch_number,
+                        'appointment_id': appointment_id,
                         'status': status,
                         'status_class': status_class,
                         'exception_type': '',

@@ -495,6 +495,8 @@
                         {% if delivery_type == 'other' %}
                         <th>唛头</th>
                         {% endif %}
+                        <th>批次号</th>
+                        <th>预约号</th>
                         <th>客户端的约状态</th>
                         <th>操作</th>
                         <th>异常类型</th>
@@ -507,8 +509,10 @@
                         {% if delivery_type == 'other' %}
                         <td><input type="text" class="table-search-input" placeholder="搜索唛头" data-col="2"></td>
                         {% endif %}
+                        <td><input type="text" class="table-search-input" placeholder="搜索批次号" data-col="{% if delivery_type == 'other' %}3{% else %}2{% endif %}"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约号" data-col="{% if delivery_type == 'other' %}4{% else %}3{% endif %}"></td>
                         <td>
-                            <select class="table-search-select" data-col="{% if delivery_type == 'other' %}3{% else %}2{% endif %}">
+                            <select class="table-search-select" data-col="{% if delivery_type == 'other' %}5{% else %}4{% endif %}">
                                 <option value="">全部状态</option>
                                 <option value="已完成">已完成</option>
                                 <option value="已送达">已送达</option>
@@ -519,7 +523,7 @@
                         </td>
                         <td></td>
                         <td>
-                            <select class="table-search-select" data-col="{% if delivery_type == 'other' %}5{% else %}4{% endif %}">
+                            <select class="table-search-select" data-col="{% if delivery_type == 'other' %}7{% else %}6{% endif %}">
                                 <option value="">全部异常类型</option>
                                 <option value="拆柜异常">拆柜异常</option>
                                 <option value="拿约异常">拿约异常</option>
@@ -537,6 +541,8 @@
                         {% if delivery_type == 'other' %}
                         <td>{{ item.shipping_mark|default:'-' }}</td>
                         {% endif %}
+                        <td>{{ item.batch_number|default:'-' }}</td>
+                        <td>{{ item.appointment_id|default:'-' }}</td>
                         <td>
                             <span class="status-badge status-{{ item.status_class }}">{{ item.status }}</span>
                         </td>

@@ -297,12 +297,11 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     ws.title = "拆柜单"
 
 
-
     # 纸张设为 Letter
     ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
-    # 横向打印（必须，否则列太宽超出）
-    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-    # 缩放到 1页宽 1页高，保证不超出
+    # 纵向打印（已修改）
+    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+    # 缩放到 1页宽，保证不超出
     ws.page_setup.fitToPage = True
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
