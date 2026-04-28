@@ -2271,7 +2271,7 @@ class Palletization(View):
                     ids=StringAgg("str_id", delimiter=",", distinct=True),
                     pcs=Sum("pcs", output_field=IntegerField()),
                     cbm=Sum("cbm", output_field=FloatField()),
-                    n_pallet=Count("pallet__id", distinct=True, filter=Q(pallet__delivery_type='other')),
+                    n_pallet=Count("pallet__id", distinct=True, filter=Q(pallet__delivery_type='public')),
                     weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                     plt_ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
@@ -2307,7 +2307,7 @@ class Palletization(View):
                 .annotate(
                     pcs=Sum("pcs", output_field=IntegerField()),
                     cbm=Sum("cbm", output_field=FloatField()),
-                    n_pallet=Count("id", distinct=True, filter=Q(delivery_type='other')),
+                    n_pallet=Count("id", distinct=True, filter=Q(delivery_type='public')),
                     ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
