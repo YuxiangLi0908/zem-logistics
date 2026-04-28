@@ -183,6 +183,12 @@
             <td style="max-width: 120px; word-break: break-all;">
                 {{ f.fleet_number.fleet_number }}<br>
                 <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
+                {% if f.fleet_number.carrier == 'Maersk' %}
+                <br>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ f.fleet_number.fleet_number }}')" style="margin-top: 4px;">
+                    物流追踪
+                </button>
+                {% endif %}
             </td>
             <td>{{ f.shipment_batch_number }}</td>
             <td style="max-width: 300px; word-break: break-all; white-space: normal; overflow-wrap: break-word;">
