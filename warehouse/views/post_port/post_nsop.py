@@ -11768,7 +11768,7 @@ class PostNsop(View):
         offload = order_selected.offload_id
         container = order_selected.container_number
         additional_pallets = request.POST.getlist("new_destinations")
-        if not offload.offload_other_selfdelivery_at:
+        if not offload.offload_other_at:
             offload_time = request.POST.get("offload_time")
             if not offload_time:
                 offload_time = datetime.now()
@@ -12070,6 +12070,7 @@ class PostNsop(View):
         await sync_to_async(co.save, thread_sensitive=True)()
 
         # 批量将LTL的参数从pl转到plt
+        palletization = Palletization()
         await palletization._ltl_parameter_transfer(container)
 
         mutable_post = request.POST.copy()

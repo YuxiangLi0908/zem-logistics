@@ -73,6 +73,7 @@ urlpatterns = [
     path("palletize/", Palletization.as_view(), name="palletization"),
     path("warehouse_operations/", WarehouseOperations.as_view(), name="warehouse_operations"),
     path("palletize/<str:pk>/", Palletization.as_view(), name="palletize_container"),
+    path("palletize_la_public/<str:pk>/", Palletization.as_view(), name="palletize_la_public_container"),
     path("inventory/", Inventory.as_view(), name="inventory"),
     path("schedule_shipment/", ShippingManagement.as_view(), name="schedule_shipment"),
     path(
