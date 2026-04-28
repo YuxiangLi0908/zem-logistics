@@ -1765,6 +1765,7 @@ class Palletization(View):
                         or "客户自提" in delivery_method
                         or "other" in pl.get("delivery_type")
                         or "暂扣留仓" in delivery_method.split("-")[0]
+                        or "特操" in pl.get("note", "")
                 ):
                     if ("客户自提" in pl.get("destination") or "自提" in pl.get("destination")):
                         destination = "S/P"
