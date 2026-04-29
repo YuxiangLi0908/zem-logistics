@@ -9415,7 +9415,13 @@ class PostNsop(View):
                         Value("MM-DD"),
                         function="to_char",
                         output_field=CharField(),
-                    )
+                    ),
+                    offload_other_at=Func(
+                        F("container_number__orders__offload_id__offload_other_at"),
+                        Value("MM-DD"),
+                        function="to_char",
+                        output_field=CharField(),
+                    ),
                 )
                 .values(
                     "destination",
@@ -9456,6 +9462,7 @@ class PostNsop(View):
                     "ltl_quote",
                     "ltl_unit_quote",
                     "offload_at",
+                    "offload_other_at",
                     "ltl_follow_status",
                     "ltl_release_command",
                     "ltl_cost_note",
@@ -9506,7 +9513,7 @@ class PostNsop(View):
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
                 )
-                .order_by("is_pickup_priority","offload_at","destination", "shipping_mark")
+                .order_by("is_pickup_priority","offload_at", "offload_other_at","destination", "shipping_mark")
             )
 
             # 处理托盘尺寸信息
@@ -11251,19 +11258,33 @@ class PostNsop(View):
         else:
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
-        
-        pl_criteria = Q(
-            container_number__orders__offload_id__offload_at__isnull=True,
-            shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
-            delivery_type="other"
-        )
-        plt_criteria = Q(
-            location=warehouse,
-            shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
-            delivery_type="other"
-        )
+
+        if 'LA' in warehouse_name:
+            pl_criteria = Q(
+                container_number__orders__offload_id__offload_other_at__isnull=True,
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
+                delivery_type="other"
+            )
+            plt_criteria = Q(
+                location=warehouse,
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__orders__offload_id__offload_other_at__gt=datetime(2025, 12, 1),
+                delivery_type="other"
+            )
+        else:
+            pl_criteria = Q(
+                container_number__orders__offload_id__offload_at__isnull=True,
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
+                delivery_type="other"
+            )
+            plt_criteria = Q(
+                location=warehouse,
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
+                delivery_type="other"
+            )
         # 未放行、已放行-客提、已放行-自发
         release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
         #release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
