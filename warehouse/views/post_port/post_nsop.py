@@ -11254,37 +11254,23 @@ class PostNsop(View):
         if not context:
             context = {}
         if warehouse:
-            warehouse_name = warehouse.split('-')[0]
+            warehouse_name = warehouse
         else:
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
-
-        if 'LA' in warehouse_name:
-            pl_criteria = Q(
-                container_number__orders__offload_id__offload_other_at__isnull=True,
-                shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
-                delivery_type="other"
-            )
-            plt_criteria = Q(
-                location=warehouse,
-                shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__orders__offload_id__offload_other_at__gt=datetime(2025, 12, 1),
-                delivery_type="other"
-            )
-        else:
-            pl_criteria = Q(
-                container_number__orders__offload_id__offload_at__isnull=True,
-                shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
-                delivery_type="other"
-            )
-            plt_criteria = Q(
-                location=warehouse,
-                shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
-                delivery_type="other"
-            )
+        
+        pl_criteria = Q(
+            container_number__orders__offload_id__offload_other_at__isnull=True,
+            shipment_batch_number__shipment_batch_number__isnull=True,
+            container_number__orders__retrieval_id__retrieval_destination_precise=warehouse,
+            delivery_type="other"
+        )
+        plt_criteria = Q(
+            location=warehouse,
+            shipment_batch_number__shipment_batch_number__isnull=True,
+            container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
+            delivery_type="other"
+        )
         # 未放行、已放行-客提、已放行-自发
         release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
         #release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
@@ -12691,7 +12677,7 @@ class PostNsop(View):
             shipment_schduled_at__gte="2024-12-01",
             origin=warehouse,
         )
-        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
+        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提','外配'])
 
         shipments = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
