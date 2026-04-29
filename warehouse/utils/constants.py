@@ -50,7 +50,7 @@ CONTAINER_PICKUP_CARRIER = [
     ("客户自送", "客户自送"),
     ("Janice", "Janice"),
     ("辉煌", "辉煌"),
-    ("新世界", "新世界")
+    ("new world", "new world")
 ]
 
 CLEARANCE_OPTIONS = [
