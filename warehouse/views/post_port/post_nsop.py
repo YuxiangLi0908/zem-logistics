@@ -7737,7 +7737,7 @@ class PostNsop(View):
             criteria = criteria & (
                 models.Q(shipment_type='FTL')
                 |
-                models.Q(shipment_type='外配', shipment_schduled_at__gte='2026-04-27')
+                models.Q(shipment_type='外配', shipment_schduled_at__gte='2026-04-15')
             )
 
         if four_major_whs == "four_major_whs":
@@ -12677,7 +12677,7 @@ class PostNsop(View):
             shipment_schduled_at__gte="2024-12-01",
             origin=warehouse,
         )
-        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提','外配'])
+        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
 
         shipments = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
