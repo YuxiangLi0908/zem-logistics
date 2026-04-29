@@ -11201,7 +11201,7 @@ class PostNsop(View):
         if not context:
             context = {}
         if warehouse:
-            warehouse_name = warehouse.split('-')[0]
+            warehouse_name = warehouse
         else:
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
@@ -11209,7 +11209,7 @@ class PostNsop(View):
         pl_criteria = Q(
             container_number__orders__offload_id__offload_at__isnull=True,
             shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
+            container_number__orders__retrieval_id__retrieval_destination_precise=warehouse_name,
             delivery_type="other"
         )
         plt_criteria = Q(
@@ -11387,7 +11387,7 @@ class PostNsop(View):
             shipment_schduled_at__gte="2024-12-01",
             origin=warehouse,
         )
-        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
+        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提','外配'])
 
         shipments = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
