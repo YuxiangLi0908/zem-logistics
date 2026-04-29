@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.utils import timezone
 import pytz,json 
 from asgiref.sync import sync_to_async
@@ -282,6 +283,7 @@ class TerminalDispatch(View):
         return Order.objects.select_related(
             "container_number", "retrieval_id", "offload_id", "vessel_id"
         ).filter(
+            ~Q(retrieval_id__retrieval_destination_precise="LA-91730"),
             retrieval_id__retrieval_destination_area="LA",
             retrieval_id__retrieval_delegation_status=True,
             offload_id__offload_at__isnull=True,
