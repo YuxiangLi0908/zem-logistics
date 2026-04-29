@@ -9411,7 +9411,13 @@ class PostNsop(View):
                         Value("MM-DD"),
                         function="to_char",
                         output_field=CharField(),
-                    )
+                    ),
+                    offload_other_at=Func(
+                        F("container_number__orders__offload_id__offload_other_at"),
+                        Value("MM-DD"),
+                        function="to_char",
+                        output_field=CharField(),
+                    ),
                 )
                 .values(
                     "destination",
@@ -9452,6 +9458,7 @@ class PostNsop(View):
                     "ltl_quote",
                     "ltl_unit_quote",
                     "offload_at",
+                    "offload_other_at",
                     "ltl_follow_status",
                     "ltl_release_command",
                     "ltl_cost_note",
@@ -9502,7 +9509,7 @@ class PostNsop(View):
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
                 )
-                .order_by("is_pickup_priority","offload_at","destination", "shipping_mark")
+                .order_by("is_pickup_priority","offload_at", "offload_other_at","destination", "shipping_mark")
             )
 
             # 处理托盘尺寸信息
