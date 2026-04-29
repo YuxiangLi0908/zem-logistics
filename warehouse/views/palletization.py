@@ -295,7 +295,7 @@ class Palletization(View):
                 total_cbm=Sum("pallet__cbm", output_field=FloatField()),
                 weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
                 total_n_pallet=Count(
-                    "pallet__pallet_id", distinct=True, output_field=IntegerField()
+                    "pallet__id", distinct=True, output_field=IntegerField()
                 ),
             )
         )
@@ -367,7 +367,7 @@ class Palletization(View):
                     ids=StringAgg("str_id", delimiter=",", distinct=True),
                     pcs=Sum("pcs", output_field=IntegerField()),
                     cbm=Sum("cbm", output_field=FloatField()),
-                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    n_pallet=Count("pallet__id", distinct=True),
                 )
                 .order_by("-cbm")
             )
@@ -420,7 +420,7 @@ class Palletization(View):
                     ),
                     pcs=Sum("pallet__pcs", output_field=IntegerField()),
                     cbm=Sum("pallet__cbm", output_field=FloatField()),
-                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    n_pallet=Count("pallet__id", distinct=True),
                 )
                 .order_by("-cbm")
             )
