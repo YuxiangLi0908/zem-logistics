@@ -12258,6 +12258,7 @@ class Accounting(View):
             palletization_carrier = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {})
 
             if 'NJ' == warehouse or 'LA'== warehouse:
+                data = {"actual_day": None, "chassis_fee": None}
                 # 计算车架费
                 cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
                 if act_pick_time and act_pick_time < cutoff_date:
