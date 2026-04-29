@@ -581,32 +581,13 @@ class Inventory(View):
         warehouse = request.POST.get("warehouse")
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
-        # pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
         pallet = await self._get_inventory_pallet(warehouse, models.Q(id__in=plt_ids))
         PO_ID = pallet[0].get("PO_ID")
         container_number = pallet[0].get("container")
-        # shipping_mark = pallet[0].get("shipping_mark")
-        # fba_id = pallet[0].get("fba_id")
-        # ref_id = pallet[0].get("ref_id")
-        # shipping_mark = shipping_mark.split(",") if shipping_mark else ""
-        # fba_id = fba_id.split(",") if fba_id else ""
-        # ref_id = ref_id.split(",") if ref_id else ""
         criteria = models.Q(
             container_number__container_number=container_number,
             PO_ID=PO_ID,
         )
-        # if shipping_mark:
-        #     criteria &= models.Q(shipping_mark__in=shipping_mark)
-        # else:
-        #     criteria &= models.Q(shipping_mark__isnull=True)
-        # if fba_id:
-        #     criteria &= models.Q(fba_id__in=fba_id)
-        # else:
-        #     criteria &= models.Q(fba_id__isnull=True)
-        # if ref_id:
-        #     criteria &= models.Q(ref_id__in=ref_id)
-        # else:
-        #     criteria &= models.Q(ref_id__isnull=True)
         packing_list = await sync_to_async(list)(PackingList.objects.filter(criteria))
         pl_ids = ",".join([str(pl.id) for pl in packing_list])
         context = {
@@ -631,7 +612,7 @@ class Inventory(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         plt_ids = request.POST.get("plt_ids")
-        plt_ids = [int(i) for i in plt_ids.split(",")]
+        plt_ids = [int(i) for i in plt_ids.split(",")] if plt_ids else []
         pl_ids = request.POST.getlist("pl_ids")
         pl_ids = [int(i) for i in pl_ids]
         container_number = request.POST.get("container_number")
@@ -648,9 +629,7 @@ class Inventory(View):
             for pallet in pallets_to_destroy:
                 destroyed_pallet = PalletDestroyed(
                     packing_list=pallet.packing_list,
-                    container_number=(
-                        pallet.container_number if pallet.container_number else None
-                    ),
+                    container_number=pallet.container_number if pallet.container_number else None,
                     destination=pallet.destination,
                     address=pallet.address,
                     zipcode=pallet.zipcode,
@@ -684,11 +663,17 @@ class Inventory(View):
 
             await async_transaction()
             return await self.handle_warehouse_post(request)
+
+        # ===================== 修改板数的逻辑 =====================
         destination_new = request.POST.get("destination").strip()
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
         delivery_type_new = request.POST.get("delivery_type")
+        total_weight_new = round(float(request.POST.get("weight", 0)), 4)
+        total_pcs_new = int(request.POST.get("pcs", 0))
+        total_cbm_new = round(float(request.POST.get("cbm", 0)), 2)
+        n_pallet_new = int(request.POST.get("n_pallet", 1))  # 这里是关键
         location_new = request.POST.get("location")
         note_new = request.POST.get("note").strip()
         shipping_mark = request.POST.getlist("shipping_mark")
@@ -698,147 +683,166 @@ class Inventory(View):
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
 
-        total_pcs_new = int(request.POST.get("pcs", 0))
-        total_cbm_new = round(float(request.POST.get("cbm", 0)), 2)
-        pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        seed = 0
+        # 根据新板数 创建/删除 Pallet
+        @sync_to_async
+        def adjust_pallets():
+            with transaction.atomic():
+                # 1. 获取当前这批 Pallet
+                old_pallets = list(Pallet.objects.filter(id__in=plt_ids))
+                if not old_pallets:
+                    return []
 
+                # 取第一个作为模板
+                template = old_pallets[0]
+                container = template.container_number
+
+                # 2. 删除旧的
+                Pallet.objects.filter(id__in=plt_ids).delete()
+
+                # 3. 创建新 Pallet（数量 = n_pallet_new）
+                new_pallets = []
+                for i in range(n_pallet_new):
+                    plt = Pallet(
+                        pallet_id=str(
+                            uuid.uuid3(
+                                uuid.NAMESPACE_DNS, str(uuid.uuid4()) + str(i) + str(seed)
+                            )
+                        ),
+                        packing_list=template.packing_list,
+                        container_number=container,
+                        destination=destination_new,
+                        address=address_new,
+                        zipcode=zipcode_new,
+                        delivery_method=delivery_method_new,
+                        delivery_type=delivery_type_new,
+                        PO_ID=template.PO_ID,
+                        shipping_mark=shipping_mark_new[0] if shipping_mark_new else template.shipping_mark,
+                        fba_id=fba_id_new[0] if fba_id_new else template.fba_id,
+                        ref_id=ref_id_new[0] if ref_id_new else template.ref_id,
+                        sequence_number=i + 1,
+                        length=template.length,
+                        width=template.width,
+                        height=template.height,
+                        abnormal_palletization=template.abnormal_palletization,
+                        po_expired=template.po_expired,
+                        priority=template.priority,
+                        location=location_new,
+                        contact_name=template.contact_name,
+                        note=note_new,
+                        pcs=0,
+                        cbm=0,
+                        weight_lbs=0,
+                    )
+                    new_pallets.append(plt)
+
+                # 批量创建
+                Pallet.objects.bulk_create(new_pallets)
+                return new_pallets
+
+        # 执行创建/删除
+        pallet = await adjust_pallets()
+        pallet_count = len(pallet)
+
+        # ==============================================
+        # ✅ 自动平分重量、PCS、CBM 到每块新板
+        # ==============================================
+        if pallet_count > 0:
+            avg_weight = round(total_weight_new / pallet_count, 4)
+            avg_pcs = total_pcs_new // pallet_count
+            avg_cbm = round(total_cbm_new / pallet_count, 2)
+
+            remainder_weight = total_weight_new - (avg_weight * pallet_count)
+            remainder_pcs = total_pcs_new - (avg_pcs * pallet_count)
+            remainder_cbm = total_cbm_new - (avg_cbm * pallet_count)
+
+            for i, p in enumerate(pallet):
+                p.weight_lbs = avg_weight
+                p.pcs = avg_pcs
+                cbm = avg_cbm
+
+                if i == 0:
+                    p.weight_lbs = round(p.weight_lbs + remainder_weight, 4)
+                    p.pcs += remainder_pcs
+                    cbm = round(cbm + remainder_cbm, 2)
+
+                p.cbm = cbm
+
+        # 更新 PackingList
         packing_list = await sync_to_async(list)(
             PackingList.objects.filter(id__in=pl_ids)
         )
-        # 计算每个pallet的pcs和cbm（平分）
-        pallet_count = len(pallet)
-        if pallet_count > 0:
-            # 计算平均值（向下取整）
-            avg_pcs = total_pcs_new // pallet_count
-            avg_cbm = round(total_cbm_new / pallet_count, 2)
-            
-            # 计算余数
-            remainder_pcs = total_pcs_new % pallet_count
-            remainder_cbm = total_cbm_new - (avg_cbm * pallet_count)
-            
-            # 为每个pallet分配pcs和cbm
-            for i, p in enumerate(pallet):
-                # 基本值
-                p.pcs = avg_pcs
-                p.cbm = avg_cbm
-                
-                # 第一个pallet承担余数
-                if i == 0:
-                    p.pcs += remainder_pcs
-                    p.cbm = round(p.cbm + remainder_cbm, 2) 
-        data_old = [
-            pallet[0].destination,
-            pallet[0].address,
-            pallet[0].zipcode,
-            pallet[0].delivery_method,
-            pallet[0].location,
-            pallet[0].note,
-            sum(p.pcs for p in pallet),  # 总pcs
-            sum(p.cbm for p in pallet),  # 总cbm
-        ]
-        data_new = [
-            destination_new,
-            address_new,
-            zipcode_new,
-            delivery_method_new,
-            delivery_type_new,
-            location_new,
-            note_new,
-            total_pcs_new,
-            total_cbm_new,
-        ]
 
-        if any(old != new for old, new in zip(data_old, data_new)):
+        for pl in packing_list:
+            pl.destination = destination_new
+            pl.address = address_new
+            pl.zipcode = zipcode_new
+            pl.delivery_method = delivery_method_new
+            pl.delivery_type = delivery_type_new
 
-            for p in pallet:
-                p.destination = destination_new
-                p.address = address_new
-                p.zipcode = zipcode_new
-                p.delivery_method = delivery_method_new
-                p.delivery_type = delivery_type_new
-                p.location = location_new
-                p.note = note_new
-            for pl in packing_list:
-                pl.destination = destination_new
-                pl.address = address_new
-                pl.zipcode = zipcode_new
-                pl.delivery_method = delivery_method_new
-                pl.delivery_type = delivery_type_new
+        await sync_to_async(bulk_update_with_history)(
+            packing_list,
+            PackingList,
+            fields=[
+                "destination",
+                "address",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+            ],
+        )
 
-            # await sync_to_async(Pallet.objects.bulk_update)(
-            #     pallet,
-            #     [
-            #         "destination",
-            #         "address",
-            #         "zipcode",
-            #         "delivery_method",
-            #         "location",
-            #         "note",
-            #     ],
-            # )
-            await sync_to_async(bulk_update_with_history)(
-                pallet,
-                Pallet,
-                fields=[
-                    "destination",
-                    "address",
-                    "zipcode",
-                    "delivery_method",
-                    "delivery_type",
-                    "location",
-                    "note",
-                    "pcs",  # 新增pcs字段
-                    "cbm",  # 新增cbm字段
-                ],
-            )
-            await sync_to_async(bulk_update_with_history)(
-                packing_list,
-                PackingList,
-                fields=[
-                    "destination",
-                    "address",
-                    "zipcode",
-                    "delivery_method",
-                    "delivery_type",
-                ],
-            )
+        # 更新 Pallet 标记信息
         for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
-            pl_ids,
-            shipping_mark,
-            fba_id,
-            ref_id,
-            shipping_mark_new,
-            fba_id_new,
-            ref_id_new,
+                pl_ids, shipping_mark, fba_id, ref_id, shipping_mark_new, fba_id_new, ref_id_new
         ):
             if sm != sm_new or fba != fba_new or ref != ref_new:
                 packing_list = await sync_to_async(PackingList.objects.get)(id=pl_id)
                 packing_list.shipping_mark = sm_new
                 packing_list.fba_id = fba_new
                 packing_list.ref_id = ref_new
-                for p in pallet:
-                    p.shipping_mark = p.shipping_mark.replace(sm, sm_new)
-                    p.fba_id = p.fba_id.replace(fba, fba_new)
-                    p.ref_id = p.ref_id.replace(ref, ref_new)
                 await sync_to_async(packing_list.save)()
-            await sync_to_async(bulk_update_with_history)(
-                pallet,
-                Pallet,
-                fields=["shipping_mark", "fba_id", "ref_id"],
-            )
-        # 更新柜子的delivery_type
+
+            for p in pallet:
+                p.shipping_mark = sm_new
+                p.fba_id = fba_new
+                p.ref_id = ref_new
+
+        # 保存新 Pallet
+        await sync_to_async(bulk_update_with_history)(
+            pallet,
+            Pallet,
+            fields=[
+                "destination",
+                "address",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+                "location",
+                "note",
+                "weight_lbs",
+                "pcs",
+                "cbm",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+                "sequence_number",
+            ],
+        )
+
+        # 更新柜子派送类型
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(container_number__container_number=container_number)
         )
-        types = set(plt.delivery_type for plt in pallets if plt.delivery_type)
+        types = {plt.delivery_type for plt in pallets if plt.delivery_type}
         if not types:
             raise ValueError("缺少派送类型")
         new_type = types.pop() if len(types) == 1 else "mixed"
-        co = await sync_to_async(Container.objects.get, thread_sensitive=True)(
-            container_number=container_number
-        )
+
+        co = await sync_to_async(Container.objects.get)(container_number=container_number)
         co.delivery_type = new_type
-        await sync_to_async(co.save, thread_sensitive=True)()
+        await sync_to_async(co.save)()
+
         return await self.handle_warehouse_post(request)
 
     async def handle_counting_post(
@@ -1067,7 +1071,7 @@ class Inventory(View):
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
                 weight=Sum("weight_lbs", output_field=FloatField()),
-                n_pallet=Count("pallet_id", distinct=True),
+                n_pallet=Count("id", distinct=True),
             )
             .order_by("-n_pallet")
         )

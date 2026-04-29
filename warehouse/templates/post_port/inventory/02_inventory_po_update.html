@@ -15,7 +15,6 @@
     <input type="hidden" name="plt_ids" value="{{ plt_ids }}">
     <input type="hidden" name="container_number" value="{{ pallet.container }}">
     <input type="hidden" name="is_destroyed" id="is_destroyed" value="False">
-    <!-- <input type="hidden" name="pl_ids" value="{{ pl_ids }}"> -->
     <div style="display: flex; justify-content: space-between; width: 100%;">
         <button type="submit" class="btn btn-success" style="font-size: 11px;">更新PO</button>
         <button type="submit" class="btn btn-danger" style="font-size: 11px;" 
@@ -57,10 +56,10 @@
                     {% endfor %}
                 </select>
             </td>
-            <td class="td">{{ pallet.weight }}</td>
+            <td class="td"><input name="weight" value="{{ pallet.weight }}"></td>
             <td class="td"><input name="pcs" value="{{ pallet.pcs }}"></td>
             <td class="td"><input name="cbm" value="{{ pallet.cbm }}"></td>
-            <td class="td">{{ pallet.n_pallet }}</td>
+            <td class="td"><input name="n_pallet" value="{{ pallet.n_pallet }}"></td>
             <td class="td"><input name="location" value="{{ pallet.location }}"></td>
             <td class="td"><input name="note" value="{{ pallet.note }}"></td>
         </tbody>
