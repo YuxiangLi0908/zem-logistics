@@ -607,7 +607,9 @@ class OrderCreation(View):
         )
         # 判断一下柜子的状态
         for order in orders:
-            if not order.add_to_t49:
+            if order.cancel_notification:
+                status = "已取消"
+            elif not order.add_to_t49:
                 status = "T49待追踪"
             else:
                 if not order.retrieval_id.actual_retrieval_timestamp:
