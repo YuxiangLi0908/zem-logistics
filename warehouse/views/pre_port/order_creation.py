@@ -582,20 +582,18 @@ class OrderCreation(View):
             criteria = (models.Q(
                 vessel_id__vessel_eta__gte=start_date_eta,
                 vessel_id__vessel_eta__lte=end_date_eta,
-            ) | models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta)) & models.Q(cancel_notification=False)
+            ) | models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta))
         if start_date_etd:
             if end_date_etd:
                 if criteria == None:
                     criteria = models.Q(
                         vessel_id__vessel_etd__gte=start_date_etd,
                         vessel_id__vessel_etd__lte=end_date_etd,
-                        cancel_notification=False
                     )
                 else:
                     criteria &= models.Q(
                         vessel_id__vessel_etd__gte=start_date_etd,
                         vessel_id__vessel_etd__lte=end_date_etd,
-                        cancel_notification=False
                     )
         orders = await sync_to_async(list)(
             Order.objects.select_related(
