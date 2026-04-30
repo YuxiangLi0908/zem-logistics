@@ -9677,6 +9677,33 @@ class PostNsop(View):
                         ),
                         output_field=CharField(),
                     ),
+                    offload_other_at=Case(
+                        When(
+                            container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            then=Func(
+                                F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
+                                Value("MM-DD"),
+                                function="to_char",
+                                output_field=CharField(),
+                            )
+                        ),
+                        When(
+                            container_number__orders__retrieval_id__planned_release_time__isnull=False,
+                            then=Func(
+                                F("container_number__orders__retrieval_id__planned_release_time"),
+                                Value("MM-DD"),
+                                function="to_char",
+                                output_field=CharField(),
+                            )
+                        ),
+                        default=Func(
+                            F("container_number__orders__vessel_id__vessel_eta"),
+                            Value("MM-DD"),
+                            function="to_char",
+                            output_field=CharField(),
+                        ),
+                        output_field=CharField(),
+                    ),
                     offload_tag=Case(
                         When(
                             container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
