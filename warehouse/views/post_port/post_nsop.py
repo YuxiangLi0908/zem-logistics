@@ -7653,34 +7653,64 @@ class PostNsop(View):
             .filter(criteria)
             .order_by("shipped_at")
         )
-        for s in shipments:
-            pl_pairs = await sync_to_async(list)(
-                PackingList.objects.select_related("container_number")
-                .filter(
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                    shipment_batch_number=s
+        if 'LA' in warehouse:
+            for s in shipments:
+                pl_pairs = await sync_to_async(list)(
+                    PackingList.objects.select_related("container_number")
+                    .filter(
+                        container_number__orders__offload_id__offload_other_at__isnull=False,
+                        shipment_batch_number=s
+                    )
+                    .values("container_number__container_number", "shipping_mark")
+                    .distinct()
                 )
-                .values("container_number__container_number", "shipping_mark")
-                .distinct()
-            )
-            plt_pairs = await sync_to_async(list)(
-                Pallet.objects.select_related("container_number")
-                .filter(
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                    shipment_batch_number=s
+                plt_pairs = await sync_to_async(list)(
+                    Pallet.objects.select_related("container_number")
+                    .filter(
+                        container_number__orders__offload_id__offload_other_at__isnull=False,
+                        shipment_batch_number=s
+                    )
+                    .values("container_number__container_number", "shipping_mark")
+                    .distinct()
                 )
-                .values("container_number__container_number", "shipping_mark")
-                .distinct()
-            )
-            pairs_set = set()
-            for d in pl_pairs + plt_pairs:
-                cont = d.get("container_number__container_number")
-                mark = d.get("shipping_mark")
-                if cont and mark:
-                    pairs_set.add((cont, mark))
-            s.container_mark_pairs = [
-                {"container_number": c, "shipping_mark": m} for c, m in sorted(pairs_set)
-            ]
+                pairs_set = set()
+                for d in pl_pairs + plt_pairs:
+                    cont = d.get("container_number__container_number")
+                    mark = d.get("shipping_mark")
+                    if cont and mark:
+                        pairs_set.add((cont, mark))
+                s.container_mark_pairs = [
+                    {"container_number": c, "shipping_mark": m} for c, m in sorted(pairs_set)
+                ]
+        else:
+            for s in shipments:
+                pl_pairs = await sync_to_async(list)(
+                    PackingList.objects.select_related("container_number")
+                    .filter(
+                        container_number__orders__offload_id__offload_at__isnull=False,
+                        shipment_batch_number=s
+                    )
+                    .values("container_number__container_number", "shipping_mark")
+                    .distinct()
+                )
+                plt_pairs = await sync_to_async(list)(
+                    Pallet.objects.select_related("container_number")
+                    .filter(
+                        container_number__orders__offload_id__offload_at__isnull=False,
+                        shipment_batch_number=s
+                    )
+                    .values("container_number__container_number", "shipping_mark")
+                    .distinct()
+                )
+                pairs_set = set()
+                for d in pl_pairs + plt_pairs:
+                    cont = d.get("container_number__container_number")
+                    mark = d.get("shipping_mark")
+                    if cont and mark:
+                        pairs_set.add((cont, mark))
+                s.container_mark_pairs = [
+                    {"container_number": c, "shipping_mark": m} for c, m in sorted(pairs_set)
+                ]
         shipment_fleet_dict = {}
         for s in shipments:
             if s.fleet_number is None:
@@ -12895,19 +12925,32 @@ class PostNsop(View):
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
-                
-                # 处理packinglists
-                raw_data = await self._get_packing_list(
-                    user,
-                    models.Q(
-                        shipment_batch_number__shipment_batch_number=batch_number,
-                        container_number__orders__offload_id__offload_at__isnull=True,
-                    ),
-                    models.Q(
-                        shipment_batch_number__shipment_batch_number=batch_number,
-                        container_number__orders__offload_id__offload_at__isnull=False,
-                    ),
-                )
+                if 'LA' in warehouse:
+                    # 处理packinglists
+                    raw_data = await self._get_packing_list(
+                        user,
+                        models.Q(
+                            shipment_batch_number__shipment_batch_number=batch_number,
+                            container_number__orders__offload_id__offload_other_at__isnull=True,
+                        ),
+                        models.Q(
+                            shipment_batch_number__shipment_batch_number=batch_number,
+                            container_number__orders__offload_id__offload_other_at__isnull=False,
+                        ),
+                    )
+                else:
+                    # 处理packinglists
+                    raw_data = await self._get_packing_list(
+                        user,
+                        models.Q(
+                            shipment_batch_number__shipment_batch_number=batch_number,
+                            container_number__orders__offload_id__offload_at__isnull=True,
+                        ),
+                        models.Q(
+                            shipment_batch_number__shipment_batch_number=batch_number,
+                            container_number__orders__offload_id__offload_at__isnull=False,
+                        ),
+                    )
                 fleet_group['shipments'][batch_number]['cargos'].extend(raw_data)
             
             # 排序 shipments，cargos 为空的放后面
