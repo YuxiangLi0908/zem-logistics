@@ -37,7 +37,7 @@
                 </div>
                 <div class="card-body p-0 flex-fill" style="min-height:calc(100vh - 180px);">
                     {% if packinglist_not_selfpick_cargos %}
-                    <table class="table table-hover table-sm mb-0 w-100" style="table-layout:fixed;">
+                    <table id="tableLeft" class="table table-hover table-sm mb-0 w-100" style="table-layout:fixed;">
                         <thead class="table-light">
                             <tr>
                                 <th style="width:14%;">货柜</th>
@@ -49,8 +49,8 @@
                                 <th style="width:14%;">公仓拆柜时间</th>
                             </tr>
                             <tr style="position:sticky; top:0; background:#f8f9fa;">
-                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" oninput="filterRightTable()"></th>
-                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索客户" oninput="filterRightTable()"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" oninput="filterLeftTable()"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索客户" oninput="filterLeftTable()"></th>
                                 <th></th>
                                 <th></th>
                                 <th></th>
@@ -266,7 +266,7 @@
                 </div>
                 <div class="card-body p-0 flex-fill" style="min-height:calc(100vh - 180px);">
                     {% if packinglist_selfpick_cargos %}
-                    <table class="table table-hover table-sm mb-0 w-100" style="table-layout:fixed;">
+                    <table id="tableRight" class="table table-hover table-sm mb-0 w-100" style="table-layout:fixed;">
                         <thead class="table-light">
                             <tr>
                                 <th style="width:14%;">货柜</th>
@@ -279,8 +279,10 @@
                                 <th style="width:14%;">公仓拆柜时间</th>
                             </tr>
                             <tr style="position:sticky; top:0; background:#f8f9fa;">
-                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" oninput="filterRightTable()"></th>
-                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索客户" oninput="filterRightTable()"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索柜号"
+                                           oninput="filterRightTable()"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="搜索客户"
+                                           oninput="filterRightTable()"></th>
                                 <th></th>
                                 <th></th>
                                 <th></th>
@@ -596,74 +598,37 @@ function editTable(isEdit) {
     if (!isEdit) closePopup();
 }
 
-// ====================== 修复：左侧表格搜索 ======================
+// ====================== 左侧：待拆柜 ======================
 function filterLeftTable() {
-    // 第一个表格 = 待拆柜
-    const table = document.querySelectorAll("table")[0];
+    const table = document.getElementById("tableLeft");
     if (!table) return;
+    const inputs = table.querySelectorAll("thead tr:last-child input");
+    const kw1 = inputs[0].value.trim().toUpperCase();
+    const kw2 = inputs[1].value.trim().toUpperCase();
 
-    // 获取搜索行的输入框
-    const searchInputs = table.querySelectorAll("thead tr:last-child input");
-    if (!searchInputs.length) return;
-
-    const containerKw = searchInputs[0].value.trim().toUpperCase();
-    const customerKw = searchInputs[1].value.trim().toUpperCase();
-
-    // 遍历数据行
-    const rows = table.querySelectorAll("tbody tr");
-    rows.forEach(row => {
-        const container = row.cells[0]?.textContent.trim().toUpperCase() || "";
-        const customer = row.cells[1]?.textContent.trim().toUpperCase() || "";
-
-        const matchContainer = container.includes(containerKw);
-        const matchCustomer = customer.includes(customerKw);
-
-        row.style.display = (matchContainer && matchCustomer) ? "" : "none";
+    table.querySelectorAll("tbody tr").forEach(row => {
+        const ctn = row.cells[0]?.textContent.trim().toUpperCase() || "";
+        const cus = row.cells[1]?.textContent.trim().toUpperCase() || "";
+        const show = ctn.includes(kw1) && cus.includes(kw2);
+        row.style.display = show ? "" : "none";
     });
 }
 
-// ====================== 修复：右侧表格搜索 ======================
+// ====================== 右侧：已拆柜 ======================
 function filterRightTable() {
-    // 第二个表格 = 已拆柜
-    const table = document.querySelectorAll("table")[1];
+    const table = document.getElementById("tableRight");
     if (!table) return;
+    const inputs = table.querySelectorAll("thead tr:last-child input");
+    const kw1 = inputs[0].value.trim().toUpperCase();
+    const kw2 = inputs[1].value.trim().toUpperCase();
 
-    const searchInputs = table.querySelectorAll("thead tr:last-child input");
-    if (!searchInputs.length) return;
-
-    const containerKw = searchInputs[0].value.trim().toUpperCase();
-    const customerKw = searchInputs[1].value.trim().toUpperCase();
-
-    const rows = table.querySelectorAll("tbody tr");
-    rows.forEach(row => {
-        const container = row.cells[0]?.textContent.trim().toUpperCase() || "";
-        const customer = row.cells[1]?.textContent.trim().toUpperCase() || "";
-
-        const matchContainer = container.includes(containerKw);
-        const matchCustomer = customer.includes(customerKw);
-
-        row.style.display = (matchContainer && matchCustomer) ? "" : "none";
+    table.querySelectorAll("tbody tr").forEach(row => {
+        const ctn = row.cells[0]?.textContent.trim().toUpperCase() || "";
+        const cus = row.cells[1]?.textContent.trim().toUpperCase() || "";
+        const show = ctn.includes(kw1) && cus.includes(kw2);
+        row.style.display = show ? "" : "none";
     });
 }
-
-// ====================== 修复：页面加载后自动绑定事件 ======================
-document.addEventListener('DOMContentLoaded', function() {
-    // 给左侧搜索框绑定正确函数
-    const leftTables = document.querySelectorAll("table")[0];
-    if(leftTables) {
-        const leftInputs = leftTables.querySelectorAll("thead tr:last-child input");
-        if(leftInputs[0]) leftInputs[0].oninput = filterLeftTable;
-        if(leftInputs[1]) leftInputs[1].oninput = filterLeftTable;
-    }
-
-    // 给右侧搜索框绑定正确函数
-    const rightTables = document.querySelectorAll("table")[1];
-    if(rightTables) {
-        const rightInputs = rightTables.querySelectorAll("thead tr:last-child input");
-        if(rightInputs[0]) rightInputs[0].oninput = filterRightTable;
-        if(rightInputs[1]) rightInputs[1].oninput = filterRightTable;
-    }
-});
 </script>
 
 <style>
