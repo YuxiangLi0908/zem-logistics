@@ -63,6 +63,7 @@ class Inventory(View):
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
         "LA-91766": "LA-91766",
+        "LA-91730": "LA-91730"
     }
 
     delivery_type_options = {
