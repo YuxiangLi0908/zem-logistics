@@ -2738,9 +2738,6 @@ class PostNsop(View):
         df_wrapped = df.applymap(wrap_text)
 
         files = request.FILES.getlist("files")
-        output_buf = io.BytesIO()
-        file_name = ""
-
         if files:
             system_name = platform.system()
             zh_font_path = None
@@ -2771,10 +2768,16 @@ class PostNsop(View):
             plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
 
             for file in files:
+                # 设置通用字体避免警告
+                # plt.rcParams['font.family'] = ['sans-serif']
+                # plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
+
                 # 保持原来的A4尺寸
                 fig, ax = plt.subplots(figsize=(10.4, 8.5))
+                # ax.axis("tight")
                 ax.axis("off")
-                fig.subplots_adjust(top=1.45)
+                # 稍微减小顶部边距，为标题留出一点空间
+                fig.subplots_adjust(top=1.45)  # 从1.5微调到1.45
 
                 # 在表格上方添加标题
                 ax.text(
@@ -2819,7 +2822,8 @@ class PostNsop(View):
 
                 # 表头高度
                 total_table_height = HEADER_HEIGHT + data_height
-                TABLE_TOP_Y = 0.85
+                # 创建表格 - 保持原来的位置和设置
+                TABLE_TOP_Y = 0.85  # 表格顶部固定在标题下方
                 table_y = TABLE_TOP_Y - total_table_height
 
                 the_table = ax.table(
@@ -2829,7 +2833,7 @@ class PostNsop(View):
                     bbox=[0.1, table_y, 0.8, total_table_height],
                 )
 
-                # 设置表格样式
+                # 设置表格样式 - 保持原来的设置，只增加行高
                 for (row, col), cell in the_table.get_celld().items():
                     cell.set_fontsize(10)
                     cell.set_text_props(wrap=True)
@@ -2842,15 +2846,21 @@ class PostNsop(View):
                             BASE_ROW_HEIGHT * line_count + EXTRA_PADDING
                         )
 
-                        # 列宽
-                        if col in (0, 1, 2):
-                            cell.set_width(0.15)
-                        elif col in (3, 4):
-                            cell.set_width(0.06)
-                        else:
-                            cell.set_width(0.12)
+                    # 列宽保持你原来的逻辑
+                    if col in (0, 1, 2):
+                        cell.set_width(0.15)
+                    elif col in (3, 4):
+                        cell.set_width(0.06)
+                    else:
+                        cell.set_width(0.12)
 
-                # Notes
+                # ========= 8️⃣ 计算表格底部位置 =========
+                renderer = fig.canvas.get_renderer()
+                table_bbox = the_table.get_window_extent(renderer=renderer)
+                table_bbox = table_bbox.transformed(ax.transAxes.inverted())
+                table_bottom = table_bbox.y0
+
+                # ========= 9️⃣ Notes =========
                 notes_y = table_y - 0.04
                 ax.text(
                     0.05,
@@ -2873,31 +2883,20 @@ class PostNsop(View):
                     transform=ax.transAxes,
                 )
 
-                # 保存表格 PDF
+                # ========= 🔟 保存表格 PDF =========
                 buf_table = io.BytesIO()
                 fig.savefig(buf_table, format="pdf", bbox_inches="tight")
                 plt.close(fig)
                 buf_table.seek(0)
 
-                # ====================== 【修复点：安全合并PDF】======================
-                from PyPDF2 import PdfReader, PdfWriter
-                # 用 PdfWriter 替代 PdfMerger，完全避免 clone() 报错
-                writer = PdfWriter()
+                # ========= 1️⃣1️⃣ 合并原 PDF =========
+                merger = PdfMerger()
+                merger.append(PdfReader(io.BytesIO(file.read())))
+                merger.append(PdfReader(buf_table))
 
-                # 合并用户上传的PDF
-                uploaded_pdf = PdfReader(io.BytesIO(file.read()))
-                for page in uploaded_pdf.pages:
-                    writer.add_page(page)
-
-                # 合并生成的表格PDF
-                table_pdf = PdfReader(buf_table)
-                for page in table_pdf.pages:
-                    writer.add_page(page)
-
-                # 写入输出流
-                writer.write(output_buf)
+                output_buf = io.BytesIO()
+                merger.write(output_buf)
                 output_buf.seek(0)
-                # =================================================================
 
                 file_name = file.name
 
