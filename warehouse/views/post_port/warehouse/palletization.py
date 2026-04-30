@@ -384,35 +384,9 @@ class Palletization(View):
         if warehouse:
             warehouse = None if warehouse == "Empty" else warehouse
             if 'LA' in warehouse:
-                order_not_palletized, order_palletized, order_with_shipment = (
-                    await asyncio.gather(
-                        self._get_order_not_palletized_public(warehouse),
-                        self._get_order_palletized_public(warehouse),
-                        self._get_order_shipment_public(warehouse),
-                    )
-                )
-
-                order_with_shipment = {
-                    o.get("container_number__container_number"): o.get(
-                        "shipment_scheduled_time"
-                    )
-                    for o in order_with_shipment
-                }
-                order_not_palletized = (
-                        [o for o in order_not_palletized if isinstance(o, dict)]
-                        + [
-                            o
-                            for o in order_not_palletized
-                            if not isinstance(o, dict)
-                               and o.container_number.container_number in order_with_shipment
-                        ]
-                        + [
-                            o
-                            for o in order_not_palletized
-                            if not isinstance(o, dict)
-                               and o.container_number.container_number not in order_with_shipment
-                        ]
-                )
+                order_not_palletized = await self._get_order_not_palletized_public(warehouse)
+                order_palletized = await self._get_order_palletized_public(warehouse)
+                order_with_shipment = await self._get_order_shipment_public(warehouse)
                 context = {
                     "order_not_palletized": order_not_palletized,
                     "order_palletized": order_palletized,
@@ -2573,7 +2547,12 @@ class Palletization(View):
             )
             .order_by("retrieval_id__arrive_at")
         )
-        return packinglist
+        seen = set()
+        return [
+            order for order in packinglist
+            if order.container_number.container_number not in seen
+               and not seen.add(order.container_number.container_number)
+        ]
 
     async def _get_order_palletized(self, warehouse: str) -> Order:
         return await sync_to_async(list)(
@@ -2597,7 +2576,7 @@ class Palletization(View):
         )
 
     async def _get_order_palletized_public(self, warehouse: str) -> Order:
-        return await sync_to_async(list)(
+        pallet = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
                 "container_number",
@@ -2617,6 +2596,12 @@ class Palletization(View):
             )
             .order_by("offload_id__offload_at")
         )
+        seen = set()
+        return [
+            order for order in pallet
+            if order.container_number.container_number not in seen
+               and not seen.add(order.container_number.container_number)
+        ]
 
     async def _get_order_shipment(self, warehouse: str) -> Order:
         return await sync_to_async(list)(
