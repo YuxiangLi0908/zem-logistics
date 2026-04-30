@@ -2547,12 +2547,17 @@ class Palletization(View):
             )
             .order_by("retrieval_id__arrive_at")
         )
+
+        # ✅ 正确去重：一个柜号只保留一条
         seen = set()
-        return [
-            order for order in packinglist
-            if order.container_number.container_number not in seen
-               and not seen.add(order.container_number.container_number)
-        ]
+        unique_orders = []
+        for order in packinglist:
+            container_num = order.container_number.container_number
+            if container_num not in seen:
+                seen.add(container_num)
+                unique_orders.append(order)
+
+        return unique_orders
 
     async def _get_order_palletized(self, warehouse: str) -> Order:
         return await sync_to_async(list)(
@@ -2591,17 +2596,22 @@ class Palletization(View):
                     offload_id__offload_at__isnull=False,
                     container_number__pallet__delivery_type='public',
                     cancel_notification=False,
-                    created_at__gte=timezone.now() - timedelta(days=120),  # 最近3个月的柜子
+                    created_at__gte=timezone.now() - timedelta(days=120),
                 )
             )
             .order_by("offload_id__offload_at")
         )
+
+        # ✅ 正确去重：一个柜号只保留一条
         seen = set()
-        return [
-            order for order in pallet
-            if order.container_number.container_number not in seen
-               and not seen.add(order.container_number.container_number)
-        ]
+        unique_orders = []
+        for order in pallet:
+            container_num = order.container_number.container_number
+            if container_num not in seen:
+                seen.add(container_num)
+                unique_orders.append(order)
+
+        return unique_orders
 
     async def _get_order_shipment(self, warehouse: str) -> Order:
         return await sync_to_async(list)(
