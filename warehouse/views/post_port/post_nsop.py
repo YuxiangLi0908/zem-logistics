@@ -12209,7 +12209,7 @@ class PostNsop(View):
                 "retrieval_id",
                 "offload_id",
                 "warehouse",
-            ).prefetch_related("container_number__packinglist_set")
+            ).prefetch_related("container_number__pallet_set")
             .filter(
                 models.Q(
                     warehouse__name=warehouse,
@@ -12217,8 +12217,8 @@ class PostNsop(View):
                     offload_id__offload_other_selfdelivery_at__isnull=False,
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
-                    container_number__packinglist__delivery_type='other',
-                    container_number__packinglist__delivery_method='卡车派送',
+                    container_number__pallet__delivery_type='other',
+                    container_number__pallet__delivery_method='卡车派送',
                 )
             )
             .order_by("offload_id__offload_at")
@@ -12239,7 +12239,7 @@ class PostNsop(View):
                 "retrieval_id",
                 "offload_id",
                 "warehouse",
-            ).prefetch_related("container_number__packinglist_set")
+            ).prefetch_related("container_number__pallet_set")
             .filter(
                 models.Q(
                     warehouse__name=warehouse,

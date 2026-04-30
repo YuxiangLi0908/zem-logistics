@@ -383,42 +383,80 @@ class Palletization(View):
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
         if warehouse:
             warehouse = None if warehouse == "Empty" else warehouse
-            order_not_palletized, order_palletized, order_with_shipment = (
-                await asyncio.gather(
-                    self._get_order_not_palletized(warehouse),
-                    self._get_order_palletized(warehouse),
-                    self._get_order_shipment(warehouse),
+            if 'LA' in warehouse:
+                order_not_palletized, order_palletized, order_with_shipment = (
+                    await asyncio.gather(
+                        self._get_order_not_palletized_public(warehouse),
+                        self._get_order_palletized_public(warehouse),
+                        self._get_order_shipment_public(warehouse),
+                    )
                 )
-            )
 
-            order_with_shipment = {
-                o.get("container_number__container_number"): o.get(
-                    "shipment_scheduled_time"
+                order_with_shipment = {
+                    o.get("container_number__container_number"): o.get(
+                        "shipment_scheduled_time"
+                    )
+                    for o in order_with_shipment
+                }
+                order_not_palletized = (
+                        [o for o in order_not_palletized if isinstance(o, dict)]
+                        + [
+                            o
+                            for o in order_not_palletized
+                            if not isinstance(o, dict)
+                               and o.container_number.container_number in order_with_shipment
+                        ]
+                        + [
+                            o
+                            for o in order_not_palletized
+                            if not isinstance(o, dict)
+                               and o.container_number.container_number not in order_with_shipment
+                        ]
                 )
-                for o in order_with_shipment
-            }
-            order_not_palletized = (
-                [o for o in order_not_palletized if isinstance(o, dict)]
-                + [
-                    o
-                    for o in order_not_palletized
-                    if not isinstance(o, dict)
-                    and o.container_number.container_number in order_with_shipment
-                ]
-                + [
-                    o
-                    for o in order_not_palletized
-                    if not isinstance(o, dict)
-                    and o.container_number.container_number not in order_with_shipment
-                ]
-            )
-            context = {
-                "order_not_palletized": order_not_palletized,
-                "order_palletized": order_palletized,
-                "order_with_shipment": order_with_shipment,
-                "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
-                "warehouse": warehouse,
-            }
+                context = {
+                    "order_not_palletized": order_not_palletized,
+                    "order_palletized": order_palletized,
+                    "order_with_shipment": order_with_shipment,
+                    "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "warehouse": warehouse,
+                }
+            else:
+                order_not_palletized, order_palletized, order_with_shipment = (
+                    await asyncio.gather(
+                        self._get_order_not_palletized(warehouse),
+                        self._get_order_palletized(warehouse),
+                        self._get_order_shipment(warehouse),
+                    )
+                )
+
+                order_with_shipment = {
+                    o.get("container_number__container_number"): o.get(
+                        "shipment_scheduled_time"
+                    )
+                    for o in order_with_shipment
+                }
+                order_not_palletized = (
+                    [o for o in order_not_palletized if isinstance(o, dict)]
+                    + [
+                        o
+                        for o in order_not_palletized
+                        if not isinstance(o, dict)
+                        and o.container_number.container_number in order_with_shipment
+                    ]
+                    + [
+                        o
+                        for o in order_not_palletized
+                        if not isinstance(o, dict)
+                        and o.container_number.container_number not in order_with_shipment
+                    ]
+                )
+                context = {
+                    "order_not_palletized": order_not_palletized,
+                    "order_palletized": order_palletized,
+                    "order_with_shipment": order_with_shipment,
+                    "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "warehouse": warehouse,
+                }
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
         return self.template_main, context
@@ -2513,6 +2551,30 @@ class Palletization(View):
         )
         return packinglist
 
+    async def _get_order_not_palletized_public(self, warehouse: str) -> Order:
+        # 查未打板的，在packinglist表
+        packinglist = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=True,
+                    container_number__packinglist__delivery_type='public',
+                    created_at__gte="2024-07-01",
+                    cancel_notification=False,
+                )
+            )
+            .order_by("retrieval_id__arrive_at")
+        )
+        return packinglist
+
     async def _get_order_palletized(self, warehouse: str) -> Order:
         return await sync_to_async(list)(
             Order.objects.select_related(
@@ -2529,7 +2591,28 @@ class Palletization(View):
                     offload_id__offload_at__isnull=False,
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),  #最近3个月的柜子
-                    # retrieval_id__actual_retrieval_timestamp__isnull=False,
+                )
+            )
+            .order_by("offload_id__offload_at")
+        )
+
+    async def _get_order_palletized_public(self, warehouse: str) -> Order:
+        return await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__pallet_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=False,
+                    container_number__pallet__delivery_type='public',
+                    cancel_notification=False,
+                    created_at__gte=timezone.now() - timedelta(days=120),  # 最近3个月的柜子
                 )
             )
             .order_by("offload_id__offload_at")
@@ -2547,6 +2630,29 @@ class Palletization(View):
                 models.Q(
                     container_number__orders__warehouse__name=warehouse,
                     shipment_batch_number__isnull=False,
+                )
+            )
+            .values("container_number__container_number")
+            .annotate(
+                shipment_scheduled_time=Min(
+                    "shipment_batch_number__shipment_appointment"
+                )
+            )
+        )
+
+    async def _get_order_shipment_public(self, warehouse: str) -> Order:
+        return await sync_to_async(list)(
+            PackingList.objects.prefetch_related(
+                "container_number",
+                "container_number__orders",
+                "container_number__orders__warehouse",
+                "shipment_batch_number",
+            )
+            .filter(
+                models.Q(
+                    container_number__orders__warehouse__name=warehouse,
+                    shipment_batch_number__isnull=False,
+                    delivery_type='public',
                 )
             )
             .values("container_number__container_number")
