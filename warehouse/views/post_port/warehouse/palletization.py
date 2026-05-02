@@ -2540,7 +2540,7 @@ class Palletization(View):
                     warehouse__name=warehouse,
                     offload_id__offload_required=True,
                     offload_id__offload_at__isnull=True,
-                    container_number__packinglist__delivery_type='public',
+                    # container_number__packinglist__delivery_type='public',
                     created_at__gte="2024-07-01",
                     cancel_notification=False,
                 )
