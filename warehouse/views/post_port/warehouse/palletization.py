@@ -2594,7 +2594,7 @@ class Palletization(View):
                     warehouse__name=warehouse,
                     offload_id__offload_required=True,
                     offload_id__offload_at__isnull=False,
-                    container_number__pallet__delivery_type='public',
+                    # container_number__pallet__delivery_type='public',
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
                 )
