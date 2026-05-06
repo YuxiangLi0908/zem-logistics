@@ -113,6 +113,9 @@ class ReceivableAccounting(View):
     template_payout_entry = "receivable_accounting/payout_entry.html"
     template_payout_edit = "receivable_accounting/payout_edit.html"
 
+    template_cancel_con_entry = "receivable_accounting/cancel_con_entry.html"
+    template_cancel_con_edit = "receivable_accounting/cancel_con_edit.html"
+
     template_confirm_entry = "receivable_accounting/confirm_entry.html"
     template_confirm_transfer_edit = "receivable_accounting/confirm_transfer_entry.html"
 
@@ -169,9 +172,12 @@ class ReceivableAccounting(View):
         elif step == "delivery":  # 派送
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_delivery_entry, context)
-        elif step == "pay_out":  # 派送
+        elif step == "pay_out":  # 赔付
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_payout_entry, context)
+        elif step == "cancel_container_account":  # 取消预报的柜子录账单
+            context = self.handle_cancel_con_entry_post(request)
+            return render(request, self.template_cancel_con_entry, context)
         elif step == "confirm":
             existing_customers = Customer.objects.all().order_by("zem_name")
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
@@ -202,6 +208,9 @@ class ReceivableAccounting(View):
         elif step == "container_payout":
             tempalte, context = self.handle_container_payout_post(request)
             return render(request, tempalte, context)
+        elif step == "container_cancel_con":
+            tempalte, context = self.handle_container_cancel_con_post(request)
+            return render(request, tempalte, context)
         elif step == "invoice_manual":
             template, context = self.handle_invoice_item_search(request)
             return render(request, template, context)
@@ -225,6 +234,9 @@ class ReceivableAccounting(View):
         elif step == "payout_search":
             context = self.handle_payout_entry_post(request)
             return render(request, self.template_payout_entry, context)
+        elif step == "cancel_con_search":
+            context = self.handle_cancel_con_entry_post(request)
+            return render(request, self.template_cancel_con_entry, context)
         elif step == "confirm_search":
             template, context = self.handle_confirm_entry_post(request)
             return render(request, template, context)
@@ -252,6 +264,9 @@ class ReceivableAccounting(View):
         elif step == "payout_save":
             context = self.handle_payout_save(request)
             return render(request, self.template_payout_entry, context)
+        elif step == "cancel_con_save":
+            context = self.handle_cancel_con_save(request)
+            return render(request, self.template_cancel_con_entry, context)
         elif step == "modify_order_type":
             template, context = self.handle_modify_order_type(request)
             return render(request, template, context)
@@ -5130,6 +5145,142 @@ class ReceivableAccounting(View):
         })
         return context
     
+    def handle_cancel_con_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        '''取消预报柜子账单列表查询'''
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        # --- 1. 日期处理优化 ---
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date or start_date == "None"
+            else start_date
+        )
+        end_date = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date or end_date == "None"
+            else end_date
+        )
+
+        # --- 2. 构建基础查询条件 ---
+        criteria = (
+            Q(cancel_notification=True)
+            & (Q(order_type="转运") | Q(order_type="转运组合"))
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+        )
+
+        if warehouse and warehouse != 'None':
+            criteria &= Q(retrieval_id__retrieval_destination_area=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+        # --- 3. 获取基础订单数据 ---
+        base_orders = (
+            Order.objects
+            .select_related(
+                'container_number',
+                'customer_name'
+            )
+            .filter(criteria)
+            .distinct()
+        )
+        # 转换为列表，避免后续多次触发 DB 查询
+        orders_list = list(base_orders)
+
+        # 提取所有涉及的 Container ID，用于后续批量查询
+        containers = set()
+        container_ids = []
+        for order in orders_list:
+            if order.container_number:
+                containers.add(order.container_number)
+                container_ids.append(order.container_number_id)
+        
+        container_ids = list(set(container_ids)) # 去重
+
+        # --- 4. 批量获取 Invoice 和 InvoiceStatus ---
+        status_prefetch = Prefetch(
+            'invoicestatusv2_set', 
+            queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+            to_attr='receivable_status_list'
+        )
+        
+        all_invoices = Invoicev2.objects.filter(
+            container_number_id__in=container_ids
+        ).prefetch_related(status_prefetch)
+
+        # 将 Invoice 按 Container ID 分组
+        container_invoice_map = defaultdict(list)
+        for inv in all_invoices:
+            container_invoice_map[inv.container_number_id].append(inv)
+
+        # --- 5. 数据组装 ---
+        unrecorded_list = []  # 未录
+        recorded_list = []    # 已录
+
+        for order in orders_list:
+            container = order.container_number
+            
+            if not container:
+                continue
+            
+            c_id = container.id
+
+            # 查询这个柜子的所有应收账单
+            container_invoices = container_invoice_map.get(c_id, [])
+
+            # 提取公共数据构建逻辑
+            def build_order_data(inv=None, status_obj=None):            
+                return {
+                    'order': order,
+                    'container_number': container,
+                    'invoice_number': inv.invoice_number if inv else None,
+                    'invoice_id': inv.id if inv else None,
+                    'finance_status': status_obj.finance_status if status_obj else None,
+                    'is_master_bill': inv.is_master_bill if inv else True
+                }
+            
+            if not container_invoices:
+                # 没有 invoice，加入未录列表
+                base_data = build_order_data(None, None)
+                unrecorded_list.append(base_data)
+            else:
+                # 有 invoice，根据 preport_status 判断
+                for invoice in container_invoices:
+                    status_obj = None
+                    if hasattr(invoice, 'receivable_status_list') and invoice.receivable_status_list:
+                        for status in invoice.receivable_status_list:
+                            if status.invoice_id == invoice.id:
+                                status_obj = status
+                                break
+                        if not status_obj and invoice.receivable_status_list:
+                            status_obj = invoice.receivable_status_list[0]
+                    
+                    base_data = build_order_data(invoice, status_obj)
+                    
+                    # 根据 preport_status 判断是未录还是已录
+                    if status_obj and status_obj.preport_status == 'completed':
+                        recorded_list.append(base_data)
+                    else:
+                        unrecorded_list.append(base_data)
+        
+        if not context:
+            context = {}
+
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'unrecorded_list': unrecorded_list,
+            'recorded_list': recorded_list,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+        })
+        return context
+
+
     def handle_payout_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         '''赔付账单列表查询'''
         warehouse = request.POST.get("warehouse_filter")
@@ -5455,6 +5606,75 @@ class ReceivableAccounting(View):
         else:
             return self.handle_container_preport_post(request, context)
 
+    def handle_container_cancel_con_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
+        '''处理柜号点击进入取消账单的编辑页面'''
+        if not context:
+            context = {}
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+
+        #获取订单信息
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "warehouse"
+        ).get(container_number__container_number=container_number)
+
+        if invoice_id and invoice_id != 'None':
+            #找到要修改的那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={
+                    "container_number": order.container_number,
+                    "invoice": invoice,
+                    "warehouse_public_status": "completed",
+                    "warehouse_other_status": "completed",
+                    "delivery_public_status": "completed",
+                    "delivery_other_status": "completed",
+                }
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
+            # 把状态里，除港前的状态都更新为已完成
+            invoice_status.warehouse_public_status = "completed"
+            invoice_status.warehouse_other_status = "completed"
+            invoice_status.delivery_public_status = "completed"
+            invoice_status.delivery_other_status = "completed"
+            invoice_status.save()
+
+            invoice_status_payable.warehouse_public_status = "completed"
+            invoice_status_payable.warehouse_other_status = "completed"
+            invoice_status_payable.delivery_public_status = "completed"
+            invoice_status_payable.delivery_other_status = "completed"
+            invoice_status_payable.preport_status = "completed"
+            invoice_status_payable.save()
+
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice
+        )
+        context.update({
+            "warehouse": order.retrieval_id.retrieval_destination_area,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
+            "order_type": order.order_type,
+            "reject_reason": order.invoice_reject_reason,
+            "container_number": container_number,
+            "start_date": start_date,
+            "end_date": end_date,
+            "receivable_is_locked": invoice.receivable_is_locked,
+            "invoice_type": "receivable",
+            "invoice_number": invoice.invoice_number,
+            "invoice": invoice,  # 传递整个invoice对象
+            "existing_items": existing_items
+        })
+
+        return self.template_cancel_con_edit, context
+
+
     def handle_container_payout_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
         '''处理柜号点击进入赔付账单编辑页面'''
         if not context:
@@ -5484,6 +5704,12 @@ class ReceivableAccounting(View):
         else:
             #说明这个柜子没有创建过账单，需要创建
             invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
+            # 把状态里，除港前的状态都更新为已完成
+            invoice_status.warehouse_public_status = "completed"
+            invoice_status.warehouse_other_status = "completed"
+            invoice_status.delivery_public_status = "completed"
+            invoice_status.delivery_other_status = "completed"
+            invoice_status.save()
 
         # 获取现有的费用项目
         existing_items = InvoiceItemv2.objects.filter(
@@ -7938,6 +8164,119 @@ class ReceivableAccounting(View):
         
         return self.handle_preport_entry_post(request,context)
 
+    def handle_cancel_con_save(self, request:HttpRequest) -> Dict[str, Any]:
+        '''赔付账单保存'''
+        from decimal import Decimal
+        context = {} 
+        invoice_id = request.POST.get("invoice_id")
+
+        current_user = request.user 
+        username = current_user.username 
+ 
+        invoice = Invoicev2.objects.get(id=invoice_id)
+        
+        container_number = request.POST.get("container_number")
+        order = Order.objects.select_related(
+            "customer_name", "container_number"
+        ).get(container_number__container_number=container_number)
+        
+        fee_ids = request.POST.getlist("fee_id")
+        descriptions = request.POST.getlist("fee_description")
+        rates = request.POST.getlist("fee_rate")
+        qtys = request.POST.getlist("fee_qty")
+        surcharges = request.POST.getlist("fee_surcharges")
+        notes = request.POST.getlist("fee_note")
+
+        total_amount = Decimal("0.00")
+
+        existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="preport")
+        existing_ids = set(item.id for item in existing_items if item.id is not None)
+        submitted_ids = set(int(fid) for fid in fee_ids if fid)
+        to_delete_ids = existing_ids - submitted_ids
+        if to_delete_ids:
+            InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
+
+        for i in range(len(descriptions)):
+            fee_id = fee_ids[i] or None
+            description = descriptions[i]
+            if not description:
+                continue
+            rate = Decimal(rates[i] or 0)
+            qty = Decimal(qtys[i] or 0)
+            surcharge = Decimal(surcharges[i] or 0)
+
+            amount = rate * qty + surcharge
+            note = notes[i] or ""
+            total_amount += amount
+
+            if fee_id:
+                try:
+                    item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
+                    item.description = description
+                    item.rate = rate
+                    item.qty = qty
+                    item.surcharges = surcharge
+                    item.amount = amount
+                    item.note = note
+                    item.registered_user = username
+                    item.save()
+                except InvoiceItemv2.DoesNotExist:
+                    InvoiceItemv2.objects.create(
+                        container_number=order.container_number,
+                        invoice_number=invoice,
+                        invoice_type="receivable",
+                        item_category="preport",
+                        description=description,
+                        rate=rate,
+                        qty=qty,
+                        surcharges=surcharge,
+                        amount=amount,
+                        note=note,
+                        registered_user=username
+                    )
+            else:
+                InvoiceItemv2.objects.create(
+                    container_number=order.container_number,
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="preport",
+                    description=description,
+                    rate=rate,
+                    qty=qty,
+                    surcharges=surcharge,
+                    amount=amount,
+                    note=note,
+                    registered_user=username
+                )
+
+        receivable_preport_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=order.container_number,
+            invoice_type="receivable",
+            item_category="preport",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        invoice.receivable_preport_amount = receivable_preport_amount
+        invoice.save()
+        
+        self._calculate_invoice_total_amount(invoice)
+        
+        # 更新 preport_status 为 completed
+        invoice_status = InvoiceStatusv2.objects.filter(
+            invoice=invoice,
+            invoice_type="receivable"
+        ).first()
+        if invoice_status:
+            invoice_status.preport_status = "completed"
+            invoice_status.save()
+        
+        success_msg = mark_safe(
+            f"{container_number} 柜号账单保存成功！<br>"
+            f"总费用: <strong>${total_amount:.2f}</strong>"
+        )
+        context["success_messages"] = success_msg
+        print(request,request.POST)
+        return self.handle_cancel_con_entry_post(request, context)
+    
     def handle_payout_save(self, request:HttpRequest) -> Dict[str, Any]:
         '''赔付账单保存'''
         from decimal import Decimal
