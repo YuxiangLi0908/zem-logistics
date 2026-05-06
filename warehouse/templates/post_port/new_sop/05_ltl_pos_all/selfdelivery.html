@@ -624,7 +624,7 @@
         </button>
         <button class="fleet-action-btn fleet-btn-warning fleet-copy-btn-hint" 
                 onclick="fleet_copySelectedRows()" 
-                title="复制选中行的柜号、目的地、唛头">
+                title="复制选中行的所有列数据">
             <i class="fas fa-copy"></i> 复制选中行
         </button>
         <button class="fleet-action-btn btn-save-batch" onclick="fleet_batchSaveRows()">
@@ -1503,25 +1503,44 @@
                 return;
             }
 
-            // 收集选中的柜号、目的地、唛头数据
+            // 获取表头（排除复选框列）
+            const table = document.getElementById('fleet_cargoTable');
+            const headerRow = table.querySelector('thead tr');
+            const headers = [];
+            for (let i = 1; i < headerRow.cells.length; i++) {
+                // 获取表头文本，移除隐藏列的×符号
+                let headerText = headerRow.cells[i].textContent.trim();
+                if (headerText.endsWith('×')) {
+                    headerText = headerText.slice(0, -1).trim();
+                }
+                headers.push(headerText);
+            }
+
+            // 收集选中行的所有列数据
             const rowsData = [];
+            // 先添加表头
+            rowsData.push(headers);
             
             selectedCheckboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
+                const rowData = [];
                 
-                // 获取柜号、目的地、唛头列
-                const containerTd = row.cells[6]; // 柜号列（第5列）
-                const destinationTd = row.cells[7]; // 目的地列（第6列）
-                const shippingMarkTd = row.cells[8]; // 唛头列（第7列）
+                // 获取所有列（跳过复选框列）
+                for (let i = 1; i < row.cells.length; i++) {
+                    const cell = row.cells[i];
+                    // 克隆单元格并移除帮助提示元素（❓）
+                    const tempCell = cell.cloneNode(true);
+                    const helpTooltip = tempCell.querySelector('.fleet-help-tooltip');
+                    if (helpTooltip) {
+                        helpTooltip.remove();
+                    }
+                    let cellText = tempCell.textContent.trim();
+                    // 处理可能的多行文本
+                    cellText = cellText.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+                    rowData.push(cellText);
+                }
                 
-                
-                // 提取文本内容
-                const containerNumber = containerTd ? containerTd.textContent.trim() : '';
-                const destination = destinationTd ? destinationTd.textContent.trim() : '';
-                const shippingMark = shippingMarkTd ? shippingMarkTd.textContent.trim() : '';
-                
-                // 添加到数据数组
-                rowsData.push([containerNumber, destination, shippingMark]);
+                rowsData.push(rowData);
             });
 
             // 将数据转换为制表符分隔的字符串（兼容Excel粘贴）
@@ -1531,7 +1550,7 @@
             navigator.clipboard.writeText(csvData)
                 .then(() => {
                     // 显示成功提示
-                    fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头)`, 'success');
+                    fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（包含所有列）`, 'success');
                 })
                 .catch(err => {
                     console.error('复制失败:', err);
@@ -1549,7 +1568,7 @@
                         document.body.removeChild(textarea);
                         
                         if (successful) {
-                            fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸）`, 'success');
+                            fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（包含所有列）`, 'success');
                         } else {
                             fleet_showCopyNotification('复制失败，请手动选择并复制数据', 'error');
                         }
