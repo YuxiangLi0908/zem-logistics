@@ -634,7 +634,7 @@
                                         <form method="post" action="" style="display: inline-block; min-width: 80px;">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
-                                            <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="customer_name" value="{{ order.customer_name.zem_code|default:'' }}">
                                             <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
                                             <button type="submit" class="compact-btn bg-primary text-white hover:bg-primary/90 w-full" {% if not order.container_number or not order.customer_name.zem_code %}disabled title="信息不全"{% endif %}>
