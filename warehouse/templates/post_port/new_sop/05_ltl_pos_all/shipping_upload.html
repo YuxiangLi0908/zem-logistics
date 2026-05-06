@@ -141,6 +141,14 @@
         <input type="hidden" name="active_tab" value="shipping">
         <button type="submit" class="table-btn btn-success-small">批量上传出库单</button>
     </form>
+    <!-- 批量不回传按钮 -->
+    <form id="batchNoLinkForm" method="post" action="" class="batch-group" onsubmit="return handleBatchNoLinkSubmit(this)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="batch_set_shipping_no_link">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="active_tab" value="shipping">
+        <button type="submit" class="table-btn btn-warning-small">批量不回传</button>
+    </form>
 </div>
 
 <table class="data-table">
@@ -337,6 +345,36 @@
             alert("请先为选中的批次选择文件！");
             return false;
         }
+        
+        // 提交表单
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                // 重新加载页面
+                window.location.reload();
+            }
+        };
+        xhr.send(formData);
+        
+        return false; 
+    }
+
+    function handleBatchNoLinkSubmit(form) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请至少选择一行数据！");
+            return false;
+        }
+
+        // 创建 FormData 来收集选中的批次号
+        const formData = new FormData(form);
+        
+        // 收集所有选中的批次号
+        checkboxes.forEach((cb, index) => {
+            const batchNumber = cb.value;
+            formData.append(`batch_${index}`, batchNumber);
+        });
         
         // 提交表单
         const xhr = new XMLHttpRequest();
