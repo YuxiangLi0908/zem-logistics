@@ -382,16 +382,8 @@ class PostNsop(View):
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '异常处理成功!'})  
             return render(request, template, context)
-        elif step == "set_shipping_no_link":
-            shipment_batch_number = request.POST.get("shipment_batch_number")
-            if shipment_batch_number:
-                shipment = await sync_to_async(Shipment.objects.get)(
-                    shipment_batch_number=shipment_batch_number
-                )
-                shipment.shipping_order_link = "No Link"
-                await sync_to_async(shipment.save)()
-            template, context = await self.handle_ltl_unscheduled_pos_post(request)
-            context.update({"success_messages": '已设置为不回传!'})           
+        elif step == "set_shipping_no_link" or step == "batch_set_shipping_no_link":
+            template, context = await self.handle_set_shipping_no_link(request)
             return render(request, template, context)
         elif step == "shipping_order_upload" or step == "batch_shipping_order_upload":
             template, context = await self.handle_shipping_order_upload(request)
@@ -11307,6 +11299,47 @@ class PostNsop(View):
             
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
         context.update({"success_messages": '出库单上传成功!'})           
+        return template, context
+
+    async def handle_set_shipping_no_link(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        '''设置出库单不回传（单个或批量）'''
+        step = request.POST.get("step")
+        
+        if step == "batch_set_shipping_no_link":
+            # 批量设置
+            count = 0
+            index = 0
+            while True:
+                batch_key = f"batch_{index}"
+                if batch_key not in request.POST:
+                    break
+                shipment_batch_number = request.POST[batch_key]
+                try:
+                    shipment = await sync_to_async(Shipment.objects.get)(
+                        shipment_batch_number=shipment_batch_number
+                    )
+                    shipment.shipping_order_link = "No Link"
+                    await sync_to_async(shipment.save)()
+                    count += 1
+                except Exception as e:
+                    pass
+                index += 1
+            success_message = f'已成功设置 {count} 个批次为不回传!'
+        else:
+            # 单个设置
+            shipment_batch_number = request.POST.get("shipment_batch_number")
+            if shipment_batch_number:
+                shipment = await sync_to_async(Shipment.objects.get)(
+                    shipment_batch_number=shipment_batch_number
+                )
+                shipment.shipping_order_link = "No Link"
+                await sync_to_async(shipment.save)()
+            success_message = '已设置为不回传!'
+            
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context.update({"success_messages": success_message})           
         return template, context
 
     async def handle_ltl_unscheduled_pos_post(
