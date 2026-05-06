@@ -963,6 +963,7 @@
                     const is_dropped = item.is_dropped || false;
                     const offload_time = item.offload_time || '-';
                     const destination = item.destination || '';
+                    const customer_name = item.customer_name || '-';
 
                     const cargo = {
                         cargo_id,
@@ -972,6 +973,7 @@
                         total_pallet,
                         ref_ids,
                         fba_ids,
+                        customer_name,
                         container_no,
                         is_dropped,
                         offload_time,

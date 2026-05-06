@@ -2468,6 +2468,7 @@ class PostNsop(View):
                         "note",
                         "PO_ID",
                         "data_source",
+                        customer_names=F("container_number__orders__customer_name__zem_name"),
                     )
                     .annotate(
                         fba_ids=StringAgg(
@@ -2519,6 +2520,7 @@ class PostNsop(View):
                         "note",
                         "data_source",
                         "PO_ID",
+                        customer_names=F("container_number__orders__customer_name__zem_name"),
                     ).annotate(
                         fba_ids=StringAgg(
                             "str_fba_id",
@@ -2576,7 +2578,7 @@ class PostNsop(View):
                     'container_no': container_no,
                     'is_dropped': False,  # 默认值
                     'offload_time': offload_time,
-                    'customer_name': item.get('customer_name', ''),  # 可能需要从关联查询获取
+                    'customer_name': item.get('customer_names', '-'),  # 从关联查询获取客户名称
                     'delivery_method': item.get('delivery_method', ''),
                     'destination': item.get('destination', ''),  # 添加目的地字段
                     'cns': container_no,  # 柜号列表

@@ -111,6 +111,7 @@
                                 </th>
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
+                                <th>客户</th>
                                 <th>柜号</th>
                                 <th>板数</th>
                                 <th>CBM</th>
@@ -353,12 +354,14 @@
             groupRows.forEach(row => {
                 const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
                 const offload_timeTd = row.querySelector('td.offload-time-col');
+                const customerNameTd = row.querySelector('td.customer-name-col');
                 
                 cargos.push({
                     cargo_id: row.dataset.cargoId || '',
                     plt_ids: row.dataset.pltId || '',
                     ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
                     fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
+                    customer_name: customerNameTd?.innerText.trim() || '-',
                     container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
                     total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
                     total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
@@ -564,6 +567,7 @@
                 <td><input type="checkbox" class="cargo-checkbox" data-cargo-id="${c.cargo_id}" data-plt-id="${c.plt_ids}" checked></td>
                 <td>${c.ref_ids}</td>
                 <td>${c.fba_ids}</td>
+                <td>${c.customer_name || '-'}</td>
                 <td>${c.container_no}</td>
                 <td>${c.total_pallet}</td>
                 <td>${c.total_cbm}</td>
