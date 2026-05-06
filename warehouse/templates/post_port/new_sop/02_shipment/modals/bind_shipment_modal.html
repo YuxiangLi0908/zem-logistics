@@ -388,7 +388,8 @@
         const shipmentAccountSelect = document.getElementById('shipment-account-select');
         
         if (shipmentAccountSelect) {
-            shipmentAccountSelect.addEventListener('change', generatePickupNumber);
+            // 暂时禁用 pickupnumber 自动生成功能
+            // shipmentAccountSelect.addEventListener('change', generatePickupNumber);
         }
     });
 
@@ -515,11 +516,12 @@
                     operationType,
                     
                 });
-                setTimeout(() => {
-                    if (!pickupNumber || pickupNumber === 'None' || pickupNumber === 'none') {
-                        generatePickupNumber();
-                    }
-                }, 100);
+                // 暂时禁用 pickupnumber 自动生成功能
+                // setTimeout(() => {
+                //     if (!pickupNumber || pickupNumber === 'None' || pickupNumber === 'none') {
+                //         generatePickupNumber();
+                //     }
+                // }, 100);
             }, 0);
         });
     });
