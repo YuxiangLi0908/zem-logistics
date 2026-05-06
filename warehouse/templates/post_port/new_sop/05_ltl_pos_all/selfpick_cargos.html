@@ -607,7 +607,7 @@
         <button class="action-btn btn-schedule" onclick="scheduleShipment()">
             <i class="fas fa-calendar-check"></i> 预约出库
         </button>
-        <button class="action-btn btn-copy-alt" onclick="copySelectedRows()" title="复制选中行的柜号、目的地、唛头">
+        <button class="action-btn btn-copy-alt" onclick="copySelectedRows()" title="复制选中行的所有列数据">
             <i class="fas fa-copy"></i> 复制选中行
         </button>
         <button class="action-btn btn-save-batch" onclick="selfpick_batchSaveRows()">
@@ -1254,48 +1254,83 @@
                 return;
             }
 
-            // 收集选中的柜号、目的地、唛头数据
+            // 定义需要的列及其索引（相对于表头行，从0开始，排除复选框列）
+            const columnMapping = [
+                { name: '客户', index: 2 },           // 原第3列，索引2
+                { name: '拆柜日期', index: 3 },       // 原第4列，索引3
+                { name: '柜号', index: 5 },           // 原第6列，索引5
+                { name: '目的地', index: 6 },         // 原第7列，索引6
+                { name: '唛头', index: 7 },           // 原第8列，索引7
+                { name: '托盘尺寸', index: 15 },       // 原第16列，索引15
+                { name: 'BOL', index: 20 },            // 原第21列(BOL号)，索引20
+                { name: '预约批次号', index: -1 },     // 不存在，留空
+                { name: 'CBM', index: 10 },            // 原第11列，索引10
+                { name: '件数', index: 11 },           // 原第12列，索引11
+                { name: '托盘数', index: 14 },         // 原第15列(板数)，索引14
+                { name: '地址', index: 22 },           // 原第23列，索引22
+                { name: '报价', index: 18 },           // 原第19列(出库费)，索引18
+                { name: '承运公司', index: 21 },       // 原第22列，索引21
+                { name: '出库单', index: -1 },         // 不存在，留空
+                { name: '备注', index: 8 }             // 原第9列，索引8
+            ];
+
+            // 收集选中行的数据（不包含表头）
             const rowsData = [];
+
+            const table = document.getElementById('selfpick_cargoTable');
 
             selectedCheckboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
+                const rowData = [];
 
-                // 获取柜号（从第5个td开始，索引从0开始）
-                const containerTd = row.cells[5]; // 柜号列
-                const destinationTd = row.cells[6]; // 目的地列
-                const shippingMarkTd = row.cells[7]; // 唛头列
-                const palletSizeTd = row.cells[15];
+                columnMapping.forEach(col => {
+                    if (col.index === -1) {
+                        // 列不存在，留空
+                        rowData.push('');
+                        return;
+                    }
 
-                // 提取文本内容（移除可能存在的HTML标签）
-                const containerNumber = containerTd ? containerTd.textContent.trim() : '';
-                const destination = destinationTd ? destinationTd.textContent.trim() : '';
-                const shippingMark = shippingMarkTd ? shippingMarkTd.textContent.trim() : '';
-                let palletSize = '';
+                    // 因为 row.cells 包含了复选框列，所以要加1
+                    const cell = row.cells[col.index + 1];
+                    if (!cell) {
+                        rowData.push('');
+                        return;
+                    }
 
-                if (palletSizeTd) {
-                    // 先尝试从textarea获取
-                    const palletSizeInput = palletSizeTd.querySelector('.pallet-size-input');
-                    if (palletSizeInput && palletSizeInput.value.trim()) {
-                        // 从textarea获取用户输入的值
-                        palletSize = palletSizeInput.value.trim();
+                    let cellText = '';
+
+                    // 先克隆单元格并移除帮助提示元素（❓）
+                    const tempCell = cell.cloneNode(true);
+                    const helpTooltip = tempCell.querySelector('.help-tooltip');
+                    if (helpTooltip) {
+                        helpTooltip.remove();
+                    }
+
+                    // 优先从输入框获取值
+                    const inputElement = tempCell.querySelector('.pallet-size-input, .qty-input, .unit-quote-input, .outbound-fee-input, .outbound-fee-note-input, .bol-input, .pickup-date-input');
+                    if (inputElement && inputElement.value !== undefined) {
+                        cellText = inputElement.value.trim();
                     } else {
-                        // 如果没有输入框或值为空，检查是否显示"-"
-                        const displaySpan = palletSizeTd.querySelector('span[style*="color: #999"]');
-                        if (displaySpan) {
-                            // 这是PackingList数据显示的"-"
-                            palletSize = '';
+                        // 对于托盘数列，只取.pallet-count的数字
+                        const palletCount = tempCell.querySelector('.pallet-count');
+                        if (palletCount) {
+                            cellText = palletCount.textContent.trim();
                         } else {
                             // 否则获取单元格文本
-                            palletSize = palletSizeTd.textContent.trim();
+                            cellText = tempCell.textContent.trim();
+                            // 处理"-"占位符
+                            if (cellText === '-' || cellText.includes('font-style: italic') || cellText === '未打板不可录' || cellText === '暂扣不可编辑') {
+                                cellText = '';
+                            }
                         }
                     }
-                }
-                if (palletSize === '-' || palletSize.includes('font-style: italic')) {
-                    palletSize = '';
-                }
 
-                // 添加到数据数组
-                rowsData.push([containerNumber, destination, shippingMark, palletSize]);
+                    // 处理可能的多行文本
+                    cellText = cellText.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+                    rowData.push(cellText);
+                });
+
+                rowsData.push(rowData);
             });
 
             // 将数据转换为制表符分隔的字符串（兼容Excel粘贴）
@@ -1305,7 +1340,7 @@
             navigator.clipboard.writeText(csvData)
                 .then(() => {
                     // 显示成功提示
-                    showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸)`);
+                    showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板`);
                 })
                 .catch(err => {
                     console.error('复制失败:', err);
@@ -1323,7 +1358,7 @@
                         document.body.removeChild(textarea);
 
                         if (successful) {
-                            showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸)`);
+                            showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板`);
                         } else {
                             alert('复制失败，请手动选择并复制数据');
                         }
