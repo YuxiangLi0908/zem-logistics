@@ -607,7 +607,7 @@
         <button class="action-btn btn-schedule" onclick="scheduleShipment()">
             <i class="fas fa-calendar-check"></i> 预约出库
         </button>
-        <button class="action-btn btn-copy-alt" onclick="copySelectedRows()" title="复制选中行的柜号、目的地、唛头">
+        <button class="action-btn btn-copy-alt" onclick="copySelectedRows()" title="复制选中行的所有列数据">
             <i class="fas fa-copy"></i> 复制选中行
         </button>
         <button class="action-btn btn-save-batch" onclick="selfpick_batchSaveRows()">
@@ -1254,48 +1254,59 @@
                 return;
             }
 
-            // 收集选中的柜号、目的地、唛头数据
+            // 获取表头（排除复选框列）
+            const table = document.getElementById('selfpick_cargoTable');
+            const headerRow = table.querySelector('thead tr');
+            const headers = [];
+            for (let i = 1; i < headerRow.cells.length - 1; i++) { // 排除最后一列"操作"
+                // 获取表头文本，移除隐藏列的×符号
+                let headerText = headerRow.cells[i].textContent.trim();
+                if (headerText.endsWith('×')) {
+                    headerText = headerText.slice(0, -1).trim();
+                }
+                headers.push(headerText);
+            }
+
+            // 收集选中行的所有列数据
             const rowsData = [];
+            // 先添加表头
+            rowsData.push(headers);
 
             selectedCheckboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
+                const rowData = [];
 
-                // 获取柜号（从第5个td开始，索引从0开始）
-                const containerTd = row.cells[5]; // 柜号列
-                const destinationTd = row.cells[6]; // 目的地列
-                const shippingMarkTd = row.cells[7]; // 唛头列
-                const palletSizeTd = row.cells[15];
+                // 获取所有列（排除复选框列和最后一列"操作"）
+                for (let i = 1; i < row.cells.length - 1; i++) {
+                    const cell = row.cells[i];
+                    let cellText = '';
 
-                // 提取文本内容（移除可能存在的HTML标签）
-                const containerNumber = containerTd ? containerTd.textContent.trim() : '';
-                const destination = destinationTd ? destinationTd.textContent.trim() : '';
-                const shippingMark = shippingMarkTd ? shippingMarkTd.textContent.trim() : '';
-                let palletSize = '';
+                    // 先克隆单元格并移除帮助提示元素（❓）
+                    const tempCell = cell.cloneNode(true);
+                    const helpTooltip = tempCell.querySelector('.help-tooltip');
+                    if (helpTooltip) {
+                        helpTooltip.remove();
+                    }
 
-                if (palletSizeTd) {
-                    // 先尝试从textarea获取
-                    const palletSizeInput = palletSizeTd.querySelector('.pallet-size-input');
-                    if (palletSizeInput && palletSizeInput.value.trim()) {
-                        // 从textarea获取用户输入的值
-                        palletSize = palletSizeInput.value.trim();
+                    // 优先从输入框获取值
+                    const inputElement = tempCell.querySelector('.pallet-size-input, .qty-input, .unit-quote-input, .outbound-fee-input, .outbound-fee-note-input, .bol-input, .pickup-date-input');
+                    if (inputElement && inputElement.value !== undefined) {
+                        cellText = inputElement.value.trim();
                     } else {
-                        // 如果没有输入框或值为空，检查是否显示"-"
-                        const displaySpan = palletSizeTd.querySelector('span[style*="color: #999"]');
-                        if (displaySpan) {
-                            // 这是PackingList数据显示的"-"
-                            palletSize = '';
-                        } else {
-                            // 否则获取单元格文本
-                            palletSize = palletSizeTd.textContent.trim();
+                        // 否则获取单元格文本
+                        cellText = tempCell.textContent.trim();
+                        // 处理"-"占位符
+                        if (cellText === '-' || cellText.includes('font-style: italic') || cellText === '未打板不可录' || cellText === '暂扣不可编辑') {
+                            cellText = '';
                         }
                     }
-                }
-                if (palletSize === '-' || palletSize.includes('font-style: italic')) {
-                    palletSize = '';
+
+                    // 处理可能的多行文本
+                    cellText = cellText.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+                    rowData.push(cellText);
                 }
 
-                // 添加到数据数组
-                rowsData.push([containerNumber, destination, shippingMark, palletSize]);
+                rowsData.push(rowData);
             });
 
             // 将数据转换为制表符分隔的字符串（兼容Excel粘贴）
@@ -1305,7 +1316,7 @@
             navigator.clipboard.writeText(csvData)
                 .then(() => {
                     // 显示成功提示
-                    showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸)`);
+                    showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（包含所有列)`);
                 })
                 .catch(err => {
                     console.error('复制失败:', err);
@@ -1323,7 +1334,7 @@
                         document.body.removeChild(textarea);
 
                         if (successful) {
-                            showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸)`);
+                            showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（包含所有列)`);
                         } else {
                             alert('复制失败，请手动选择并复制数据');
                         }
