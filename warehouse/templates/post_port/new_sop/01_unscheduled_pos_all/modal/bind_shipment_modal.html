@@ -314,6 +314,7 @@
                                 </th>
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
+                                <th>客户</th>
                                 <th>柜号</th>
                                 <th>仓点</th>
                                 <th>板数</th>
@@ -811,11 +812,12 @@
         let allCargoIds = [];
         let allPltIds = [];
         cargos.forEach(c => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
                 <td><input type="checkbox" class="cargo-checkbox" data-cargo-id="${c.cargo_id}" data-plt-id="${c.plt_ids}" checked></td>
                 <td>${c.ref_ids}</td>
                 <td>${c.fba_ids}</td>
+                <td>${c.customer_name || '-'}</td>
                 <td>${c.container_no}</td>
                 
                 <td>${c.destination}</td>
@@ -823,7 +825,7 @@
                 <td>${c.total_cbm}</td>
                 <td>${c.offload_time}</td>
             `;
-            tbody.appendChild(tr);
+                    tbody.appendChild(tr);
             if (c.cargo_id && c.cargo_id.trim() !== '') allCargoIds.push(c.cargo_id);
             if (c.plt_ids && c.plt_ids.trim() !== '') allPltIds.push(c.plt_ids);
         });
