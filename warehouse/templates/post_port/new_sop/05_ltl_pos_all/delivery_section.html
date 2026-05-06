@@ -137,11 +137,58 @@
         font-weight: bold;
         display: inline-block;
     }
+
+    /* 批量操作工具栏样式 */
+    .batch-toolbar {
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border: 1px solid #eaecef;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .batch-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-right: 20px;
+        border-right: 1px solid #ddd;
+    }
+    
+    .batch-group:last-child {
+        border-right: none;
+    }
+
+    .batch-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--secondary-color);
+    }
 </style>
+
+<!-- 批量操作工具栏 -->
+<div class="batch-toolbar">
+    <div class="batch-label"><i class="fas fa-tasks"></i> 批量操作:</div>
+    <!-- 批量确认送达表单 -->
+    <form id="batchConfirmDeliveryForm" method="post" action="" class="batch-group" onsubmit="return handleBatchConfirmDelivery(this)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="batch_confirm_delivery">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="active_tab" value="ready">
+        <button type="submit" class="table-btn btn-success-small">批量确认送达</button>
+    </form>
+</div>
 
 <table class="data-table">
     <thead>
         <tr>
+            <th style="width: 40px; text-align: center;">
+                <input type="checkbox" id="selectAllDelivery" onchange="toggleAllDeliveryCheckboxes(this)">
+            </th>
             <th style="width:160px;">出库批次</th>
             <th style="width:150px;">预约批次</th>
             <th>预约发车日期</th>
@@ -157,6 +204,7 @@
             <th>车次异常</th>
         </tr>
         <tr class="search-row">
+            <td></td>
             <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
             <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
             <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="2"></td>
@@ -179,6 +227,9 @@
                     {% for p in pairs %}
                     <tr data-shipment="{{ s.shipment_batch_number }}" {% if forloop.first %}data-group-first="1"{% endif %}>
                         {% if forloop.first %}
+                        <td style="text-align: center;" rowspan="{{ pairs|length }}">
+                            <input type="checkbox" name="row_selector" value="{{ s.fleet_number.fleet_number }}" data-shipment="{{ s.shipment_batch_number }}">
+                        </td>
                         <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
@@ -231,7 +282,7 @@
                         <td rowspan="{{ pairs|length }}">
                             <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
                                 {% csrf_token %}
-                                <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
+                                <input type="datetime-local" name="arrived_at" class="table-input arrived-time-input" style="font-size: 0.8rem;" required data-fleet="{{ s.fleet_number.fleet_number }}" data-shipment="{{ s.shipment_batch_number }}">
                                 <input type="hidden" name="step" value="confirm_delivery">
                                 <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
                                 <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
@@ -249,6 +300,9 @@
                     {% endfor %}
                 {% else %}
                     <tr data-shipment="{{ s.shipment_batch_number }}" data-group-first="1">
+                        <td style="text-align: center;">
+                            <input type="checkbox" name="row_selector" value="{{ s.fleet_number.fleet_number }}" data-shipment="{{ s.shipment_batch_number }}">
+                        </td>
                         <td style="max-width: 120px; word-break: break-all;">
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
@@ -299,7 +353,7 @@
                         <td>
                             <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
                                 {% csrf_token %}
-                                <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
+                                <input type="datetime-local" name="arrived_at" class="table-input arrived-time-input" style="font-size: 0.8rem;" required data-fleet="{{ s.fleet_number.fleet_number }}" data-shipment="{{ s.shipment_batch_number }}">
                                 <input type="hidden" name="step" value="confirm_delivery">
                                 <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
                                 <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
@@ -409,7 +463,7 @@
                         break;
                     }
                 } else {
-                    const txt = getText(firstRow, f.idx, firstRow);
+                    const txt = getText(firstRow, f.idx + 1, firstRow);
                     if (txt.indexOf(f.val) === -1) {
                         visible = false;
                         break;
@@ -430,6 +484,61 @@
         
         // 显示弹框
         document.getElementById('abnormalModal').style.display = 'block';
+    }
+
+    // 全选/取消全选
+    function toggleAllDeliveryCheckboxes(source) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]');
+        // 只选择当前可见的行（配合搜索功能）
+        for (let i = 0; i < checkboxes.length; i++) {
+            const row = checkboxes[i].closest('tr');
+            if (row.style.display !== 'none') {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+    }
+
+    // 批量确认送达
+    function handleBatchConfirmDelivery(form) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        if (checkboxes.length === 0) {
+            alert('请至少选择一行数据！');
+            return false;
+        }
+
+        const formData = new FormData(form);
+        
+        // 收集所有选中的批次号和对应时间
+        let count = 0;
+        checkboxes.forEach((cb) => {
+            const fleetNumber = cb.value;
+            // 找到同一批次行中的时间输入框
+            const timeInput = document.querySelector(`.arrived-time-input[data-fleet="${fleetNumber}"]`);
+            if (timeInput && timeInput.value) {
+                formData.append(`fleet_${count}`, fleetNumber);
+                formData.append(`arrived_at_${count}`, timeInput.value);
+                count++;
+            } else {
+                alert(`请先设置批次 ${fleetNumber} 的送达时间！`);
+            }
+        });
+
+        if (count === 0) {
+            alert('请先设置选中批次的送达时间！');
+            return false;
+        }
+
+        // 提交表单
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                window.location.reload();
+            }
+        };
+        xhr.send(formData);
+
+        return false;
     }
 
     // 关闭异常弹框函数

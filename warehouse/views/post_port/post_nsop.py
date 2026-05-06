@@ -366,6 +366,12 @@ class PostNsop(View):
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '确认送达成功!'})  
             return render(request, template, context)
+        elif step == "batch_confirm_delivery":
+            fm = FleetManagement()
+            count = await fm.handle_batch_confirm_delivery_post(request)
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": f'已成功确认 {count} 个批次送达!'})
+            return render(request, template, context)
         elif step == "abnormal_fleet":
             fm = FleetManagement()
             page = request.POST.get("page")
