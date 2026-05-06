@@ -1623,7 +1623,7 @@ class OrderQuantity(View):
                 if invoice.receivable_delivery_other_amount is not None
                 else 0.0
             )  # 派送
-            receivable_delivery = receivable_pub_delivery + receivable_oth_delivery
+            
             
             activation_items_total = await sync_to_async(
                 lambda: InvoiceItemv2.objects.filter(
@@ -1640,8 +1640,9 @@ class OrderQuantity(View):
                     item_category="combina_extra_fee",
                 ).aggregate(total=Sum('amount'))['total'] or 0
             )()   
-
             other_fees = activation_items_total + combina_extra_items_total
+            receivable_delivery = receivable_pub_delivery + receivable_oth_delivery + other_fees
+            
             
             # 查询这个柜子的所有应收账单的赔付费用
             payout_total = await sync_to_async(
@@ -1690,7 +1691,6 @@ class OrderQuantity(View):
                 receivable_preport
                 + receivable_warehouse
                 + receivable_delivery
-                + other_fees
             )
             # 提拆的成本
             total_expense_per_container = payable_preport + payable_warehouse + payable_delivery + payout_fee
