@@ -4505,14 +4505,14 @@ class ReceivableAccounting(View):
 
         # --- 2. 构建查询条件 ---
         criteria = (
-            Q(cancel_notification=False)
-            & Q(vessel_id__vessel_etd__gte=start_date)
+            Q(vessel_id__vessel_etd__gte=start_date)
             & Q(vessel_id__vessel_etd__lte=end_date)
             & Q(offload_id__offload_at__isnull=False)
         )
 
         if warehouse:
-            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+            # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
+            criteria &= (Q(retrieval_id__retrieval_destination_precise=warehouse) | Q(cancel_notification=True))
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
     
@@ -5167,13 +5167,14 @@ class ReceivableAccounting(View):
 
         # --- 2. 构建基础查询条件 ---
         criteria = (
-            Q(cancel_notification=True)
+            Q(cancel_notification=True) 
             & (Q(order_type="转运") | Q(order_type="转运组合"))
             & Q(vessel_id__vessel_etd__gte=start_date)
             & Q(vessel_id__vessel_etd__lte=end_date)
         )
 
         if warehouse and warehouse != 'None':
+            # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
             criteria &= Q(retrieval_id__retrieval_destination_area=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
