@@ -5518,6 +5518,41 @@ class FleetManagement(View):
             return True
         return await self.handle_delivery_and_pod_get(request)
 
+    async def handle_batch_confirm_delivery_post(
+        self, request: HttpRequest
+    ):
+        count = 0
+        index = 0
+        while True:
+            fleet_key = f"fleet_{index}"
+            arrived_at_key = f"arrived_at_{index}"
+            if fleet_key not in request.POST or arrived_at_key not in request.POST:
+                break
+            fleet_number = request.POST[fleet_key]
+            arrived_at = request.POST[arrived_at_key]
+            try:
+                # 通过 fleet_number 找到相关的 shipments
+                shipments = await sync_to_async(
+                    lambda: list(Shipment.objects.select_related("fleet_number").filter(
+                        fleet_number__fleet_number=fleet_number
+                    ))
+                )()
+                for shipment in shipments:
+                    fleet = shipment.fleet_number
+                    tzinfo = self._parse_tzinfo(shipment.origin)
+                    shipment.arrived_at = arrived_at
+                    shipment.arrived_at_utc = self._parse_ts(arrived_at, tzinfo)
+                    shipment.is_arrived = True
+                    await sync_to_async(shipment.save)()
+                    if fleet:
+                        fleet.arrived_at = arrived_at
+                        await sync_to_async(fleet.save)()
+                count += 1
+            except Exception as e:
+                pass
+            index += 1
+        return count
+
     async def handle_pod_upload_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
