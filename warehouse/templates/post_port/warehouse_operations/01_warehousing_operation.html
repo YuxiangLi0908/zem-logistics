@@ -242,18 +242,21 @@
                                         <form method="post" class="download-form m-0" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
+                                            <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
                                             <button type="submit" class="bg-success text-white text-xs px-2 py-1 rounded hover:bg-success/90" {% if not order.container_number %}disabled{% endif %}>拆柜单</button>
                                         </form>
                                         <form method="post" class="download-form m-0" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
+                                            <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
                                             <button type="submit" class="bg-success text-white text-xs px-2 py-1 rounded hover:bg-success/90" {% if not order.container_number %}disabled{% endif %}>新拆柜</button>
                                         </form>
                                         <form method="post" class="m-0">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
                                             <button type="submit" class="bg-primary text-white text-xs px-2 py-1 rounded hover:bg-primary/90" {% if not order.container_number %}disabled{% endif %}>托盘标</button>
                                         </form>
