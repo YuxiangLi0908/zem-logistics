@@ -4677,23 +4677,25 @@ class ReceivableAccounting(View):
                         # 计算剩余金额
                         rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
                         rec_offset = getattr(invoice, 'remain_offset', 0) or 0
+                        
+                        # 只保留待核销费用不为0的账单
+                        if rec_offset != 0:
+                            # 处理 Statement 关联
+                            stmt = invoice.statement_id
+                            stmt_id = stmt.invoice_statement_id if stmt else None
+                            stmt_link = stmt.statement_link if stmt else None
 
-                        # 处理 Statement 关联
-                        stmt = invoice.statement_id
-                        stmt_id = stmt.invoice_statement_id if stmt else None
-                        stmt_link = stmt.statement_link if stmt else None
-
-                        row_data.update({
-                            'invoice_id__invoice_date': invoice.invoice_date,
-                            'invoice_id__invoice_link': invoice.invoice_link,
-                            'invoice_id__receivable_total_amount': rec_total,
-                            'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
-                            'invoice_id__remain_offset': rec_offset,
-                            'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
-                            'invoice_id__statement_id__invoice_statement_id': stmt_id,
-                            'invoice_id__statement_id__statement_link': stmt_link,
-                        })
-                        previous_order_data_list.append(row_data)
+                            row_data.update({
+                                'invoice_id__invoice_date': invoice.invoice_date,
+                                'invoice_id__invoice_link': invoice.invoice_link,
+                                'invoice_id__receivable_total_amount': rec_total,
+                                'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
+                                'invoice_id__remain_offset': rec_offset,
+                                'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
+                                'invoice_id__statement_id__invoice_statement_id': stmt_id,
+                                'invoice_id__statement_id__statement_link': stmt_link,
+                            })
+                            previous_order_data_list.append(row_data)
         
         existing_customers = Customer.objects.all().order_by("zem_name")
         
