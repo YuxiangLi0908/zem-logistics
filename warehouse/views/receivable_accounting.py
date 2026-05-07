@@ -4649,6 +4649,7 @@ class ReceivableAccounting(View):
                         'invoice_id': invoice.id,
                         'finance_status': finance_status,
                         'has_invoice': True,
+                        'cancel_notification': o.cancel_notification,
                     }
 
                     if finance_status != "completed":
