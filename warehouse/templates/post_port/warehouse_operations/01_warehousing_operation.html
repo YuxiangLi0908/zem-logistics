@@ -661,17 +661,25 @@
 
                                 <!-- 7. 回传拆柜数据 -->
                                 <td class="px-4 py-3">
-                                    <form method="post" action="" style="display: flex; flex-direction: column; gap: 6px;">
+                                    <!-- 👇 这里加上 enctype="multipart/form-data" 就解决了 -->
+                                    <form method="post" action=""
+                                          enctype="multipart/form-data"
+                                          style="display: flex; flex-direction: column; gap: 6px;">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="warehousing_complete_loading">
                                         <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
                                         <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+
+                                        <!-- 👇 注意：你后台接收的字段名是 receipt_image，前端必须一致！ -->
                                         <input type="file"
-                                               id="unpacking_data_{{ record_id }}"
-                                               name="unpacking_data"
-                                               class="text-[13px] w-full">
-                                        <input type="text" name="offload_note" value="{{ ret.offload_id.offload_note }}" placeholder="请输入回传拆柜备注" style="padding: 6px 8px; font-size: 13px;">
-                                        <button type="submit" class="btn btn-outline-primary px-4 py-2 text-[13px] bg-white hover:bg-gray-50 mt-2">
+                                               name="receipt_image"  <!-- 这里必须和后台 receipt_image 对应 -->
+                                        class="text-[13px] w-full">
+
+                                        <input type="text" name="offload_note" value="{{ ret.offload_id.offload_note }}"
+                                               placeholder="请输入回传拆柜备注"
+                                               style="padding: 6px 8px; font-size: 13px;">
+                                        <button type="submit"
+                                                class="btn btn-outline-primary px-4 py-2 text-[13px] bg-white hover:bg-gray-50 mt-2">
                                             确认提交
                                         </button>
                                     </form>
