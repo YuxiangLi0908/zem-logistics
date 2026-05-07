@@ -2625,8 +2625,8 @@ class ReceivableAccounting(View):
         
         return self.template_fix_account_entry, context
 
-    def _auto_calculate_pickup_fee(self, order: Order, quotation, context, match) -> None:
-    
+    def _auto_calculate_pickup_fee(self, request: HttpRequest, order: Order, quotation, context, match, invoice: Invoicev2, container: Container) -> None:
+  
         order_type = order.order_type
         non_combina_reason = None
 
@@ -2659,6 +2659,32 @@ class ReceivableAccounting(View):
             pickup_fee = fee_detail.details[warehouse][pick_subkey]
         except KeyError:
             raise ValueError('报价表未匹配到提拆费用')
+        
+        # 获取当前登录用户
+        registered_user = request.user.username if request.user.is_authenticated else None
+        
+        # 先检查是否已存在相同描述的记录，避免重复创建
+        existing_item = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="preport",
+            description="提拆/打托缠膜"
+        ).first()
+        
+        if not existing_item:
+            # 创建新的InvoiceItemv2记录
+            InvoiceItemv2.objects.create(
+                invoice_number=invoice,
+                container_number=container,
+                invoice_type="receivable",
+                item_category="preport",
+                description="提拆/打托缠膜",
+                qty=1.0,
+                rate=float(pickup_fee),
+                amount=float(pickup_fee),
+                registered_user=registered_user
+            )
         
 
     def handle_container_invoice_confirm_get(
