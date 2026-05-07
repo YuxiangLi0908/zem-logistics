@@ -2192,8 +2192,7 @@ class ReceivableAccounting(View):
             'warehouse_public_status', 
             'warehouse_other_status',
             'delivery_public_status',
-            'delivery_other_status',
-            'finance_status'
+            'delivery_other_status'
         ]
         
         # 更新状态：指定的状态设为unstarted，其他设为completed
