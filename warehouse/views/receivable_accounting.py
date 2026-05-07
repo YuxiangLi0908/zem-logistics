@@ -120,10 +120,11 @@ class ReceivableAccounting(View):
     template_confirm_transfer_edit = "receivable_accounting/account_confirm/confirm_transfer_entry.html"
 
     template_write_off_entry = "receivable_accounting/account_confirm/write_off_entry.html"
+    template_fix_account_entry = "receivable_accounting/account_confirm/fix_account_entry.html"
 
-    template_invoice_combina_edit = "receivable_accounting/invoice_combina_edit.html"
+    template_invoice_combina_edit = "receivable_accounting/account_confirm/invoice_combina_edit.html"
     template_invoice_statement = "receivable_accounting/invoice_statement.html"
-    template_invoice_items_edit = "receivable_accounting/invoice_items_edit.html"
+    template_invoice_items_edit = "receivable_accounting/account_confirm/invoice_items_edit.html"
 
     template_supplementary_entry = "receivable_accounting/supplementary_entry.html"
     template_invoice_items_all = "receivable_accounting/invoice_items_all.html"
@@ -186,6 +187,9 @@ class ReceivableAccounting(View):
             return render(request, self.template_confirm_entry, context)
         elif step == "container_confirm":
             template, context = self.handle_container_invoice_confirm_get(request)
+            return render(request, template, context)   
+        elif step == "container_fix_cacl": 
+            template, context = self.handle_container_fix_cacl_get(request)
             return render(request, template, context)       
         elif step == "supplementary": #补开账单
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
@@ -217,6 +221,10 @@ class ReceivableAccounting(View):
             existing_customers = Customer.objects.all().order_by("zem_name")
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
             return render(request, self.template_write_off_entry, context)
+        elif step == "fix_account":  # 按报价表计算的固定费用，财务录入页面
+            existing_customers = Customer.objects.all().order_by("zem_name")
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
+            return render(request, self.template_fix_account_entry, context)
         elif step == "invoice_manual":
             template, context = self.handle_invoice_item_search(request)
             return render(request, template, context)
@@ -245,6 +253,9 @@ class ReceivableAccounting(View):
             return render(request, self.template_cancel_con_entry, context)
         elif step == "confirm_search":
             template, context = self.handle_confirm_entry_post(request)
+            return render(request, template, context)
+        elif step == "fix_account_search":
+            template, context = self.handle_fix_account_entry_post(request)
             return render(request, template, context)
         elif step == "write_off_search":
             template, context = self.handle_write_off_entry_post(request)
@@ -2551,6 +2562,105 @@ class ReceivableAccounting(View):
         context = {'success_messages':success_messages}
         return self.handle_confirm_entry_post(request,context)
     
+    def handle_container_fix_cacl_get(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        '''柜子按报价表进行完整计算'''
+        context = {}
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+        order = Order.objects.select_related("container_number").get(
+            container_number__container_number=container_number
+        )
+
+        if invoice_id and invoice_id != 'None':
+            # 如果有账单，找到那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status = InvoiceStatusv2.objects.get(
+                invoice=invoice,
+                invoice_type="receivable"
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
+            # 把状态里，除港前的状态都更新为已完成
+            invoice_status.save()
+        
+        # 先看下是不是组合柜的柜子
+        if order.order_type == "直送":
+            is_combina = False
+        else:
+            # 看下是不是补开的账单，如果是补开的按转运方式展示记录就行了，不用组合柜形式展示了
+            other_invoices = Invoicev2.objects.filter(
+                container_number=order.container_number 
+            ).exclude(id=invoice_id)
+            
+            if other_invoices.exists(): 
+                is_combina = False
+            else:
+                # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
+                ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
+                if ctx.get('error_messages'):
+                    return self.template_invoice_combina_edit, ctx
+        
+        #查找报价表
+        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+        if quotation_error:
+            context.update({"error_messages": quotation_error})
+            return self.template_fix_account_entry, context
+        
+        # 匹配柜型
+        container = Container.objects.get(container_number=order.container_number)
+        match = re.match(r"\d+", container.container_type)
+        if not match:
+            context.update({"error_messages": "柜型格式错误，请修改！"})
+            return self.template_fix_account_entry, context
+
+        #然后开始自动计算，先自动计算提拆费
+        if not is_combina:
+            # 非组合才有提拆费
+            self._auto_calculate_pickup_fee(order, quotation, context, match)
+
+        # 再自动计算派送费
+        
+        return self.template_fix_account_entry, context
+
+    def _auto_calculate_pickup_fee(self, order: Order, quotation, context, match) -> None:
+    
+        order_type = order.order_type
+        non_combina_reason = None
+
+        if order_type != "转运组合":
+            iscombina = False
+        else:
+            container = Container.objects.get(container_number=order.container_number)
+            if container.manually_order_type == "转运":
+                iscombina = False
+                non_combina_reason = container.non_combina_reason
+            elif container.manually_order_type == "转运组合":
+                iscombina = True
+            else:
+                combina_context, iscombina,non_combina_reason = self._is_combina(order.container_number)
+                if combina_context.get("error_messages"):
+                    return self.template_preport_edit, combina_context
+        if order_type == "直送":
+            fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "direct")
+        else:
+            fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "preport")
+        if fee_error:
+            context.update({"error_messages": fee_error})
+            return self.template_preport_edit, context
+        
+        # 计算提拆费         
+        pickup_fee = 0
+        pick_subkey = match.group()
+        warehouse = order.retrieval_id.retrieval_destination_area
+        try:
+            pickup_fee = fee_detail.details[warehouse][pick_subkey]
+        except KeyError:
+            raise ValueError('报价表未匹配到提拆费用')
+        
+
     def handle_container_invoice_confirm_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -2581,7 +2691,7 @@ class ReceivableAccounting(View):
         if order.order_type == "直送":
             is_combina = False
         else:
-            # 看下是不是补开的账单，如果是补开的按转运方式展示记录就醒了，不用组合柜形式展示了
+            # 看下是不是补开的账单，如果是补开的按转运方式展示记录就行了，不用组合柜形式展示了
             other_invoices = Invoicev2.objects.filter(
                 container_number=order.container_number 
             ).exclude(id=invoice_id)
@@ -4492,6 +4602,212 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
         })
         return self.template_confirm_entry, context
+    
+    def handle_fix_account_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        '''应收账单——固定费用管理查询'''
+        if not context:
+            context = {}
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        container_number_filter = request.POST.get("container_number_filter")
+
+        # --- 1. 日期处理 ---
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        # --- 2. 构建查询条件 ---
+        criteria = (
+            Q(cancel_notification=False)
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+        )
+
+        if warehouse:
+            # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
+            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+        if container_number_filter:
+            criteria &= Q(container_number__container_number=container_number_filter)
+    
+        # --- 3. 获取基础订单数据 ---
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+
+        orders_list = list(base_orders)
+    
+        # 提取所有涉及的 Container IDs
+        container_ids = set()
+        for o in orders_list:
+            if o.container_number_id:
+                container_ids.add(o.container_number_id)
+        container_ids = list(container_ids)
+
+        # --- 4. [优化核心] 批量获取发票及其状态 ---
+        # 预加载条件：只取 invoice_type='receivable' 的状态
+        status_prefetch = Prefetch(
+            'invoicestatusv2_set',
+            queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+            to_attr='receivable_status_list'
+        )
+
+        # 预加载 Statement (为了获取 link 和 ID)
+        # 假设 Invoicev2 有 statement_id 字段关联到 Statement 表
+        all_invoices = Invoicev2.objects.filter(
+            container_number_id__in=container_ids
+        ).select_related(
+            'statement_id' # 避免循环中访问 statement_id 再次查询
+        ).prefetch_related(status_prefetch)
+
+        # 将发票按 container_id 分组
+        container_invoice_map = defaultdict(list)
+        container_earliest_time_map = {}
+        for inv in all_invoices:
+            c_id = inv.container_number_id
+            container_invoice_map[c_id].append(inv)
+
+            if c_id not in container_earliest_time_map or inv.created_at < container_earliest_time_map[c_id]:
+                container_earliest_time_map[c_id] = inv.created_at
+
+        # --- 6. 循环处理 ---
+        order_data_list = []      # 待开账单
+        previous_order_data_list = [] # 已开账单 
+        
+        for o in base_orders:
+            container = o.container_number
+            
+            if not container:
+                continue
+            
+            c_id = container.id
+            invoices = container_invoice_map.get(c_id, [])
+            has_multiple_invoices = len(invoices) > 1
+            earliest_created_at = container_earliest_time_map.get(c_id)
+            
+            if not invoices:
+                # 没有invoice，加一条到待开
+                row_data = {
+                    'order': o,
+                    'order_id': o.id,
+                    'container_number__container_number': container.container_number,
+                    'customer_name__zem_name': o.customer_name.zem_name if o.customer_name else None,
+                    'order_type': o.order_type,
+                    'invoice_created_at': None,
+                    'is_extra_invoice': False,
+                    'retrieval_id__retrieval_destination_precise': o.retrieval_id.retrieval_destination_precise if o.retrieval_id else None,
+                    'retrieval_id__retrieval_carrier': getattr(o.retrieval_id, 'retrieval_carrier', None) if o.retrieval_id else None,
+                    'retrieval_id__actual_retrieval_timestamp': getattr(o.retrieval_id, 'actual_retrieval_timestamp', None) if o.retrieval_id else None,
+                    'created_at': o.created_at,
+                    'invoice_id__invoice_number': None,
+                    'invoice_number': None,
+                    'invoice_id': None,
+                    'finance_status': None,
+                    'has_invoice': False,
+                    'cancel_notification': o.cancel_notification,
+                }
+                order_data_list.append(row_data)
+            else:
+                # 有invoice，处理每条invoice
+                for invoice in invoices:
+                    # 获取预加载的状态列表
+                    status_list = getattr(invoice, 'receivable_status_list', [])
+                    status_obj = status_list[0] if status_list else None
+                    
+                    # 提取finance_status
+                    finance_status = status_obj.finance_status if status_obj else None
+
+                    is_extra_invoice = False
+                    if has_multiple_invoices and invoice.created_at > earliest_created_at:
+                        is_extra_invoice = True
+                    invoice_created_at = invoice.created_at if has_multiple_invoices else None
+
+                    # 构建基础数据字典
+                    row_data = {
+                        'order': o,
+                        'order_id': o.id,
+                        'container_number__container_number': container.container_number,
+                        'customer_name__zem_name': o.customer_name.zem_name if o.customer_name else None,
+                        'order_type': o.order_type,
+                        'invoice_created_at': invoice_created_at,
+                        'is_extra_invoice': is_extra_invoice,
+                        'retrieval_id__retrieval_destination_precise': o.retrieval_id.retrieval_destination_precise if o.retrieval_id else None,
+                        'retrieval_id__retrieval_carrier': getattr(o.retrieval_id, 'retrieval_carrier', None) if o.retrieval_id else None,
+                        'retrieval_id__actual_retrieval_timestamp': getattr(o.retrieval_id, 'actual_retrieval_timestamp', None) if o.retrieval_id else None,
+                        'created_at': o.created_at,
+                        
+                        # 发票信息
+                        'invoice_id__invoice_number': invoice.invoice_number,
+                        'invoice_number': invoice.invoice_number,
+                        'invoice_id': invoice.id,
+                        'finance_status': finance_status,
+                        'has_invoice': True,
+                        'cancel_notification': o.cancel_notification,
+                    }
+
+                    if finance_status != "completed":
+                        # === 待开 (Order List) ===
+                        order_data_list.append(row_data)
+                    else:
+                        # === 已开 (Previous Order List) ===
+                        # 计算剩余金额
+                        rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
+                        rec_offset = getattr(invoice, 'remain_offset', 0) or 0
+                        
+                        # 只保留待核销费用不为0的账单
+                        if rec_offset != 0:
+                            # 处理 Statement 关联
+                            stmt = invoice.statement_id
+                            stmt_id = stmt.invoice_statement_id if stmt else None
+                            stmt_link = stmt.statement_link if stmt else None
+
+                            row_data.update({
+                                'invoice_id__invoice_date': invoice.invoice_date,
+                                'invoice_id__invoice_link': invoice.invoice_link,
+                                'invoice_id__receivable_total_amount': rec_total,
+                                'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
+                                'invoice_id__remain_offset': rec_offset,
+                                'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
+                                'invoice_id__statement_id__invoice_statement_id': stmt_id,
+                                'invoice_id__statement_id__statement_link': stmt_link,
+                            })
+                            previous_order_data_list.append(row_data)
+        
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'order': order_data_list,
+            'previous_order': previous_order_data_list,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "existing_customers": existing_customers,
+            "container_number_filter": container_number_filter,
+        })
+        return self.template_fix_account_entry, context
     
     def handle_confirm_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         '''财务账单确认查询'''
