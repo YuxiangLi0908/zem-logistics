@@ -233,7 +233,15 @@
                                 </div>                            
                                 
                                 <!-- 财务管理 -->
-                                <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">应收财务确认</a>                             
+                                 <div class="nested-dropdown">
+                                    <a>应收财务确认</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">待核销额外费用</a>   
+                                        <a href="{% url 'receivable_accounting' %}?step=fix_account" target="_blank">待核销固定费用</a>   
+                                        <a href="{% url 'receivable_accounting' %}?step=write_off_account" target="_blank">已核销账单</a>  
+                                    </div>
+                                </div>    
+                                                          
                                 <!-- 应付账单 -->
                                 <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">应付账单</a>
 
