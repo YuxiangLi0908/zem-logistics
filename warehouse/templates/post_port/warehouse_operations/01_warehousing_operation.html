@@ -671,10 +671,7 @@
                                         <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
 
                                         <!-- 👇 注意：你后台接收的字段名是 receipt_image，前端必须一致！ -->
-                                        <input type="file"
-                                               name="receipt_image"  <!-- 这里必须和后台 receipt_image 对应 -->
-                                        class="text-[13px] w-full">
-
+                                        <input type="file" name="receipt_image" class="text-[13px] w-full">
                                         <input type="text" name="offload_note" value="{{ ret.offload_id.offload_note }}"
                                                placeholder="请输入回传拆柜备注"
                                                style="padding: 6px 8px; font-size: 13px;">
