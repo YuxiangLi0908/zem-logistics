@@ -12207,6 +12207,8 @@ class Accounting(View):
                     warehouse_precise = "LA 91761"
                 if warehouse_precise == "LA 91789":
                     warehouse_precise = "LA 91761"
+                if warehouse_precise == "LA 91730":
+                    warehouse_precise = "LA 91730"
                 # 移除Eric相关的报错逻辑（因为已经提前过滤）
                 if pick_subkey == 40 and warehouse:
                     try:
