@@ -5634,7 +5634,10 @@ class FleetManagement(View):
             .value.to_json()["sharingLinkInfo"]["Url"]
         )
         shipment.shipping_order_link = link
-        shipment.pod_uploaded_at = timezone.now()
+        if shipment.shipment_type == "客户自提":
+            shipment.pod_link = "No Link"
+            shipment.pod_uploaded_at = timezone.now()
+
         await sync_to_async(shipment.save)()
 
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
