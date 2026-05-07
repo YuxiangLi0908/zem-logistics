@@ -781,6 +781,8 @@
                                 <span class="category-badge category-delivery-public">公仓派送</span>
                                 {% elif item.item_category == 'delivery_other' %}
                                 <span class="category-badge category-delivery-other">私仓派送</span>
+                                {% elif item.item_category == 'combina_extra_fee' %}
+                                <span class="category-badge category-delivery-other">组合柜其他费用</span>
                                 {% elif item.item_category == 'payout_fee' %}
                                 <span class="category-badge" style="background: rgba(244, 67, 54, 0.1); color: #d32f2f; border: 1px solid rgba(244, 67, 54, 0.2);">赔付费用</span>
                                 {% else %}
