@@ -315,9 +315,9 @@ class WarehouseOperations(View):
                     # 注解3：标记“是否超时未拆”（1=超时未拆，0=正常）
                     is_overtime_unpacked=Case(
                         When(
-                            # 条件：当前时间>超时阈值 + 拆柜状态≠已拆（unpacking_status≠1）
+                            # 条件：当前时间>超时阈值 + 拆柜状态 不是 已拆柜/已到仓/已报空
                             Q(timeout_threshold__lt=current_time) &
-                            ~Q(offload_id__unpacking_status="1"),
+                            ~Q(offload_id__unpacking_status__in=["1", "3", "4"]),
                             then=Value(1)
                         ),
                         default=Value(0),
@@ -343,10 +343,12 @@ class WarehouseOperations(View):
                 )
                 .annotate(
                     status_order=Case(
-                        When(unpacking_status=2, then=Value(1)),
-                        When(unpacking_status=0, then=Value(2)),
-                        When(unpacking_status=1, then=Value(3)),
-                        default=Value(4),
+                        When(unpacking_status="2", then=Value(1)),  # 拆柜中 最优先
+                        When(unpacking_status="0", then=Value(2)),  # 未拆柜
+                        When(unpacking_status="3", then=Value(3)),  # 已到仓
+                        When(unpacking_status="1", then=Value(4)),  # 已拆柜
+                        When(unpacking_status="4", then=Value(5)),  # 已报空 最后
+                        default=Value(6),
                         output_field=IntegerField()
                     ),
                     has_overtime_order=Case(
@@ -425,37 +427,17 @@ class WarehouseOperations(View):
                     return updated_count  # 返回更新的记录数
                 return 0
 
-            def sync_update_single_offload_unpacking():
-                related_orders = Order.objects.filter(
-                    offload_id__offload_id=offload_id,
-                    offload_id__warehouse_unpacking_time__isnull=True
-                ).select_related('offload_id')
-
-                if related_orders.exists():
-                    current_time = timezone.now()
-                    updated_count = 0
-                    for order in related_orders:
-                        order.offload_id.warehouse_unpacking_time = current_time
-                        order.offload_id.save()
-                        updated_count += 1
-                    return updated_count  # 返回更新的记录数
-                return 0
-
             # 3. 包装同步函数为异步函数
             async_update = sync_to_async(sync_update_single, thread_sensitive=True)
             # 关键：必须为sync_update_single_offload也创建异步包装
             async_update_offload = sync_to_async(sync_update_single_offload, thread_sensitive=True)
-            async_update_offload_unpacking = sync_to_async(sync_update_single_offload_unpacking, thread_sensitive=True)
 
             # 4. 执行更新操作（通过包装后的异步函数）
             affected_rows = await async_update()
 
             # 5. 已拆柜状态时，执行Offload更新
-            if unpacking_status == "1":
+            if unpacking_status == "1" or unpacking_status == "2":
                 offload_affected = await async_update_offload()
-            # 拆柜中
-            elif unpacking_status == "2":
-                offload_affected = await async_update_offload_unpacking()
 
         except Exception as e:
             self.logger.error(f"更新记录{offload_id}时发生错误：{str(e)}", exc_info=True)
