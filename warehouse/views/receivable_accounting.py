@@ -2811,11 +2811,15 @@ class ReceivableAccounting(View):
             )
             total_container_cbm = round(total_container_cbm_result['total_cbm'] or 0.0, 2)
 
-            # 第一步：先找出所有属于组合柜范围的group
-            combina_candidates = []  # 存储所有可能的组合柜group，包含相关信息
-            combina_groups_info = {}  # key: destination, value: {total_cbm, groups[], region, price_item}
+            # 先按CBM从小到大排序pallet_groups
+            pallet_groups_sorted = sorted(pallet_groups, key=lambda g: g.get("total_cbm", 0))
+
+            # 第一步：先找出所有属于组合柜范围的group（按CBM从小到大）
+            combina_candidates = []  # 存储最终的组合柜group
+            non_combina_groups = []  # 存储非组合柜的group
+            selected_destinations = set()  # 已选的destination（去重）
             
-            for group in pallet_groups:
+            for group in pallet_groups_sorted:
                 po_id = group.get("PO_ID", "")
                 destination_str = group.get("destination", "")
                 
@@ -2842,48 +2846,34 @@ class ReceivableAccounting(View):
                     is_combina_region = False
                 
                 if is_combina_region:
-                    # 加入候选列表
-                    group_cbm = group.get("total_cbm", 0)
-                    combina_candidates.append({
-                        "group": group,
-                        "destination": destination,
-                        "region": matched_region,
-                        "price_item": matched_item,
-                        "cbm": group_cbm
-                    })
-                    
-                    # 按destination汇总
-                    if destination not in combina_groups_info:
-                        combina_groups_info[destination] = {
-                            "total_cbm": 0,
-                            "groups": [],
+                    # 检查destination是否已经选过
+                    if destination in selected_destinations:
+                        # 已选过，直接加入组合柜
+                        combina_candidates.append({
+                            "group": group,
+                            "destination": destination,
                             "region": matched_region,
-                            "price_item": matched_item
-                        }
-                    combina_groups_info[destination]["total_cbm"] += group_cbm
-                    combina_groups_info[destination]["groups"].append(group)
+                            "price_item": matched_item,
+                            "cbm": group.get("total_cbm", 0)
+                        })
+                    elif len(selected_destinations) < combina_threshold:
+                        # destination未选过且名额未满，加入组合柜
+                        selected_destinations.add(destination)
+                        combina_candidates.append({
+                            "group": group,
+                            "destination": destination,
+                            "region": matched_region,
+                            "price_item": matched_item,
+                            "cbm": group.get("total_cbm", 0)
+                        })
+                    else:
+                        # 名额已满，加入非组合柜
+                        non_combina_groups.append(group)
+                else:
+                    # 不是组合柜范围，加入非组合柜
+                    non_combina_groups.append(group)
             
-            # 第二步：如果目的地数量超过combina_threshold，去掉CBM最大的几个
-            unique_destinations = list(combina_groups_info.keys())
-            if len(unique_destinations) > combina_threshold:
-                # 按destination的总CBM从大到小排序
-                sorted_destinations = sorted(
-                    unique_destinations,
-                    key=lambda d: combina_groups_info[d]["total_cbm"],
-                    reverse=True
-                )
-                # 保留前combina_threshold个
-                selected_destinations = set(sorted_destinations[combina_threshold:])
-                # 从combina_candidates中移除被排除的destination
-                combina_candidates = [
-                    c for c in combina_candidates 
-                    if c["destination"] not in selected_destinations
-                ]
-                # 更新combina_groups_info
-                for dest in selected_destinations:
-                    del combina_groups_info[dest]
-            
-            # 第三步：处理组合柜的group，计费并保存到InvoiceItemv2
+            # 第二步：处理组合柜的group，计费并保存到InvoiceItemv2
             combina_pallet_groups = []
             for candidate in combina_candidates:
                 group = candidate["group"]
@@ -2930,59 +2920,26 @@ class ReceivableAccounting(View):
                 )
                 
                 combina_pallet_groups.append(group)
-            
-            # 第四步：整理出非组合柜的group给后续处理
-            processed_po_ids = set(g.get("PO_ID", "") for g in combina_pallet_groups)
-            pallet_groups = [g for g in pallet_groups if g.get("PO_ID", "") not in processed_po_ids]
 
         # 处理未录入的PO
-        if pallet_groups:
-            for group in pallet_groups:
+        if non_combina_groups:
+            for group in non_combina_groups:
                 destination = group.get("destination", "")
                 location = group.get("location")
                 
-                if delivery_type == "public":
-                    # 公仓：尝试自动计算费用
-                    vessel_etd = order.vessel_id.vessel_etd
-                    item_data = self._process_public_unbilled(
-                        group=group,
-                        container=container,
-                        order=order,
-                        destination=destination,
-                        location=location,
-                        fee_details=fee_details,
-                        vessel_etd=vessel_etd,
-                        total_container_cbm=total_container_cbm
-                    )
-                    
-                else:
-                    # 私仓：只确定类型，不创建记录
-                    item_data = self._process_private_unbilled(
-                        group=group,
-                        invoice=invoice,
-                        total_container_cbm=total_container_cbm
-                    )
+                # 公仓：尝试自动计算费用
+                vessel_etd = order.vessel_id.vessel_etd
+                item_data = self._process_public_unbilled(
+                    group=group,
+                    container=container,
+                    order=order,
+                    destination=destination,
+                    location=location,
+                    fee_details=fee_details,
+                    vessel_etd=vessel_etd,
+                    total_container_cbm=total_container_cbm
+                )
 
-                if isinstance(item_data, dict) and item_data.get("error_messages"):
-                    if quotation_info:
-                        extra = f"（报价表：{quotation_info.filename} v{quotation_info.version}）"
-                        item_data["error_messages"] += extra
-                        return item_data
-                if not item_data:
-                    continue
-                # 如果是组合柜项目，添加到对应的分组
-                result["normal_items"].append(item_data)
-        
-        # 计算组合柜总信息（如果还没有计算过）
-        if not result["combina_info"] and result["combina_items"]:
-            total_base_fee = sum(item.get("amount", 0) for item in result["combina_items"])
-            total_cbm = sum(item.get("total_cbm", 0) for item in result["combina_items"])
-            
-            result["combina_info"] = {
-                "base_fee": round(total_base_fee, 2),
-                "total_cbm": round(total_cbm, 2),
-                "region_count": len(result["combina_groups"])
-            }
         return result
         
 
