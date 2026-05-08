@@ -12147,6 +12147,7 @@ class Accounting(View):
 
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area if order.retrieval_id else ""
+        warehouse_precise_p = order.retrieval_id.retrieval_destination_precise if order.retrieval_id else ""
         container_type = order.container_number.container_type if order.container_number else ""
         pallet_total = Pallet.objects.filter(
             container_number=order.container_number
@@ -12165,7 +12166,7 @@ class Accounting(View):
                 warehouse == "LA"
                 and order.order_type == "转运"
                 and retrieval_carrier == "Eric"
-        ) or retrieval_carrier == "客户自送"
+        ) or (retrieval_carrier == "客户自送" and warehouse_precise_p == "LA-91761")
 
         # 查找报价表（仅非Eric订单执行）
         quotation = None
@@ -12448,6 +12449,7 @@ class Accounting(View):
         groups = context["groups"]
         context.update({
             "actual_day": actual_day,
+            "warehouse_precise_p": warehouse_precise_p,
             "pallet_details": pallet_details,
             "palletization_carrier": palletization_carrier,
             "overweight_fee": overweight_fee,
