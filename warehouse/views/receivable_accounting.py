@@ -9670,16 +9670,32 @@ class ReceivableAccounting(View):
 
         container_type = container.container_type
         #  基础数据统计
-        plts = Pallet.objects.filter(
-            container_number__container_number=container_number
-        ).aggregate(
-            unique_destinations=Count("destination", distinct=True),
-            total_weight=Sum("weight_lbs"),
-            total_cbm=Sum("cbm"),
-            total_pallets=Count("id"),
-        )
-        plts["total_cbm"] = round(plts["total_cbm"], 2)
-        plts["total_weight"] = round(plts["total_weight"], 2)
+        # 先从Pallet表查询
+        pallet_query = Pallet.objects.filter(container_number__container_number=container_number)
+        is_from_packing_list = False
+        
+        if not pallet_query.exists():
+            # Pallet表为空，从PackingList表查询
+            is_from_packing_list = True
+            packing_query = PackingList.objects.filter(container_number__container_number=container_number)
+        
+        if not is_from_packing_list:
+            plts = pallet_query.aggregate(
+                unique_destinations=Count("destination", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+                total_pallets=Count("id"),
+            )
+        else:
+            plts = packing_query.aggregate(
+                unique_destinations=Count("destination", distinct=True),
+                total_weight=Sum("total_weight_lbs"),
+                total_cbm=Sum("cbm"),
+                total_pallets=Count("id"),
+            )
+        
+        plts["total_cbm"] = round(plts["total_cbm"], 2) if plts["total_cbm"] is not None else 0
+        plts["total_weight"] = round(plts["total_weight"], 2) if plts["total_weight"] is not None else 0
         # 获取匹配的报价表
         matching_quotation = (
             QuotationMaster.objects.filter(
@@ -9744,17 +9760,22 @@ class ReceivableAccounting(View):
             return context, False, f"总仓点超过{uncombina_threshold}个" # 不是组合柜
 
         # 按区域统计
-        destinations = (
-            Pallet.objects.filter(container_number__container_number=container_number)
-            .values_list("destination", flat=True)
-            .distinct()
-        )
-        plts_by_destination = (
-            Pallet.objects.filter(container_number__container_number=container_number)
-            .values("destination")
-            .annotate(total_cbm=Sum("cbm"))
-        )
-        total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
+        if not is_from_packing_list:
+            destinations = (
+                pallet_query.values_list("destination", flat=True).distinct()
+            )
+            plts_by_destination = (
+                pallet_query.values("destination").annotate(total_cbm=Sum("cbm"))
+            )
+        else:
+            destinations = (
+                packing_query.values_list("destination", flat=True).distinct()
+            )
+            plts_by_destination = (
+                packing_query.values("destination").annotate(total_cbm=Sum("cbm"))
+            )
+        
+        total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination if item["total_cbm"] is not None)
         # 区分组合柜区域和非组合柜区域
         if not container_type:
             raise ValueError("订单缺少柜型，请补充！")
