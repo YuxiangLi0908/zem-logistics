@@ -8629,6 +8629,31 @@ class ReceivableAccounting(View):
             PO_ID=""
         )
 
+        # 检查Pallet表是否有数据
+        is_from_packing_list = False
+        if not base_query.exists():
+            # Pallet表为空，从PackingList表查询
+            is_from_packing_list = True
+            query_filters_packing = {
+                'container_number__container_number': container_number,
+            }
+            if not ignore_del_type:
+                query_filters_packing['delivery_type'] = delivery_type
+            base_query = PackingList.objects.filter(
+                **query_filters_packing
+            ).exclude(
+                PO_ID__isnull=True
+            ).exclude(
+                PO_ID=""
+            )
+            other_query = PackingList.objects.filter(
+                container_number__container_number=container_number
+            ).exclude(
+                PO_ID__isnull=True
+            ).exclude(
+                PO_ID=""
+            )
+
         group_fields = [
             "PO_ID",
             "destination",
@@ -8642,27 +8667,55 @@ class ReceivableAccounting(View):
             group_fields.append("shipping_mark")
 
         # 按PO_ID分组统计
-        pallet_groups = list(
-            base_query.values(*group_fields)
-            .annotate(
-                total_pallets=models.Count("pallet_id"),
-                total_cbm=models.Sum("cbm"),
-                total_weight_lbs=models.Sum("weight_lbs"),
-                pallet_ids=ArrayAgg("pallet_id"),
-                shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
-            ).order_by("PO_ID")
-        )
+        if not is_from_packing_list:
+            pallet_groups = list(
+                base_query.values(*group_fields)
+                .annotate(
+                    total_pallets=models.Count("pallet_id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("weight_lbs"),
+                    pallet_ids=ArrayAgg("pallet_id"),
+                    shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
+                ).order_by("PO_ID")
+            )
 
-        other_pallet_groups = list(
-            other_query.values(*group_fields)
-            .annotate(
-                total_pallets=models.Count("pallet_id"),
-                total_cbm=models.Sum("cbm"),
-                total_weight_lbs=models.Sum("weight_lbs"),
-                pallet_ids=ArrayAgg("pallet_id"),
-                shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
-            ).order_by("delivery_type")
-        )
+            other_pallet_groups = list(
+                other_query.values(*group_fields)
+                .annotate(
+                    total_pallets=models.Count("pallet_id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("weight_lbs"),
+                    pallet_ids=ArrayAgg("pallet_id"),
+                    shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
+                ).order_by("delivery_type")
+            )
+        else:
+            # 从PackingList查询，需要手动处理一些字段
+            pallet_groups = list(
+                base_query.values(*group_fields)
+                .annotate(
+                    total_pallets=models.Count("id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("total_weight_lbs"),
+                ).order_by("PO_ID")
+            )
+            # 添加缺失的字段
+            for group in pallet_groups:
+                group['pallet_ids'] = []
+                group['_from_packing_list'] = True
+
+            other_pallet_groups = list(
+                other_query.values(*group_fields)
+                .annotate(
+                    total_pallets=models.Count("id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("total_weight_lbs"),
+                ).order_by("delivery_type")
+            )
+            # 添加缺失的字段
+            for group in other_pallet_groups:
+                group['pallet_ids'] = []
+                group['_from_packing_list'] = True
         if not pallet_groups:
             error_messages.append("未找到板子数据")
             context['error_messages'] = error_messages
@@ -8673,55 +8726,56 @@ class ReceivableAccounting(View):
         ).get(container_number__container_number=container_number)
         vessel_eta = order.vessel_id.vessel_eta
 
-        # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
-        for group in pallet_groups:
-            po_id = group.get("PO_ID")
-            shipping_marks = group.get("shipping_marks")
-            if po_id:
-                if delivery_type == "other":
-                    try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
-                            total_cbm=Sum('cbm'),
-                            total_weight_lbs=Sum('total_weight_lbs')
-                        )  
-                        if aggregated['total_cbm'] is not None:
-                            group['total_cbm'] = aggregated['total_cbm']
-                        if aggregated['total_weight_lbs'] is not None:
-                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
-                        
-                    except Exception as e:
-                        # 如果查询出错，不修改值
-                        continue
-                else:
-                    if '_' in po_id:
-                        continue
-                    try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
-                            total_cbm=Sum('cbm'),
-                            total_weight_lbs=Sum('total_weight_lbs')
-                        )
-                        if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
-                            # 去掉下划线再查，同时匹配 shipping_marks
-                            po_id_modified = po_id.split('_', 1)[0]
-                            aggregated = PackingList.objects.filter(
-                                PO_ID=po_id_modified,
-                                shipping_mark=shipping_marks
-                            ).aggregate(
+        # 对每个PO组，从PackingList表中获取准确的CBM和重量数据（仅当不是从PackingList查询时）
+        if not is_from_packing_list:
+            for group in pallet_groups:
+                po_id = group.get("PO_ID")
+                shipping_marks = group.get("shipping_marks")
+                if po_id:
+                    if delivery_type == "other":
+                        try:
+                            aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
+                                total_cbm=Sum('cbm'),
+                                total_weight_lbs=Sum('total_weight_lbs')
+                            )  
+                            if aggregated['total_cbm'] is not None:
+                                group['total_cbm'] = aggregated['total_cbm']
+                            if aggregated['total_weight_lbs'] is not None:
+                                group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                            
+                        except Exception as e:
+                            # 如果查询出错，不修改值
+                            continue
+                    else:
+                        if '_' in po_id:
+                            continue
+                        try:
+                            aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
-                        if aggregated['total_cbm'] is not None:
-                            group['total_cbm'] = aggregated['total_cbm']
-                        if aggregated['total_weight_lbs'] is not None:
-                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                            if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
+                                # 去掉下划线再查，同时匹配 shipping_marks
+                                po_id_modified = po_id.split('_', 1)[0]
+                                aggregated = PackingList.objects.filter(
+                                    PO_ID=po_id_modified,
+                                    shipping_mark=shipping_marks
+                                ).aggregate(
+                                    total_cbm=Sum('cbm'),
+                                    total_weight_lbs=Sum('total_weight_lbs')
+                                )
+                            if aggregated['total_cbm'] is not None:
+                                group['total_cbm'] = aggregated['total_cbm']
+                            if aggregated['total_weight_lbs'] is not None:
+                                group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                            
+                        except Exception as e:
+                            # 如果查询出错，不修改值
+                            continue
                         
-                    except Exception as e:
-                        # 如果查询出错，不修改值
-                        continue
-                    
-            else:
-                # 没有PO_ID的情况
-                raise ValueError('pallet缺少PO_ID')
+                else:
+                    # 没有PO_ID的情况
+                    raise ValueError('pallet缺少PO_ID')
         
         if other_pallet_groups:
             container = Container.objects.get(container_number=container_number)
