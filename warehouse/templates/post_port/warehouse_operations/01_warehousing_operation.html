@@ -275,8 +275,7 @@
                                             <input type="hidden" name="action_type" value="new_export">
                                             <button type="submit" class="bg-success text-white text-xs px-2 py-1 rounded hover:bg-success/90" {% if not order.container_number %}disabled{% endif %}>新拆柜单</button>
                                         </form>
-                                        <form method="post" class="download-form m-0"
-                                              onsubmit="return handleDownloadAndUpdate(this)">
+                                        <form method="post" class="download-form m-0" action="">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
                                             <input type="hidden" name="status" value="non_palletized">
