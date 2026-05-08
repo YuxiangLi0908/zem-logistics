@@ -2743,6 +2743,7 @@ class ReceivableAccounting(View):
 
         # 针对未计算过费用的板子进行自动计算
         result_new = self._process_fix_unbilled_groups(
+            request=request,
             pallet_groups=final_pallet_groups,
             container=order.container_number,
             order=order,
@@ -2753,6 +2754,7 @@ class ReceivableAccounting(View):
     
     def _process_fix_unbilled_groups(
         self,
+        request,
         pallet_groups: List[Dict],
         container,
         order,
@@ -2788,10 +2790,13 @@ class ReceivableAccounting(View):
 
         rules = fee_details.get(combina_key).details
         
+        # 获取container_type_temp
+        container_type = container.container_type
+        container_type_temp = 0 if container_type and "40" in container_type else 1
+        
         quotation_info = quotations['quotation']
         result = {
             "normal_items": [],
-            "combina_items": [], 
             "combina_items": [],
             "combina_groups": [],
             "combina_info": {},
@@ -2806,53 +2811,129 @@ class ReceivableAccounting(View):
             )
             total_container_cbm = round(total_container_cbm_result['total_cbm'] or 0.0, 2)
 
-            # 按区域分组组合柜数据
-            combina_items_by_region = {}
-            total_combina_cbm = 0.0
+            # 第一步：先找出所有属于组合柜范围的group
+            combina_candidates = []  # 存储所有可能的组合柜group，包含相关信息
+            combina_groups_info = {}  # key: destination, value: {total_cbm, groups[], region, price_item}
             
-            combina_pallet_groups = []
-            processed_po_ids = set()
-            need_Additional_des = []
-            poid_list = []
-
             for group in pallet_groups:
                 po_id = group.get("PO_ID", "")
                 destination_str = group.get("destination", "")
-                shipping_mark = group.get("shipping_marks", "")
-                poid_list.append(po_id)
-
+                
                 # 规范处理好目的地的格式
                 _, destination = self._process_destination(destination_str)
                 
                 # 检查是否属于组合区域
-                is_combina_region = False # 默认不是组合柜
+                is_combina_region = False
+                matched_region = None
+                matched_item = None
+                
                 for region, region_data in rules.items():
                     for item in region_data:
                         normalized_locations = [loc.strip() for loc in item["location"] if loc]
                         if destination in normalized_locations:
                             is_combina_region = True
+                            matched_region = region
+                            matched_item = item
                             break
                     if is_combina_region:
                         break
+                
                 if destination.upper() == "UPS":
                     is_combina_region = False
                 
                 if is_combina_region:
-                    if destination in occupied_combina_dests:
-                        # 该目的地已在组合柜名单里，直接加入
-                        combina_pallet_groups.append(group)
-                        processed_po_ids.add(po_id)
-                    elif combina_dest_count < combina_threshold:
-                        # 这是一个新仓点，且组合柜名额还没满
-                        combina_dest_count += 1
-                        occupied_combina_dests.add(destination)
-                        combina_pallet_groups.append(group)
-                        processed_po_ids.add(po_id)
-                    else:
-                        # 这是一个新仓点，但名额已满，强制转为非组合柜
-                        is_combina_region = False
-                # 从待处理的pallet_groups中移除已处理的组合柜记录
-                pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
+                    # 加入候选列表
+                    group_cbm = group.get("total_cbm", 0)
+                    combina_candidates.append({
+                        "group": group,
+                        "destination": destination,
+                        "region": matched_region,
+                        "price_item": matched_item,
+                        "cbm": group_cbm
+                    })
+                    
+                    # 按destination汇总
+                    if destination not in combina_groups_info:
+                        combina_groups_info[destination] = {
+                            "total_cbm": 0,
+                            "groups": [],
+                            "region": matched_region,
+                            "price_item": matched_item
+                        }
+                    combina_groups_info[destination]["total_cbm"] += group_cbm
+                    combina_groups_info[destination]["groups"].append(group)
+            
+            # 第二步：如果目的地数量超过combina_threshold，去掉CBM最大的几个
+            unique_destinations = list(combina_groups_info.keys())
+            if len(unique_destinations) > combina_threshold:
+                # 按destination的总CBM从大到小排序
+                sorted_destinations = sorted(
+                    unique_destinations,
+                    key=lambda d: combina_groups_info[d]["total_cbm"],
+                    reverse=True
+                )
+                # 保留前combina_threshold个
+                selected_destinations = set(sorted_destinations[combina_threshold:])
+                # 从combina_candidates中移除被排除的destination
+                combina_candidates = [
+                    c for c in combina_candidates 
+                    if c["destination"] not in selected_destinations
+                ]
+                # 更新combina_groups_info
+                for dest in selected_destinations:
+                    del combina_groups_info[dest]
+            
+            # 第三步：处理组合柜的group，计费并保存到InvoiceItemv2
+            combina_pallet_groups = []
+            for candidate in combina_candidates:
+                group = candidate["group"]
+                destination = candidate["destination"]
+                region = candidate["region"]
+                price_item = candidate["price_item"]
+                group_cbm = candidate["cbm"]
+                
+                # 计算费用
+                price_base = price_item["price"][container_type_temp]
+                cbm_ratio = group_cbm / total_container_cbm if total_container_cbm > 0 else 0
+                amount = price_base * cbm_ratio
+                
+                # 确定item_category
+                delivery_type = group.get("delivery_type", "")
+                if delivery_type == "public":
+                    item_category = "delivery_public"
+                else:
+                    item_category = "delivery_other"
+                
+                # 计算qty
+                qty = round(group_cbm / cbm_per_pl, 2) if cbm_per_pl > 0 else 0
+                
+                # 保存到InvoiceItemv2
+                InvoiceItemv2.objects.create(
+                    invoice_number=invoice,
+                    container_number=container,
+                    invoice_type="receivable",
+                    item_category=item_category,
+                    cbm=group_cbm,
+                    cbm_ratio=cbm_ratio,
+                    weight=group.get("total_weight_lbs", 0),
+                    description="派送费",
+                    qty=qty,
+                    rate=price_base,
+                    regionPrice=price_base,
+                    amount=amount,
+                    PO_ID=group.get("PO_ID", ""),
+                    delivery_type=delivery_type,
+                    shipping_marks=group.get("shipping_marks", ""),
+                    warehouse_code=destination,
+                    region=region,
+                    registered_user=request.user.username if request.user.is_authenticated else None
+                )
+                
+                combina_pallet_groups.append(group)
+            
+            # 第四步：整理出非组合柜的group给后续处理
+            processed_po_ids = set(g.get("PO_ID", "") for g in combina_pallet_groups)
+            pallet_groups = [g for g in pallet_groups if g.get("PO_ID", "") not in processed_po_ids]
 
         # 处理未录入的PO
         if pallet_groups:
