@@ -89,6 +89,7 @@
                                         <input type="hidden" name="step" value="trans_arrival">
                                         <input type="hidden" name="batch_id" value="{{ c.id }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                         <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
                                             <small>确认送达</small>
                                         </button>
@@ -124,6 +125,8 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
                                             <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                             <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
                                             <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                             <input type="hidden" name="n_label" value="3">
@@ -135,6 +138,8 @@
                                         <form method="post" action="" style="display: inline-block;">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
                                             <input type="hidden" name="container_number" value="{{ c.container_number }}">
@@ -147,6 +152,8 @@
                                         <form method="post" action="" style="display: inline-block;">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                             <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
@@ -159,6 +166,7 @@
                                             <input type="hidden" name="step" value="new_export_palletization_list">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                             <input type="hidden" name="first_time_download" value="{% now 'Y-m-d H:i:s' %}">
                                             <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                             <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
@@ -169,6 +177,8 @@
                                         <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                             <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this, '{{ c.container_number }}', '{{ c.customer_name.zem_code }}')" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">托盘标手动打印</button>
                                             <div class="popup" style="display: none; z-index: 9999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); width: 90%; max-width: 1200px; max-height: 85vh; overflow: hidden;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
@@ -318,6 +328,8 @@
                                 <form method="post" action="" style="display: inline-block;">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_palletization_list">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                     <input type="hidden" name="status" value="palletized">
                                     <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                     <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
@@ -328,6 +340,8 @@
                                 <form method="post" action="" style="display: inline-block;">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_pallet_label">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                     <input type="hidden" name="status" value="palletized">
                                     <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
                                     <input type="hidden" name="container_number" value="{{ c.container_number }}">
@@ -340,6 +354,8 @@
                                 <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_pallet_label">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                     <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this, '{{ c.container_number }}', '{{ c.customer_name.zem_code }}')" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">托盘标手动打印</button>
                                     <div class="popup" style="display: none; z-index: 9999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); width: 90%; max-width: 1200px; max-height: 85vh; overflow: hidden;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
@@ -440,6 +456,7 @@
                                         <input type="hidden" name="step" value="cancel_la_public">
                                         <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                         <button type="submit" class="btn btn-danger" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
                                             <i class="bi bi-x-octagon"></i>
                                         </button>
@@ -448,6 +465,8 @@
                                     <form method="post" action="">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="cancel">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                         <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                         <button type="submit" class="btn btn-danger" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
                                             <i class="bi bi-x-octagon"></i>
