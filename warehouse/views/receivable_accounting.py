@@ -2237,7 +2237,8 @@ class ReceivableAccounting(View):
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
-        items_data_json = request.POST.get('items_data')      
+        items_data_json = request.POST.get('items_data')    
+        is_fix_page = request.POST.get('is_fix_page')  
         
         #有错误时，要重新加载页面而准备的数据
         get_params = QueryDict(mutable=True)
@@ -2247,6 +2248,8 @@ class ReceivableAccounting(View):
         request.GET = get_params
         if not container_number or not invoice_number or not items_data_json:       
             context.update({'error_messages': '缺少必要参数！'})
+            if is_fix_page:
+                return self.handle_fix_account_entry_post(request, context)
             return self.handle_confirm_entry_post(request, context)
 
         try:
@@ -2255,6 +2258,8 @@ class ReceivableAccounting(View):
                 items_data = json.loads(items_data)
         except json.JSONDecodeError as e:
             context.update({'error_messages': '表格数据解析错误！'})
+            if is_fix_page:
+                return self.handle_fix_account_entry_post(request, context)
             return self.handle_confirm_entry_post(request, context)
         
         # 获取容器和发票对象
@@ -2263,6 +2268,8 @@ class ReceivableAccounting(View):
             invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         except (Container.DoesNotExist, Invoicev2.DoesNotExist) as e:
             context.update({'error_messages': '查不到柜号或者账单记录'})
+            if is_fix_page:
+                return self.handle_fix_account_entry_post(request, context)
             return self.handle_confirm_entry_post(request, context)
         
         # 存储统计信息
@@ -2374,6 +2381,8 @@ class ReceivableAccounting(View):
                 })
                 error_messages = f'保存项目失败: {str(e)}, 数据: {item}'
                 context.update({'error_messages': error_messages})
+                if is_fix_page:
+                    return self.handle_fix_account_entry_post(request, context)
                 return self.handle_confirm_entry_post(request, context)
         
         # 更新发票总额
@@ -2408,6 +2417,8 @@ class ReceivableAccounting(View):
         # 返回成功消息
         success_message = f"成功保存 {len(saved_items)} 条记录，总额: {total_amount:.2f} USD"
         context.update({'success_message': success_message})
+        if is_fix_page:
+            return self.handle_fix_account_entry_post(request, context)
         return self.handle_confirm_entry_post(request, context)
 
     def _parse_invoice_excel_data(
@@ -2625,12 +2636,18 @@ class ReceivableAccounting(View):
         
         # 其他费用
         if is_combina:       
+            # 删除已有的combina_extra_fee记录
+            InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                item_category="combina_extra_fee"
+            ).delete()
             # 这里表示是组合柜的方式计算
             new_get = request.GET.copy()
             new_get['is_new_version'] = True
             request.GET = new_get
             setattr(request, "is_from_account_confirmation", True)
             ctx = self.handle_container_invoice_combina_get(request)
+            ctx.update({"is_fix_page": True})
             return self.template_invoice_combina_edit, ctx
         else:
             items = InvoiceItemv2.objects.filter(
@@ -2690,6 +2707,7 @@ class ReceivableAccounting(View):
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
                 "is_combina": is_combina,
+                "is_fix_page": True
             }
             return self.template_confirm_transfer_edit, context
     
@@ -3338,6 +3356,7 @@ class ReceivableAccounting(View):
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
                 "is_combina": is_combina,
+                "is_fix_page": False,
             }
             return self.template_confirm_transfer_edit, context
 
@@ -11509,6 +11528,8 @@ class ReceivableAccounting(View):
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         overweight_fee = float(request.POST.get("overweight_fee", 0))
         overpallet_fee_str = request.POST.get("overpallet_fee")
+        is_fix_page = request.POST.get("is_fix_page")
+
         if overpallet_fee_str in (None, ''):
             overpallet_fee = 0.0
         else:
@@ -11709,7 +11730,11 @@ class ReceivableAccounting(View):
         status_obj.finance_status = "completed"
         status_obj.save()
         ctx = {'success_messages': '保存成功！'}
-        return self.handle_confirm_entry_post(request,ctx)
+
+        if is_fix_page:
+            # 要跳转回待核销固定费用的页面
+            return self.handle_fix_account_entry_post(request, ctx)
+        return self.handle_confirm_entry_post(request, ctx)
     
     
 
