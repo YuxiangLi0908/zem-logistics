@@ -242,18 +242,44 @@
                                         <form method="post" class="download-form m-0" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
-                                            <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                            <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
+                                            <input type="hidden" name="arrival_location"
+                                                   value="{{ ret.arrival_location|default:''|upper }}">
+                                            <input type="hidden" name="unpacking_status"
+                                                   value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="first_time_download" class="first-time-input"
+                                                   value="">
+                                            <input type="hidden" name="container_number"
+                                                   value="{{ order.container_number|default:'' }}">
+                                            <input type="hidden" name="action_type" value="export">
                                             <button type="submit" class="bg-success text-white text-xs px-2 py-1 rounded hover:bg-success/90" {% if not order.container_number %}disabled{% endif %}>拆柜单</button>
                                         </form>
                                         <form method="post" class="download-form m-0" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
-                                            <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
-                                            <button type="submit" class="bg-success text-white text-xs px-2 py-1 rounded hover:bg-success/90" {% if not order.container_number %}disabled{% endif %}>新拆柜</button>
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                            <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
+                                            <input type="hidden" name="arrival_location"
+                                                   value="{{ ret.arrival_location|default:''|upper }}">
+                                            <input type="hidden" name="unpacking_status"
+                                                   value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="first_time_download" class="first-time-input"
+                                                   value="">
+                                            <input type="hidden" name="container_number"
+                                                   value="{{ order.container_number|default:'' }}">
+                                            <input type="hidden" name="action_type" value="new_export">
+                                            <button type="submit" class="bg-success text-white text-xs px-2 py-1 rounded hover:bg-success/90" {% if not order.container_number %}disabled{% endif %}>新拆柜单</button>
                                         </form>
                                         <form method="post" class="m-0">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="customer_name" value="{{ order.customer_name.zem_code|default:'' }}">
                                             <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
                                             <button type="submit" class="bg-primary text-white text-xs px-2 py-1 rounded hover:bg-primary/90" {% if not order.container_number %}disabled{% endif %}>托盘标</button>
                                         </form>

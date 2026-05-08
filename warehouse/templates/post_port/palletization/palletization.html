@@ -510,9 +510,12 @@
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
     }
+    function hideLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'none';
+    }
 
     window.onload = function() {
-        document.getElementById('loading-bar').style.display = 'none';
+        hideLoadingBar();
     };
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -520,6 +523,11 @@
         forms.forEach(form => {
             form.addEventListener('submit', function() {
                 showLoadingBar();
+
+                // ✅ 修复：导出类按钮提交后 1 秒自动关闭 loading
+                setTimeout(() => {
+                    hideLoadingBar();
+                }, 1000);
             });
         });
     });
