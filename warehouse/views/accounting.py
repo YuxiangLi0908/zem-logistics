@@ -12148,6 +12148,15 @@ class Accounting(View):
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area if order.retrieval_id else ""
         container_type = order.container_number.container_type if order.container_number else ""
+        pallet_total = Pallet.objects.filter(
+            container_number=order.container_number
+        ).aggregate(
+            total_pcs=Sum('pcs')  # 把 pcs 字段全部求和
+        )['total_pcs'] or 0  # 没有数据返回 0
+
+        context.update({
+            "total_pcs": pallet_total  # 总箱数
+        })
         # 供应商
         retrieval_carrier = order.retrieval_id.retrieval_carrier if order.retrieval_id else ""
 
@@ -12208,7 +12217,7 @@ class Accounting(View):
                 if warehouse_precise == "LA 91789":
                     warehouse_precise = "LA 91761"
                 if warehouse_precise == "LA 91730":
-                    warehouse_precise = "LA 91730"
+                    warehouse_precise = "LA 91761"
                 # 移除Eric相关的报错逻辑（因为已经提前过滤）
                 if pick_subkey == 40 and warehouse:
                     try:
@@ -12259,27 +12268,31 @@ class Accounting(View):
 
             palletization_carrier = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {})
 
-            if 'NJ' == warehouse or 'LA'== warehouse:
+            if 'NJ' == warehouse or 'LA' == warehouse:
                 data = {"actual_day": None, "chassis_fee": None}
                 # 计算车架费
                 cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
                 if act_pick_time and act_pick_time < cutoff_date:
-                    data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier],
+                    data = self._calculate_chassis_fee(context,
+                                                       fee_detail[warehouse][warehouse_precise][preport_carrier],
                                                        order)
                     chassis_fee = data["chassis_fee"]
                     actual_day = data["actual_day"]
                 else:
                     if preport_carrier == "东海岸":
                         data = self._calculate_chassis_fee_91(context,
-                                                              fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+                                                              fee_detail[warehouse][warehouse_precise][preport_carrier],
+                                                              order)
                     elif preport_carrier == "Best":
                         data = self._calculate_chassis_fee_91_best(context,
-                                                              fee_detail[warehouse][warehouse_precise][preport_carrier],
-                                                              order)
+                                                                   fee_detail[warehouse][warehouse_precise][
+                                                                       preport_carrier],
+                                                                   order)
                     elif preport_carrier == "new world":
                         data = self._calculate_chassis_fee_91_new_world(context,
-                                                              fee_detail[warehouse][warehouse_precise][preport_carrier],
-                                                              order)
+                                                                        fee_detail[warehouse][warehouse_precise][
+                                                                            preport_carrier],
+                                                                        order)
                     chassis_fee = data["chassis_fee"]
                     actual_day = data["actual_day"]
 
@@ -12462,14 +12475,14 @@ class Accounting(View):
             "fee_data": fee_data,
             "invoice_number": invoice.invoice_number if invoice else "",
             "invoice": invoice,  # 传递整个invoice对象
-            "quotation_info": {
+            "quotation_info": {} if is_eric_la_transfer else {
                 "quotation_id": quotation.quotation_id if quotation else "",
                 "version": quotation.version if quotation else "",
                 "effective_date": quotation.effective_date if quotation else "",
                 "is_user_exclusive": quotation.is_user_exclusive if quotation else False,
                 "exclusive_user": quotation.exclusive_user if quotation else "",
                 "filename": quotation.filename if quotation else "",  # 添加文件名
-            } if not is_eric_la_transfer else {},  # Eric订单清空报价表信息
+            },
             "pickup_fee": pickup_fee,
             "standard_fee_items": standard_fee_items,
             "existing_descriptions": existing_descriptions,  # 用于前端过滤
