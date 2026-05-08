@@ -507,6 +507,10 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label>柜号搜索：</label>
+                    <input type="text" name="container_number_filter" placeholder="输入柜号..." value="{{ container_number_filter }}">
+                </div>
                 <input type="hidden" name="step" value="confirm_search">
                 <button type="submit" class="btn-filter">
                     <i class="fas fa-search"></i> 查询
@@ -576,6 +580,9 @@
                                                 <span class="invoice-date">补开: {{ c.invoice_created_at|date:"m/d" }} {{ c.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </a>
+                                        {% if c.cancel_notification %}
+                                            <div style="color: red; font-size: 12px; margin-top: 2px;">取消预报</div>
+                                        {% endif %}
                                     </td>
                                     <td class="td">{{ c.order_type }}</td>
                                     <td class="td">{{ c.retrieval_id__retrieval_destination_precise }}</td>
@@ -691,6 +698,9 @@
                                                 <span class="invoice-date">补开: {{ c.invoice_created_at|date:"m/d" }} {{ c.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </a>
+                                        {% if c.cancel_notification %}
+                                            <div style="color: red; font-size: 12px; margin-top: 2px;">取消预报</div>
+                                        {% endif %}
                                     </td>
                                     <td class="td">{{ c.order_type }}</td>
                                     <td class="td">{{ c.retrieval_id__retrieval_destination_precise }}</td>
