@@ -507,6 +507,7 @@ class Palletization(View):
         offload = order_selected.offload_id
         order_packing_list = []
         warehouse = request.GET.get("warehouse").split("-")[0].strip()
+        storehouse = request.POST.get("storehouse")
         if (
             request.GET.get("step", None) == "container_palletization"
             and offload.offload_at is None and warehouse == "LA"
@@ -550,6 +551,7 @@ class Palletization(View):
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
             order_packing_list.append((pl, pl_form))
         context["warehouse"] = request.GET.get("warehouse", None)
+        context["storehouse"] = storehouse
         context["order_packing_list"] = order_packing_list
         context["delivery_method_options"] = DELIVERY_METHOD_OPTIONS
         context["container_number"] = container.container_number
