@@ -5051,7 +5051,6 @@ class ReceivableAccounting(View):
         criteria = (
             Q(vessel_id__vessel_etd__gte=start_date)
             & Q(vessel_id__vessel_etd__lte=end_date)
-            & Q(offload_id__offload_at__isnull=False)
         )
 
         if warehouse:
