@@ -8653,17 +8653,38 @@ class ReceivableAccounting(View):
             ).exclude(
                 PO_ID=""
             )
+        
+        # 先获取order，以便后面使用
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "vessel_id"
+        ).get(container_number__container_number=container_number)
+        location_value = order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None
 
-        group_fields = [
-            "PO_ID",
-            "destination",
-            "zipcode",
-            "delivery_method",
-            "location",
-            "delivery_type",
-        ]
+        # 从PackingList查询时不需要location字段
+        if is_from_packing_list:
+            group_fields = [
+                "PO_ID",
+                "destination",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+            ]
+        else:
+            group_fields = [
+                "PO_ID",
+                "destination",
+                "zipcode",
+                "delivery_method",
+                "location",
+                "delivery_type",
+            ]
 
-        if delivery_type == "other":
+        # 为other_pallet_groups准备完整的group_fields（包含所有可能的delivery_type）
+        other_group_fields = group_fields.copy()
+        if "shipping_mark" not in other_group_fields:
+            other_group_fields.append("shipping_mark")
+
+        if delivery_type == "other" and "shipping_mark" not in group_fields:
             group_fields.append("shipping_mark")
 
         # 按PO_ID分组统计
@@ -8680,7 +8701,7 @@ class ReceivableAccounting(View):
             )
 
             other_pallet_groups = list(
-                other_query.values(*group_fields)
+                other_query.values(*other_group_fields)
                 .annotate(
                     total_pallets=models.Count("pallet_id"),
                     total_cbm=models.Sum("cbm"),
@@ -8691,40 +8712,80 @@ class ReceivableAccounting(View):
             )
         else:
             # 从PackingList查询，需要手动处理一些字段
-            pallet_groups = list(
-                base_query.values(*group_fields)
-                .annotate(
-                    total_pallets=models.Count("id"),
-                    total_cbm=models.Sum("cbm"),
-                    total_weight_lbs=models.Sum("total_weight_lbs"),
-                ).order_by("PO_ID")
-            )
-            # 添加缺失的字段
-            for group in pallet_groups:
-                group['pallet_ids'] = []
-                group['_from_packing_list'] = True
+            # 先获取原始数据，不分组
+            pallet_raw_data = list(base_query.values(*group_fields))
+            
+            # 手动分组
+            pallet_groups_dict = {}
+            for item in pallet_raw_data:
+                po_id = item.get("PO_ID")
+                shipping_mark = item.get("shipping_mark", "")
+                key = f"{po_id}_{shipping_mark}" if delivery_type == "other" else po_id
+                
+                if key not in pallet_groups_dict:
+                    pallet_groups_dict[key] = {
+                        "PO_ID": po_id,
+                        "destination": item.get("destination"),
+                        "zipcode": item.get("zipcode"),
+                        "delivery_method": item.get("delivery_method"),
+                        "delivery_type": item.get("delivery_type"),
+                        "shipping_mark": shipping_mark if delivery_type == "other" else None,
+                        "shipping_marks": shipping_mark,
+                        "total_pallets": 0,
+                        "total_cbm": 0,
+                        "total_weight_lbs": 0,
+                        "pallet_ids": [],
+                        "_from_packing_list": True,
+                        "location": location_value,
+                    }
+                
+                pallet_groups_dict[key]["total_pallets"] += 1
+                pallet_groups_dict[key]["total_cbm"] += item.get("cbm", 0) or 0
+                pallet_groups_dict[key]["total_weight_lbs"] += item.get("total_weight_lbs", 0) or 0
+            
+            pallet_groups = list(pallet_groups_dict.values())
+            pallet_groups.sort(key=lambda x: x.get("PO_ID", ""))
 
-            other_pallet_groups = list(
-                other_query.values(*group_fields)
-                .annotate(
-                    total_pallets=models.Count("id"),
-                    total_cbm=models.Sum("cbm"),
-                    total_weight_lbs=models.Sum("total_weight_lbs"),
-                ).order_by("delivery_type")
-            )
-            # 添加缺失的字段
-            for group in other_pallet_groups:
-                group['pallet_ids'] = []
-                group['_from_packing_list'] = True
+            # 处理other_pallet_groups
+            other_raw_data = list(other_query.values(*other_group_fields))
+            other_groups_dict = {}
+            for item in other_raw_data:
+                po_id = item.get("PO_ID")
+                shipping_mark = item.get("shipping_mark", "")
+                key = f"{po_id}_{shipping_mark}"
+                
+                if key not in other_groups_dict:
+                    other_groups_dict[key] = {
+                        "PO_ID": po_id,
+                        "destination": item.get("destination"),
+                        "zipcode": item.get("zipcode"),
+                        "delivery_method": item.get("delivery_method"),
+                        "delivery_type": item.get("delivery_type"),
+                        "shipping_mark": shipping_mark,
+                        "shipping_marks": shipping_mark,
+                        "total_pallets": 0,
+                        "total_cbm": 0,
+                        "total_weight_lbs": 0,
+                        "pallet_ids": [],
+                        "_from_packing_list": True,
+                        "location": location_value,
+                    }
+                
+                other_groups_dict[key]["total_pallets"] += 1
+                other_groups_dict[key]["total_cbm"] += item.get("cbm", 0) or 0
+                other_groups_dict[key]["total_weight_lbs"] += item.get("total_weight_lbs", 0) or 0
+            
+            other_pallet_groups = list(other_groups_dict.values())
+            other_pallet_groups.sort(key=lambda x: x.get("delivery_type", ""))
         if not pallet_groups:
             error_messages.append("未找到板子数据")
             context['error_messages'] = error_messages
             return [], [], context
         
-        order = Order.objects.select_related(
-            "retrieval_id", "container_number", "vessel_id"
-        ).get(container_number__container_number=container_number)
         vessel_eta = order.vessel_id.vessel_eta
+
+        # 如果是从PackingList查询的，已经添加了location字段
+        # 否则不需要额外处理
 
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据（仅当不是从PackingList查询时）
         if not is_from_packing_list:
