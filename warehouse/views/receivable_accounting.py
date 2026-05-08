@@ -2749,7 +2749,7 @@ class ReceivableAccounting(View):
             order=order,
             invoice=invoice,
             is_combina=is_combina,
-            warehouse=warehouse
+            warehouse=order.retrieval_id.retrieval_destination_precise
         )
     
     def _process_fix_unbilled_groups(
@@ -5223,6 +5223,7 @@ class ReceivableAccounting(View):
             criteria &= Q(customer_name__zem_name=customer)
         if container_number_filter:
             criteria &= Q(container_number__container_number=container_number_filter)
+        print('criteria',criteria)
     
         # --- 3. 获取基础订单数据 ---
         base_orders = (
