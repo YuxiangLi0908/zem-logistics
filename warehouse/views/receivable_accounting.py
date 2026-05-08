@@ -2619,30 +2619,297 @@ class ReceivableAccounting(View):
         #然后开始自动计算，先自动计算提拆费
         if not is_combina:
             # 非组合才有提拆费
-            self._auto_calculate_pickup_fee(order, quotation, context, match)
+            self._auto_calculate_pickup_fee(request, order, quotation, context, match, invoice, container)
 
         # 再自动计算派送费
+        self._auto_calculate_delivery_fee(request, order, quotation, context, match, invoice, container, is_combina)
         
         return self.template_fix_account_entry, context
+    
+    def _auto_calculate_delivery_fee(self, request: HttpRequest, order: Order, quotation, context, match, invoice: Invoicev2, container: Container, is_combina) -> None:
+        '''派送费用的自动计算'''
+        # 获取板子数据
+        error_messages = []
+        base_query = Pallet.objects.filter(container_number=order.container_number).exclude(PO_ID__isnull=True, PO_ID="")
+
+        final_pallet_groups = []
+
+        # ========== 处理public类型 ==========
+        public_base_query = base_query.filter(delivery_type="public")
+        if public_base_query.exists():
+            group_fields_public = [
+                "PO_ID",
+                "destination",
+                "zipcode",
+                "delivery_method",
+                "location",
+                "delivery_type",
+            ]
+            public_groups = list(
+                public_base_query.values(*group_fields_public)
+                .annotate(
+                    total_pallets=models.Count("pallet_id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("weight_lbs"),
+                    pallet_ids=ArrayAgg("pallet_id"),
+                ).order_by("PO_ID")
+            )
+
+            # 对public组，从PackingList表中获取准确的CBM和重量数据
+            for group in public_groups:
+                po_id = group.get("PO_ID")
+                group['shipping_marks'] = ""  # public类型shipping_mark设为空
+                if po_id:
+                    if '_' in po_id:
+                        continue
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        if aggregated['total_cbm'] is not None:
+                            group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_weight_lbs'] is not None:
+                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                    except Exception as e:
+                        continue
+                else:
+                    raise ValueError('pallet缺少PO_ID')
+
+            # 检查public的existing_items，移除已计算过的记录
+            existing_public_items = self._get_existing_invoice_items(invoice, "delivery_public")
+            existing_public_keys = set(existing_public_items.keys())
+            for group in public_groups:
+                po_id = group.get("PO_ID")
+                if po_id not in existing_public_keys:
+                    final_pallet_groups.append(group)
+
+        # ========== 处理other类型 ==========
+        other_base_query = base_query.filter(delivery_type="other")
+        if other_base_query.exists():
+            group_fields_other = [
+                "PO_ID",
+                "destination",
+                "zipcode",
+                "delivery_method",
+                "location",
+                "delivery_type",
+                "shipping_mark",
+            ]
+            other_groups = list(
+                other_base_query.values(*group_fields_other)
+                .annotate(
+                    total_pallets=models.Count("pallet_id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("weight_lbs"),
+                    pallet_ids=ArrayAgg("pallet_id"),
+                    shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
+                ).order_by("PO_ID")
+            )
+
+            # 对other组，从PackingList表中获取准确的CBM和重量数据
+            for group in other_groups:
+                po_id = group.get("PO_ID")
+                shipping_marks = group.get("shipping_marks")
+                if po_id:
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_marks).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        if aggregated['total_cbm'] is not None:
+                            group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_weight_lbs'] is not None:
+                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                    except Exception as e:
+                        continue
+                else:
+                    raise ValueError('pallet缺少PO_ID')
+
+            # 检查other的existing_items，移除已计算过的记录
+            existing_other_items = self._get_existing_invoice_items(invoice, "delivery_other")
+            existing_other_keys = set(existing_other_items.keys())
+            for group in other_groups:
+                po_id = group.get("PO_ID")
+                shipping_mark = group.get("shipping_marks", "")
+                dict_key = f"{po_id}-{shipping_mark}"
+                if dict_key not in existing_other_keys:
+                    final_pallet_groups.append(group)
+
+        if not final_pallet_groups:
+            error_messages.append("未找到板子数据")
+            context['error_messages'] = error_messages
+            raise ValueError('未找到板子数据')
+
+        # 针对未计算过费用的板子进行自动计算
+        result_new = self._process_fix_unbilled_groups(
+            pallet_groups=final_pallet_groups,
+            container=order.container_number,
+            order=order,
+            invoice=invoice,
+            is_combina=is_combina,
+            warehouse=warehouse
+        )
+    
+    def _process_fix_unbilled_groups(
+        self,
+        pallet_groups: List[Dict],
+        container,
+        order,
+        invoice,
+        is_combina,
+        warehouse
+    ) -> List[Dict[str, Any]]:
+        """处理未录入费用的PO组"""
+        quotation_info = None
+           
+        quotations = self._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
+        if isinstance(quotations, dict) and quotations.get("error_messages"):
+            return {"error_messages": quotations["error_messages"]}
+        
+        fee_details = quotations['fees']
+        combina_key = f"{warehouse}_COMBINA"
+        if combina_key not in fee_details:
+            context = {
+                "error_messages": f"未找到组合柜报价表规则 {combina_key}"
+            }
+            return (context, [])  # 返回错误，空列表
+
+        stipulate = fee_details.get("COMBINA_STIPULATE").details
+        # 查找cbm_per_pl
+        cbm_per_pl = stipulate['global_rules']['cbm_per_pl']['default']
+
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            # 要求的最大组合柜仓点数量
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        rules = fee_details.get(combina_key).details
+        
+        quotation_info = quotations['quotation']
+        result = {
+            "normal_items": [],
+            "combina_items": [], 
+            "combina_items": [],
+            "combina_groups": [],
+            "combina_info": {},
+        }
+        if is_combina:
+            # 计算组合柜仓点
+            # 计算整个柜子的cbm
+            total_container_cbm_result = PackingList.objects.filter(
+                container_number=container  # 使用container对象，或者container_number字符串
+            ).aggregate(
+                total_cbm=Sum('cbm')
+            )
+            total_container_cbm = round(total_container_cbm_result['total_cbm'] or 0.0, 2)
+
+            # 按区域分组组合柜数据
+            combina_items_by_region = {}
+            total_combina_cbm = 0.0
+            
+            combina_pallet_groups = []
+            processed_po_ids = set()
+            need_Additional_des = []
+            poid_list = []
+
+            for group in pallet_groups:
+                po_id = group.get("PO_ID", "")
+                destination_str = group.get("destination", "")
+                shipping_mark = group.get("shipping_marks", "")
+                poid_list.append(po_id)
+
+                # 规范处理好目的地的格式
+                _, destination = self._process_destination(destination_str)
+                
+                # 检查是否属于组合区域
+                is_combina_region = False # 默认不是组合柜
+                for region, region_data in rules.items():
+                    for item in region_data:
+                        normalized_locations = [loc.strip() for loc in item["location"] if loc]
+                        if destination in normalized_locations:
+                            is_combina_region = True
+                            break
+                    if is_combina_region:
+                        break
+                if destination.upper() == "UPS":
+                    is_combina_region = False
+                
+                if is_combina_region:
+                    if destination in occupied_combina_dests:
+                        # 该目的地已在组合柜名单里，直接加入
+                        combina_pallet_groups.append(group)
+                        processed_po_ids.add(po_id)
+                    elif combina_dest_count < combina_threshold:
+                        # 这是一个新仓点，且组合柜名额还没满
+                        combina_dest_count += 1
+                        occupied_combina_dests.add(destination)
+                        combina_pallet_groups.append(group)
+                        processed_po_ids.add(po_id)
+                    else:
+                        # 这是一个新仓点，但名额已满，强制转为非组合柜
+                        is_combina_region = False
+                # 从待处理的pallet_groups中移除已处理的组合柜记录
+                pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
+
+        # 处理未录入的PO
+        if pallet_groups:
+            for group in pallet_groups:
+                destination = group.get("destination", "")
+                location = group.get("location")
+                
+                if delivery_type == "public":
+                    # 公仓：尝试自动计算费用
+                    vessel_etd = order.vessel_id.vessel_etd
+                    item_data = self._process_public_unbilled(
+                        group=group,
+                        container=container,
+                        order=order,
+                        destination=destination,
+                        location=location,
+                        fee_details=fee_details,
+                        vessel_etd=vessel_etd,
+                        total_container_cbm=total_container_cbm
+                    )
+                    
+                else:
+                    # 私仓：只确定类型，不创建记录
+                    item_data = self._process_private_unbilled(
+                        group=group,
+                        invoice=invoice,
+                        total_container_cbm=total_container_cbm
+                    )
+
+                if isinstance(item_data, dict) and item_data.get("error_messages"):
+                    if quotation_info:
+                        extra = f"（报价表：{quotation_info.filename} v{quotation_info.version}）"
+                        item_data["error_messages"] += extra
+                        return item_data
+                if not item_data:
+                    continue
+                # 如果是组合柜项目，添加到对应的分组
+                result["normal_items"].append(item_data)
+        
+        # 计算组合柜总信息（如果还没有计算过）
+        if not result["combina_info"] and result["combina_items"]:
+            total_base_fee = sum(item.get("amount", 0) for item in result["combina_items"])
+            total_cbm = sum(item.get("total_cbm", 0) for item in result["combina_items"])
+            
+            result["combina_info"] = {
+                "base_fee": round(total_base_fee, 2),
+                "total_cbm": round(total_cbm, 2),
+                "region_count": len(result["combina_groups"])
+            }
+        return result
+        
 
     def _auto_calculate_pickup_fee(self, request: HttpRequest, order: Order, quotation, context, match, invoice: Invoicev2, container: Container) -> None:
   
         order_type = order.order_type
         non_combina_reason = None
 
-        if order_type != "转运组合":
-            iscombina = False
-        else:
-            container = Container.objects.get(container_number=order.container_number)
-            if container.manually_order_type == "转运":
-                iscombina = False
-                non_combina_reason = container.non_combina_reason
-            elif container.manually_order_type == "转运组合":
-                iscombina = True
-            else:
-                combina_context, iscombina,non_combina_reason = self._is_combina(order.container_number)
-                if combina_context.get("error_messages"):
-                    return self.template_preport_edit, combina_context
         if order_type == "直送":
             fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "direct")
         else:
@@ -2685,6 +2952,13 @@ class ReceivableAccounting(View):
                 amount=float(pickup_fee),
                 registered_user=registered_user
             )
+        else:
+            # 检查并更新rate和amount
+            pickup_fee_float = float(pickup_fee)
+            if existing_item.rate != pickup_fee_float or existing_item.amount != pickup_fee_float:
+                existing_item.rate = pickup_fee_float
+                existing_item.amount = pickup_fee_float
+                existing_item.save()
         
 
     def handle_container_invoice_confirm_get(
