@@ -9186,7 +9186,9 @@ class Accounting(View):
             "GM": "GM",
             "BEST": "BEST",
             "JOHN": "JOHN",
-            "unload": "unload"
+            "unload": "unload",
+            "Iris": "Iris",
+            "New world": "New world",
         }
         context = {
             "order": order,
@@ -12206,7 +12208,9 @@ class Accounting(View):
         FS = {}
 
         # ========== 修改：仅非Eric订单读取报价表费用 ==========
-        if not is_eric_la_transfer and retrieval_carrier != "Eric" and (retrieval_carrier != "客户自送" and warehouse_precise_p != "LA-91761"):
+        if (not is_eric_la_transfer
+                and retrieval_carrier != "Eric"
+                and not (retrieval_carrier == "客户自送" and warehouse_precise_p == "LA-91761")):
             fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
 
             # 计算提拆费
