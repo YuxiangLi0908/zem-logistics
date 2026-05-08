@@ -471,6 +471,7 @@
             <span class="badge">仓库: {{ warehouse }}</span>
             <span class="badge">柜型: {{ container_type }}</span>
             <span class="badge">提柜供应商: {{ preport_carrier }}</span>
+            <span class="badge">总箱数: {{ total_pcs }}</span>
             <span class="badge">
                 {% if is_save_invoice %}
                     {% if is_rejected %}
@@ -933,6 +934,22 @@
                             <i class="bi bi-plus"></i> 添加费用
                         </button>
                     </div>
+                    {% if preport_carrier == "new world" %}
+                        <!-- new world 固定拆柜其他费用选项 -->
+                        <div style="padding:12px 20px; background:#fff7ed; border-left:4px solid #f97316; margin-bottom:10px;">
+                            <div style="font-weight:600; margin-bottom:6px; color:#dc2626;">
+                                <i class="bi bi-lightning-fill"></i> New World 固定费用选项
+                            </div>
+                            <select class="input-field" id="new_world_pallet_options"
+                                    onchange="selectNewWorldPalletFee()"
+                                    style="text-align:left; padding:10px 12px; max-width:100%;">
+                                <option value="">-- 请选择费用 --</option>
+                                <option value="1000箱以下|200">1000箱以下 - $200</option>
+                                <option value="1000箱以上|220">1000箱以上 - $220</option>
+                                <option value="特操|250">特操 - $250</option>
+                            </select>
+                        </div>
+                    {% endif %}
                     <div class="additional-fee-body" id="pallet-fees-container">
                         {% for fee in fee_data %}
                             {% if "拆柜其他费用" in fee.description %}
@@ -1137,6 +1154,47 @@
             计算总额: total,
             格式化后: formattedTotal
         });
+    }
+
+    // 选择 new world 固定拆柜其他费用
+    function selectNewWorldPalletFee() {
+        const select = document.getElementById('new_world_pallet_options');
+        const value = select.value;
+        if (!value) return;
+
+        const [name, rate] = value.split('|');
+        const container = document.getElementById('pallet-fees-container');
+
+        // 1. 先删除所有“完全空白”的行
+        const allRows = container.querySelectorAll('.fee-group');
+        allRows.forEach(row => {
+            const nameInput = row.querySelector('input[name="pallet_fee_name[]"]');
+            const amountInput = row.querySelector('input[name="pallet_fee_amount[]"]');
+            if (nameInput && amountInput && !nameInput.value.trim() && !amountInput.value.trim()) {
+                row.remove();
+            }
+        });
+
+        // 2. 找最后一行（已有内容），直接复用赋值，不新增
+        const lastRow = container.querySelector('.fee-group:last-child');
+        if (lastRow) {
+            const nameInput = lastRow.querySelector('input[name="pallet_fee_name[]"]');
+            const amountInput = lastRow.querySelector('input[name="pallet_fee_amount[]"]');
+            nameInput.value = name;
+            amountInput.value = rate;
+        } else {
+            // 极端情况：一行都没有，才新增一行
+            addFeeGroup('pallet');
+            const newRow = container.querySelector('.fee-group:last-child');
+            const nameInput = newRow.querySelector('input[name="pallet_fee_name[]"]');
+            const amountInput = newRow.querySelector('input[name="pallet_fee_amount[]"]');
+            nameInput.value = name;
+            amountInput.value = rate;
+        }
+
+        // 重置下拉、重算总额
+        select.value = '';
+        calculateTotal();
     }
 </script>
 {% endblock %}
