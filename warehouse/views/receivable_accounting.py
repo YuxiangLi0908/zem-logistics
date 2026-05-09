@@ -4440,6 +4440,11 @@ class ReceivableAccounting(View):
                     
                     base_data = build_order_data(invoice, status_obj)
                     preport_status = base_data['preport_status']
+                    finance_status = base_data['finance_status']
+                    
+                    # 关键过滤：如果财务已经确认但本阶段未完成，不显示
+                    if finance_status == "completed" and preport_status != "completed":
+                        continue
                     
                     # 根据状态分组 (逻辑完全参考原代码)
                     if preport_status == "pending_review":
@@ -4854,8 +4859,12 @@ class ReceivableAccounting(View):
                         # 公仓这里为了保持逻辑独立，copy一份
                         p_item = base_data.copy()
                         p_status = p_item['public_status']
+                        finance_status = p_item['finance_status']
                         
-                        if p_status in ["unstarted", "in_progress", None]:
+                        # 关键过滤：如果财务已经确认但本阶段未完成，不显示
+                        if finance_status == "completed" and p_status != "completed":
+                            pass
+                        elif p_status in ["unstarted", "in_progress", None]:
                             wh_public_to_record_orders.append(p_item)
                         elif p_status in ["completed", "rejected", "confirmed"]:
                             wh_public_recorded_orders.append(p_item)
@@ -4866,8 +4875,12 @@ class ReceivableAccounting(View):
                         # 注入统计数据 (因为私仓排序要用)
                         self._inject_stats_and_ratio(s_item, 'other')
                         s_status = s_item['self_status']
+                        finance_status = s_item['finance_status']
                         
-                        if s_status in ["unstarted", "in_progress", None]:
+                        # 关键过滤：如果财务已经确认但本阶段未完成，不显示
+                        if finance_status == "completed" and s_status != "completed":
+                            pass
+                        elif s_status in ["unstarted", "in_progress", None]:
                             wh_self_to_record_orders.append(s_item)
                         elif s_status in ["completed", "rejected", "confirmed"]:
                             wh_self_recorded_orders.append(s_item)
@@ -6255,7 +6268,11 @@ class ReceivableAccounting(View):
                         item['is_hold'] = is_hold_public
                         self._inject_stats_and_ratio(item, 'public')
                         p_status = item['public_status']
-                        if p_status in ["unstarted", "in_progress", None]:
+                        finance_status = item['finance_status']
+                        # 关键过滤：如果财务已经确认但公仓状态不是 completed，不显示
+                        if finance_status == "completed" and p_status != "completed":
+                            pass
+                        elif p_status in ["unstarted", "in_progress", None]:
                             dl_public_to_record_orders.append(item)
                         elif p_status in ["completed", "rejected"]:
                             dl_public_recorded_orders.append(item)
@@ -6266,7 +6283,11 @@ class ReceivableAccounting(View):
                         item['is_hold'] = is_hold_other
                         self._inject_stats_and_ratio(item, 'other')
                         s_status = item['self_status']
-                        if s_status in ["unstarted", "in_progress", None]:
+                        finance_status = item['finance_status']
+                        # 关键过滤：如果财务已经确认但私仓状态不是 completed，不显示
+                        if finance_status == "completed" and s_status != "completed":
+                            pass
+                        elif s_status in ["unstarted", "in_progress", None]:
                             dl_self_to_record_orders.append(item)
                         elif s_status in ["completed", "rejected"]:
                             dl_self_recorded_orders.append(item)
