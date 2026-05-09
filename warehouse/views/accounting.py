@@ -7946,6 +7946,26 @@ class Accounting(View):
                 "总费用",
                 "还空时间"
             ]
+        elif select_carrier == "new world":
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                "入库拆柜费",
+                "总费用",
+                "还空时间",
+                "车架天数"
+            ]
+        elif select_carrier == "Iris":
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                "拆柜费用",
+                "入库拆柜费",
+                "总费用",
+                "箱数"  # 自动加入箱数
+            ]
         else:
             fixed_fee_types = [
                 "基本费用",
@@ -7969,8 +7989,10 @@ class Accounting(View):
             "拆柜费用": [],
             "入库拆柜费": [],
             "总费用": [],
-            "提柜其他费用": {},  # 格式：{fee_name: [values...]}
-            "拆柜其他费用": {},  # 仅临时存储，不用于表头
+            "车架天数": [],
+            "箱数": [],  # 箱数列统计
+            "提柜其他费用": {},
+            "拆柜其他费用": {},
         }
 
         for order in order_list:
@@ -8013,6 +8035,16 @@ class Accounting(View):
             if not carrier_match:
                 continue
 
+            # ====================== Iris 箱数统计 ======================
+            total_pcs = 0
+            if select_carrier == "Iris":
+                from django.db.models import Sum
+                pcs_sum = Pallet.objects.filter(
+                    container_number=order.container_number
+                ).aggregate(total=Sum('pcs'))['total']
+                total_pcs = pcs_sum if pcs_sum else 0
+            # ==========================================================
+
             # 5.3 初始化行数据
             row_data = {
                 "柜号": order.container_number.container_number if order.container_number else "",
@@ -8034,17 +8066,44 @@ class Accounting(View):
                 "拆柜费用": 0.0,
                 "入库拆柜费": 0.0,
                 "总费用": 0.0,
+                "车架天数": 0,
+                "箱数": total_pcs,  # 自动赋值箱数
                 "提柜其他费用": {},
                 "拆柜其他费用": {},
             }
 
+            # ====================== NEW WORLD 车架天数计算 ======================
+            if select_carrier == "new world":
+                try:
+                    empty_returned_at = order.retrieval_id.empty_returned_at
+                    act_pick_time = order.retrieval_id.actual_retrieval_timestamp
+                    container_type = order.container_number.container_type or ""
+
+                    if empty_returned_at and act_pick_time:
+                        returned_date = empty_returned_at.date()
+                        arrive_date = act_pick_time.date()
+                        delta_days = (returned_date - arrive_date).days
+                        delta = delta_days + 1
+
+                        if "40" in container_type:
+                            actual_day = int(delta - 3)
+                        else:
+                            actual_day = delta
+
+                        row_data["车架天数"] = actual_day
+                    else:
+                        row_data["车架天数"] = 0
+                except:
+                    row_data["车架天数"] = 0
+            # ====================================================================
+
             # ========== 新增核心逻辑：判断是否为LA+转运+Eric订单 或者为客户自送==========
             is_eric_la_transfer = (
-                    order.retrieval_id and
-                    order.retrieval_id.retrieval_destination_area == "LA" and
-                    order.order_type == "转运" and
-                    order.retrieval_id.retrieval_carrier == "Eric"
-            ) or (order.retrieval_id.retrieval_carrier == "客户自送")
+                                          order.retrieval_id and
+                                          order.retrieval_id.retrieval_destination_area == "LA" and
+                                          order.order_type == "转运" and
+                                          order.retrieval_id.retrieval_carrier == "Eric"
+                                  ) or (order.retrieval_id.retrieval_carrier == "客户自送")
 
             # 临时存储Eric订单的入库费金额
             eric_unload_fee = 0.0
@@ -8057,22 +8116,17 @@ class Accounting(View):
 
                 # ========== 规则0：LA+转运+Eric订单仅处理拆柜其他费用-入库费 ==========
                 if is_eric_la_transfer:
-                    # 仅保留拆柜其他费用-入库费，其余费用项直接跳过
                     if description != "拆柜其他费用-入库费":
                         continue
-                    # 记录入库费金额（不存储到拆柜其他费用，仅赋值给入库拆柜费）
                     eric_unload_fee = rate
                     total_amount += rate
                     break
 
-                # ========== 原有费用处理逻辑（非LA+转运+Eric订单执行） ==========
-                # ========== 规则1：排除指定供应商的提柜其他费用 ==========
+                # ========== 原有费用处理逻辑 ==========
                 if is_exclude_pickup_other and "提柜其他费用" in description:
-                    continue  # 直接跳过，不收集该费用数据
-
-                # ========== 规则2：排除其他供应商的拆柜其他费用 ==========
+                    continue
                 if is_exclude_unload_other and "拆柜其他费用" in description:
-                    continue  # 直接跳过，不收集该费用数据
+                    continue
 
                 if description == "提柜费用":
                     row_data["基本费用"] = rate
@@ -8111,10 +8165,10 @@ class Accounting(View):
                     except IndexError:
                         pass
 
-            # ========== 关键修改：Eric订单将入库拆柜费赋值为拆柜其他费用-入库费的金额 ==========
+            # ========== Eric 订单逻辑 ==========
             if is_eric_la_transfer and eric_unload_fee > 0:
-                row_data["入库拆柜费"] = eric_unload_fee  # 替换入库拆柜费为900
-                total_amount = eric_unload_fee  # 总费用=入库拆柜费
+                row_data["入库拆柜费"] = eric_unload_fee
+                total_amount = eric_unload_fee
 
             # 5.5 赋值总费用
             row_data["总费用"] = total_amount
@@ -8124,12 +8178,17 @@ class Accounting(View):
                 if fee_type not in row_data:
                     row_data[fee_type] = 0.0
 
-            # 5.7 记录固定费用列的数值（仅统计固定费用，不统计拆柜其他费用）
+            # 5.7 记录固定费用列的数值
+            if "车架天数" in column_values:
+                column_values["车架天数"].append(row_data["车架天数"])
+            if "箱数" in column_values:
+                column_values["箱数"].append(row_data["箱数"])
+
             column_values["基本费用"].append(row_data["基本费用"])
             column_values["超重费"].append(row_data["超重费"])
             column_values["车架费"].append(row_data["车架费"])
             column_values["拆柜费用"].append(row_data["拆柜费用"])
-            column_values["入库拆柜费"].append(row_data["入库拆柜费"])  # 同步Eric订单的900
+            column_values["入库拆柜费"].append(row_data["入库拆柜费"])
             column_values["总费用"].append(row_data["总费用"])
 
             rows.append(row_data)
@@ -8138,7 +8197,7 @@ class Accounting(View):
             raise ValueError("未查询到符合条件的费用记录")
 
         # 6. 构建Excel表头
-        if select_carrier == "东海岸":
+        if select_carrier == "东海岸" or select_carrier == "new world":
             valid_headers = ["柜号", "提柜时间", "还空时间", "仓库", "柜型"]
         else:
             valid_headers = ["柜号", "提柜时间", "仓库", "柜型"]
@@ -9222,12 +9281,13 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         # 库内操作费：日期处理
         current_date = datetime.now().date()
-        start_date = (
-            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        if start_date is None and end_date is None:
+            start_date = (
+                (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
+                if not start_date
+                else start_date
+            )
+            end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         # 核心筛选条件：未取消、在时间范围内、空箱返回
         criteria = (
