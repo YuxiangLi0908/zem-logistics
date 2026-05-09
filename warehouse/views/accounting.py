@@ -12223,21 +12223,22 @@ class Accounting(View):
                     warehouse_precise = "LA 91761"
                 if warehouse_precise == "LA 91730":
                     warehouse_precise = "LA 91761"
-                # 移除Eric相关的报错逻辑（因为已经提前过滤）
-                if pick_subkey == 40 and warehouse:
-                    try:
-                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
-                    except KeyError:
-                        pickup_fee = 0
-                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                        return self.template_invoice_payable_edit_v1, context
-                else:
-                    try:
-                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
-                    except KeyError:
-                        pickup_fee = 0
-                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                        return self.template_invoice_payable_edit_v1, context
+                if warehouse_precise_p != "LA-91730":
+                    # 移除Eric相关的报错逻辑（因为已经提前过滤）
+                    if pick_subkey == 40 and warehouse:
+                        try:
+                            pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
+                        except KeyError:
+                            pickup_fee = 0
+                            context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                            return self.template_invoice_payable_edit_v1, context
+                    else:
+                        try:
+                            pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
+                        except KeyError:
+                            pickup_fee = 0
+                            context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                            return self.template_invoice_payable_edit_v1, context
 
             # 读取报价表中的各项费用
             basic_fee = "N/A"
