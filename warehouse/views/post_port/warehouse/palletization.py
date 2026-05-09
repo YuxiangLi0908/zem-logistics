@@ -507,7 +507,7 @@ class Palletization(View):
         offload = order_selected.offload_id
         order_packing_list = []
         warehouse = request.GET.get("warehouse").split("-")[0].strip()
-        storehouse = request.POST.get("storehouse")
+        storehouse = request.GET.get("storehouse")
         if (
             request.GET.get("step", None) == "container_palletization"
             and offload.offload_at is None and warehouse == "LA"
