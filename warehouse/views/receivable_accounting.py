@@ -8110,11 +8110,17 @@ class ReceivableAccounting(View):
             if po_id:
                 if delivery_type == "other":
                     try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks,container_number__container_number=container_number).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )  
                         if aggregated['total_cbm'] is not None:
+                            if 'total_cbm' in group:
+                                # 计算差值（取绝对值）
+                                diff = abs(group['total_cbm'] - aggregated['total_cbm'])
+                                if diff > 10:
+                                    raise ValueError(f"total_cbm 相差超过10: 原有值={group['total_cbm']}, 新值={aggregated['total_cbm']}, 差值={diff}")
+
                             group['total_cbm'] = aggregated['total_cbm']
                         if aggregated['total_weight_lbs'] is not None:
                             group['total_weight_lbs'] = aggregated['total_weight_lbs']
@@ -8126,7 +8132,7 @@ class ReceivableAccounting(View):
                     if '_' in po_id:
                         continue
                     try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,container_number__container_number=container_number).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )
