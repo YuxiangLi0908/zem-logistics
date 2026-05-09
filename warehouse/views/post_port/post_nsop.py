@@ -11736,7 +11736,7 @@ class PostNsop(View):
                 ]
                 # 生成新的PO_ID
                 new_po_ids = []
-                seq_num = 0
+                seq_num = 1
                 for dm, dest in zip(new_delivery_method, new_destinations):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -11744,7 +11744,8 @@ class PostNsop(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
-                    random.seed(container.container_number[-4:])
+
+                    random.seed(container.container_number[-4:] + str(seq_num))
                     random_code = "".join(
                         random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
@@ -12057,7 +12058,7 @@ class PostNsop(View):
                 ]
                 # 生成新的PO_ID
                 new_po_ids = []
-                seq_num = 0
+                seq_num = 1
                 for dm, dest in zip(new_delivery_method, new_destinations):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -12065,7 +12066,8 @@ class PostNsop(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
-                    random.seed(container.container_number[-4:])
+
+                    random.seed(container.container_number[-4:] + str(seq_num))
                     random_code = "".join(
                         random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
@@ -12164,6 +12166,10 @@ class PostNsop(View):
             else:
                 offload.total_pallet += total_pallet
             offload.offload_other_at = offload_time
+            # 如果 public 不在 delivery_type 里，主拆柜时间 = 私仓拆柜时间
+            has_public = any(item.get("delivery_type") == "public" for item in pallet_data)
+            if not has_public:
+                offload.offload_at = offload.offload_other_at
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
@@ -12638,7 +12644,7 @@ class PostNsop(View):
         return await self.other_selfdelivery(request)
 
     async def handle_cancel_post_other_selfpick_cargos(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """la私仓客户自提撤销拆柜"""
         container_number = request.POST.get("container_number")
@@ -12651,6 +12657,20 @@ class PostNsop(View):
         offload.total_pallet -= other_total_pallet
         offload.other_total_pallet = None
         offload.offload_other_at = None
+
+        # 先查询当前柜子是否还有 public 类型的板子
+        has_public = await sync_to_async(
+            Pallet.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="public"
+            ).exists
+        )()
+
+        # 如果没有 public → 清空拆柜时间
+        if not has_public:
+            offload.offload_at = None
+        # ====================================================
+
         try:
             offload.devanning_company = None
             offload.devanning_fee = None
