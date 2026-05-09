@@ -7927,7 +7927,7 @@ class Accounting(View):
 
         # 3. 定义固定费用类型
         fixed_fee_types = []
-        if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
+        if select_carrier in ["BBR", "KNO", "JOHN", "unload", "Iris"]:
             fixed_fee_types = ["拆柜费用", "入库拆柜费", "总费用"]
         elif select_carrier in ["GM", "Kars"]:
             fixed_fee_types = [
@@ -8019,7 +8019,7 @@ class Accounting(View):
 
             # 5.2 供应商过滤
             carrier_match = False
-            if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
+            if select_carrier in ["BBR", "KNO", "JOHN", "unload", "Iris"]:
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
             elif order.retrieval_id.retrieval_destination_area == "LA" and order.order_type == "转运" and order.retrieval_id.retrieval_carrier == "Eric":
                 carrier_match = True
