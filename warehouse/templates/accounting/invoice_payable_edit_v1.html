@@ -1062,7 +1062,7 @@
                             </button>
 
                             <input type="text" class="reject-reason-input"
-                                placeholder="请输入驳回原因" name="reject_reason">
+                                   placeholder="请输入驳回原因" name="reject_reason">
 
                             <button type="submit" class="btn btn-success" onclick="modifyStatus('check_confirm')">
                                 <i class="bi bi-check-circle"></i> 初级审核通过
@@ -1106,9 +1106,34 @@
     function modifyStatus(type) {
         const saveTypeInput = document.getElementById('save_type');
         saveTypeInput.value = type;
-        if (type === 'reject_check' && !document.querySelector('input[name="reject_reason"]').value.trim()) {
-            alert('请输入驳回原因');
-            event.preventDefault();
+        let startInput = document.querySelector('input[name="start_date_confirm"]');
+        let endInput = document.querySelector('input[name="end_date_confirm"]');
+
+        if (!startInput) {
+            startInput = document.createElement('input');
+            startInput.type = 'hidden';
+            startInput.name = 'start_date_confirm';
+            document.getElementById('invoice-form').appendChild(startInput);
+        }
+        if (!endInput) {
+            endInput = document.createElement('input');
+            endInput.type = 'hidden';
+            endInput.name = 'end_date_confirm';
+            document.getElementById('invoice-form').appendChild(endInput);
+        }
+
+        // ✅ 关键：直接从模板渲染值，不会为空！
+        startInput.value = "{{ start_date_confirm|default:'' }}";
+        endInput.value = "{{ end_date_confirm|default:'' }}";
+
+        // 驳回原因判断
+        if (type === 'reject_check') {
+            const rejectInput = document.querySelector('input[name="reject_reason"]');
+            if (!rejectInput || !rejectInput.value.trim()) {
+                alert('请输入驳回原因');
+                event.preventDefault();
+                return;
+            }
         }
     }
 

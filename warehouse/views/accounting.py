@@ -9419,7 +9419,9 @@ class Accounting(View):
             "GM": "GM",
             "BEST": "BEST",
             "JOHN": "JOHN",
-            "unload": "unload"
+            "unload": "unload",
+            "new world": "new world",
+            "Iris": "Iris"
         }
         customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
         context = {
@@ -11777,8 +11779,8 @@ class Accounting(View):
 
         # 构建基础上下文
         context = {
-            "start_date_confirm": request.GET.get("start_date_confirm"),
-            "end_date_confirm": request.GET.get("end_date_confirm"),
+            "start_date_confirm": request.GET.get("start_date_confirm") or request.GET.get("start_date"),
+            "end_date_confirm": request.GET.get("end_date_confirm") or request.GET.get("end_date"),
             "customer": request.GET.get("customer"),
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "is_editable": is_editable,
