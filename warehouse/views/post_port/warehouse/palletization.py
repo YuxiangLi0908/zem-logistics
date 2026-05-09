@@ -917,7 +917,7 @@ class Palletization(View):
                 ]
                 # 生成新的PO_ID
                 new_po_ids = []
-                seq_num = 0
+                seq_num = 1
                 for dm, dest in zip(new_delivery_method, new_destinations):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -925,7 +925,8 @@ class Palletization(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
-                    random.seed(container.container_number[-4:])
+
+                    random.seed(container.container_number[-4:] + str(seq_num))
                     random_code = "".join(
                         random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
@@ -1233,7 +1234,7 @@ class Palletization(View):
                 ]
                 # 生成新的PO_ID
                 new_po_ids = []
-                seq_num = 0
+                seq_num = 1
                 for dm, dest in zip(new_delivery_method, new_destinations):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -1241,7 +1242,8 @@ class Palletization(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
-                    random.seed(container.container_number[-4:])
+
+                    random.seed(container.container_number[-4:] + str(seq_num))
                     random_code = "".join(
                         random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
