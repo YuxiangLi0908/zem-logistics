@@ -2741,16 +2741,17 @@ class Accounting(View):
         """财务待确认-已确认-提柜待核销-拆柜已核销"""
         current_date = datetime.now().date()
         customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
-        start_date_confirm = (
-            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
-            if not start_date_confirm
-            else start_date_confirm
-        )
-        end_date_confirm = (
-            current_date.strftime("%Y-%m-%d")
-            if not end_date_confirm
-            else end_date_confirm
-        )
+        if start_date_confirm is None and end_date_confirm is None:
+            start_date_confirm = (
+                (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
+                if not start_date_confirm
+                else start_date_confirm
+            )
+            end_date_confirm = (
+                current_date.strftime("%Y-%m-%d")
+                if not end_date_confirm
+                else end_date_confirm
+            )
         criteria = models.Q()
         if warehouse:
             if warehouse == "直送":
@@ -12207,10 +12208,30 @@ class Accounting(View):
         overweight = 0
         FS = {}
 
-        # ========== 修改：仅非Eric订单读取报价表费用 ==========
-        if (not is_eric_la_transfer
+        # ========== 读取报价表条件 ==========
+        # 只有 非LA91730 或 LA91730但供应商存在于报价表 才进入
+        need_read_quotation = (
+                not is_eric_la_transfer
                 and retrieval_carrier != "Eric"
-                and not (retrieval_carrier == "客户自送" and warehouse_precise_p == "LA-91761")):
+                and not (retrieval_carrier == "客户自送" and warehouse_precise_p == "LA-91761")
+        )
+
+        # LA-91730 特殊判断：供应商是否存在
+        is_la91730 = warehouse_precise_p == "LA-91730"
+        if is_la91730:
+            # 先尝试获取费用结构
+            fee_detail_test = self._get_feetail(act_pick_time, "PAYABLE")
+            warehouse_valid = warehouse in fee_detail_test
+            prec_valid = warehouse_precise in (fee_detail_test.get(warehouse, {}) if warehouse_valid else {})
+            supplier_valid = False
+            if warehouse_valid and prec_valid:
+                supplier_valid = preport_carrier in fee_detail_test[warehouse][warehouse_precise]
+
+            # 只有供应商存在才读取报价表
+            need_read_quotation = need_read_quotation and supplier_valid
+
+        # 最终判断
+        if need_read_quotation:
             fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
 
             # 计算提拆费
@@ -12224,7 +12245,6 @@ class Accounting(View):
                 if warehouse_precise == "LA 91730":
                     warehouse_precise = "LA 91761"
                 # 移除Eric相关的报错逻辑（因为已经提前过滤）
-                context.update({"warehouse_precise_p": warehouse_precise_p})
                 if pick_subkey == 40 and warehouse:
                     try:
                         pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
@@ -12316,17 +12336,21 @@ class Accounting(View):
                 "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
             }
         else:
-            # ========== Eric订单：强制设置所有费用为0，仅保留入库费逻辑 ==========
-            pickup_fee = 0  # 提拆费强制为0
+            pickup_fee = 0
             basic_fee = 0
             overweight = 0
             arrive_fee = 0
             chassis_fee = 0
             demurrage_fee = 0
             per_diem_fee = 0
-            pallet_details = {"": ""}  # 空的拆柜供应商选项
+            pallet_details = {"": ""}
             palletization_carrier = {}
-            # 清空费用提示信息（避免读取报价表）
+
+            # LA-91730 无报价表 → 只显示拆柜费用（Iris）
+            if warehouse_precise_p == "LA-91730":
+                pallet_details = {"Iris": ""}
+                palletization_carrier = "Iris"
+
             FS = {
                 "提柜费用": "0",
                 "拆柜费用": "0",
@@ -12389,16 +12413,28 @@ class Accounting(View):
             })
 
         # 如果是第一次录入且没有费用记录，添加费用默认值
-        if not existing_items.exists() and invoice_status.preport_status == 'unstarted':
+        if not existing_items.exists() and (invoice_status.preport_status == 'unstarted' or invoice_status.preport_status == 'rejected'):
             # Eric订单：仅添加入库费，其他费用不添加
             if is_eric_la_transfer:
-                pass  # 跳过默认费用添加，后面单独处理入库费
+                pass
+            # ========== 修复：LA-91730 无报价表 → 只显示拆柜费用，其他全部不显示 ==========
+            elif warehouse_precise_p == "LA-91730" and not need_read_quotation:
+                # 只加拆柜费
+                fee_data.append({
+                    'id': None,
+                    'description': "拆柜费用",
+                    'qty': 0,
+                    'rate': 0,
+                    'surcharges': 0,
+                    'amount': 0,
+                    'note': '',
+                })
+            # ============================================================================
             else:
-                # 非Eric订单：保留原有默认费用添加逻辑
+                # 正常订单逻辑
                 if pickup_fee > 0:
                     for fee_name in standard_fee_items:
                         if fee_name == '提柜费用':
-                            # 提拆费特殊处理
                             pickup_qty = 0 if iscombina else 1
                             pickup_amount = pickup_fee * pickup_qty
                             fee_data.append({
@@ -12413,7 +12449,6 @@ class Accounting(View):
                         else:
                             ref_price = FS.get(fee_name, 0)
                             numeric_price = self._extract_number(ref_price)
-                            # 其他费用默认显示，但数量和金额为0
                             fee_data.append({
                                 'id': None,
                                 'description': fee_name,
