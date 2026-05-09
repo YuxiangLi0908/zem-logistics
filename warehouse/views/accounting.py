@@ -12224,9 +12224,8 @@ class Accounting(View):
             # 先尝试获取费用结构
             fee_detail_test = self._get_feetail(act_pick_time, "PAYABLE")
             warehouse_valid = warehouse in fee_detail_test
-            prec_valid = warehouse_precise in (fee_detail_test.get(warehouse, {}) if warehouse_valid else {})
             supplier_valid = False
-            if warehouse_valid and prec_valid:
+            if warehouse_valid:
                 warehouse_precise = "LA 91761"
                 supplier_valid = preport_carrier in fee_detail_test[warehouse][warehouse_precise]
 
