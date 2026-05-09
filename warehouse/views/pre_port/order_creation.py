@@ -1689,9 +1689,8 @@ class OrderCreation(View):
                     destination_list[idx] = "Walmart-" + parts[1]
                 else:
                     destination_list[idx] = destination.upper().strip()
-            # Generate PO_ID
+            # Generate PO_ID（每条唯一，不重复）
             po_ids = []
-            po_id_hash = {}
             seq_num = 1
             for dm, sm, fba, dest, dt in zip(
                 request.POST.getlist("delivery_method"),
@@ -1724,16 +1723,16 @@ class OrderCreation(View):
                 else:
                     po_id_hkey = f"{dm}-{dest}"
                     po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
-                if po_id_hkey in po_id_hash:
-                    po_id = po_id_hash.get(po_id_hkey)
-                else:
-                    random.seed(container_number[-4:])
-                    po_id = f"{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}{po_id_seg}{seq_num}"
-                    po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
-                    po_id_hash[po_id_hkey] = po_id
-                    seq_num += 1
+
+                # 保证每条唯一
+                po_id_hkey = f"{po_id_hkey}-{seq_num}"
+                random.seed(container_number[-4:] + str(seq_num))
+                po_id = f"{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}{po_id_seg}{seq_num}"
+                po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
+                seq_num += 1
                 po_ids.append(po_id)
-            del po_id_hash, po_id, po_id_seg, po_id_hkey
+
+            del po_id, po_id_seg, po_id_hkey
             total_weight_lbs_list = []
             for lbs_str in request.POST.getlist("total_weight_lbs"):
                 if lbs_str.strip():  # 跳过空值
@@ -1822,7 +1821,7 @@ class OrderCreation(View):
         po_checks = await sync_to_async(list)(
             PoCheckEtaSeven.objects.filter(container_number__container_number=container)
         )
-        #如果这个柜子的pl都删了，那么pocheck也要都删掉 
+        #如果这个柜子的pl都删了，那么pocheck也要都删掉
         if len(po_checks) == 0:
             # po_check没有这个柜子，直接新建
             for pl in packing_list:
