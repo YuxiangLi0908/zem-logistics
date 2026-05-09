@@ -9995,8 +9995,8 @@ class ReceivableAccounting(View):
         if "tiered_pricing" in stipulate:
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
-                    min_points = rule.get("min_points")
-                    max_points = rule.get("max_points")
+                    min_points = int(rule.get("min_points"))
+                    max_points = int(rule.get("max_points"))
                     if not max_points or str(max_points).lower() == 'nan':
                         # 只有最小值，那么就是按每个仓点多收费
                         temp_fee = rule.get("fee")
@@ -10645,8 +10645,8 @@ class ReceivableAccounting(View):
             region_count = combina_region_count
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
-                    min_points = rule.get("min_points")
-                    max_points = rule.get("max_points")
+                    min_points = int(rule.get("min_points"))
+                    max_points = int(rule.get("max_points"))
                     if not max_points or str(max_points).lower() == 'nan':
                         # 只有最小值，那么就是按每个仓点多收费
                         temp_fee = rule.get("fee")
