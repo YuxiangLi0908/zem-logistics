@@ -121,6 +121,8 @@ class ReceivableAccounting(View):
 
     template_write_off_entry = "receivable_accounting/account_confirm/write_off_entry.html"
     template_fix_account_entry = "receivable_accounting/account_confirm/fix_account_entry.html"
+    template_container_check = "receivable_accounting/account_confirm/container_check.html"
+    template_container_detail = "receivable_accounting/account_confirm/container_detail.html"
 
     template_invoice_combina_edit = "receivable_accounting/account_confirm/invoice_combina_edit.html"
     template_invoice_statement = "receivable_accounting/invoice_statement.html"
@@ -225,6 +227,13 @@ class ReceivableAccounting(View):
             existing_customers = Customer.objects.all().order_by("zem_name")
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
             return render(request, self.template_fix_account_entry, context)
+        elif step == "container_check":  # 柜子账单自检
+            existing_customers = Customer.objects.all().order_by("zem_name")
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
+            return render(request, self.template_container_check, context)
+        elif step == "container_detail":  # 柜子详情页面
+            template, context = self.handle_container_detail_get(request)
+            return render(request, template, context)
         elif step == "invoice_manual":
             template, context = self.handle_invoice_item_search(request)
             return render(request, template, context)
@@ -256,6 +265,12 @@ class ReceivableAccounting(View):
             return render(request, template, context)
         elif step == "fix_account_search":
             template, context = self.handle_fix_account_entry_post(request)
+            return render(request, template, context)
+        elif step == "container_check_search":
+            template, context = self.handle_container_check_post(request)
+            return render(request, template, context)
+        elif step == "container_check_save":
+            template, context = self.handle_container_check_save_post(request)
             return render(request, template, context)
         elif step == "write_off_search":
             template, context = self.handle_write_off_entry_post(request)
@@ -11822,6 +11837,330 @@ class ReceivableAccounting(View):
             # 要跳转回待核销固定费用的页面
             return self.handle_fix_account_entry_post(request, ctx)
         return self.handle_confirm_entry_post(request, ctx)
+    
+    def handle_container_check_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        """柜子账单自检 - 搜索"""
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        customer_id = request.POST.get("customer_id")
+        warehouse = request.POST.get("warehouse")
+        container_number = request.POST.get("container_number")
+        
+        # 查询柜子
+        queryset = Order.objects.select_related(
+            'container_number',
+            'customer_name',
+            'vessel_id',
+            'retrieval_id'
+        )
+        
+        if start_date:
+            queryset = queryset.filter(vessel_id__vessel_etd__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(vessel_id__vessel_etd__lte=end_date)
+        if customer_id:
+            queryset = queryset.filter(customer_name__id=customer_id)
+        if warehouse:
+            queryset = queryset.filter(retrieval_id__retrieval_destination_area=warehouse)
+        if container_number:
+            queryset = queryset.filter(container_number__container_number__icontains=container_number)
+        
+        # 按柜子分组
+        orders = queryset.order_by('container_number__container_number', '-vessel_id__vessel_etd').distinct('container_number__container_number')
+        
+        container_data = []
+        for order in orders:
+            container_number = order.container_number.container_number
+            
+            # 查询该柜子的所有账单
+            invoices = Invoicev2.objects.filter(container_number=order.container_number).order_by('-created_at')
+            
+            invoice_list = []
+            for invoice in invoices:
+                # 获取账单状态
+                invoice_status, _ = InvoiceStatusv2.objects.get_or_create(
+                    invoice=invoice,
+                    invoice_type="receivable",
+                    defaults={"container_number": order.container_number, "invoice": invoice}
+                )
+                
+                # 检查哪些组没有录入
+                unstarted_groups = []
+                if invoice_status.preport_status == "unstarted":
+                    unstarted_groups.append("港前")
+                if invoice_status.warehouse_public_status == "unstarted":
+                    unstarted_groups.append("公仓")
+                if invoice_status.warehouse_other_status == "unstarted":
+                    unstarted_groups.append("私仓")
+                if invoice_status.delivery_public_status == "unstarted":
+                    unstarted_groups.append("派送公仓")
+                if invoice_status.delivery_other_status == "unstarted":
+                    unstarted_groups.append("派送私仓")
+                
+                invoice_list.append({
+                    "id": invoice.id,
+                    "invoice_number": invoice.invoice_number,
+                    "finance_status": invoice_status.finance_status,
+                    "is_invoice_delivered": invoice.is_invoice_delivered,
+                    "unstarted_groups": unstarted_groups,
+                    "create_time": invoice.created_at.strftime("%Y-%m-%d %H:%M:%S") if invoice.created_at else ""
+                })
+            
+            # 检查是否有重复费用
+            has_duplicate_fees = self._check_duplicate_fees(container_number)
+            
+            container_data.append({
+                "container_number": container_number,
+                "customer_name": order.customer_name.zem_name if order.customer_name else "",
+                "vessel_etd": order.vessel_id.vessel_etd.strftime("%Y-%m-%d") if order.vessel_id and order.vessel_id.vessel_etd else "",
+                "warehouse": order.retrieval_id.retrieval_destination_area if order.retrieval_id else "",
+                "invoices": invoice_list,
+                "has_duplicate_fees": has_duplicate_fees
+            })
+        
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        
+        context = {
+            "warehouse_options": self.warehouse_options,
+            "existing_customers": existing_customers,
+            "container_data": container_data,
+            "start_date": start_date,
+            "end_date": end_date,
+            "customer_id": customer_id,
+            "warehouse": warehouse,
+            "search_container_number": container_number
+        }
+        
+        return self.template_container_check, context
+    
+    def _check_duplicate_fees(self, container_number):
+        """检查是否有重复费用"""
+        try:
+            container = Container.objects.get(container_number=container_number)
+            # 获取应收类型的账单
+            receivable_statuses = InvoiceStatusv2.objects.filter(
+                invoice_type="receivable",
+                container_number=container
+            ).values_list('invoice', flat=True)
+            items = InvoiceItemv2.objects.filter(
+                container_number=container,
+                invoice_number__in=receivable_statuses
+            ).exclude(item_category="hold")
+            
+            # 检查非派送费用的重复
+            non_delivery_descriptions = {}
+            # 检查派送费用的重复
+            delivery_items = {}
+            
+            for item in items:
+                if item.item_category in ["delivery_public", "delivery_other"]:
+                    # 派送费用：warehouse_code + PO_ID
+                    key = f"{item.warehouse_code}-{item.PO_ID}"
+                    if key in delivery_items:
+                        return True
+                    delivery_items[key] = True
+                else:
+                    # 非派送费用：description
+                    if item.description in non_delivery_descriptions:
+                        return True
+                    non_delivery_descriptions[item.description] = True
+            
+            return False
+        except Exception:
+            return False
+    
+    def handle_container_detail_get(self, request: HttpRequest) -> tuple[Any, Any]:
+        """柜子详情页面"""
+        container_number = request.GET.get("container_number")
+        
+        container = Container.objects.get(container_number=container_number)
+        order = Order.objects.select_related(
+            'container_number',
+            'customer_name',
+            'vessel_id',
+            'retrieval_id'
+        ).get(container_number__container_number=container_number)
+        
+        # 查询该柜子的所有账单
+        invoices = Invoicev2.objects.filter(container_number=container).order_by('-created_at')
+        
+        invoice_data = []
+        for invoice in invoices:
+            # 获取账单状态
+            invoice_status, _ = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={"container_number": container, "invoice": invoice}
+            )
+            
+            # 获取该账单的所有费用
+            items = InvoiceItemv2.objects.filter(
+                invoice_number=invoice
+            ).exclude(item_category="hold")
+            
+            # 检查该账单是否可以编辑
+            can_edit = True
+            warning_message = None
+            if invoice_status.finance_status == "completed":
+                warning_message = "该账单已被财务确认，修改需谨慎"
+                if invoice.is_invoice_delivered:
+                    can_edit = False
+                    warning_message = "该账单已通知客户，不允许修改"
+            
+            invoice_data.append({
+                "id": invoice.id,
+                "invoice_number": invoice.invoice_number,
+                "finance_status": invoice_status.finance_status,
+                "is_invoice_delivered": invoice.is_invoice_delivered,
+                "items": items,
+                "can_edit": can_edit,
+                "warning_message": warning_message
+            })
+        
+        # 检查整个柜子的重复费用
+        duplicate_items = self._find_duplicate_items(container)
+        
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        
+        context = {
+            "warehouse_options": self.warehouse_options,
+            "existing_customers": existing_customers,
+            "container_number": container_number,
+            "customer_name": order.customer_name.zem_name if order.customer_name else "",
+            "vessel_etd": order.vessel_id.vessel_etd.strftime("%Y-%m-%d") if order.vessel_id and order.vessel_id.vessel_etd else "",
+            "warehouse": order.retrieval_id.retrieval_destination_area if order.retrieval_id else "",
+            "invoice_data": invoice_data,
+            "duplicate_items": duplicate_items
+        }
+        
+        return self.template_container_detail, context
+    
+    def _find_duplicate_items(self, container):
+        """查找重复的费用项"""
+        # 获取应收类型的账单
+        receivable_statuses = InvoiceStatusv2.objects.filter(
+            invoice_type="receivable",
+            container_number=container
+        ).values_list('invoice', flat=True)
+        items = InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number__in=receivable_statuses
+        ).exclude(item_category="hold")
+        
+        # 检查非派送费用的重复
+        non_delivery_descriptions = {}
+        # 检查派送费用的重复
+        delivery_items = {}
+        
+        duplicates = []
+        
+        for item in items:
+            if item.item_category in ["delivery_public", "delivery_other"]:
+                # 派送费用：warehouse_code + PO_ID
+                key = f"{item.warehouse_code}-{item.PO_ID}"
+                if key in delivery_items:
+                    duplicates.append({
+                        "item1": delivery_items[key],
+                        "item2": item,
+                        "type": "delivery"
+                    })
+                delivery_items[key] = item
+            else:
+                # 非派送费用：description
+                if item.description in non_delivery_descriptions:
+                    duplicates.append({
+                        "item1": non_delivery_descriptions[item.description],
+                        "item2": item,
+                        "type": "non_delivery"
+                    })
+                non_delivery_descriptions[item.description] = item
+        
+        return duplicates
+    
+    def handle_container_check_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        """柜子账单自检 - 保存修改"""
+        action = request.POST.get("action")
+        item_id = request.POST.get("item_id")
+        container_number = request.POST.get("container_number")
+        
+        if action == "delete":
+            # 删除费用
+            item = InvoiceItemv2.objects.get(id=item_id)
+            # 检查是否允许修改
+            invoice = item.invoice_number
+            invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
+            
+            if invoice_status.finance_status == "completed" and invoice.is_invoice_delivered:
+                context = {'error_messages': '该账单已通知客户，不允许删除'}
+                return self.handle_container_detail_get(request)
+            
+            item.delete()
+            # 重新计算总费用
+            self._calculate_invoice_total_amount(invoice)
+        
+        elif action == "add":
+            # 添加费用
+            invoice_id = request.POST.get("invoice_id")
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
+            
+            if invoice_status.finance_status == "completed" and invoice.is_invoice_delivered:
+                context = {'error_messages': '该账单已通知客户，不允许添加'}
+                return self.handle_container_detail_get(request)
+            
+            container = Container.objects.get(container_number=container_number)
+            
+            InvoiceItemv2.objects.create(
+                container_number=container,
+                invoice_number=invoice,
+                invoice_type="receivable",
+                item_category=request.POST.get("item_category"),
+                description=request.POST.get("description"),
+                warehouse_code=request.POST.get("warehouse_code"),
+                PO_ID=request.POST.get("PO_ID"),
+                rate=float(request.POST.get("rate") or 0),
+                qty=float(request.POST.get("qty") or 0),
+                cbm=float(request.POST.get("cbm") or 0),
+                weight=float(request.POST.get("weight") or 0),
+                surcharges=float(request.POST.get("surcharges") or 0),
+                amount=float(request.POST.get("amount") or 0),
+                note=request.POST.get("note"),
+                registered_user=request.user.username
+            )
+            
+            # 重新计算总费用
+            self._calculate_invoice_total_amount(invoice)
+        
+        elif action == "edit":
+            # 编辑费用
+            item = InvoiceItemv2.objects.get(id=item_id)
+            invoice = item.invoice_number
+            invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
+            
+            if invoice_status.finance_status == "completed" and invoice.is_invoice_delivered:
+                context = {'error_messages': '该账单已通知客户，不允许编辑'}
+                return self.handle_container_detail_get(request)
+            
+            item.item_category = request.POST.get("item_category")
+            item.description = request.POST.get("description")
+            item.warehouse_code = request.POST.get("warehouse_code")
+            item.PO_ID = request.POST.get("PO_ID")
+            item.rate = float(request.POST.get("rate") or 0)
+            item.qty = float(request.POST.get("qty") or 0)
+            item.cbm = float(request.POST.get("cbm") or 0)
+            item.weight = float(request.POST.get("weight") or 0)
+            item.surcharges = float(request.POST.get("surcharges") or 0)
+            item.amount = float(request.POST.get("amount") or 0)
+            item.note = request.POST.get("note")
+            item.registered_user = request.user.username
+            item.save()
+            
+            # 重新计算总费用
+            self._calculate_invoice_total_amount(invoice)
+        
+        context = {'success_messages': '操作成功！'}
+        
+        return self.handle_container_detail_get(request)
     
     
 
