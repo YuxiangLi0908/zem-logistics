@@ -99,7 +99,7 @@
                             {% else %}
                             <tr>
                                 <td class="td">
-                                    <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
+                                    <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}&storehouse={{ storehouse }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.customer_name }}</td>
                                 <td class="td">{{ c.container_number.container_type }}</td>
@@ -314,7 +314,7 @@
                         {% for c in order_palletized %}
                         <tr>
                             <td class="td">
-                                <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
+                                <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}&storehouse={{ storehouse }}">{{ c.container_number }}</a>
                             </td>
                             <td class="td">{{ c.customer_name }}</td>
                             <td class="td">{{ c.container_number.container_type }}</td>

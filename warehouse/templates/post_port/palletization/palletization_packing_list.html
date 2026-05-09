@@ -196,6 +196,7 @@
                         <input type="datetime-local" name="offload_time" class="form-input"
                                style="height: 35px; padding: 0 8px;">
                         <input type="hidden" name="name" value="{{ warehouse }}">
+                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
                         <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;"
                                 onclick="processForm()">确认
                         </button>
@@ -243,6 +244,7 @@
                 <div style="display: flex;">
                     <input type="hidden" name="step" value="edit_pallet">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="storehouse" value="{{ storehouse }}">
                     <input type="hidden" name="container_number" value="{{ container_number }}">
                     <input type="hidden" name="pk" value="{{ pk }}">
                     <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 13px; margin-right: 5px;">确认添加</button>
