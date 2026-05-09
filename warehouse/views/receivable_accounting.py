@@ -7065,6 +7065,14 @@ class ReceivableAccounting(View):
         )
         # 获取已存在的费用描述列表，用于前端过滤
         existing_descriptions = [item.description for item in existing_items]
+        
+        # 检查同一个柜子的其他账单中是否已经录过提拆费
+        pickup_fee_already_recorded = InvoiceItemv2.objects.filter(
+            container_number=order.container_number,  
+            invoice_type="receivable",
+            item_category="preport",
+            description="提拆/打托缠膜"
+        ).exclude(invoice_number=invoice).exists()
 
         
         # 构建费用数据
@@ -7150,6 +7158,7 @@ class ReceivableAccounting(View):
             "preport_status": invoice_status.preport_status,
             "combina_rules_text": rules_text,
             "is_combina":iscombina,
+            "pickup_fee_already_recorded": pickup_fee_already_recorded,  # 提拆费是否已在其他账单中录过
         })
 
         return self.template_preport_edit, context
@@ -7405,6 +7414,7 @@ class ReceivableAccounting(View):
             container_number=order.container_number 
         ).exclude(id=invoice_id)
         
+        previous_recorded_items = []
         if other_invoices.exists(): 
             previous_items = InvoiceItemv2.objects.filter(
                 container_number=order.container_number,  
@@ -7416,6 +7426,13 @@ class ReceivableAccounting(View):
             for item in previous_items:
                 if item.PO_ID:
                     previous_item_dict[item.PO_ID] = item
+                    # 收集已录过的PO_ID和目的地信息
+                    previous_recorded_items.append({
+                        'PO_ID': item.PO_ID,
+                        'destination': item.warehouse_code or '',
+                        'description': item.description or '',
+                        'invoice_number': item.invoice_number.invoice_number
+                    })
 
         # 获取板子数据
         pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, delivery_type, invoice)
@@ -7570,6 +7587,7 @@ class ReceivableAccounting(View):
             "end_date": request.GET.get("end_date"),
             "total_container_cbm": total_container_cbm,
             "receivable_is_locked": invoice.receivable_is_locked,
+            "previous_recorded_items": previous_recorded_items,  # 之前账单已录过的项目
         })
         
         return template, context
