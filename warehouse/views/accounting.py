@@ -12227,6 +12227,7 @@ class Accounting(View):
             prec_valid = warehouse_precise in (fee_detail_test.get(warehouse, {}) if warehouse_valid else {})
             supplier_valid = False
             if warehouse_valid and prec_valid:
+                warehouse_precise = "LA 91761"
                 supplier_valid = preport_carrier in fee_detail_test[warehouse][warehouse_precise]
 
             # 只有供应商存在才读取报价表
