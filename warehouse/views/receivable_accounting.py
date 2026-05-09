@@ -2418,9 +2418,52 @@ class ReceivableAccounting(View):
         success_message = f"成功保存 {len(saved_items)} 条记录，总额: {total_amount:.2f} USD"
         context.update({'success_message': success_message})
         if is_fix_page:
+            # 去判断下账单的状态应该怎么办
+            self._fix_account_status(invoice, container)
             return self.handle_fix_account_entry_post(request, context)
         return self.handle_confirm_entry_post(request, context)
 
+    def _fix_account_status(self, invoice: Invoicev2, container: Container = None):
+        # 妥善处理柜子相关账单状态
+        try:
+            # 获取与该账单相关的 InvoiceStatusv2
+            invoice_status = InvoiceStatusv2.objects.get(
+                invoice=invoice,
+                invoice_type='receivable'
+            )
+            
+            # 定义需要检查的状态字段（从 preport_status 到 delivery_other_status）
+            status_fields = [
+                'preport_status',
+                'warehouse_public_status',
+                'warehouse_other_status',
+                'delivery_public_status',
+                'delivery_other_status'
+            ]
+            
+            # 检查所有状态是否都是 completed
+            all_completed = True
+            for field in status_fields:
+                status_value = getattr(invoice_status, field, None)
+                if status_value != 'completed':
+                    all_completed = False
+                    break
+            
+            # 如果有状态不是 completed，则创建新的账单
+            if not all_completed:
+                # 获取柜号
+                container_number = invoice.container_number.container_number if invoice.container_number else None
+                if not container_number:
+                    return False
+                
+                # 创建新的账单和状态
+                _,_,_ = self._create_invoice_and_status(container_number)
+            
+            return True
+            
+        except InvoiceStatusv2.DoesNotExist:
+            return False
+    
     def _parse_invoice_excel_data(
         self, order: Order, invoice: Invoicev2
     ) -> dict[str, Any]:
@@ -3291,6 +3334,11 @@ class ReceivableAccounting(View):
                     return self.template_invoice_combina_edit, ctx
         
         if is_combina:       
+            # 删除已有的combina_extra_fee记录,因为财务确认这里，每次组合柜额外费用都会重新计算一遍，因为如果修改了报价表，这个规则就有可能会变化
+            InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                item_category="combina_extra_fee"
+            ).delete()
             # 这里表示是组合柜的方式计算
             new_get = request.GET.copy()
             new_get['is_new_version'] = True
