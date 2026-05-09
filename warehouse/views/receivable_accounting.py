@@ -229,7 +229,16 @@ class ReceivableAccounting(View):
             return render(request, self.template_fix_account_entry, context)
         elif step == "container_check":  # 柜子账单自检
             existing_customers = Customer.objects.all().order_by("zem_name")
-            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
+            context = {
+                "warehouse_options": self.warehouse_options,
+                "order_form": OrderForm(),
+                "existing_customers": existing_customers,
+                "start_date": "",
+                "end_date": "",
+                "customer_id": "",
+                "warehouse": "",
+                "search_container_number": ""
+            }
             return render(request, self.template_container_check, context)
         elif step == "container_detail":  # 柜子详情页面
             template, context = self.handle_container_detail_get(request)
@@ -11844,7 +11853,17 @@ class ReceivableAccounting(View):
         end_date = request.POST.get("end_date")
         customer_id = request.POST.get("customer_id")
         warehouse = request.POST.get("warehouse")
-        container_number = request.POST.get("container_number")
+        search_container_number = request.POST.get("search_container_number")
+        
+        # 如果没有输入柜号也没有选客户，默认时间范围为前一个月
+        if not search_container_number and not customer_id:
+            current_date = datetime.now().date()
+            start_date = (
+                (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+                if not start_date
+                else start_date
+            )
+            end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
         
         # 查询柜子
         queryset = Order.objects.select_related(
@@ -11853,7 +11872,6 @@ class ReceivableAccounting(View):
             'vessel_id',
             'retrieval_id'
         )
-        
         if start_date:
             queryset = queryset.filter(vessel_id__vessel_etd__gte=start_date)
         if end_date:
@@ -11861,9 +11879,9 @@ class ReceivableAccounting(View):
         if customer_id:
             queryset = queryset.filter(customer_name__id=customer_id)
         if warehouse:
-            queryset = queryset.filter(retrieval_id__retrieval_destination_area=warehouse)
-        if container_number:
-            queryset = queryset.filter(container_number__container_number__icontains=container_number)
+            queryset = queryset.filter(retrieval_id__retrieval_destination_precise=warehouse)
+        if search_container_number:
+            queryset = queryset.filter(container_number__container_number__icontains=search_container_number)
         
         # 按柜子分组
         orders = queryset.order_by('container_number__container_number', '-vessel_id__vessel_etd').distinct('container_number__container_number')
@@ -11903,7 +11921,9 @@ class ReceivableAccounting(View):
                     "finance_status": invoice_status.finance_status,
                     "is_invoice_delivered": invoice.is_invoice_delivered,
                     "unstarted_groups": unstarted_groups,
-                    "create_time": invoice.created_at.strftime("%Y-%m-%d %H:%M:%S") if invoice.created_at else ""
+                    "create_time": invoice.created_at.strftime("%Y-%m-%d") if invoice.created_at else "",
+                    "receivable_total_amount": invoice.receivable_total_amount,
+                    "remain_offset": invoice.remain_offset
                 })
             
             # 检查是否有重复费用
@@ -11913,7 +11933,7 @@ class ReceivableAccounting(View):
                 "container_number": container_number,
                 "customer_name": order.customer_name.zem_name if order.customer_name else "",
                 "vessel_etd": order.vessel_id.vessel_etd.strftime("%Y-%m-%d") if order.vessel_id and order.vessel_id.vessel_etd else "",
-                "warehouse": order.retrieval_id.retrieval_destination_area if order.retrieval_id else "",
+                "warehouse": order.retrieval_id.retrieval_destination_precise if order.retrieval_id else "",
                 "invoices": invoice_list,
                 "has_duplicate_fees": has_duplicate_fees
             })
@@ -11928,7 +11948,7 @@ class ReceivableAccounting(View):
             "end_date": end_date,
             "customer_id": customer_id,
             "warehouse": warehouse,
-            "search_container_number": container_number
+            "search_container_number": search_container_number
         }
         
         return self.template_container_check, context
@@ -12014,7 +12034,8 @@ class ReceivableAccounting(View):
                 "is_invoice_delivered": invoice.is_invoice_delivered,
                 "items": items,
                 "can_edit": can_edit,
-                "warning_message": warning_message
+                "warning_message": warning_message,
+                "receivable_total_amount": invoice.receivable_total_amount
             })
         
         # 检查整个柜子的重复费用
@@ -12079,6 +12100,7 @@ class ReceivableAccounting(View):
     
     def handle_container_check_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         """柜子账单自检 - 保存修改"""
+        print(request.POST)
         action = request.POST.get("action")
         item_id = request.POST.get("item_id")
         container_number = request.POST.get("container_number")
@@ -12141,14 +12163,10 @@ class ReceivableAccounting(View):
                 context = {'error_messages': '该账单已通知客户，不允许编辑'}
                 return self.handle_container_detail_get(request)
             
-            item.item_category = request.POST.get("item_category")
             item.description = request.POST.get("description")
-            item.warehouse_code = request.POST.get("warehouse_code")
             item.PO_ID = request.POST.get("PO_ID")
             item.rate = float(request.POST.get("rate") or 0)
             item.qty = float(request.POST.get("qty") or 0)
-            item.cbm = float(request.POST.get("cbm") or 0)
-            item.weight = float(request.POST.get("weight") or 0)
             item.surcharges = float(request.POST.get("surcharges") or 0)
             item.amount = float(request.POST.get("amount") or 0)
             item.note = request.POST.get("note")
@@ -12158,8 +12176,19 @@ class ReceivableAccounting(View):
             # 重新计算总费用
             self._calculate_invoice_total_amount(invoice)
         
-        context = {'success_messages': '操作成功！'}
-        
+        # 如果这个账单之前已经确认过了，要重新生成一遍excel等相关信息
+        if invoice_status.finance_status == "completed":
+            order = Order.objects.select_related("retrieval_id", "container_number").get(
+                container_number__container_number=container_number
+            )
+            ctx = self._parse_invoice_excel_data(order, invoice)
+            
+            ac = Accounting()
+            workbook, invoice_data = ac._generate_invoice_excel(ctx)
+            invoice.invoice_date = invoice_data["invoice_date"]
+            invoice.invoice_link = invoice_data["invoice_link"]
+            invoice.save()
+       
         return self.handle_container_detail_get(request)
     
     

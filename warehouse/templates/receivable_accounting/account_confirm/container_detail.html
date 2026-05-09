@@ -43,6 +43,24 @@
         font-size: 1.8rem;
     }
 
+    .info-badges {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
     .back-btn {
         padding: 10px 20px;
         background: rgba(255, 255, 255, 0.2);
@@ -340,39 +358,123 @@
         justify-content: space-between;
         align-items: center;
     }
+
+    .form-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #1b5e20;
+    }
+
+    .items-table th:nth-child(1),
+    .items-table td:nth-child(1) { width: 160px; }
+    .items-table th:nth-child(2),
+    .items-table td:nth-child(2) { width: 180px; }
+    .items-table th:nth-child(3),
+    .items-table td:nth-child(3) { width: 110px; }
+    .items-table th:nth-child(4),
+    .items-table td:nth-child(4) { width: 90px; }
+    .items-table th:nth-child(5),
+    .items-table td:nth-child(5) { width: 80px; }
+    .items-table th:nth-child(6),
+    .items-table td:nth-child(6) { width: 90px; }
+    .items-table th:nth-child(7),
+    .items-table td:nth-child(7) { width: 90px; }
+    .items-table th:nth-child(8),
+    .items-table td:nth-child(8) { width: 90px; }
+    .items-table th:nth-child(9),
+    .items-table td:nth-child(9) { width: 110px; }
+    .items-table th:nth-child(10),
+    .items-table td:nth-child(10) { width: 150px; }
+    .items-table th:nth-child(11),
+    .items-table td:nth-child(11) { width: 100px; }
+    .items-table th:nth-child(12),
+    .items-table td:nth-child(12) { width: 130px; }
+
+    .items-table .form-input {
+        width: 100%;
+        padding: 5px 8px;
+    }
+
+    .readonly-cell {
+        background-color: #f5f5f5;
+        color: #666;
+    }
+
+    .save-btn {
+        background: #2e7d32;
+        color: white;
+    }
+
+    .save-btn:hover {
+        background: #1b5e20;
+    }
+
+    .total-amount-display {
+        font-weight: bold;
+    }
+
+    .finance-confirmed-badge {
+        background-color: #ff9800;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-left: 15px;
+        font-weight: normal;
+    }
+
+    .delivered-badge-small {
+        background-color: #2e7d32;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-left: 10px;
+        font-weight: normal;
+    }
 </style>
 
 <div class="finance-system">
     <div class="finance-header">
         <div class="finance-logo">
             <i class="fas fa-box"></i>
-            柜子详情: {{ container_number }}
+            账单详情 - {{container_number}}
         </div>
-        <button class="back-btn" onclick="goBack()">
-            <i class="fas fa-arrow-left"></i> 返回列表
-        </button>
+        <div class="info-badges">
+            <span class="badge">仓库: {{ warehouse }}</span>
+            <span class="badge">客户: {{ customer_name }}</span>
+            <span class="badge">ETD: {{ vessel_etd }}</span>
+            <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s ease;">
+                <i class="fas fa-arrow-left"></i>
+                返回
+            </button>
+        </div>
     </div>
 
     <div class="finance-main">
-        <div class="container-info">
-            <div class="info-item">
-                <span class="info-label">柜号</span>
-                <span class="info-value">{{ container_number }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">客户</span>
-                <span class="info-value">{{ customer_name }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">ETD</span>
-                <span class="info-value">{{ vessel_etd }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">仓库</span>
-                <span class="info-value">{{ warehouse }}</span>
-            </div>
+        {% if not invoice_data or invoice_data|length == 0 %}
+        <div class="empty-state">
+            <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 20px;"></i>
+            <p>没有任何账单记录</p>
         </div>
-
+        {% else %}
         {% if duplicate_items %}
         <div class="duplicate-section">
             <div class="duplicate-title">
@@ -396,35 +498,29 @@
         {% endif %}
 
         {% for invoice in invoice_data %}
-        <div class="invoice-card">
+        <div class="invoice-card" data-invoice-id="{{ invoice.id }}" data-initial-total="{{ invoice.receivable_total_amount|default:0 }}">
             <div class="invoice-header">
-                <h3>{{ invoice.invoice_number }}</h3>
-                <div class="invoice-status">
+                <h3>
+                    {{ invoice.invoice_number }}
                     {% if invoice.finance_status == "completed" %}
-                    <span class="status-badge status-completed">财务已确认</span>
-                    {% else %}
-                    <span class="status-badge status-uncompleted">未确认</span>
+                    <span class="finance-confirmed-badge">财务已确认，谨慎修改</span>
                     {% endif %}
                     {% if invoice.is_invoice_delivered %}
-                    <span class="status-badge delivered-badge">已通知客户</span>
+                    <span class="delivered-badge-small">已通知客户</span>
                     {% endif %}
-                </div>
+                    <span class="total-amount-display" style="margin-left: 20px; font-size: 1rem; color: #ec1616;">
+                        总费用：<span class="invoice-total">{{ invoice.receivable_total_amount|default:0.00 }}</span>
+                    </span>
+                </h3>
             </div>
-
-            {% if invoice.warning_message %}
-            <div class="warning-message">
-                <i class="fas fa-exclamation-circle"></i> {{ invoice.warning_message }}
-            </div>
-            {% endif %}
 
             {% if invoice.items %}
             <table class="items-table">
                 <thead>
                     <tr>
                         <th>费用类别</th>
-                        <th>描述</th>
+                        <th>DESCRIPTION</th>
                         <th>仓库代码</th>
-                        <th>PO号</th>
                         <th>单价</th>
                         <th>数量</th>
                         <th>CBM</th>
@@ -432,6 +528,7 @@
                         <th>附加费</th>
                         <th>金额</th>
                         <th>备注</th>
+                        <th>P_ID</th>
                         {% if invoice.can_edit %}
                         <th>操作</th>
                         {% endif %}
@@ -439,23 +536,70 @@
                 </thead>
                 <tbody>
                     {% for item in invoice.items %}
-                    <tr>
-                        <td>{{ item.item_category }}</td>
-                        <td>{{ item.description }}</td>
-                        <td>{{ item.warehouse_code }}</td>
-                        <td>{{ item.PO_ID }}</td>
-                        <td>{{ item.rate }}</td>
-                        <td>{{ item.qty }}</td>
-                        <td>{{ item.cbm }}</td>
-                        <td>{{ item.weight }}</td>
-                        <td>{{ item.surcharges }}</td>
-                        <td>{{ item.amount }}</td>
-                        <td>{{ item.note }}</td>
+                    <tr data-item-id="{{ item.id }}" class="item-row">
+                        <td class="readonly-cell">
+                            {% if item.item_category == 'delivery_public' %}公仓派送
+                            {% elif item.item_category == 'delivery_other' %}私仓派送
+                            {% elif item.item_category == 'warehouse_public' %}公仓库内
+                            {% elif item.item_category == 'warehouse_other' %}私仓库内
+                            {% elif item.item_category == 'preport' %}港前
+                            {% elif item.item_category == 'activation_fee' %}激活费
+                            {% elif item.item_category == 'combina_extra_fee' %}组合费额外费用
+                            {% elif item.item_category == 'payout_fee' %}赔付费用
+                            {% else %}{{ item.item_category }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="text" class="form-input" name="description" value="{{ item.description|default:'' }}">
+                            {% else %}
+                            {{ item.description|default:'' }}
+                            {% endif %}
+                        </td>
+                        <td class="readonly-cell">{{ item.warehouse_code|default:'' }}</td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input" name="rate" step="0.01" value="{{ item.rate|default:0 }}">
+                            {% else %}
+                            {{ item.rate|default:0 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input" name="qty" step="0.01" value="{{ item.qty|default:0 }}">
+                            {% else %}
+                            {{ item.qty|default:0 }}
+                            {% endif %}
+                        </td>
+                        <td class="readonly-cell">{{ item.cbm|default:'' }}</td>
+                        <td class="readonly-cell">{{ item.weight|default:'' }}</td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input" name="surcharges" step="0.01" value="{% if item.surcharges != 0 %}{{ item.surcharges }}{% endif %}">
+                            {% else %}
+                            {% if item.surcharges != 0 %}{{ item.surcharges }}{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input amount-input" name="amount" step="0.01" value="{{ item.amount|default:0 }}">
+                            {% else %}
+                            {{ item.amount|default:0 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="text" class="form-input" name="note" value="{{ item.note|default:'' }}">
+                            {% else %}
+                            {{ item.note|default:'' }}
+                            {% endif %}
+                        </td>
+                        <td class="readonly-cell">{{ item.PO_ID|default:'' }}</td>
                         {% if invoice.can_edit %}
                         <td>
                             <div class="action-buttons">
-                                <button class="action-btn edit-btn" onclick="editItem({{ item.id }}, '{{ invoice.id }}')">
-                                    <i class="fas fa-edit"></i> 编辑
+                                <button class="action-btn save-btn" onclick="saveItem({{ item.id }}, {{ invoice.id }}, this)">
+                                    <i class="fas fa-save"></i> 保存
                                 </button>
                                 <button class="action-btn delete-btn" onclick="deleteItem({{ item.id }}, '{{ invoice.id }}')">
                                     <i class="fas fa-trash"></i> 删除
@@ -480,88 +624,73 @@
             {% endif %}
         </div>
         {% endfor %}
+        {% endif %}
     </div>
 </div>
 
-<div class="modal-overlay" id="editModal">
+<div class="modal-overlay" id="addModal">
     <div class="modal-content">
-        <div class="modal-title" id="modalTitle">编辑费用</div>
-        <form method="post" id="editForm">
+        <div class="modal-title">添加费用</div>
+        <form method="post" id="addForm">
             {% csrf_token %}
             <input type="hidden" name="step" value="container_check_save">
-            <input type="hidden" name="action" id="modalAction" value="edit">
-            <input type="hidden" name="item_id" id="itemId">
+            <input type="hidden" name="action" value="add">
             <input type="hidden" name="container_number" value="{{ container_number }}">
-            <input type="hidden" name="invoice_id" id="invoiceId">
+            <input type="hidden" name="invoice_id" id="addInvoiceId">
 
             <div class="form-group">
                 <label>费用类别</label>
-                <select name="item_category" id="itemCategory">
+                <select name="item_category" id="addItemCategory">
                     <option value="preport">港前</option>
-                    <option value="warehouse_public">公仓</option>
-                    <option value="warehouse_other">私仓</option>
-                    <option value="delivery_public">派送公仓</option>
-                    <option value="delivery_other">派送私仓</option>
+                    <option value="warehouse_public">公仓库内</option>
+                    <option value="warehouse_other">私仓库内</option>
+                    <option value="activation_fee">激活费</option>
+                    <option value="combina_extra_fee">组合费额外费用</option>
+                    <option value="payout_fee">赔付费用</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label>描述</label>
-                <input type="text" name="description" id="itemDescription" required>
-            </div>
-
-            <div class="form-row">
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">
                 <div class="form-group">
-                    <label>仓库代码</label>
-                    <input type="text" name="warehouse_code" id="warehouseCode">
+                    <label>DESCRIPTION</label>
+                    <input type="text" name="description" id="addItemDescription" required>
                 </div>
-                <div class="form-group">
-                    <label>PO号</label>
-                    <input type="text" name="PO_ID" id="poId">
-                </div>
-            </div>
-
-            <div class="form-row">
                 <div class="form-group">
                     <label>单价</label>
-                    <input type="number" name="rate" id="itemRate" step="0.01" value="0">
+                    <input type="number" name="rate" id="addItemRate" step="0.01" value="">
                 </div>
                 <div class="form-group">
                     <label>数量</label>
-                    <input type="number" name="qty" id="itemQty" step="0.01" value="0">
+                    <input type="number" name="qty" id="addItemQty" step="0.01" value="">
                 </div>
-            </div>
-
-            <div class="form-row">
                 <div class="form-group">
                     <label>CBM</label>
-                    <input type="number" name="cbm" id="itemCbm" step="0.01" value="0">
-                </div>
-                <div class="form-group">
-                    <label>重量</label>
-                    <input type="number" name="weight" id="itemWeight" step="0.01" value="0">
+                    <input type="number" name="cbm" id="addItemCbm" step="0.01" value="">
                 </div>
             </div>
 
-            <div class="form-row">
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>重量</label>
+                    <input type="number" name="weight" id="addItemWeight" step="0.01" value="">
+                </div>
                 <div class="form-group">
                     <label>附加费</label>
-                    <input type="number" name="surcharges" id="itemSurcharges" step="0.01" value="0">
+                    <input type="number" name="surcharges" id="addItemSurcharges" step="0.01" value="">
                 </div>
                 <div class="form-group">
                     <label>金额</label>
-                    <input type="number" name="amount" id="itemAmount" step="0.01" value="0" required>
+                    <input type="number" name="amount" id="addItemAmount" step="0.01" value="" required>
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <input type="text" name="note" id="addItemNote">
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>备注</label>
-                <input type="text" name="note" id="itemNote">
-            </div>
-
             <div class="modal-buttons">
-                <button type="button" class="modal-btn cancel" onclick="closeModal()">取消</button>
-                <button type="submit" class="modal-btn confirm">确认</button>
+                <button type="button" class="modal-btn cancel" onclick="closeAddModal()">取消</button>
+                <button type="submit" class="modal-btn confirm">确认添加</button>
             </div>
         </form>
     </div>
@@ -586,39 +715,77 @@
 </div>
 
 <script>
-function goBack() {
-    window.location.href = "{% url 'receivable_accounting' %}?step=container_check";
+// 页面加载时计算每个账单的总费用
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.invoice-card').forEach(function(card) {
+        calculateInvoiceTotal(card);
+    });
+
+    // 监听金额输入框的变化，实时更新总费用
+    document.querySelectorAll('.amount-input').forEach(function(input) {
+        input.addEventListener('input', function() {
+            var card = this.closest('.invoice-card');
+            calculateInvoiceTotal(card);
+        });
+    });
+});
+
+// 计算账单总费用
+function calculateInvoiceTotal(card) {
+    var total = 0;
+    card.querySelectorAll('.amount-input').forEach(function(input) {
+        var val = parseFloat(input.value) || 0;
+        total += val;
+    });
+    card.querySelector('.invoice-total').textContent = total.toFixed(2);
+}
+
+function saveItem(itemId, invoiceId, button) {
+    var row = button.closest('tr');
+    var description = row.querySelector('[name="description"]').value;
+    var rate = parseFloat(row.querySelector('[name="rate"]').value) || 0;
+    var qty = parseFloat(row.querySelector('[name="qty"]').value) || 0;
+    var surcharges = parseFloat(row.querySelector('[name="surcharges"]').value) || 0;
+    var amount = parseFloat(row.querySelector('[name="amount"]').value) || 0;
+    var note = row.querySelector('[name="note"]').value;
+
+    // 创建一个临时表单提交
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+        {% csrf_token %}
+        <input type="hidden" name="step" value="container_check_save">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="item_id" value="${itemId}">
+        <input type="hidden" name="invoice_id" value="${invoiceId}">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="description" value="${description}">
+        <input type="hidden" name="rate" value="${rate}">
+        <input type="hidden" name="qty" value="${qty}">
+        <input type="hidden" name="surcharges" value="${surcharges}">
+        <input type="hidden" name="amount" value="${amount}">
+        <input type="hidden" name="note" value="${note}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
 }
 
 function addItem(invoiceId) {
-    document.getElementById('modalTitle').textContent = '添加费用';
-    document.getElementById('modalAction').value = 'add';
-    document.getElementById('invoiceId').value = invoiceId;
-    document.getElementById('itemId').value = '';
-    document.getElementById('itemCategory').value = 'preport';
-    document.getElementById('itemDescription').value = '';
-    document.getElementById('warehouseCode').value = '';
-    document.getElementById('poId').value = '';
-    document.getElementById('itemRate').value = '0';
-    document.getElementById('itemQty').value = '0';
-    document.getElementById('itemCbm').value = '0';
-    document.getElementById('itemWeight').value = '0';
-    document.getElementById('itemSurcharges').value = '0';
-    document.getElementById('itemAmount').value = '0';
-    document.getElementById('itemNote').value = '';
-    document.getElementById('editModal').style.display = 'block';
+    document.getElementById('addInvoiceId').value = invoiceId;
+    document.getElementById('addItemCategory').value = 'preport';
+    document.getElementById('addItemDescription').value = '';
+    document.getElementById('addItemRate').value = '';
+    document.getElementById('addItemQty').value = '';
+    document.getElementById('addItemCbm').value = '';
+    document.getElementById('addItemWeight').value = '';
+    document.getElementById('addItemSurcharges').value = '';
+    document.getElementById('addItemAmount').value = '';
+    document.getElementById('addItemNote').value = '';
+    document.getElementById('addModal').style.display = 'block';
 }
 
-function editItem(itemId, invoiceId) {
-    document.getElementById('modalTitle').textContent = '编辑费用';
-    document.getElementById('modalAction').value = 'edit';
-    document.getElementById('invoiceId').value = invoiceId;
-    document.getElementById('itemId').value = itemId;
-    document.getElementById('editModal').style.display = 'block';
-}
-
-function closeModal() {
-    document.getElementById('editModal').style.display = 'none';
+function closeAddModal() {
+    document.getElementById('addModal').style.display = 'none';
 }
 
 function deleteItem(itemId, invoiceId) {
@@ -630,9 +797,9 @@ function closeDeleteModal() {
     document.getElementById('deleteModal').style.display = 'none';
 }
 
-document.getElementById('editModal').addEventListener('click', function(e) {
+document.getElementById('addModal').addEventListener('click', function(e) {
     if (e.target === this) {
-        closeModal();
+        closeAddModal();
     }
 });
 
