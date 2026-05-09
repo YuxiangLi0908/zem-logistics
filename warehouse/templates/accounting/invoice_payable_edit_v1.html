@@ -471,6 +471,7 @@
             <span class="badge">仓库: {{ warehouse }}</span>
             <span class="badge">柜型: {{ container_type }}</span>
             <span class="badge">提柜供应商: {{ preport_carrier }}</span>
+            <span class="badge">总箱数: {{ total_pcs }}</span>
             <span class="badge">
                 {% if is_save_invoice %}
                     {% if is_rejected %}
@@ -606,33 +607,61 @@
                                 {% if not arrive_fee %}
                                     <div class="fee-row">
                                         <div class="fee-cell">
-                                            <span class="fee-name">
-                                                <div class="fee-icon-container" style="background-color: #f0fdf4;">
-                                                    <i class="bi bi-box-seam fee-icon" style="color: #27ae60;"></i>
-                                                </div>
-                                                拆柜费用
-                                            </span>
+                                        <span class="fee-name">
+                                            <div class="fee-icon-container" style="background-color: #f0fdf4;">
+                                                <i class="bi bi-box-seam fee-icon" style="color: #27ae60;"></i>
+                                            </div>
+                                            拆柜费用
+                                        </span>
                                         </div>
                                         <div class="fee-cell">
-                                            {% if not is_save_invoice %}
-                                                {% if "NJ" == warehouse  %}
-                                                    <select class="supplier-select" id="select_carrier"
-                                                            onchange="updateUnloadingFee(this)">
-                                                        <option value="">-- 选择供应商 --</option>
-                                                        {% for key,value in pallet_details.items %}
-                                                            <option value="{{ value }}" data-name="{{ key }}"
-                                                                    {% if key == palletization_carrier %}selected{% endif %}>
-                                                                {{ key }} - ${{ value }}
-                                                            </option>
-                                                        {% endfor %}
-                                                    </select>
-                                                    <input type="hidden" name="palletization_carrier"
-                                                           id="palletization_carrier"
-                                                           value="{{ palletization_carrier }}">
+
+                                            {# ====================== LA-91730 专用逻辑 ====================== #}
+                                            {% if warehouse_precise_p == "LA-91730" %}
+                                                {% if not is_save_invoice %}
+                                                    <div style="padding:12px 20px; background:#fff7ed; border-left:4px solid #f97316; margin-bottom:10px;">
+                                                        <select class="input-field" id="new_world_pallet_options"
+                                                                onchange="selectNewWorldPalletFee()"
+                                                                style="text-align:left; padding:10px 12px; max-width:100%;">
+                                                            <option value="">-- 请选择费用 --</option>
+                                                            <option value="1000箱以下|200">Iris - 1000箱以下 - $200</option>
+                                                            <option value="1000箱以上|220">Iris - 1000箱以上 - $220</option>
+                                                            <option value="特操|250">Iris - 特操 - $250</option>
+                                                        </select>
+                                                    </div>
+                                                    <span id="pallet_carrier_show" class="reference-info"
+                                                          style="color:#166534; font-weight:600;">
+                                                        供应商：Iris
+                                                    </span>
+                                                {% else %}
+                                                    <span class="reference-info">{{ fee.carrier|default:"无" }}</span>
                                                 {% endif %}
+
+                                                {# ====================== 其他仓库正常逻辑 ====================== #}
                                             {% else %}
-                                                <span class="reference-info">{{ fee.carrier|default:"无" }}</span>
+
+                                                {% if not is_save_invoice %}
+                                                    {% if "NJ" == warehouse %}
+                                                        <select class="supplier-select" id="select_carrier"
+                                                                onchange="updateUnloadingFee(this)">
+                                                            <option value="">-- 选择供应商 --</option>
+                                                            {% for key,value in pallet_details.items %}
+                                                                <option value="{{ value }}" data-name="{{ key }}"
+                                                                        {% if key == palletization_carrier %}selected{% endif %}>
+                                                                    {{ key }} - ${{ value }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <input type="hidden" name="palletization_carrier"
+                                                               id="palletization_carrier"
+                                                               value="{{ palletization_carrier }}">
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="reference-info">{{ fee.carrier|default:"无" }}</span>
+                                                {% endif %}
+
                                             {% endif %}
+
                                         </div>
                                         <div class="fee-cell">
                                             {% if not is_save_invoice %}
@@ -646,16 +675,23 @@
                                                         {% else %}
                                                        value=""
                                                         {% endif %} oninput="calculateTotal()">
+
+                                                {# ========== LA-91730 强制传递供应商 Iris ========== #}
+                                                {% if warehouse_precise_p == "LA-91730" %}
+                                                    <input type="hidden" name="palletization_carrier"
+                                                           id="palletization_carrier" value="Iris">
+                                                {% endif %}
+
                                             {% else %}
                                                 <span class="amount-display">
-                                            {% if fee.rate %}
-                                                {{ fee.rate }}
-                                            {% elif FS and fee.description in FS %}
-                                                {{ FS|get_item:fee.description }}
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </span>
+                    {% if fee.rate %}
+                        {{ fee.rate }}
+                    {% elif FS and fee.description in FS %}
+                        {{ FS|get_item:fee.description }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
                                             {% endif %}
                                         </div>
                                         <div class="fee-cell">
@@ -1026,7 +1062,7 @@
                             </button>
 
                             <input type="text" class="reject-reason-input"
-                                placeholder="请输入驳回原因" name="reject_reason">
+                                   placeholder="请输入驳回原因" name="reject_reason">
 
                             <button type="submit" class="btn btn-success" onclick="modifyStatus('check_confirm')">
                                 <i class="bi bi-check-circle"></i> 初级审核通过
@@ -1070,9 +1106,34 @@
     function modifyStatus(type) {
         const saveTypeInput = document.getElementById('save_type');
         saveTypeInput.value = type;
-        if (type === 'reject_check' && !document.querySelector('input[name="reject_reason"]').value.trim()) {
-            alert('请输入驳回原因');
-            event.preventDefault();
+        let startInput = document.querySelector('input[name="start_date_confirm"]');
+        let endInput = document.querySelector('input[name="end_date_confirm"]');
+
+        if (!startInput) {
+            startInput = document.createElement('input');
+            startInput.type = 'hidden';
+            startInput.name = 'start_date_confirm';
+            document.getElementById('invoice-form').appendChild(startInput);
+        }
+        if (!endInput) {
+            endInput = document.createElement('input');
+            endInput.type = 'hidden';
+            endInput.name = 'end_date_confirm';
+            document.getElementById('invoice-form').appendChild(endInput);
+        }
+
+        // ✅ 关键：直接从模板渲染值，不会为空！
+        startInput.value = "{{ start_date_confirm|default:'' }}";
+        endInput.value = "{{ end_date_confirm|default:'' }}";
+
+        // 驳回原因判断
+        if (type === 'reject_check') {
+            const rejectInput = document.querySelector('input[name="reject_reason"]');
+            if (!rejectInput || !rejectInput.value.trim()) {
+                alert('请输入驳回原因');
+                event.preventDefault();
+                return;
+            }
         }
     }
 
@@ -1137,6 +1198,30 @@
             计算总额: total,
             格式化后: formattedTotal
         });
+    }
+
+    // 选择 LA-91730 拆柜费（Iris 固定费用）
+    function selectNewWorldPalletFee() {
+        const select = document.getElementById('new_world_pallet_options');
+        const value = select.value;
+        if (!value) return;
+
+        const [name, rate] = value.split('|');
+        const feeInput = document.getElementById('palletization_fee_input');
+        const carrierShow = document.getElementById('pallet_carrier_show');
+
+        // 自动填入费用
+        if (feeInput) {
+            feeInput.value = rate;
+        }
+
+        // 固定显示 Iris
+        if (carrierShow) {
+            carrierShow.innerText = "供应商：Iris";
+        }
+
+        // 重算总价
+        calculateTotal();
     }
 </script>
 {% endblock %}

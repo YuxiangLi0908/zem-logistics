@@ -5504,7 +5504,6 @@ class ReceivableAccounting(View):
         criteria = (
             Q(vessel_id__vessel_etd__gte=start_date)
             & Q(vessel_id__vessel_etd__lte=end_date)
-            & Q(offload_id__offload_at__isnull=False)
         )
 
         if warehouse:
@@ -8290,7 +8289,7 @@ class ReceivableAccounting(View):
         for key, ratio in group_cbm_ratios.items():
             if ratio <= 0:
                 po_id, dest = key
-                error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。其中预报的整柜cbm是{total_container_cbm}，组合柜的总cbm是{combina_cbm_manual}"
+                error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。其中预报的整柜cbm是{total_container_cbm}，组合柜的总cbm是{combina_cbm_manual},仓点详情是{pallet_groups}"
                 raise ValueError(error_msg)
         # 5. 计算组合柜总费用
         combina_tiers_data = {}  # 存储结构为：(区名, 梯度索引) -> 数据
@@ -8914,55 +8913,58 @@ class ReceivableAccounting(View):
         
         vessel_eta = order.vessel_id.vessel_eta
 
-        # 如果是从PackingList查询的，已经添加了location字段
-        # 否则不需要额外处理
+        # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
+        for group in pallet_groups:
+            po_id = group.get("PO_ID")
+            shipping_marks = group.get("shipping_marks")
+            if po_id:
+                if delivery_type == "other":
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks,container_number__container_number=container_number).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )  
+                        if aggregated['total_cbm'] is not None:
+                            if 'total_cbm' in group:
+                                # 计算差值（取绝对值）
+                                diff = abs(group['total_cbm'] - aggregated['total_cbm'])
+                                if diff > 10:
+                                    raise ValueError(f"total_cbm 相差超过10: 原有值={group['total_cbm']}, 新值={aggregated['total_cbm']}, 差值={diff}")
 
-        # 对每个PO组，从PackingList表中获取准确的CBM和重量数据（仅当不是从PackingList查询时）
-        if not is_from_packing_list:
-            for group in pallet_groups:
-                po_id = group.get("PO_ID")
-                shipping_marks = group.get("shipping_marks")
-                if po_id:
-                    if delivery_type == "other":
-                        try:
-                            aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
-                                total_cbm=Sum('cbm'),
-                                total_weight_lbs=Sum('total_weight_lbs')
-                            )  
-                            if aggregated['total_cbm'] is not None:
-                                group['total_cbm'] = aggregated['total_cbm']
-                            if aggregated['total_weight_lbs'] is not None:
-                                group['total_weight_lbs'] = aggregated['total_weight_lbs']
-                            
-                        except Exception as e:
-                            # 如果查询出错，不修改值
-                            continue
-                    else:
-                        if '_' in po_id:
-                            continue
-                        try:
-                            aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                            group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_weight_lbs'] is not None:
+                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                        
+                    except Exception as e:
+                        # 如果查询出错，不修改值
+                        continue
+                else:
+                    if '_' in po_id:
+                        continue
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,container_number__container_number=container_number).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
+                            # 去掉下划线再查，同时匹配 shipping_marks
+                            po_id_modified = po_id.split('_', 1)[0]
+                            aggregated = PackingList.objects.filter(
+                                PO_ID=po_id_modified,
+                                shipping_mark=shipping_marks
+                            ).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
-                            if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
-                                # 去掉下划线再查，同时匹配 shipping_marks
-                                po_id_modified = po_id.split('_', 1)[0]
-                                aggregated = PackingList.objects.filter(
-                                    PO_ID=po_id_modified,
-                                    shipping_mark=shipping_marks
-                                ).aggregate(
-                                    total_cbm=Sum('cbm'),
-                                    total_weight_lbs=Sum('total_weight_lbs')
-                                )
-                            if aggregated['total_cbm'] is not None:
-                                group['total_cbm'] = aggregated['total_cbm']
-                            if aggregated['total_weight_lbs'] is not None:
-                                group['total_weight_lbs'] = aggregated['total_weight_lbs']
-                            
-                        except Exception as e:
-                            # 如果查询出错，不修改值
-                            continue
+                        if aggregated['total_cbm'] is not None:
+                            if 'total_cbm' in group:
+                                # 计算差值（取绝对值）
+                                diff = abs(group['total_cbm'] - aggregated['total_cbm'])
+                                if diff > 10:
+                                    raise ValueError(f"total_cbm 相差超过10: 原有值={group['total_cbm']}, 新值={aggregated['total_cbm']}, 差值={diff}")
+                            group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_weight_lbs'] is not None:
+                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
                 else:
                     # 没有PO_ID的情况
@@ -10831,7 +10833,7 @@ class ReceivableAccounting(View):
         if "tiered_pricing" in stipulate:
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
-                    min_points = rule.get("min_points")
+                    min_points = int(rule.get("min_points"))
                     max_points = rule.get("max_points")
                     if not max_points or str(max_points).lower() == 'nan':
                         # 只有最小值，那么就是按每个仓点多收费
@@ -11481,7 +11483,7 @@ class ReceivableAccounting(View):
             region_count = combina_region_count
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
-                    min_points = rule.get("min_points")
+                    min_points = int(rule.get("min_points"))
                     max_points = rule.get("max_points")
                     if not max_points or str(max_points).lower() == 'nan':
                         # 只有最小值，那么就是按每个仓点多收费

@@ -380,8 +380,8 @@ class Palletization(View):
         }
         return self.template_pallet_daily_operation, context
 
-    async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
-        if warehouse:
+    async def handle_all_get(self, warehouse: str = None, storehouse: str = None) -> tuple[str, dict[str, Any]]:
+        if warehouse and storehouse:
             warehouse = None if warehouse == "Empty" else warehouse
             if 'LA' in warehouse:
                 order_not_palletized = await self._get_order_not_palletized_public(warehouse)
@@ -393,6 +393,8 @@ class Palletization(View):
                     "order_with_shipment": order_with_shipment,
                     "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
                     "warehouse": warehouse,
+                    "storehouse": storehouse,
+                    "storehouse_form": {"public": "public", "other": "other"},
                 }
             else:
                 order_not_palletized, order_palletized, order_with_shipment = (
@@ -429,10 +431,13 @@ class Palletization(View):
                     "order_palletized": order_palletized,
                     "order_with_shipment": order_with_shipment,
                     "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "storehouse_form": {"public": "public", "other": "other"},
+                    "storehouse": storehouse,
                     "warehouse": warehouse,
                 }
         else:
-            context = {"warehouse_form": ZemWarehouseForm()}
+            storehouse_form = {"public": "public", "other": "other"}
+            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form}
         return self.template_main, context
 
     async def handle_all_get_palletized(
@@ -502,6 +507,7 @@ class Palletization(View):
         offload = order_selected.offload_id
         order_packing_list = []
         warehouse = request.GET.get("warehouse").split("-")[0].strip()
+        storehouse = request.GET.get("storehouse")
         if (
             request.GET.get("step", None) == "container_palletization"
             and offload.offload_at is None and warehouse == "LA"
@@ -545,6 +551,7 @@ class Palletization(View):
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
             order_packing_list.append((pl, pl_form))
         context["warehouse"] = request.GET.get("warehouse", None)
+        context["storehouse"] = storehouse
         context["order_packing_list"] = order_packing_list
         context["delivery_method_options"] = DELIVERY_METHOD_OPTIONS
         context["container_number"] = container.container_number
@@ -555,7 +562,29 @@ class Palletization(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("name")
-        template, context = await self.handle_all_get(warehouse)
+        storehouse = request.POST.get("storehouse")
+        if 'LA' in warehouse and storehouse == "other":
+            from warehouse.views.post_port.post_nsop import PostNsop
+            pn = PostNsop()
+            # LA私仓客户自提 待拆柜
+            packinglist_not_selfpick_cargos = await pn._get_order_not_palletized_other_selfpick_cargos(warehouse)
+            # LA私仓客户自提 已拆柜
+            packinglist_selfpick_cargos = await pn._get_order_palletized_other_selfpick_cargos(warehouse)
+            # LA私仓客户自提 预约情况
+            order_with_shipment = await pn._get_order_shipment_other_selfpick_cargos(warehouse)
+
+            context = {
+                'warehouse': warehouse,
+                "storehouse": storehouse,
+                'warehouse_options': pn.warehouse_options,
+                "storehouse_form": {"public": "public", "other": "other"},
+                "packinglist_not_selfpick_cargos": packinglist_not_selfpick_cargos,
+                "packinglist_selfpick_cargos": packinglist_selfpick_cargos,
+                "order_with_shipment": order_with_shipment,
+            }
+            template, context = pn.template_other_selfpick_cargos, context
+        else:
+            template, context = await self.handle_all_get(warehouse, storehouse)
         return template, context
 
     async def handle_upload_warehouse_post(
@@ -888,7 +917,7 @@ class Palletization(View):
                 ]
                 # 生成新的PO_ID
                 new_po_ids = []
-                seq_num = 0
+                seq_num = 1
                 for dm, dest in zip(new_delivery_method, new_destinations):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -896,7 +925,8 @@ class Palletization(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
-                    random.seed(container.container_number[-4:])
+
+                    random.seed(container.container_number[-4:] + str(seq_num))
                     random_code = "".join(
                         random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
@@ -1204,7 +1234,7 @@ class Palletization(View):
                 ]
                 # 生成新的PO_ID
                 new_po_ids = []
-                seq_num = 0
+                seq_num = 1
                 for dm, dest in zip(new_delivery_method, new_destinations):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -1212,7 +1242,8 @@ class Palletization(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
-                    random.seed(container.container_number[-4:])
+
+                    random.seed(container.container_number[-4:] + str(seq_num))
                     random_code = "".join(
                         random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
@@ -2594,7 +2625,7 @@ class Palletization(View):
                     warehouse__name=warehouse,
                     offload_id__offload_required=True,
                     offload_id__offload_at__isnull=False,
-                    # container_number__pallet__delivery_type='public',
+                    container_number__pallet__delivery_type='public',
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
                 )
