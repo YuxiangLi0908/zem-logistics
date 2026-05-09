@@ -77,7 +77,7 @@
                 {% elif "LA-91766" == page.warehouse %}
                 1601 W Mission Blvd, Pomona<br>CA 91766<br>Allywork &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;213-510-5188-Ext 803<br>allywork.operation@gmail.com
                 {% elif "LA-91730" == page.warehouse %}
-                19570 Santa Anita Ave, Rancho Cucamonga<br>CA 91730<br>Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246<br>delivery@zemlogistics.com
+                9570 Santa Anita Ave, Rancho Cucamonga<br>CA 91730<br>Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246<br>delivery@zemlogistics.com
 
                 {% else %}
                 <br><br><br><br>
@@ -120,7 +120,9 @@
             <td style="width:10%;"></td>
             <td style="width: 55%; text-align:center;">   
                 <b class="larger-text"> DELIVERY REMARKS</b>
-                <br>Ready from <b>09:00 AM</b> to <b>05:30 PM</b>            
+                {% if "LA" not in warehouse %}
+                <br>Ready from <b>09:00 AM</b> to <b>05:30 PM</b> 
+                {% endif %}           
             </td>
         </tr>
     </table>

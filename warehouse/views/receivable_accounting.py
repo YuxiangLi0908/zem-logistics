@@ -9996,7 +9996,7 @@ class ReceivableAccounting(View):
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = int(rule.get("min_points"))
-                    max_points = int(rule.get("max_points"))
+                    max_points = rule.get("max_points")
                     if not max_points or str(max_points).lower() == 'nan':
                         # 只有最小值，那么就是按每个仓点多收费
                         temp_fee = rule.get("fee")
@@ -10646,7 +10646,7 @@ class ReceivableAccounting(View):
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = int(rule.get("min_points"))
-                    max_points = int(rule.get("max_points"))
+                    max_points = rule.get("max_points")
                     if not max_points or str(max_points).lower() == 'nan':
                         # 只有最小值，那么就是按每个仓点多收费
                         temp_fee = rule.get("fee")
