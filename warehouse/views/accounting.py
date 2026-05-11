@@ -7925,7 +7925,7 @@ class Accounting(View):
         if not order_list:
             raise ValueError("未查询到符合条件的订单")
 
-        # 3. 定义固定费用类型 ✅【这里修复了 Iris 重复覆盖问题】
+        # 3. 定义固定费用类型
         fixed_fee_types = []
         if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
             fixed_fee_types = ["拆柜费用", "入库拆柜费", "总费用"]
@@ -7959,11 +7959,7 @@ class Accounting(View):
         elif select_carrier == "Iris":
             fixed_fee_types = [
                 "基本费用",
-                "超重费",
-                "车架费",
                 "拆柜费用",
-                "入库拆柜费",
-                "总费用",
                 "箱数"  # 箱数已正确加入
             ]
         else:
@@ -8023,12 +8019,13 @@ class Accounting(View):
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
             elif order.retrieval_id.retrieval_destination_area == "LA" and order.order_type == "转运" and order.retrieval_id.retrieval_carrier == "Eric":
                 carrier_match = True
-            elif order.retrieval_id.retrieval_carrier == "客户自送":
+            elif order.retrieval_id.retrieval_carrier == "客户自送" and order.retrieval_id.retrieval_destination_precise == "LA-91761":
                 carrier_match = True
             else:
                 s_carrier = {
                     "ARM": "大方广",
-                    "Kars": "kars"
+                    "Kars": "kars",
+                    "new world": "new world"
                 }.get(select_carrier, select_carrier)
                 carrier_match = (order.retrieval_id.retrieval_carrier == s_carrier) if order.retrieval_id else False
 
@@ -8103,7 +8100,7 @@ class Accounting(View):
                                           order.retrieval_id.retrieval_destination_area == "LA" and
                                           order.order_type == "转运" and
                                           order.retrieval_id.retrieval_carrier == "Eric"
-                                  ) or (order.retrieval_id.retrieval_carrier == "客户自送")
+                                  ) or (order.retrieval_id.retrieval_carrier == "客户自送" and order.retrieval_id.retrieval_destination_precise == "LA-91761")
 
             # 临时存储Eric订单的入库费金额
             eric_unload_fee = 0.0
