@@ -10760,7 +10760,8 @@ class ReceivableAccounting(View):
             result = self._recalculate_cbm_ratio(container_number, invoice,plts["total_cbm"])
         
         # 私仓组还没录的情况，用packinglist的总cbm减去组合柜的cbm得到非组合柜的cbm
-        packinglist_total_cbm = plts["total_cbm"]
+        packinglist_total_cbm = round(float(PackingList.objects.filter(container_number__container_number=container_number).aggregate(total=Sum('cbm'))['total'] or 0), 2)
+        
         non_combina_cbm = round(packinglist_total_cbm - combina_total_cbm, 4)
         # 用1减去组合柜的cbm_ratio得到非组合柜的cbm_ratio
         non_combina_cbm_ratio = round(1 - combina_total_cbm_ratio, 4)
