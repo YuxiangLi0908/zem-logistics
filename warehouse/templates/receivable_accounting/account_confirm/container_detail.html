@@ -1,0 +1,812 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+<style>
+    .finance-system {
+        width: 100%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .finance-header { 
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white; 
+        padding: 25px 30px;
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+    }
+    
+    .finance-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .finance-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .info-badges {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
+    .back-btn {
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .finance-main {
+        padding: 25px;
+    }
+
+    .container-info {
+        background: var(--light-bg);
+        padding: 20px;
+        border-radius: var(--border-radius);
+        margin-bottom: 25px;
+        display: flex;
+        gap: 30px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .info-label {
+        font-size: 0.85rem;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .info-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    .invoice-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        margin-bottom: 25px;
+        border: 1px solid #f0f0f0;
+        overflow: hidden;
+    }
+
+    .invoice-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .invoice-header h3 {
+        margin: 0;
+        color: var(--secondary-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .invoice-status {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .status-badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-completed {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .status-uncompleted {
+        background: var(--light-bg);
+        color: var(--warning-color);
+    }
+
+    .delivered-badge {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .warning-message {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+        padding: 12px 20px;
+        border-radius: 6px;
+        margin: 0 20px;
+        margin-top: 15px;
+        font-size: 0.9rem;
+    }
+
+    .items-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+    }
+
+    .items-table th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 16px 12px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        color: var(--secondary-color);
+        font-size: 0.95rem;
+    }
+
+    .items-table td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+
+    .items-table tr.duplicate {
+        background: #fff3cd;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .edit-btn {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .edit-btn:hover {
+        background: #0d3d14;
+    }
+
+    .delete-btn {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .delete-btn:hover {
+        background: #8b1414;
+    }
+
+    .add-btn {
+        background: var(--success-color);
+        color: white;
+        padding: 10px 20px;
+        margin: 20px;
+    }
+
+    .add-btn:hover {
+        background: #219652;
+    }
+
+    .empty-items {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: var(--border-radius);
+        width: 600px;
+        max-width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: var(--secondary-color);
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 5px;
+        color: var(--secondary-color);
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.95rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    .modal-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 25px;
+    }
+
+    .modal-btn {
+        padding: 10px 25px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .modal-btn.cancel {
+        background: #e9ecef;
+        color: #666;
+    }
+
+    .modal-btn.confirm {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .duplicate-section {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+
+    .duplicate-title {
+        font-weight: 600;
+        color: #856404;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+    }
+
+    .duplicate-item {
+        padding: 10px;
+        background: white;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #1b5e20;
+    }
+
+    .items-table th:nth-child(1),
+    .items-table td:nth-child(1) { width: 160px; }
+    .items-table th:nth-child(2),
+    .items-table td:nth-child(2) { width: 180px; }
+    .items-table th:nth-child(3),
+    .items-table td:nth-child(3) { width: 110px; }
+    .items-table th:nth-child(4),
+    .items-table td:nth-child(4) { width: 90px; }
+    .items-table th:nth-child(5),
+    .items-table td:nth-child(5) { width: 80px; }
+    .items-table th:nth-child(6),
+    .items-table td:nth-child(6) { width: 90px; }
+    .items-table th:nth-child(7),
+    .items-table td:nth-child(7) { width: 90px; }
+    .items-table th:nth-child(8),
+    .items-table td:nth-child(8) { width: 90px; }
+    .items-table th:nth-child(9),
+    .items-table td:nth-child(9) { width: 110px; }
+    .items-table th:nth-child(10),
+    .items-table td:nth-child(10) { width: 150px; }
+    .items-table th:nth-child(11),
+    .items-table td:nth-child(11) { width: 100px; }
+    .items-table th:nth-child(12),
+    .items-table td:nth-child(12) { width: 130px; }
+
+    .items-table .form-input {
+        width: 100%;
+        padding: 5px 8px;
+    }
+
+    .readonly-cell {
+        background-color: #f5f5f5;
+        color: #666;
+    }
+
+    .save-btn {
+        background: #2e7d32;
+        color: white;
+    }
+
+    .save-btn:hover {
+        background: #1b5e20;
+    }
+
+    .total-amount-display {
+        font-weight: bold;
+    }
+
+    .finance-confirmed-badge {
+        background-color: #ff9800;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-left: 15px;
+        font-weight: normal;
+    }
+
+    .delivered-badge-small {
+        background-color: #2e7d32;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-left: 10px;
+        font-weight: normal;
+    }
+</style>
+
+<div class="finance-system">
+    <div class="finance-header">
+        <div class="finance-logo">
+            <i class="fas fa-box"></i>
+            账单详情 - {{container_number}}
+        </div>
+        <div class="info-badges">
+            <span class="badge">仓库: {{ warehouse }}</span>
+            <span class="badge">客户: {{ customer_name }}</span>
+            <span class="badge">ETD: {{ vessel_etd }}</span>
+            <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s ease;">
+                <i class="fas fa-arrow-left"></i>
+                返回
+            </button>
+        </div>
+    </div>
+
+    <div class="finance-main">
+        {% if not invoice_data or invoice_data|length == 0 %}
+        <div class="empty-state">
+            <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 20px;"></i>
+            <p>没有任何账单记录</p>
+        </div>
+        {% else %}
+        {% if duplicate_items %}
+        <div class="duplicate-section">
+            <div class="duplicate-title">
+                <i class="fas fa-exclamation-triangle"></i> 发现重复费用
+            </div>
+            {% for duplicate in duplicate_items %}
+            <div class="duplicate-item">
+                <div>
+                    {% if duplicate.type == "delivery" %}
+                    <strong>派送重复:</strong> {{ duplicate.item1.warehouse_code }} - {{ duplicate.item1.PO_ID }}
+                    {% else %}
+                    <strong>非派送重复:</strong> {{ duplicate.item1.description }}
+                    {% endif %}
+                </div>
+                <div style="font-size: 0.85rem; color: #666;">
+                    账单: {{ duplicate.item1.invoice_number.invoice_number }} 和 {{ duplicate.item2.invoice_number.invoice_number }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% for invoice in invoice_data %}
+        <div class="invoice-card" data-invoice-id="{{ invoice.id }}" data-initial-total="{{ invoice.receivable_total_amount|default:0 }}">
+            <div class="invoice-header">
+                <h3>
+                    {{ invoice.invoice_number }}
+                    {% if invoice.finance_status == "completed" %}
+                    <span class="finance-confirmed-badge">财务已确认，谨慎修改</span>
+                    {% endif %}
+                    {% if invoice.is_invoice_delivered %}
+                    <span class="delivered-badge-small">已通知客户</span>
+                    {% endif %}
+                    <span class="total-amount-display" style="margin-left: 20px; font-size: 1rem; color: #ec1616;">
+                        总费用：<span class="invoice-total">{{ invoice.receivable_total_amount|default:0.00 }}</span>
+                    </span>
+                </h3>
+            </div>
+
+            {% if invoice.items %}
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>费用类别</th>
+                        <th>DESCRIPTION</th>
+                        <th>仓库代码</th>
+                        <th>单价</th>
+                        <th>数量</th>
+                        <th>CBM</th>
+                        <th>重量</th>
+                        <th>附加费</th>
+                        <th>金额</th>
+                        <th>备注</th>
+                        <th>P_ID</th>
+                        {% if invoice.can_edit %}
+                        <th>操作</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice.items %}
+                    <tr data-item-id="{{ item.id }}" class="item-row">
+                        <td class="readonly-cell">
+                            {% if item.item_category == 'delivery_public' %}公仓派送
+                            {% elif item.item_category == 'delivery_other' %}私仓派送
+                            {% elif item.item_category == 'warehouse_public' %}公仓库内
+                            {% elif item.item_category == 'warehouse_other' %}私仓库内
+                            {% elif item.item_category == 'preport' %}港前
+                            {% elif item.item_category == 'activation_fee' %}激活费
+                            {% elif item.item_category == 'combina_extra_fee' %}组合费额外费用
+                            {% elif item.item_category == 'payout_fee' %}赔付费用
+                            {% else %}{{ item.item_category }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="text" class="form-input" name="description" value="{{ item.description|default:'' }}">
+                            {% else %}
+                            {{ item.description|default:'' }}
+                            {% endif %}
+                        </td>
+                        <td class="readonly-cell">{{ item.warehouse_code|default:'' }}</td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input" name="rate" step="0.01" value="{{ item.rate|default:0 }}">
+                            {% else %}
+                            {{ item.rate|default:0 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input" name="qty" step="0.01" value="{{ item.qty|default:0 }}">
+                            {% else %}
+                            {{ item.qty|default:0 }}
+                            {% endif %}
+                        </td>
+                        <td class="readonly-cell">{{ item.cbm|default:'' }}</td>
+                        <td class="readonly-cell">{{ item.weight|default:'' }}</td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input" name="surcharges" step="0.01" value="{% if item.surcharges != 0 %}{{ item.surcharges }}{% endif %}">
+                            {% else %}
+                            {% if item.surcharges != 0 %}{{ item.surcharges }}{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="number" class="form-input amount-input" name="amount" step="0.01" value="{{ item.amount|default:0 }}">
+                            {% else %}
+                            {{ item.amount|default:0 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.can_edit %}
+                            <input type="text" class="form-input" name="note" value="{{ item.note|default:'' }}">
+                            {% else %}
+                            {{ item.note|default:'' }}
+                            {% endif %}
+                        </td>
+                        <td class="readonly-cell">{{ item.PO_ID|default:'' }}</td>
+                        {% if invoice.can_edit %}
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn save-btn" onclick="saveItem({{ item.id }}, {{ invoice.id }}, this)">
+                                    <i class="fas fa-save"></i> 保存
+                                </button>
+                                <button class="action-btn delete-btn" onclick="deleteItem({{ item.id }}, '{{ invoice.id }}')">
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-items">暂无费用</div>
+            {% endif %}
+
+            {% if invoice.can_edit %}
+            <div style="padding: 0 20px 20px;">
+                <button class="action-btn add-btn" onclick="addItem('{{ invoice.id }}')">
+                    <i class="fas fa-plus"></i> 添加费用
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal-overlay" id="addModal">
+    <div class="modal-content">
+        <div class="modal-title">添加费用</div>
+        <form method="post" id="addForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="container_check_save">
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="invoice_id" id="addInvoiceId">
+
+            <div class="form-group">
+                <label>费用类别</label>
+                <select name="item_category" id="addItemCategory">
+                    <option value="preport">港前</option>
+                    <option value="warehouse_public">公仓库内</option>
+                    <option value="warehouse_other">私仓库内</option>
+                    <option value="activation_fee">激活费</option>
+                    <option value="combina_extra_fee">组合费额外费用</option>
+                    <option value="payout_fee">赔付费用</option>
+                </select>
+            </div>
+
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>DESCRIPTION</label>
+                    <input type="text" name="description" id="addItemDescription" required>
+                </div>
+                <div class="form-group">
+                    <label>单价</label>
+                    <input type="number" name="rate" id="addItemRate" step="0.01" value="">
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" name="qty" id="addItemQty" step="0.01" value="">
+                </div>
+                <div class="form-group">
+                    <label>CBM</label>
+                    <input type="number" name="cbm" id="addItemCbm" step="0.01" value="">
+                </div>
+            </div>
+
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>重量</label>
+                    <input type="number" name="weight" id="addItemWeight" step="0.01" value="">
+                </div>
+                <div class="form-group">
+                    <label>附加费</label>
+                    <input type="number" name="surcharges" id="addItemSurcharges" step="0.01" value="">
+                </div>
+                <div class="form-group">
+                    <label>金额</label>
+                    <input type="number" name="amount" id="addItemAmount" step="0.01" value="" required>
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <input type="text" name="note" id="addItemNote">
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button type="button" class="modal-btn cancel" onclick="closeAddModal()">取消</button>
+                <button type="submit" class="modal-btn confirm">确认添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-content">
+        <div class="modal-title">确认删除</div>
+        <p>确定要删除这条费用吗？此操作无法撤销。</p>
+        <form method="post" id="deleteForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="container_check_save">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="item_id" id="deleteItemId">
+            <input type="hidden" name="container_number" value="{{ container_number }}">
+            <div class="modal-buttons">
+                <button type="button" class="modal-btn cancel" onclick="closeDeleteModal()">取消</button>
+                <button type="submit" class="modal-btn confirm" style="background: var(--danger-color);">确认删除</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 页面加载时计算每个账单的总费用
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.invoice-card').forEach(function(card) {
+        calculateInvoiceTotal(card);
+    });
+
+    // 监听金额输入框的变化，实时更新总费用
+    document.querySelectorAll('.amount-input').forEach(function(input) {
+        input.addEventListener('input', function() {
+            var card = this.closest('.invoice-card');
+            calculateInvoiceTotal(card);
+        });
+    });
+});
+
+// 计算账单总费用
+function calculateInvoiceTotal(card) {
+    var total = 0;
+    card.querySelectorAll('.amount-input').forEach(function(input) {
+        var val = parseFloat(input.value) || 0;
+        total += val;
+    });
+    card.querySelector('.invoice-total').textContent = total.toFixed(2);
+}
+
+function saveItem(itemId, invoiceId, button) {
+    var row = button.closest('tr');
+    var description = row.querySelector('[name="description"]').value;
+    var rate = parseFloat(row.querySelector('[name="rate"]').value) || 0;
+    var qty = parseFloat(row.querySelector('[name="qty"]').value) || 0;
+    var surcharges = parseFloat(row.querySelector('[name="surcharges"]').value) || 0;
+    var amount = parseFloat(row.querySelector('[name="amount"]').value) || 0;
+    var note = row.querySelector('[name="note"]').value;
+
+    // 创建一个临时表单提交
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+        {% csrf_token %}
+        <input type="hidden" name="step" value="container_check_save">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="item_id" value="${itemId}">
+        <input type="hidden" name="invoice_id" value="${invoiceId}">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="description" value="${description}">
+        <input type="hidden" name="rate" value="${rate}">
+        <input type="hidden" name="qty" value="${qty}">
+        <input type="hidden" name="surcharges" value="${surcharges}">
+        <input type="hidden" name="amount" value="${amount}">
+        <input type="hidden" name="note" value="${note}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function addItem(invoiceId) {
+    document.getElementById('addInvoiceId').value = invoiceId;
+    document.getElementById('addItemCategory').value = 'preport';
+    document.getElementById('addItemDescription').value = '';
+    document.getElementById('addItemRate').value = '';
+    document.getElementById('addItemQty').value = '';
+    document.getElementById('addItemCbm').value = '';
+    document.getElementById('addItemWeight').value = '';
+    document.getElementById('addItemSurcharges').value = '';
+    document.getElementById('addItemAmount').value = '';
+    document.getElementById('addItemNote').value = '';
+    document.getElementById('addModal').style.display = 'block';
+}
+
+function closeAddModal() {
+    document.getElementById('addModal').style.display = 'none';
+}
+
+function deleteItem(itemId, invoiceId) {
+    document.getElementById('deleteItemId').value = itemId;
+    document.getElementById('deleteModal').style.display = 'block';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+
+document.getElementById('addModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeAddModal();
+    }
+});
+
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}
