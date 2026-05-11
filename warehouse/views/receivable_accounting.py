@@ -3166,58 +3166,111 @@ class ReceivableAccounting(View):
                 destination = group.get("destination", "")
                 location = group.get("location")
                 delivery_type = group.get("delivery_type", "")
-                
-                # 公仓：尝试自动计算费用
                 vessel_etd = order.vessel_id.vessel_etd
-                item_data = self._process_public_unbilled(
-                    group=group,
-                    container=container,
-                    order=order,
-                    destination=destination,
-                    location=location,
-                    fee_details=fee_details,
-                    vessel_etd=vessel_etd,
-                    total_container_cbm=total_container_cbm
-                )
                 # 确定item_category
                 if delivery_type == "public":
                     item_category = "delivery_public"
                 else:
                     item_category = "delivery_other"
-                
-                # 确定description
-                delivery_category = item_data.get("delivery_category", "")
-                if delivery_category == "amazon":
-                    description = "亚马逊派送费"
-                elif delivery_category == "walmart":
-                    description = "沃尔玛派送费"
-                elif delivery_category == "upsdelivery":
-                    description = "UPS派送费"
+
+                # 检查是否是从PackingList来的group
+                if group.get('_from_packing_list', False):
+                    # 直接使用group里的数据，不需要再次查询PackingList
+                    item_data = self._process_public_unbilled(
+                        group=group,
+                        container=container,
+                        order=order,
+                        destination=destination,
+                        location=location,
+                        fee_details=fee_details,
+                        vessel_etd=vessel_etd,
+                        total_container_cbm=total_container_cbm
+                    )
+                    delivery_category = item_data.get("delivery_category", "")
+                    if delivery_category == "amazon":
+                        description = "亚马逊派送费"
+                    elif delivery_category == "walmart":
+                        description = "沃尔玛派送费"
+                    elif delivery_category == "upsdelivery":
+                        description = "UPS派送费"
+                    else:
+                        continue
+                    
+                    # 计算cbm_ratio
+                    cbm_ratio = 0
+                    if total_container_cbm > 0:
+                        cbm_ratio = group.get("total_cbm", 0) / total_container_cbm
+                    cbm_ratio = round(cbm_ratio, 4)
+                    
+                    # 直接保存到InvoiceItemv2
+                    InvoiceItemv2.objects.create(
+                        invoice_number=invoice,
+                        container_number=container,
+                        invoice_type="receivable",
+                        item_category=item_category,
+                        cbm=group.get("total_cbm", 0),
+                        cbm_ratio=cbm_ratio,
+                        weight=group.get("total_weight_lbs", 0),
+                        description="派送费",
+                        qty=group.get("total_pallets", 0),
+                        rate=item_data.get("rate", 0),
+                        regionPrice=item_data.get("rate", 0),
+                        amount=item_data.get("amount", 0),
+                        PO_ID=group.get("PO_ID", ""),
+                        delivery_type=delivery_type,
+                        shipping_marks=group.get("shipping_marks", ""),
+                        warehouse_code=destination,
+                        surcharges=0,
+                        note="",
+                        registered_user=request.user.username if request.user.is_authenticated else None
+                    )
                 else:
-                    continue
-                
-                # 保存到InvoiceItemv2
-                InvoiceItemv2.objects.create(
-                    invoice_number=invoice,
-                    container_number=container,
-                    invoice_type="receivable",
-                    item_category=item_category,
-                    cbm=item_data.get("total_cbm", 0),
-                    cbm_ratio=item_data.get("cbm_ratio", 0),
-                    weight=item_data.get("total_weight_lbs", 0),
-                    description=description,
-                    qty=item_data.get("total_pallets", 0),
-                    rate=item_data.get("rate", 0),
-                    regionPrice=item_data.get("rate", 0),
-                    amount=item_data.get("amount", 0),
-                    PO_ID=item_data.get("PO_ID", ""),
-                    delivery_type=delivery_category,
-                    shipping_marks=item_data.get("shipping_marks", ""),
-                    warehouse_code=destination,
-                    surcharges=item_data.get("surcharges", 0),
-                    note=item_data.get("note", ""),
-                    registered_user=request.user.username if request.user.is_authenticated else None
-                )
+                    # 公仓：尝试自动计算费用
+                    
+                    item_data = self._process_public_unbilled(
+                        group=group,
+                        container=container,
+                        order=order,
+                        destination=destination,
+                        location=location,
+                        fee_details=fee_details,
+                        vessel_etd=vessel_etd,
+                        total_container_cbm=total_container_cbm
+                    )
+                    
+                    # 确定description
+                    delivery_category = item_data.get("delivery_category", "")
+                    if delivery_category == "amazon":
+                        description = "亚马逊派送费"
+                    elif delivery_category == "walmart":
+                        description = "沃尔玛派送费"
+                    elif delivery_category == "upsdelivery":
+                        description = "UPS派送费"
+                    else:
+                        continue
+                    
+                    # 保存到InvoiceItemv2
+                    InvoiceItemv2.objects.create(
+                        invoice_number=invoice,
+                        container_number=container,
+                        invoice_type="receivable",
+                        item_category=item_category,
+                        cbm=item_data.get("total_cbm", 0),
+                        cbm_ratio=item_data.get("cbm_ratio", 0),
+                        weight=item_data.get("total_weight_lbs", 0),
+                        description=description,
+                        qty=item_data.get("total_pallets", 0),
+                        rate=item_data.get("rate", 0),
+                        regionPrice=item_data.get("rate", 0),
+                        amount=item_data.get("amount", 0),
+                        PO_ID=item_data.get("PO_ID", ""),
+                        delivery_type=delivery_category,
+                        shipping_marks=item_data.get("shipping_marks", ""),
+                        warehouse_code=destination,
+                        surcharges=item_data.get("surcharges", 0),
+                        note=item_data.get("note", ""),
+                        registered_user=request.user.username if request.user.is_authenticated else None
+                    )
         
 
     def _auto_calculate_pickup_fee(self, request: HttpRequest, order: Order, quotation, context, match, invoice: Invoicev2, container: Container) -> None:
