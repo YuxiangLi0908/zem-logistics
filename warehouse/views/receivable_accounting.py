@@ -3195,7 +3195,7 @@ class ReceivableAccounting(View):
                         description = "UPS派送费"
                     else:
                         continue
-                    
+
                     # 计算cbm_ratio
                     cbm_ratio = 0
                     if total_container_cbm > 0:
@@ -10814,8 +10814,15 @@ class ReceivableAccounting(View):
         
         # 私仓组还没录的情况，用packinglist的总cbm减去组合柜的cbm得到非组合柜的cbm
         packinglist_total_cbm = round(float(PackingList.objects.filter(container_number__container_number=container_number).aggregate(total=Sum('cbm'))['total'] or 0), 2)
+        cbm_combina_total = InvoiceItemv2.objects.filter(
+            invoice_type="receivable",
+            container_number__container_number=container_number,
+            invoice_number=invoice,
+            item_category__in=["delivery_public", "delivery_other"],
+            delivery_type="combine"
+        ).aggregate(total=Sum('cbm'))['total'] or 0
         
-        non_combina_cbm = round(packinglist_total_cbm - combina_total_cbm, 4)
+        non_combina_cbm = round(packinglist_total_cbm - cbm_combina_total, 4)
         # 用1减去组合柜的cbm_ratio得到非组合柜的cbm_ratio
         non_combina_cbm_ratio = round(1 - combina_total_cbm_ratio, 4)
 
