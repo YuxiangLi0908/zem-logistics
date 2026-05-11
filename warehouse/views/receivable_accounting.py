@@ -10797,15 +10797,12 @@ class ReceivableAccounting(View):
         if base_queryset.filter(Q(cbm_ratio=0) | Q(cbm_ratio__isnull=True)).exists():
             result = self._recalculate_cbm_ratio(container_number, invoice,plts["total_cbm"])
         
-        non_combina_cbm = round(result.get('total_cbm') or 0,4)
-        non_combina_cbm_ratio = round(result.get('total_cbm_ratio') or 0,4)
-        
-        if non_combina_cbm == 0 and non_combina_cbm_ratio == 0:
-            # 私仓组还没录的情况，用packinglist的总cbm减去组合柜的cbm得到非组合柜的cbm
-            packinglist_total_cbm = plts["total_cbm"]
-            non_combina_cbm = round(packinglist_total_cbm - combina_total_cbm, 4)
-            # 用1减去组合柜的cbm_ratio得到非组合柜的cbm_ratio
-            non_combina_cbm_ratio = round(1 - combina_total_cbm_ratio, 4)
+        # 私仓组还没录的情况，用packinglist的总cbm减去组合柜的cbm得到非组合柜的cbm
+        packinglist_total_cbm = plts["total_cbm"]
+        non_combina_cbm = round(packinglist_total_cbm - combina_total_cbm, 4)
+        # 用1减去组合柜的cbm_ratio得到非组合柜的cbm_ratio
+        non_combina_cbm_ratio = round(1 - combina_total_cbm_ratio, 4)
+
         # 5.2、计算超区单价
         match = re.match(r"\d+", container_type)
         if match:
@@ -10992,38 +10989,28 @@ class ReceivableAccounting(View):
         # 3. 获取结果
         combine_count = destination_stats['combine_count']
 
-        
-
-
         # 转换为列表
-        
-
         combine_warehouses = base_queryset.filter(
             Q(delivery_type='combine')
         ).values_list('warehouse_code', flat=True).distinct()
         # 转换为列表
         combine_warehouse_list = list(combine_warehouses)
         
-        not_combine_warehouses = base_queryset.filter(
-            ~Q(delivery_type='combine')
-        ).values_list('warehouse_code', flat=True).distinct()
-
-        if not not_combine_warehouses:
-            # 先去pallet表统计所有的destination
-            pallet_destinations = Pallet.objects.filter(
+        # 先去pallet表统计所有的destination
+        pallet_destinations = Pallet.objects.filter(
+            container_number__container_number=container_number
+        ).values_list('destination', flat=True).distinct()
+        
+        if not pallet_destinations:
+            # 如果没有pallet记录，就去packinglist表找，只要destination
+            # 先找一下PackingList模型的字段
+            pallet_destinations = PackingList.objects.filter(
                 container_number__container_number=container_number
             ).values_list('destination', flat=True).distinct()
-            
-            if not pallet_destinations:
-                # 如果没有pallet记录，就去packinglist表找，只要destination
-                # 先找一下PackingList模型的字段
-                pallet_destinations = PackingList.objects.filter(
-                    container_number__container_number=container_number
-                ).values_list('destination', flat=True).distinct()
-            
-            # 把combine_warehouses里有的从结果中去掉
-            combine_set = set(combine_warehouses)
-            not_combine_warehouses = [dest for dest in pallet_destinations if dest not in combine_set]
+        
+        # 把combine_warehouses里有的从结果中去掉
+        combine_set = set(combine_warehouses)
+        not_combine_warehouses = [dest for dest in pallet_destinations if dest not in combine_set]
         
         not_combine_warehouse_list = list(not_combine_warehouses)
         
