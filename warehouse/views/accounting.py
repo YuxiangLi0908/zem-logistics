@@ -8024,7 +8024,8 @@ class Accounting(View):
             else:
                 s_carrier = {
                     "ARM": "大方广",
-                    "Kars": "kars"
+                    "Kars": "kars",
+                    "new world": "new world"
                 }.get(select_carrier, select_carrier)
                 carrier_match = (order.retrieval_id.retrieval_carrier == s_carrier) if order.retrieval_id else False
 
