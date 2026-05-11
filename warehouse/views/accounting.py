@@ -8102,6 +8102,8 @@ class Accounting(View):
                         else:
                             actual_day = delta
 
+                        if actual_day <=0:
+                            actual_day = 0
                         row_data["车架天数"] = actual_day
                     else:
                         row_data["车架天数"] = 0
