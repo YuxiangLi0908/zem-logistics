@@ -509,7 +509,7 @@
                 </div>
                 <div class="filter-group">
                     <label>柜号搜索：</label>
-                    <input type="text" name="container_number_filter" placeholder="输入柜号..." value="{{ container_number_filter }}">
+                    <input type="text" name="container_number_filter" placeholder="输入柜号..." value="{{ container_number_filter|default_if_none:"" }}">
                 </div>
                 <input type="hidden" name="step" value="confirm_search">
                 <button type="submit" class="btn-filter">

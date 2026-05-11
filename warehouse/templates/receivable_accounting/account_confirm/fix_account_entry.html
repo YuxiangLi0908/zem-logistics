@@ -96,7 +96,9 @@
     }
 
     .tables-grid {
-        display: block;
+        display: grid;
+        grid-template-columns: 30% 70%;
+        gap: 25px;
         height: 650px;
     }
 
@@ -484,7 +486,7 @@
         <div class="finance-header">
             <div class="finance-logo">
                 <i class="fas fa-file-invoice-dollar"></i>
-                <span>应收账单管理</span>
+                <span>应收账单——固定费用管理</span>
             </div>       
             <div class="filter-controls">
                 <div class="filter-group">
@@ -507,9 +509,9 @@
                 </div>
                 <div class="filter-group">
                     <label>柜号搜索：</label>
-                    <input type="text" name="container_number_filter" placeholder="输入柜号..." value="{{ container_number_filter }}">
+                    <input type="text" name="container_number_filter" placeholder="输入柜号..." value="{{ container_number_filter|default_if_none:"" }}">
                 </div>
-                <input type="hidden" name="step" value="write_off_search">
+                <input type="hidden" name="step" value="fix_account_search">
                 <button type="submit" class="btn-filter">
                     <i class="fas fa-search"></i> 查询
                 </button>
@@ -520,17 +522,108 @@
     <div class="finance-main">
 
         <div class="tables-grid">
-            <!-- 已核销账单 -->
+            <!-- 待开账单 -->
             <div class="container-section">
                 <div class="section-header">
                     <h3>
-                        已核销账单
-                        <span class="section-count">{{ write_off_order|length }}条</span>
+                        待开账单
+                        <span class="section-count">{{ order|length }}条</span>
+                    </h3>
+                    <div>
+                        <div style="margin-top: 5px; display: flex; gap: 8px;">
+                            <button type="button" onclick="filterTransportOrders()" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
+                                <i class="fas fa-truck"></i> 仅转运
+                            </button>
+                            <button type="button" onclick="resetTransportFilter()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
+                                <i class="fas fa-sync-alt"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="order-table">
+                        <thead>
+                            <tr>
+                                <th class="th">客户</th>
+                                <th class="th">柜号</th>
+                                <th class="th">订单类型</th>
+                                <th class="th">仓库</th>
+                                <th class="th">建单日期</th>
+                                <th class="th">提柜日期</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th">
+                                    <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 0, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索柜号..." oninput="filterContainerNumbers(this, 1, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 2, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索仓库..." oninput="filterTable(this, 3, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索日期..." oninput="filterTable(this, 4, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索提柜日期..." oninput="filterTable(this, 5, 'order-table')">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if order %}       
+                                {% for c in order %}
+                                <tr>
+                                    <td class="td">{{ c.customer_name__zem_name }}</td>
+                                    <td class="td">
+                                        <a href="/receivable_accounting/?step=container_fix_cacl&status=unconfirmed&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            {{ c.container_number__container_number }}
+                                            {% if c.is_extra_invoice %}
+                                                <span class="invoice-date">补开: {{ c.invoice_created_at|date:"m/d" }} {{ c.invoice_created_at|time:"H:i" }}</span>
+                                            {% endif %}
+                                        </a>
+                                        {% if c.cancel_notification %}
+                                            <div style="color: red; font-size: 12px; margin-top: 2px;">取消预报</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="td">{{ c.order_type }}</td>
+                                    <td class="td">{{ c.retrieval_id__retrieval_destination_precise }}</td>
+                                    <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                                    <td class="td">
+                                        {% if c.retrieval_id__actual_retrieval_timestamp %}
+                                            {{ c.retrieval_id__actual_retrieval_timestamp|date:"Y-m-d" }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无待开账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 已开账单 -->
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>
+                        已开账单
+                        <span class="section-count">{{ previous_order|length }}条</span>
                     </h3>
                     <div>                     
                         <div style="margin-top: 5px; display: flex; gap: 8px;">
                             <button type="button" onclick="filterByNotification(false)" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
                                 <i class="fas fa-bell-slash"></i> 未通知
+                            </button>
+                            <button type="button" onclick="filterByUnsettled()" class="action-btn btn-warning" style="font-size: 11px; padding: 4px 8px;">
+                                <i class="fas fa-coins"></i> 待核销
                             </button>
                             <button type="button" onclick="resetFilters()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
                                 <i class="fas fa-sync-alt"></i> 重置
@@ -597,8 +690,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if write_off_order %}        
-                                {% for c in write_off_order %}
+                            {% if previous_order %}        
+                                {% for c in previous_order %}
                                 <tr>
                                     <td class="td" style="text-align: center;">
                                         <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
@@ -608,7 +701,7 @@
                                     </td>
                                     <td class="td">{{ c.customer_name__zem_name }}</td>
                                     <td class="td">
-                                        <a href="/receivable_accounting/?step=container_confirm&status=confirmed&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                        <a href="/receivable_accounting/?step=container_confirm&status=confirmed&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                             {{ c.container_number__container_number }}
                                             {% if c.is_extra_invoice %}
                                                 <span class="invoice-date">补开: {{ c.invoice_created_at|date:"m/d" }} {{ c.invoice_created_at|time:"H:i" }}</span>
@@ -656,7 +749,7 @@
                             {% else %}
                                 <tr>
                                     <td colspan="13" class="td" style="text-align: center; color: #6c757d;">
-                                        暂无已核销账单
+                                        暂无已开账单
                                     </td>
                                 </tr>
                             {% endif %}
@@ -674,11 +767,64 @@
                             <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">导出</button>
                             <button type="button" onclick="submitBatchAction('invoice_order_delivered')" class="action-btn btn-primary">通知</button>
                             <button type="button" onclick="submitBatchAction('invoice_order_reject')"  class="action-btn btn-warning">重开</button>
+                            <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
+                                <i class="fas fa-dollar-sign"></i> 核销
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- 核销弹窗 -->
+<div id="adjustBalanceModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('adjustBalanceModal')">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">核销客户余额</h3>
+        
+        <div id="selectedOrdersInfo" class="selected-orders-info">
+            <!-- 动态填充选中的订单信息 -->
+        </div>
+
+        <div class="offset-info">
+            <div><strong>客户名称：</strong><span id="modalCustomerName"></span></div>
+            <div><strong>当前余额：</strong>$<span id="modalCustomerBalance">0.00</span></div>
+        </div>
+
+        <form method="post" action="" id="adjustBalanceForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adjustBalance">
+            <input type="hidden" name="customerId" id="selectCustomerId" value="">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="selectedOrders" id="selectedOrdersData" value="">
+            
+            <div class="form-group">
+                <label for="usdAmount">美元金额 (USD)：</label>
+                <input type="number" id="usdAmount" name="usdamount"
+                    step="0.01" 
+                    min="0.01" 
+                    placeholder="输入核销金额"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="note">备注：</label>
+                <textarea name="note" id="note" 
+                        placeholder="请输入备注信息（可选）"></textarea>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="action-btn" style="background: #6c757d; color: white;" onclick="closeModal('adjustBalanceModal')">
+                    取消
+                </button>
+                <button type="submit" class="action-btn btn-primary" onclick="return validateWriteOff()">
+                    确认提交
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -786,6 +932,18 @@
                 const statusText = statusCell.textContent.trim();
                 const shouldShow = statusText.includes('未通知') || statusText.includes('否');
                 row.style.display = shouldShow ? '' : 'none';
+            }
+        });
+    }
+
+    // 筛选待核销账单
+    function filterByUnsettled() {
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        rows.forEach(row => {
+            const amountCell = row.cells[9]; // 待核销金额列
+            if (amountCell) {
+                const amount = parseFloat(amountCell.textContent.replace('$', '').replace(/,/g, '')) || 0;
+                row.style.display = amount > 0 ? '' : 'none';
             }
         });
     }

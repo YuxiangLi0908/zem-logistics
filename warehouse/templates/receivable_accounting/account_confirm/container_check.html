@@ -1,0 +1,649 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+<style>
+    .finance-system {
+        width: 100%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .finance-header { 
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white; 
+        padding: 20px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .finance-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .filter-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 15px 20px;
+        border-radius: 10px;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: white;
+        white-space: nowrap;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.9rem;
+        min-width: 140px;
+    }
+
+    .filter-controls button {
+        padding: 8px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+
+    .filter-controls button:hover {
+        background: #219652;
+        transform: translateY(-1px);
+    }
+
+    .finance-main {
+        padding: 20px 30px 30px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .data-table th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        color: var(--secondary-color);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .data-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+
+    .data-table tr:hover {
+        background: #e2e6ea;
+    }
+
+    .data-table tr.even-group {
+        background: #e9ecef;
+    }
+
+    .data-table tr.even-group:hover {
+        background: #dde2e6;
+    }
+
+    .data-table tr.odd-group {
+        background: white;
+    }
+
+    .data-table tr.odd-group:hover {
+        background: #e9ecef;
+    }
+
+    .data-table tr.warning-row {
+        background: #fff3cd;
+    }
+
+    .data-table tr.warning-row:hover {
+        background: #ffe8b3;
+    }
+
+    .data-table tr.hidden-row {
+        display: none !important;
+    }
+
+    .search-row input,
+    .search-row select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .status-completed {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .status-uncompleted {
+        background: var(--light-bg);
+        color: var(--warning-color);
+    }
+
+    .delivered-badge {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .warning-badge {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .unstarted-groups {
+        color: var(--danger-color);
+        font-size: 0.8rem;
+        line-height: 1.5;
+    }
+
+    .container-number-link {
+        font-weight: 600;
+        color: #1890ff;
+        cursor: pointer;
+        text-decoration: none;
+        transition: color 0.3s ease;
+        display: inline-block;
+        position: relative;
+        z-index: 10;
+    }
+
+    .container-number-link:hover {
+        color: var(--secondary-color);
+        text-decoration: underline;
+    }
+
+    .finance-icon {
+        font-size: 1.1rem;
+    }
+
+    .container-cell {
+        position: relative;
+        z-index: 5;
+    }
+
+    .check-icon {
+        color: #2e7d32;
+    }
+
+    .cross-icon {
+        color: #868e96;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .invoice-status-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .invoice-number {
+        font-weight: 500;
+        color: var(--secondary-color);
+    }
+
+    .invoice-create-time {
+        font-size: 0.8rem;
+        color: #888;
+        margin-top: 4px;
+    }
+</style>
+
+<div class="finance-system">
+    <div class="finance-header">
+        <div class="finance-title">
+            <i class="fas fa-search-dollar"></i>
+            柜子账单自检
+        </div>
+        <form method="post" class="filter-controls">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="container_check_search">
+            <div class="filter-group">
+                <label>客户</label>
+                <select name="customer_id">
+                    <option value="">全部</option>
+                    {% for customer in existing_customers %}
+                    <option value="{{ customer.id }}" {% if customer_id == customer.id|stringformat:"s" %}selected{% endif %}>{{ customer.zem_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>仓库</label>
+                <select name="warehouse">
+                    <option value="">全部</option>
+                    {% for key, value in warehouse_options.items %}
+                    {% if key %}
+                    <option value="{{ key }}" {% if warehouse == key %}selected{% endif %}>{{ value }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>柜号</label>
+                <input type="text" name="search_container_number" value="{{ search_container_number|default:'' }}" placeholder="搜索柜号">
+            </div>
+            <div class="filter-group">
+                <label>开始日期</label>
+                <input type="date" name="start_date" value="{{ start_date|default:'' }}">
+            </div>
+            <div class="filter-group">
+                <label>结束日期</label>
+                <input type="date" name="end_date" value="{{ end_date|default:'' }}">
+            </div>
+            <button type="submit">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </form>
+    </div>
+
+    <div class="finance-main">
+        {% if container_data %}
+        <table class="data-table" id="containerTable">
+            <thead>
+                <tr>
+                    <th>仓库</th>
+                    <th>客户</th>
+                    <th>柜号</th>
+                    <th>账单号</th>
+                    <th>总费用</th>
+                    <th>待核销费用</th>
+                    <th>创建时间</th>
+                    <th>财务确认</th>
+                    <th>通知状态</th>
+                    <th>未录入组</th>
+                </tr>
+                <tr class="search-row">
+                    <th><input type="text" data-column="warehouse" placeholder="搜索"></th>
+                    <th><input type="text" data-column="customer" placeholder="搜索"></th>
+                    <th><input type="text" data-column="container" placeholder="搜索"></th>
+                    <th><input type="text" data-column="invoice" placeholder="搜索"></th>
+                    <th><input type="text" data-column="totalAmount" placeholder="搜索"></th>
+                    <th><input type="text" data-column="remainOffset" placeholder="搜索"></th>
+                    <th><input type="text" data-column="createTime" placeholder="搜索"></th>
+                    <th>
+                        <select data-column="finance">
+                            <option value="">全部</option>
+                            <option value="yes">是</option>
+                            <option value="no">否</option>
+                        </select>
+                    </th>
+                    <th>
+                        <select data-column="delivered">
+                            <option value="">全部</option>
+                            <option value="yes">是</option>
+                            <option value="no">否</option>
+                        </select>
+                    </th>
+                    <th><input type="text" data-column="unstarted" placeholder="搜索"></th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for container in container_data %}
+                {% with container.invoices|length as invoice_count %}
+                {% for invoice in container.invoices %}
+                <tr class="{% if container.has_duplicate_fees %}warning-row{% else %}{% if forloop.parentloop.counter|divisibleby:2 %}even-group{% else %}odd-group{% endif %}{% endif %}"
+                    data-warehouse="{{ container.warehouse }}"
+                    data-customer="{{ container.customer_name }}"
+                    data-container="{{ container.container_number }}"
+                    data-invoice="{{ invoice.invoice_number }}"
+                    data-totalAmount="{{ invoice.receivable_total_amount|default:'' }}"
+                    data-remainOffset="{{ invoice.remain_offset|default:'' }}"
+                    data-createTime="{{ invoice.create_time }}"
+                    data-finance="{% if invoice.finance_status == 'completed' %}yes{% else %}no{% endif %}"
+                    data-delivered="{% if invoice.is_invoice_delivered %}yes{% else %}no{% endif %}"
+                    data-unstarted="{% if invoice.unstarted_groups %}{{ invoice.unstarted_groups|join:',' }}{% endif %}"
+                    data-original-rowspan="{{ invoice_count }}"
+                    data-is-first="{% if forloop.first %}true{% else %}false{% endif %}">
+                    {% if forloop.first %}
+                    <td class="warehouse-cell" style="vertical-align: middle;">
+                        {{ container.warehouse }}
+                    </td>
+                    <td class="customer-cell" style="vertical-align: middle;">
+                        {{ container.customer_name }}
+                    </td>
+                    <td class="container-cell" style="vertical-align: middle;">
+                        <a href="javascript:void(0);" class="container-number-link" onclick="viewDetail('{{ container.container_number }}')">
+                            {{ container.container_number }}
+                            {% if container.has_duplicate_fees %}
+                            <span class="status-badge warning-badge" style="margin-left: 8px;">
+                                <i class="fas fa-exclamation-triangle"></i> 有重复费用
+                            </span>
+                            {% endif %}
+                        </a>
+                    </td>
+                    {% else %}
+                    <td class="warehouse-cell" style="vertical-align: middle; display: none;">
+                        {{ container.warehouse }}
+                    </td>
+                    <td class="customer-cell" style="vertical-align: middle; display: none;">
+                        {{ container.customer_name }}
+                    </td>
+                    <td class="container-cell" style="vertical-align: middle; display: none;">
+                        <span class="container-number-link" onclick="viewDetail('{{ container.container_number }}')">
+                            {{ container.container_number }}
+                            {% if container.has_duplicate_fees %}
+                            <span class="status-badge warning-badge" style="margin-left: 8px;">
+                                <i class="fas fa-exclamation-triangle"></i> 有重复费用
+                            </span>
+                            {% endif %}
+                        </span>
+                    </td>
+                    {% endif %}
+                    <td>
+                        <span class="invoice-number">{{ invoice.invoice_number }}</span>
+                    </td>
+                    <td>
+                        <span class="total-amount">{{ invoice.receivable_total_amount|default:'' }}</span>
+                    </td>
+                    <td>
+                        <span class="remain-offset">{{ invoice.remain_offset|default:'' }}</span>
+                    </td>
+                    <td>
+                        <span class="invoice-create-time">{{ invoice.create_time }}</span>
+                    </td>
+                    <td>
+                        {% if invoice.finance_status == "completed" %}
+                        <i class="fas fa-check-circle check-icon finance-icon" title="财务已确认"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle cross-icon finance-icon" title="未确认"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if invoice.is_invoice_delivered %}
+                        <i class="fas fa-check-circle check-icon finance-icon" title="已通知客户"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle cross-icon finance-icon" title="未通知客户"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if invoice.unstarted_groups %}
+                        <div class="unstarted-groups">
+                            <i class="fas fa-exclamation-circle"></i> {{ invoice.unstarted_groups|join:", " }}
+                        </div>
+                        {% else %}
+                        <span style="color: #888;">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="{% if container.has_duplicate_fees %}warning-row{% else %}{% if forloop.counter|divisibleby:2 %}even-group{% else %}odd-group{% endif %}{% endif %}"
+                    data-warehouse="{{ container.warehouse }}"
+                    data-customer="{{ container.customer_name }}"
+                    data-container="{{ container.container_number }}"
+                    data-invoice=""
+                    data-createTime=""
+                    data-finance=""
+                    data-delivered=""
+                    data-unstarted="">
+                    <td class="warehouse-cell" style="vertical-align: middle;">
+                        {{ container.warehouse }}
+                    </td>
+                    <td class="customer-cell" style="vertical-align: middle;">
+                        {{ container.customer_name }}
+                    </td>
+                    <td class="container-cell" style="vertical-align: middle;">
+                        <a href="javascript:void(0);" class="container-number-link" onclick="viewDetail('{{ container.container_number }}')">
+                            {{ container.container_number }}
+                            {% if container.has_duplicate_fees %}
+                            <span class="status-badge warning-badge" style="margin-left: 8px;">
+                                <i class="fas fa-exclamation-triangle"></i> 有重复费用
+                            </span>
+                            {% endif %}
+                        </a>
+                    </td>
+                    <td colspan="7" style="text-align: center; color: #888;">暂无账单</td>
+                </tr>
+                {% endfor %}
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 20px;"></i>
+            <p>请使用上方筛选条件搜索柜子</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function viewDetail(containerNumber) {
+    window.location.href = "{% url 'receivable_accounting' %}?step=container_detail&container_number=" + containerNumber;
+}
+
+// 前端搜索筛选
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('containerTable');
+    if (!table) return;
+
+    const searchInputs = table.querySelectorAll('.search-row input, .search-row select');
+    
+    searchInputs.forEach(input => {
+        input.addEventListener('input', filterTable);
+        input.addEventListener('change', filterTable);
+    });
+
+    function filterTable() {
+        const filters = {};
+        searchInputs.forEach(input => {
+            const column = input.dataset.column;
+            const value = input.value.toLowerCase().trim();
+            filters[column] = value;
+        });
+
+        const rows = table.querySelectorAll('#tableBody tr');
+        
+        // 先找到所有柜子分组
+        const containerGroups = {};
+        rows.forEach(row => {
+            const container = row.dataset.container;
+            if (container) {
+                if (!containerGroups[container]) {
+                    containerGroups[container] = [];
+                }
+                containerGroups[container].push(row);
+            }
+        });
+
+        // 重置所有行的显示
+        rows.forEach(row => {
+            row.classList.remove('hidden-row');
+            // 重置单元格显示
+            const warehouseCell = row.querySelector('.warehouse-cell');
+            const customerCell = row.querySelector('.customer-cell');
+            const containerCell = row.querySelector('.container-cell');
+            if (warehouseCell) warehouseCell.style.display = '';
+            if (customerCell) customerCell.style.display = '';
+            if (containerCell) containerCell.style.display = '';
+            // 移除rowspan
+            if (warehouseCell) warehouseCell.removeAttribute('rowspan');
+            if (customerCell) customerCell.removeAttribute('rowspan');
+            if (containerCell) containerCell.removeAttribute('rowspan');
+        });
+
+        // 处理每个柜子组
+        Object.values(containerGroups).forEach(group => {
+            // 检查该组是否有任何一行匹配
+            let hasMatch = false;
+            const matchingRows = [];
+            
+            group.forEach(row => {
+                let matches = true;
+                
+                for (const column in filters) {
+                    const filterValue = filters[column];
+                    if (!filterValue) continue;
+                    
+                    const rowValue = (row.dataset[column] || '').toLowerCase();
+                    
+                    if (column === 'finance' || column === 'delivered') {
+                        if (rowValue !== filterValue) {
+                            matches = false;
+                            break;
+                        }
+                    } else {
+                        if (!rowValue.includes(filterValue)) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (matches) {
+                    hasMatch = true;
+                    matchingRows.push(row);
+                }
+            });
+
+            // 如果有匹配，显示匹配的行并处理rowspan
+            if (hasMatch && matchingRows.length > 0) {
+                // 隐藏不匹配的行
+                group.forEach(row => {
+                    if (!matchingRows.includes(row)) {
+                        row.classList.add('hidden-row');
+                    }
+                });
+
+                // 处理匹配行的rowspan
+                const firstRow = matchingRows[0];
+                const warehouseCell = firstRow.querySelector('.warehouse-cell');
+                const customerCell = firstRow.querySelector('.customer-cell');
+                const containerCell = firstRow.querySelector('.container-cell');
+                
+                // 设置第一个可见行的rowspan
+                if (warehouseCell) warehouseCell.setAttribute('rowspan', matchingRows.length);
+                if (customerCell) customerCell.setAttribute('rowspan', matchingRows.length);
+                if (containerCell) containerCell.setAttribute('rowspan', matchingRows.length);
+                
+                // 显示第一个可见行的前三个单元格
+                if (warehouseCell) warehouseCell.style.display = '';
+                if (customerCell) customerCell.style.display = '';
+                if (containerCell) containerCell.style.display = '';
+                
+                // 隐藏其他匹配行的前三个单元格
+                for (let i = 1; i < matchingRows.length; i++) {
+                    const row = matchingRows[i];
+                    const wc = row.querySelector('.warehouse-cell');
+                    const cc = row.querySelector('.customer-cell');
+                    const cnc = row.querySelector('.container-cell');
+                    if (wc) wc.style.display = 'none';
+                    if (cc) cc.style.display = 'none';
+                    if (cnc) cnc.style.display = 'none';
+                }
+            } else {
+                // 没有匹配，隐藏整个组
+                group.forEach(row => {
+                    row.classList.add('hidden-row');
+                });
+            }
+        });
+    }
+
+    // 初始化表格
+    function initTable() {
+        const rows = table.querySelectorAll('#tableBody tr');
+        const containerGroups = {};
+        
+        rows.forEach(row => {
+            const container = row.dataset.container;
+            if (container) {
+                if (!containerGroups[container]) {
+                    containerGroups[container] = [];
+                }
+                containerGroups[container].push(row);
+            }
+        });
+
+        // 设置初始rowspan
+        Object.values(containerGroups).forEach(group => {
+            if (group.length > 0) {
+                const firstRow = group[0];
+                const warehouseCell = firstRow.querySelector('.warehouse-cell');
+                const customerCell = firstRow.querySelector('.customer-cell');
+                const containerCell = firstRow.querySelector('.container-cell');
+                
+                if (warehouseCell) warehouseCell.setAttribute('rowspan', group.length);
+                if (customerCell) customerCell.setAttribute('rowspan', group.length);
+                if (containerCell) containerCell.setAttribute('rowspan', group.length);
+                
+                // 隐藏其他行的前三个单元格
+                for (let i = 1; i < group.length; i++) {
+                    const row = group[i];
+                    const wc = row.querySelector('.warehouse-cell');
+                    const cc = row.querySelector('.customer-cell');
+                    const cnc = row.querySelector('.container-cell');
+                    if (wc) wc.style.display = 'none';
+                    if (cc) cc.style.display = 'none';
+                    if (cnc) cnc.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    initTable();
+});
+</script>
+{% endblock %}
