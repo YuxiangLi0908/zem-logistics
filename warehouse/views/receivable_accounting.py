@@ -11979,7 +11979,11 @@ class ReceivableAccounting(View):
             for item in items:
                 if item.item_category in ["delivery_public", "delivery_other"]:
                     # 派送费用：warehouse_code + PO_ID
+                    # 如果是delivery_other，还需要加上shipping_marks
                     key = f"{item.warehouse_code}-{item.PO_ID}"
+                    if item.item_category == "delivery_other":
+                        key += f"-{item.shipping_marks or ''}"
+                    
                     if key in delivery_items:
                         return True
                     delivery_items[key] = True
@@ -12082,7 +12086,11 @@ class ReceivableAccounting(View):
         for item in items:
             if item.item_category in ["delivery_public", "delivery_other"]:
                 # 派送费用：warehouse_code + PO_ID
+                # 如果是delivery_other，还需要加上shipping_marks
                 key = f"{item.warehouse_code}-{item.PO_ID}"
+                if item.item_category == "delivery_other":
+                    key += f"-{item.shipping_marks or ''}"
+                
                 if key in delivery_items:
                     duplicates.append({
                         "item1": delivery_items[key],
