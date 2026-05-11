@@ -11037,7 +11037,7 @@ class ReceivableAccounting(View):
         not_combine_warehouse_list = list(not_combine_warehouses)
         
         # 判断是否超区
-        is_overregion = bool(destination_stats["not_combine_count"])
+        is_overregion = bool(not_combine_warehouse_list)
 
         # 港前-仓库-派送录入的费用显示到界面上
         actual_fees = self._combina_get_extra_fees(invoice)
