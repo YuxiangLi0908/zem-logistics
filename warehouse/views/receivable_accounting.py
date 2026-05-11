@@ -5528,7 +5528,6 @@ class ReceivableAccounting(View):
             criteria &= Q(customer_name__zem_name=customer)
         if container_number_filter:
             criteria &= Q(container_number__container_number=container_number_filter)
-        print('criteria',criteria)
     
         # --- 3. 获取基础订单数据 ---
         base_orders = (
@@ -8539,11 +8538,12 @@ class ReceivableAccounting(View):
         else:      
             if "准时达" in order.customer_name.zem_name:
                 #准时达根据板子实际仓库找报价表，其他用户是根据建单
-                warehouse = location.split('-')[0]
+                if location:
+                    warehouse = location.split('-')[0]
 
             #用转运方式计算费用
             public_key = f"{warehouse}_PUBLIC"
-            if public_key not in fee_details:
+            if public_key not in fee_details:              
                 context.update({'error_messages':f'{warehouse}_PUBLIC-group-{group}未找到亚马逊沃尔玛报价表'})
                 return context
             rules = fee_details.get(f"{warehouse}_PUBLIC").details
@@ -9632,7 +9632,6 @@ class ReceivableAccounting(View):
             f"总费用: <strong>${total_amount:.2f}</strong>"
         )
         context["success_messages"] = success_msg
-        print(request,request.POST)
         return self.handle_cancel_con_entry_post(request, context)
     
     def handle_payout_save(self, request:HttpRequest) -> Dict[str, Any]:
@@ -12150,7 +12149,6 @@ class ReceivableAccounting(View):
     
     def handle_container_check_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         """柜子账单自检 - 保存修改"""
-        print(request.POST)
         action = request.POST.get("action")
         item_id = request.POST.get("item_id")
         container_number = request.POST.get("container_number")
