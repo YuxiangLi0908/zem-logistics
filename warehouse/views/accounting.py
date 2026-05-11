@@ -7958,9 +7958,8 @@ class Accounting(View):
             ]
         elif select_carrier == "Iris":
             fixed_fee_types = [
-                "基本费用",
                 "拆柜费用",
-                "箱数"  # 箱数已正确加入
+                "箱数"
             ]
         else:
             fixed_fee_types = [
@@ -7986,7 +7985,7 @@ class Accounting(View):
             "入库拆柜费": [],
             "总费用": [],
             "车架天数": [],
-            "箱数": [],  # 箱数列统计
+            "箱数": [],
             "提柜其他费用": {},
             "拆柜其他费用": {},
         }
@@ -8013,14 +8012,29 @@ class Accounting(View):
             except (Invoicev2.DoesNotExist, InvoiceItemv2.DoesNotExist):
                 continue
 
-            # 5.2 供应商过滤 ✅【Iris 匹配逻辑修复】
+            # 供应商匹配
             carrier_match = False
+
+            # 1. 这类供应商：从 invoice_items 里匹配 carrier
             if select_carrier in ["BBR", "KNO", "JOHN", "unload", "Iris"]:
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
-            elif order.retrieval_id.retrieval_destination_area == "LA" and order.order_type == "转运" and order.retrieval_id.retrieval_carrier == "Eric":
-                carrier_match = True
-            elif order.retrieval_id.retrieval_carrier == "客户自送" and order.retrieval_id.retrieval_destination_precise == "LA-91761":
-                carrier_match = True
+
+            # 2. 特殊匹配：LA转运Eric / 客户自送
+            elif select_carrier == "Eric":
+                is_eric_la_transfer = (
+                        order.retrieval_id and
+                        order.retrieval_id.retrieval_destination_area == "LA" and
+                        order.order_type == "转运" and
+                        order.retrieval_id.retrieval_carrier == "Eric"
+                )
+                is_la91761_self = (
+                        order.retrieval_id and
+                        order.retrieval_id.retrieval_carrier == "客户自送" and
+                        order.retrieval_id.retrieval_destination_precise == "LA-91761"
+                )
+                carrier_match = is_eric_la_transfer or is_la91761_self
+
+            # 3. 其他供应商：从订单的 retrieval_carrier 匹配
             else:
                 s_carrier = {
                     "ARM": "大方广",
@@ -8029,10 +8043,11 @@ class Accounting(View):
                 }.get(select_carrier, select_carrier)
                 carrier_match = (order.retrieval_id.retrieval_carrier == s_carrier) if order.retrieval_id else False
 
+            # 不匹配直接跳过（绝对不会导出别的供应商）
             if not carrier_match:
                 continue
 
-            # ====================== Iris 箱数统计 ✅【正常计算】======================
+
             total_pcs = 0
             if select_carrier == "Iris":
                 from django.db.models import Sum
@@ -8040,7 +8055,6 @@ class Accounting(View):
                     container_number=order.container_number
                 ).aggregate(total=Sum('pcs'))['total']
                 total_pcs = pcs_sum if pcs_sum else 0
-            # ====================================================================
 
             # 5.3 初始化行数据
             row_data = {
@@ -8069,7 +8083,7 @@ class Accounting(View):
                 "拆柜其他费用": {},
             }
 
-            # ====================== NEW WORLD 车架天数计算 ======================
+            # NEW WORLD 车架天数计算
             if select_carrier == "new world":
                 try:
                     empty_returned_at = order.retrieval_id.empty_returned_at
@@ -8092,26 +8106,27 @@ class Accounting(View):
                         row_data["车架天数"] = 0
                 except:
                     row_data["车架天数"] = 0
-            # ====================================================================
 
-            # ========== 新增核心逻辑：判断是否为LA+转运+Eric订单 或者为客户自送==========
+
+            # ========== 判断是否为LA+转运+Eric订单 或者为客户自送 ==========
             is_eric_la_transfer = (
                                           order.retrieval_id and
                                           order.retrieval_id.retrieval_destination_area == "LA" and
                                           order.order_type == "转运" and
                                           order.retrieval_id.retrieval_carrier == "Eric"
-                                  ) or (order.retrieval_id.retrieval_carrier == "客户自送" and order.retrieval_id.retrieval_destination_precise == "LA-91761")
+                                  ) or (
+                                          order.retrieval_id.retrieval_carrier == "客户自送" and
+                                          order.retrieval_id.retrieval_destination_precise == "LA-91761"
+                                  )
 
-            # 临时存储Eric订单的入库费金额
             eric_unload_fee = 0.0
 
-            # 5.4 遍历费用明细，计算各项费用
+            # 5.4 遍历费用明细
             total_amount = 0.0
             for item in invoice_items:
                 rate = float(item.rate) if item.rate else 0.0
                 description = item.description or ""
 
-                # ========== 规则0：LA+转运+Eric订单仅处理拆柜其他费用-入库费 ==========
                 if is_eric_la_transfer:
                     if description != "拆柜其他费用-入库费":
                         continue
@@ -8119,7 +8134,6 @@ class Accounting(View):
                     total_amount += rate
                     break
 
-                # ========== 原有费用处理逻辑 ==========
                 if is_exclude_pickup_other and "提柜其他费用" in description:
                     continue
                 if is_exclude_unload_other and "拆柜其他费用" in description:
@@ -8162,20 +8176,19 @@ class Accounting(View):
                     except IndexError:
                         pass
 
-            # ========== Eric 订单逻辑 ==========
+            # Eric 订单逻辑
             if is_eric_la_transfer and eric_unload_fee > 0:
                 row_data["入库拆柜费"] = eric_unload_fee
                 total_amount = eric_unload_fee
 
-            # 5.5 赋值总费用
             row_data["总费用"] = total_amount
 
-            # 5.6 填充固定费用类型
+            # 填充固定费用
             for fee_type in fixed_fee_types:
                 if fee_type not in row_data:
                     row_data[fee_type] = 0.0
 
-            # 5.7 记录固定费用列的数值 ✅【确保箱数被统计】
+            # 记录列值
             column_values["基本费用"].append(row_data["基本费用"])
             column_values["超重费"].append(row_data["超重费"])
             column_values["车架费"].append(row_data["车架费"])
@@ -8192,13 +8205,12 @@ class Accounting(View):
         if not rows:
             raise ValueError("未查询到符合条件的费用记录")
 
-        # 6. 构建Excel表头
+        # 构建表头
         if select_carrier == "东海岸" or select_carrier == "new world":
             valid_headers = ["柜号", "提柜时间", "还空时间", "仓库", "柜型"]
         else:
             valid_headers = ["柜号", "提柜时间", "仓库", "柜型"]
 
-        # 6.1 筛选固定费用类型中「非全0」的列 ✅【Iris 箱数一定会加入表头】
         for fee_type in fixed_fee_types:
             if fee_type == "还空时间":
                 if fee_type not in valid_headers:
@@ -8209,7 +8221,7 @@ class Accounting(View):
                 if fee_type not in valid_headers:
                     valid_headers.append(fee_type)
 
-        # ========== 规则1：仅非排除供应商才添加提柜其他费用表头 ==========
+        # 其他费用表头
         if not is_exclude_pickup_other:
             for fee_name, values in column_values["提柜其他费用"].items():
                 if any(v != 0.0 for v in values):
@@ -8217,7 +8229,6 @@ class Accounting(View):
                     if header_name not in valid_headers:
                         valid_headers.append(header_name)
 
-        # ========== 规则2：仅指定供应商才添加拆柜其他费用表头 ==========
         if not is_exclude_unload_other:
             for fee_name, values in column_values["拆柜其他费用"].items():
                 if any(v != 0.0 for v in values):
@@ -8225,18 +8236,15 @@ class Accounting(View):
                     if header_name not in valid_headers:
                         valid_headers.append(header_name)
 
-        # 6.3 去重并保持顺序
         valid_headers = list(dict.fromkeys(valid_headers))
 
-        # 7. 创建Excel并写入数据
+        # 生成Excel
         wb = Workbook()
         ws = wb.active
         ws.title = f"{select_carrier}_{select_month}账单"
 
-        # 写入表头
         ws.append(valid_headers)
 
-        # 写入行数据
         for row in rows:
             row_values = []
             for header in valid_headers:
@@ -8255,7 +8263,6 @@ class Accounting(View):
                     row_values.append(value)
             ws.append(row_values)
 
-        # 8. 构建响应
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
