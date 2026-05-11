@@ -4053,7 +4053,7 @@ class ReceivableAccounting(View):
             item.rate = rate_float
             item.qty = pallets_float
             item.surcharges = surcharges_float
-            item.amount = amount_float
+            item.amount = round(amount_float, 2)
             item.description = description
             item.warehouse_code = destination
             item.region = region
@@ -11667,7 +11667,6 @@ class ReceivableAccounting(View):
         items_data_json = request.POST.get("extra_items_data", "[]")
         if items_data_json:
             items_data = json.loads(items_data_json)
-            username = request.user.username
             for item in items_data:
                 total_fee += float(item.get('amount', 0))
                 item_id = item.get('id')
@@ -11687,7 +11686,6 @@ class ReceivableAccounting(View):
                     surcharges=float(item.get('surcharges') or 0),
                     amount=float(item.get('amount') or 0),
                     note=item.get('note'),
-                    registered_user=username,
                 )
 
         container = Container.objects.get(container_number=container_number)
