@@ -318,6 +318,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_type_to_fleet_type":
             template, context = await self.handle_update_shipment_type_to_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "update_invoice_status_to_completed":
+            template, context = await self.handle_update_invoice_status_to_completed(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "search_receivable_total_fee":
             template, context = await self.handle_search_receivable_total_fee(request)
             return await sync_to_async(render)(request, template, context)
@@ -1605,6 +1608,57 @@ class ExceptionHandling(View):
 
         return self.template_post_port_status, context
     
+    async def handle_update_invoice_status_to_completed(self, request):
+        """更新2025年12月31日之前的柜子的所有receivable账单状态为completed"""
+        from datetime import date
+        from django.db import transaction
+        
+        target_date = date(2025, 12, 31)
+        
+        results = {
+            'success': 0,
+            'errors': 0,
+            'error_details': []
+        }
+        
+        try:
+            def update_statuses():
+                with transaction.atomic():
+                    # 获取vessel_etd在2025-12-31之前的container的id
+                    container_ids = Container.objects.filter(
+                        orders__vessel_id__vessel_etd__lte=target_date
+                    ).values_list('id', flat=True).distinct()
+                    
+                    # 批量更新
+                    updated_count = InvoiceStatusv2.objects.filter(
+                        container_number_id__in=container_ids,
+                        invoice_type='receivable'
+                    ).update(
+                        preport_status='completed',
+                        warehouse_public_status='completed',
+                        warehouse_other_status='completed',
+                        delivery_public_status='completed',
+                        delivery_other_status='completed',
+                        finance_status='completed'
+                    )
+                    
+                    return updated_count
+            
+            updated_count = await sync_to_async(update_statuses)()
+            results['success'] = updated_count
+            
+        except Exception as e:
+            results['errors'] = 1
+            results['error_details'].append(str(e))
+            logger.error(f"更新账单状态失败: {str(e)}")
+        
+        context = {
+            'success_messages': f'成功更新了{results["success"]}条账单状态！',
+            'error_messages': results['error_details'] if results['errors'] else None
+        }
+        
+        return self.template_temporary_function, context
+        
 
     async def handle_update_shipment_type_to_fleet_type(self, request):
         fleets_without_type = await sync_to_async(list)(

@@ -882,6 +882,12 @@
 
     <form method="post" style="display: inline-block; margin: 2px;">
         {% csrf_token %}
+        <input type="hidden" name="step" value="update_invoice_status_to_completed">
+        <button type="submit" class="search-btn">26年之前的应收账单状态都改成已完成</button>
+    </form>
+
+    <form method="post" style="display: inline-block; margin: 2px;">
+        {% csrf_token %}
         <input type="hidden" name="step" value="search_receivable_total_fee">
         <button type="submit" class="search-btn">查询转运类型总费用为空</button>
     </form>
