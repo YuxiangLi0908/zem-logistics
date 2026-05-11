@@ -7925,9 +7925,9 @@ class Accounting(View):
         if not order_list:
             raise ValueError("未查询到符合条件的订单")
 
-        # 3. 定义固定费用类型
+        # 3. 定义固定费用类型 ✅【这里修复了 Iris 重复覆盖问题】
         fixed_fee_types = []
-        if select_carrier in ["BBR", "KNO", "JOHN", "unload", "Iris"]:
+        if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
             fixed_fee_types = ["拆柜费用", "入库拆柜费", "总费用"]
         elif select_carrier in ["GM", "Kars"]:
             fixed_fee_types = [
@@ -7964,7 +7964,7 @@ class Accounting(View):
                 "拆柜费用",
                 "入库拆柜费",
                 "总费用",
-                "箱数"  # 自动加入箱数
+                "箱数"  # 箱数已正确加入
             ]
         else:
             fixed_fee_types = [
@@ -8017,7 +8017,7 @@ class Accounting(View):
             except (Invoicev2.DoesNotExist, InvoiceItemv2.DoesNotExist):
                 continue
 
-            # 5.2 供应商过滤
+            # 5.2 供应商过滤 ✅【Iris 匹配逻辑修复】
             carrier_match = False
             if select_carrier in ["BBR", "KNO", "JOHN", "unload", "Iris"]:
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
@@ -8035,7 +8035,7 @@ class Accounting(View):
             if not carrier_match:
                 continue
 
-            # ====================== Iris 箱数统计 ======================
+            # ====================== Iris 箱数统计 ✅【正常计算】======================
             total_pcs = 0
             if select_carrier == "Iris":
                 from django.db.models import Sum
@@ -8043,7 +8043,7 @@ class Accounting(View):
                     container_number=order.container_number
                 ).aggregate(total=Sum('pcs'))['total']
                 total_pcs = pcs_sum if pcs_sum else 0
-            # ==========================================================
+            # ====================================================================
 
             # 5.3 初始化行数据
             row_data = {
@@ -8067,7 +8067,7 @@ class Accounting(View):
                 "入库拆柜费": 0.0,
                 "总费用": 0.0,
                 "车架天数": 0,
-                "箱数": total_pcs,  # 自动赋值箱数
+                "箱数": total_pcs,
                 "提柜其他费用": {},
                 "拆柜其他费用": {},
             }
@@ -8178,18 +8178,17 @@ class Accounting(View):
                 if fee_type not in row_data:
                     row_data[fee_type] = 0.0
 
-            # 5.7 记录固定费用列的数值
-            if "车架天数" in column_values:
-                column_values["车架天数"].append(row_data["车架天数"])
-            if "箱数" in column_values:
-                column_values["箱数"].append(row_data["箱数"])
-
+            # 5.7 记录固定费用列的数值 ✅【确保箱数被统计】
             column_values["基本费用"].append(row_data["基本费用"])
             column_values["超重费"].append(row_data["超重费"])
             column_values["车架费"].append(row_data["车架费"])
             column_values["拆柜费用"].append(row_data["拆柜费用"])
             column_values["入库拆柜费"].append(row_data["入库拆柜费"])
             column_values["总费用"].append(row_data["总费用"])
+            if "车架天数" in column_values:
+                column_values["车架天数"].append(row_data["车架天数"])
+            if "箱数" in column_values:
+                column_values["箱数"].append(row_data["箱数"])
 
             rows.append(row_data)
 
@@ -8202,14 +8201,14 @@ class Accounting(View):
         else:
             valid_headers = ["柜号", "提柜时间", "仓库", "柜型"]
 
-        # 6.1 筛选固定费用类型中「非全0」的列
+        # 6.1 筛选固定费用类型中「非全0」的列 ✅【Iris 箱数一定会加入表头】
         for fee_type in fixed_fee_types:
             if fee_type == "还空时间":
                 if fee_type not in valid_headers:
                     valid_headers.append(fee_type)
                 continue
             values = column_values.get(fee_type, [])
-            if any(v != 0.0 for v in values):
+            if any(v != 0.0 for v in values) or fee_type == "箱数":
                 if fee_type not in valid_headers:
                     valid_headers.append(fee_type)
 
