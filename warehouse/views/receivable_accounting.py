@@ -8965,10 +8965,12 @@ class ReceivableAccounting(View):
                             group['total_cbm'] = aggregated['total_cbm']
                         if aggregated['total_weight_lbs'] is not None:
                             group['total_weight_lbs'] = aggregated['total_weight_lbs']
-                        
                     except Exception as e:
-                        # 没有PO_ID的情况
-                        raise ValueError('pallet缺少PO_ID')
+                        # 如果查询出错，不修改值
+                        continue
+            else:
+                # 没有PO_ID的情况
+                raise ValueError('pallet缺少PO_ID')
         
         if other_pallet_groups:
             container = Container.objects.get(container_number=container_number)
