@@ -1662,11 +1662,17 @@ class ExceptionHandling(View):
         return self.template_temporary_function, context
     
     async def handle_supplement_account_for_fix(self, request):        
-        # 1. 查询finance_status是completed，并且preport_status到delivery_other_status中有不为空的记录，只取前10条
+        from datetime import date
+        # 1. 查询finance_status是completed，并且preport_status到delivery_other_status中有不为空的记录
+        # 只取 vessel_etd 在 2026年3月1号 之后的，只取前10条
         # 预加载关联对象，避免异步上下文访问外键时报错
         status_list = await sync_to_async(list)(
-            InvoiceStatusv2.objects.select_related('container_number', 'invoice').filter(
-                finance_status="completed", invoice_type="receivable"
+            InvoiceStatusv2.objects.select_related('container_number', 'invoice')
+            .filter(
+                finance_status="completed", 
+                invoice_type="receivable",
+                # 通过多层关联筛选 vessel_etd >= 2026-03-01
+                container_number__orders__vessel_id__vessel_etd__gte=date(2026, 3, 1)
             )
         )
         
@@ -1677,7 +1683,6 @@ class ExceptionHandling(View):
             'processed_containers': [],  # 包含柜号、原账单状态、新账单状态
             'skipped_containers': []     # 不需要创建的柜子
         }
-        num=0
         # 2. 遍历找到的记录
         for status in status_list:
             # 检查preport_status到delivery_other_status中有不为空的记录
@@ -1731,9 +1736,6 @@ class ExceptionHandling(View):
                         'new': new_status,
                         'created': True
                     })
-                    num += 1
-                    if num > 12:
-                        break
                 else:
                     # 没有创建新账单
                     results['skipped_containers'].append({
