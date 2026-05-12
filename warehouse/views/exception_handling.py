@@ -1667,7 +1667,7 @@ class ExceptionHandling(View):
         status_list = await sync_to_async(list)(
             InvoiceStatusv2.objects.select_related('container_number', 'invoice').filter(
                 finance_status="completed", invoice_type="receivable"
-            )[:10]
+            )
         )
         
         results = {
@@ -1677,7 +1677,7 @@ class ExceptionHandling(View):
             'processed_containers': [],  # 包含柜号、原账单状态、新账单状态
             'skipped_containers': []     # 不需要创建的柜子
         }
-        
+        num=0
         # 2. 遍历找到的记录
         for status in status_list:
             # 检查preport_status到delivery_other_status中有不为空的记录
@@ -1691,7 +1691,9 @@ class ExceptionHandling(View):
             
             if not has_non_empty_status:
                 continue
-            
+            num += 1
+            if num > 12:
+                continue
             # 关联对象已通过 select_related 预加载，可以直接访问
             container = status.container_number
             container_number_str = container.container_number
