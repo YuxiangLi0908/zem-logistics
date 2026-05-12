@@ -366,6 +366,9 @@ class ExceptionHandling(View):
         elif step =="update_invoice_status":
             template, context = await self.handle_update_invoice_status(request)
             return await sync_to_async(render)(request, template, context)
+        elif step =="delete_invoice_status":
+            template, context = await self.handle_delete_invoice_status(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "assign_invoice_number":
             template, context = await self.handle_assign_invoice_number(request)
             return await sync_to_async(render)(request, template, context)
@@ -396,6 +399,27 @@ class ExceptionHandling(View):
             setattr(obj, field, value)
             await sync_to_async(obj.save)(update_fields=[field])
 
+        return await self.handle_search_shipment(request)
+
+    async def handle_delete_invoice_status(self, request):
+        '''删除 invoice_statusv2 和对应的 invoicev2'''
+        record_id = request.POST.get("record_id")
+        search_value = request.POST.get("search_value")
+        try:
+            status_obj = await sync_to_async(InvoiceStatusv2.objects.select_related('invoice').get)(id=record_id)
+            invoice_obj = status_obj.invoice
+            
+            # 删除 invoice_statusv2
+            await sync_to_async(status_obj.delete)()
+            
+            # 删除对应的 invoicev2
+            if invoice_obj:
+                await sync_to_async(invoice_obj.delete)()
+            
+            messages.success(request, f"成功删除 Invoice Status ID: {record_id} 及其对应的 Invoice")
+        except Exception as e:
+            messages.error(request, f"删除失败: {str(e)}")
+        
         return await self.handle_search_shipment(request)
 
     async def handle_search_receivable_total_fee(self, request):
@@ -4042,7 +4066,7 @@ class ExceptionHandling(View):
                 context['fleet_sp'] = fleet_sp
             elif search_type == 'invoicestatus':
                 invoicestatus_object = await sync_to_async(
-                    lambda: list(InvoiceStatusv2.objects.filter(
+                    lambda: list(InvoiceStatusv2.objects.select_related('invoice', 'container_number').filter(
                         container_number__container_number=search_value,
                         invoice_type="receivable"
                     ))
