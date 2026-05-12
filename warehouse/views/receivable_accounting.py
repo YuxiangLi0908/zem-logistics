@@ -2285,7 +2285,7 @@ class ReceivableAccounting(View):
             if is_fix_page:
                 return self.handle_fix_account_entry_post(request, context)
             return self.handle_confirm_entry_post(request, context)
-        
+
         # 获取容器和发票对象
         try:
             container = Container.objects.get(container_number=container_number)
@@ -2295,7 +2295,7 @@ class ReceivableAccounting(View):
             if is_fix_page:
                 return self.handle_fix_account_entry_post(request, context)
             return self.handle_confirm_entry_post(request, context)
-        
+
         # 存储统计信息
         saved_items = []
         skipped_items = []
@@ -2419,7 +2419,7 @@ class ReceivableAccounting(View):
             error_messages = f'更新发票状态失败: {str(e)}'
             context.update({'error_messages': error_messages})
             return self.handle_confirm_entry_post(request, context)
-        
+
         status_obj = InvoiceStatusv2.objects.get(
             invoice=invoice,
             invoice_type='receivable'
@@ -2430,20 +2430,23 @@ class ReceivableAccounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        ctx = self._parse_invoice_excel_data(order, invoice)
+        # 获取无费用组
+        groups_without_fee = self._get_all_delivery_groups(container, invoice, order)
+        ctx = self._parse_invoice_excel_data(order, invoice, groups_without_fee)
         
-        ac = Accounting()
-        workbook, invoice_data = ac._generate_invoice_excel(ctx)
-        invoice.invoice_date = invoice_data["invoice_date"]
-        invoice.invoice_link = invoice_data["invoice_link"]
-        invoice.save()
+        # ac = Accounting()
+        # workbook, invoice_data = ac._generate_invoice_excel(ctx)
+        # invoice.invoice_date = invoice_data["invoice_date"]
+        # invoice.invoice_link = invoice_data["invoice_link"]
+        # invoice.save()
 
         # 返回成功消息
         success_message = f"成功保存 {len(saved_items)} 条记录，总额: {total_amount:.2f} USD"
         context.update({'success_message': success_message})
+
         if is_fix_page:
             # 去判断下账单的状态应该怎么办
-            self._fix_account_status(invoice, container)
+            _,_,_ = self._fix_account_create_new_invoice_and_status(container.container_number, invoice)
             return self.handle_fix_account_entry_post(request, context)
         return self.handle_confirm_entry_post(request, context)
 
@@ -2472,7 +2475,6 @@ class ReceivableAccounting(View):
                 if status_value != 'completed':
                     all_completed = False
                     break
-            
             # 如果有状态不是 completed，则创建新的账单
             if not all_completed:
                 # 获取柜号
@@ -2481,15 +2483,163 @@ class ReceivableAccounting(View):
                     return False
                 
                 # 创建新的账单和状态
-                _,_,_ = self._create_invoice_and_status(container_number)
+                _,_,_ = self._fix_account_create_new_invoice_and_status(container_number, invoice)
             
             return True
             
         except InvoiceStatusv2.DoesNotExist:
             return False
     
+    def _fix_account_create_new_invoice_and_status(self, container_number: str, invoice: Invoicev2) -> tuple[Invoicev2, InvoiceStatusv2, InvoiceStatusv2]:
+        """
+        创建账单和状态记录（应收）- 补充账单专用
+        :param container_number: 柜号
+        :param invoice: 当前的invoice
+        :return: (invoice, invoice_status_receivable, None)
+        """
+        # 1. 基础校验 + 查询订单
+        try:
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number__container_number=container_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到柜号为 {container_number} 的订单")
+
+        container = order.container_number
+
+        # 2. 找到对应的invoice_statusv2的invoice_type是receivable的记录
+        try:
+            current_status = InvoiceStatusv2.objects.get(
+                invoice=invoice,
+                invoice_type="receivable"
+            )
+        except InvoiceStatusv2.DoesNotExist:
+            raise ValueError(f"未找到invoice {invoice.invoice_number} 的应收状态")
+
+        # 3. 检查当前账单从preport_status到delivery_other_status是否都完成了
+        current_all_completed = all([
+            current_status.preport_status == "completed",
+            current_status.warehouse_public_status == "completed",
+            current_status.warehouse_other_status == "completed",
+            current_status.delivery_public_status == "completed",
+            current_status.delivery_other_status == "completed"
+        ])
+        if current_all_completed:
+            # 当前账单的所有阶段都完成了，不需要创建
+            return None, None, None
+
+        # 4. 查找除这个invoice之外的其他invoice记录
+        other_invoices = Invoicev2.objects.filter(
+            container_number=container
+        ).exclude(id=invoice.id)
+
+        # 5. 检查其他invoice的finance_status是否有未完成的
+        has_unfinished_other = False
+        for other_inv in other_invoices:
+            try:
+                other_status = InvoiceStatusv2.objects.get(
+                    invoice=other_inv,
+                    invoice_type="receivable"
+                )
+            except InvoiceStatusv2.DoesNotExist:
+                other_status = None
+            
+            if other_status and other_status.finance_status != "completed":
+                has_unfinished_other = True
+                break
+        
+        if has_unfinished_other:
+            # 有其他invoice的finance_status未完成，不需要创建
+            return None, None, None
+
+        # 6. 记录这个柜子所有账单中已经完成的状态（用于同步到新账单）
+        completed_statuses = {
+            'preport_status': False,
+            'warehouse_public_status': False,
+            'warehouse_other_status': False,
+            'delivery_public_status': False,
+            'delivery_other_status': False
+        }
+
+        # 检查当前账单
+        if current_status.preport_status == "completed":
+            completed_statuses['preport_status'] = True
+        if current_status.warehouse_public_status == "completed":
+            completed_statuses['warehouse_public_status'] = True
+        if current_status.warehouse_other_status == "completed":
+            completed_statuses['warehouse_other_status'] = True
+        if current_status.delivery_public_status == "completed":
+            completed_statuses['delivery_public_status'] = True
+        if current_status.delivery_other_status == "completed":
+            completed_statuses['delivery_other_status'] = True
+
+        # 检查其他账单
+        for other_inv in other_invoices:
+            try:
+                other_status = InvoiceStatusv2.objects.get(
+                    invoice=other_inv,
+                    invoice_type="receivable"
+                )
+            except InvoiceStatusv2.DoesNotExist:
+                continue
+            
+            if other_status.preport_status == "completed":
+                completed_statuses['preport_status'] = True
+            if other_status.warehouse_public_status == "completed":
+                completed_statuses['warehouse_public_status'] = True
+            if other_status.warehouse_other_status == "completed":
+                completed_statuses['warehouse_other_status'] = True
+            if other_status.delivery_public_status == "completed":
+                completed_statuses['delivery_public_status'] = True
+            if other_status.delivery_other_status == "completed":
+                completed_statuses['delivery_other_status'] = True
+
+        # 7. 创建新账单及状态
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
+
+        # 7.1 生成唯一的 invoice_number（避免重复）
+        base_invoice_number = f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
+        invoice_number = base_invoice_number
+        counter = 1
+        while Invoicev2.objects.filter(invoice_number=invoice_number).exists():
+            invoice_number = f"{base_invoice_number}{counter}"
+            counter += 1
+        # 7.2 新建发票
+        new_invoice = Invoicev2.objects.create(
+            container_number=container,
+            invoice_number=invoice_number,
+            created_at=current_date,
+            is_master_bill=True,
+        )
+
+        # 7.3 新建应收状态
+        invoice_status_receivable = InvoiceStatusv2.objects.create(
+            container_number=container,
+            invoice=new_invoice,
+            invoice_type="receivable"
+        )
+
+        # 7.4 同步已完成的状态（避免重复确认）
+        if completed_statuses['preport_status']:
+            invoice_status_receivable.preport_status = "completed"
+        if completed_statuses['warehouse_public_status']:
+            invoice_status_receivable.warehouse_public_status = "completed"
+        if completed_statuses['warehouse_other_status']:
+            invoice_status_receivable.warehouse_other_status = "completed"
+        if completed_statuses['delivery_public_status']:
+            invoice_status_receivable.delivery_public_status = "completed"
+        if completed_statuses['delivery_other_status']:
+            invoice_status_receivable.delivery_other_status = "completed"
+        
+        invoice_status_receivable.save()
+
+        # 8. 返回结果
+        return new_invoice, invoice_status_receivable, None
+    
     def _parse_invoice_excel_data(
-        self, order: Order, invoice: Invoicev2
+        self, order: Order, invoice: Invoicev2, groups_without_fee=None
     ) -> dict[str, Any]:
         description = []
         warehouse_code = []
@@ -2540,6 +2690,23 @@ class ReceivableAccounting(View):
             weight.append(item.weight)           
             rate.append(item.rate)
             amount.append(item.amount)
+            
+        # 添加无费用的组
+        if groups_without_fee:
+            for group in groups_without_fee:
+                description.append("无派送费")
+                warehouse_code.append(group.get("destination"))
+                cbm.append(group.get("total_cbm"))
+                weight.append(group.get("total_weight_lbs"))
+                qty.append(group.get("total_pallets", 0))
+                rate.append(0)
+                amount.append(0)
+                shipping_marks = group.get("shipping_marks", "")
+                po_id = group.get("PO_ID", "")
+                if shipping_marks:
+                    note.append(f"PO: {po_id}, 唛头: {shipping_marks}")
+                else:
+                    note.append(f"PO: {po_id}")
             
            
         context = {
@@ -2708,13 +2875,15 @@ class ReceivableAccounting(View):
                 invoice_number=invoice,
                 item_category="combina_extra_fee"
             ).delete()
+            # 获取无费用组信息
+            groups_without_fee = self._get_all_delivery_groups(container, invoice, order)
             # 这里表示是组合柜的方式计算
             new_get = request.GET.copy()
             new_get['is_new_version'] = True
             request.GET = new_get
             setattr(request, "is_from_account_confirmation", True)
             ctx = self.handle_container_invoice_combina_get(request)
-            ctx.update({"is_fix_page": True})
+            ctx.update({"is_fix_page": True, "groups_without_fee": groups_without_fee})
             return self.template_invoice_combina_edit, ctx
         else:
             items = InvoiceItemv2.objects.filter(
@@ -2764,6 +2933,9 @@ class ReceivableAccounting(View):
                 ("payout_fee", "💰 赔付费用", grouped.get("payout_fee", [])),
             ]
             
+            # 获取无费用组信息
+            groups_without_fee = self._get_all_delivery_groups(container, invoice, order)
+            
             context = {
                 "invoice_number": invoice.invoice_number,
                 "invoice": invoice,  # 添加invoice对象，用于获取状态等信息
@@ -2774,9 +2946,212 @@ class ReceivableAccounting(View):
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
                 "is_combina": is_combina,
-                "is_fix_page": True
+                "is_fix_page": True,
+                "groups_without_fee": groups_without_fee
             }
             return self.template_confirm_transfer_edit, context
+    
+    def _get_all_delivery_groups(self, container: Container, invoice: Invoicev2, order: Order):
+        """获取所有 pallet/packinglist 分组，区分有费用和无费用的组"""
+        # 1. 首先查询invoice_itemv2表，获取这个container_number已经录过的派送费用
+        existing_delivery_items = InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number=invoice,
+            item_category__in=["delivery_public", "delivery_other"]
+        )
+
+        # 2. 提取已录过费用的公仓PO_ID
+        existing_public_pos = set()
+        for item in existing_delivery_items.filter(item_category="delivery_public"):
+            if item.PO_ID:
+                existing_public_pos.add(item.PO_ID)
+
+        # 3. 提取已录过费用的私仓PO_ID+shipping_mark组合
+        existing_other_keys = set()
+        for item in existing_delivery_items.filter(item_category="delivery_other"):
+            po_id = item.PO_ID or ""
+            shipping_mark = item.shipping_marks or ""
+            key = f"{po_id}-{shipping_mark}"
+            existing_other_keys.add(key)
+
+        # 4. 检查Pallet表是否有数据
+        base_pallet_query = Pallet.objects.filter(
+            container_number=container
+        ).exclude(PO_ID__isnull=True, PO_ID="")
+        
+        use_packing_list = not base_pallet_query.exists()
+        
+        # 5. 获取所有无费用的组
+        groups_without_fee = []
+        
+        # 5.1 处理公仓无费用组
+        if use_packing_list:
+            public_query = PackingList.objects.filter(
+                container_number=container,
+                delivery_type="public"
+            ).exclude(PO_ID__isnull=True, PO_ID="").exclude(PO_ID__in=existing_public_pos)
+            
+            if public_query.exists():
+                public_groups = list(
+                    public_query.values(
+                        "PO_ID", "destination", "zipcode", "delivery_method", "delivery_type"
+                    ).annotate(
+                        total_pallets=models.Count("id"),
+                        total_cbm=Sum("cbm"),
+                        total_weight_lbs=Sum("total_weight_lbs")
+                    ).order_by("PO_ID")
+                )
+                for group in public_groups:
+                    group["shipping_marks"] = ""
+                    group["item_category"] = "delivery_public"
+                    group["location"] = ""
+                    groups_without_fee.append(group)
+        else:
+            public_query = base_pallet_query.filter(
+                delivery_type="public"
+            ).exclude(PO_ID__in=existing_public_pos)
+            
+            if public_query.exists():
+                public_groups = list(
+                    public_query.values(
+                        "PO_ID", "destination", "zipcode", "delivery_method", "location", "delivery_type"
+                    ).annotate(
+                        total_pallets=models.Count("pallet_id"),
+                        total_cbm=Sum("cbm"),
+                        total_weight_lbs=Sum("weight_lbs"),
+                        pallet_ids=ArrayAgg("pallet_id")
+                    ).order_by("PO_ID")
+                )
+                for group in public_groups:
+                    po_id = group.get("PO_ID")
+                    group["shipping_marks"] = ""
+                    group["item_category"] = "delivery_public"
+                    # 从PackingList表中获取更准确的CBM和重量数据
+                    if po_id:
+                        try:
+                            aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                                total_cbm=Sum('cbm'),
+                                total_weight_lbs=Sum('total_weight_lbs')
+                            )
+                            if aggregated['total_cbm'] is not None:
+                                group['total_cbm'] = aggregated['total_cbm']
+                            if aggregated['total_weight_lbs'] is not None:
+                                group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                        except Exception:
+                            pass
+                    groups_without_fee.append(group)
+        
+        # 5.2 处理私仓无费用组
+        if use_packing_list:
+            other_query = PackingList.objects.filter(
+                container_number=container,
+                delivery_type="other"
+            ).exclude(PO_ID__isnull=True, PO_ID="")
+            
+            if other_query.exists():
+                other_raw = list(
+                    other_query.values(
+                        "PO_ID", "destination", "zipcode", "delivery_method", "delivery_type", "shipping_mark"
+                    ).annotate(
+                        total_pallets=models.Count("id"),
+                        total_cbm=Sum("cbm"),
+                        total_weight_lbs=Sum("total_weight_lbs")
+                    ).order_by("PO_ID")
+                )
+                other_groups_dict = {}
+                for item in other_raw:
+                    po_id = item.get("PO_ID")
+                    shipping_mark = item.get("shipping_mark", "")
+                    key = f"{po_id}-{shipping_mark}"
+                    
+                    if key in existing_other_keys:
+                        continue
+                    
+                    if key not in other_groups_dict:
+                        other_groups_dict[key] = {
+                            "PO_ID": po_id,
+                            "destination": item.get("destination"),
+                            "zipcode": item.get("zipcode"),
+                            "delivery_method": item.get("delivery_method"),
+                            "location": "",
+                            "delivery_type": item.get("delivery_type"),
+                            "shipping_marks": shipping_mark,
+                            "total_pallets": 0,
+                            "total_cbm": 0,
+                            "total_weight_lbs": 0,
+                            "item_category": "delivery_other"
+                        }
+                    other_groups_dict[key]["total_pallets"] += item.get("total_pallets", 0)
+                    other_groups_dict[key]["total_cbm"] += item.get("total_cbm", 0)
+                    other_groups_dict[key]["total_weight_lbs"] += item.get("total_weight_lbs", 0)
+                
+                groups_without_fee.extend(other_groups_dict.values())
+        else:
+            other_query = base_pallet_query.filter(
+                delivery_type="other"
+            ).exclude(PO_ID__isnull=True, PO_ID="")
+            
+            if other_query.exists():
+                other_raw = list(
+                    other_query.values(
+                        "PO_ID", "destination", "zipcode", "delivery_method", "location", "delivery_type", "shipping_mark"
+                    ).annotate(
+                        total_pallets=models.Count("pallet_id"),
+                        total_cbm=Sum("cbm"),
+                        total_weight_lbs=Sum("weight_lbs"),
+                        pallet_ids=ArrayAgg("pallet_id")
+                    ).order_by("PO_ID")
+                )
+                other_groups_dict = {}
+                for item in other_raw:
+                    po_id = item.get("PO_ID")
+                    shipping_mark = item.get("shipping_mark", "")
+                    key = f"{po_id}-{shipping_mark}"
+                    
+                    if key in existing_other_keys:
+                        continue
+                    
+                    if key not in other_groups_dict:
+                        other_groups_dict[key] = {
+                            "PO_ID": po_id,
+                            "destination": item.get("destination"),
+                            "zipcode": item.get("zipcode"),
+                            "delivery_method": item.get("delivery_method"),
+                            "location": item.get("location"),
+                            "delivery_type": item.get("delivery_type"),
+                            "shipping_marks": shipping_mark,
+                            "total_pallets": 0,
+                            "total_cbm": 0,
+                            "total_weight_lbs": 0,
+                            "pallet_ids": []
+                        }
+                    other_groups_dict[key]["total_pallets"] += item.get("total_pallets", 0)
+                    other_groups_dict[key]["total_cbm"] += item.get("total_cbm", 0)
+                    other_groups_dict[key]["total_weight_lbs"] += item.get("total_weight_lbs", 0)
+                    other_groups_dict[key]["pallet_ids"].extend(item.get("pallet_ids", []))
+                
+                # 从PackingList表中获取更准确的CBM和重量数据
+                for key, group in other_groups_dict.items():
+                    po_id = group.get("PO_ID")
+                    shipping_marks = group.get("shipping_marks")
+                    group["item_category"] = "delivery_other"
+                    if po_id:
+                        try:
+                            aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_marks).aggregate(
+                                total_cbm=Sum('cbm'),
+                                total_weight_lbs=Sum('total_weight_lbs')
+                            )
+                            if aggregated['total_cbm'] is not None:
+                                group['total_cbm'] = aggregated['total_cbm']
+                            if aggregated['total_weight_lbs'] is not None:
+                                group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                        except Exception:
+                            pass
+                
+                groups_without_fee.extend(other_groups_dict.values())
+
+        # 这里只需要返回无费用的组，有费用的组不需要重复查询
+        return groups_without_fee
     
     def _auto_calculate_delivery_fee(self, request: HttpRequest, order: Order, quotation, context, match, invoice: Invoicev2, container: Container, is_combina) -> None:
         '''派送费用的自动计算'''
@@ -11865,7 +12240,9 @@ class ReceivableAccounting(View):
 
         order = Order.objects.get(container_number__container_number=container_number)
 
-        context = self._parse_invoice_excel_data(order, invoice)
+        # 获取无费用组
+        groups_without_fee = self._get_all_delivery_groups(container, invoice, order)
+        context = self._parse_invoice_excel_data(order, invoice, groups_without_fee)
         ac = Accounting()
         workbook, invoice_data = ac._generate_invoice_excel(context)
         invoice.invoice_date = invoice_data["invoice_date"]
@@ -11885,6 +12262,7 @@ class ReceivableAccounting(View):
 
         if is_fix_page:
             # 要跳转回待核销固定费用的页面
+            self._fix_account_status(invoice, container)
             return self.handle_fix_account_entry_post(request, ctx)
         return self.handle_confirm_entry_post(request, ctx)
     

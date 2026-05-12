@@ -847,6 +847,41 @@
                     {% endif %}
                 {% endfor %}
             </div>
+
+            {% if groups_without_fee %}
+            <!-- 无费用派送组 -->
+            <div class="section-container">
+                <div class="section-header">
+                    <div>
+                        <h3><i class="bi bi-exclamation-triangle me-1"></i>无派送费记录</h3>
+                    </div>
+                </div>
+                <table class="advanced-table delivery-table">
+                    <thead>
+                        <tr>
+                            <th>目的地</th>
+                            <th>PO_ID</th>
+                            <th>唛头</th>
+                            <th>CBM</th>
+                            <th>重量(lbs)</th>
+                            <th>板数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in groups_without_fee %}
+                        <tr class="row-existing table-warning">
+                            <td class="cell-destination">{{ group.destination|default:"-" }}</td>
+                            <td class="column-poid">{{ group.PO_ID|default:"-" }}</td>
+                            <td>{{ group.shipping_marks|default:"-" }}</td>
+                            <td class="cell-cbm">{{ group.total_cbm|floatformat:2|default:"0.00" }}</td>
+                            <td class="cell-stats">{{ group.total_weight_lbs|floatformat:2|default:"0.00" }}</td>
+                            <td class="cell-stats">{{ group.total_pallets|default:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
             
             <!-- 总计区域 -->
             <div class="total-section">
