@@ -499,6 +499,49 @@
         </div>
         {% endif %}
 
+        {% if groups_without_fee %}
+        <!-- 无费用派送组 -->
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header bg-light text-dark p-2">
+                <h6 class="mb-0 fw-bold fs-5 text-white bg-warning px-2 py-1 rounded d-inline-block">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    无派送费记录
+                </h6>           
+                <span class="badge" style="background-color: #fff3cd; color: #856404;" title="无费用记录">
+                    <i class="bi bi-info-circle me-1"></i>仅展示，不保存
+                </span>
+            </div>
+            <div class="card-body p-2">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>目的地</th>
+                                <th>PO_ID</th>
+                                <th>唛头</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>
+                                <th>板数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group in groups_without_fee %}
+                            <tr class="table-warning">
+                                <td>{{ group.destination|default:"-" }}</td>
+                                <td>{{ group.PO_ID|default:"-" }}</td>
+                                <td>{{ group.shipping_marks|default:"-" }}</td>
+                                <td>{{ group.total_cbm|floatformat:2|default:"0.00" }}</td>
+                                <td>{{ group.total_weight_lbs|floatformat:2|default:"0.00" }}</td>
+                                <td>{{ group.total_pallets|default:0 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if display_data.extra_fees.overweight %}
         <!-- 超重费用 -->
         <div class="card mb-3 shadow-sm">
