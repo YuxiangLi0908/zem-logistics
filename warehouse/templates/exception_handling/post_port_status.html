@@ -882,6 +882,12 @@
 
     <form method="post" style="display: inline-block; margin: 2px;">
         {% csrf_token %}
+        <input type="hidden" name="step" value="supplement_account_for_fix">
+        <button type="submit" class="search-btn">财务录固定费用补开主账单</button>
+    </form>
+
+    <form method="post" style="display: inline-block; margin: 2px;">
+        {% csrf_token %}
         <input type="hidden" name="step" value="update_invoice_status_to_completed">
         <button type="submit" class="search-btn">26年之前的应收账单状态都改成已完成</button>
     </form>
@@ -1084,6 +1090,121 @@
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 财务补开账单结果 -->
+{% if results %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>财务补开账单结果</h4>
+        <p class="text-muted">
+            {{ success_messages }}
+        </p>
+    </div>
+    <div class="card-body">
+        {% if results.processed_containers %}
+        <h5>成功创建账单的柜子</h5>
+        <div class="table-responsive mb-4">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">柜号</th>
+                        <th rowspan="2">账单类型</th>
+                        <th rowspan="2">账单号</th>
+                        <th colspan="5">状态</th>
+                    </tr>
+                    <tr>
+                        <th>港前</th>
+                        <th>公仓库内</th>
+                        <th>私仓库内</th>
+                        <th>公仓派送</th>
+                        <th>私仓派送</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for container in results.processed_containers %}
+                    <tr>
+                        <td rowspan="2">{{ container.container_number }}</td>
+                        <td>原账单</td>
+                        <td>{{ container.original.invoice_number }}</td>
+                        <td style="background-color: {% if container.original.preport == 'completed' %}#d4edda{% elif container.original.preport != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.preport }}</td>
+                        <td style="background-color: {% if container.original.warehouse_public == 'completed' %}#d4edda{% elif container.original.warehouse_public != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.warehouse_public }}</td>
+                        <td style="background-color: {% if container.original.warehouse_other == 'completed' %}#d4edda{% elif container.original.warehouse_other != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.warehouse_other }}</td>
+                        <td style="background-color: {% if container.original.delivery_public == 'completed' %}#d4edda{% elif container.original.delivery_public != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.delivery_public }}</td>
+                        <td style="background-color: {% if container.original.delivery_other == 'completed' %}#d4edda{% elif container.original.delivery_other != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.delivery_other }}</td>
+                    </tr>
+                    <tr>
+                        <td>新账单</td>
+                        <td>{{ container.new.invoice_number }}</td>
+                        <td style="background-color: {% if container.new.preport == 'completed' %}#d4edda{% elif container.new.preport != 'unstarted' %}#fff3cd{% endif %}">{{ container.new.preport }}</td>
+                        <td style="background-color: {% if container.new.warehouse_public == 'completed' %}#d4edda{% elif container.new.warehouse_public != 'unstarted' %}#fff3cd{% endif %}">{{ container.new.warehouse_public }}</td>
+                        <td style="background-color: {% if container.new.warehouse_other == 'completed' %}#d4edda{% elif container.new.warehouse_other != 'unstarted' %}#fff3cd{% endif %}">{{ container.new.warehouse_other }}</td>
+                        <td style="background-color: {% if container.new.delivery_public == 'completed' %}#d4edda{% elif container.new.delivery_public != 'unstarted' %}#fff3cd{% endif %}">{{ container.new.delivery_public }}</td>
+                        <td style="background-color: {% if container.new.delivery_other == 'completed' %}#d4edda{% elif container.new.delivery_other != 'unstarted' %}#fff3cd{% endif %}">{{ container.new.delivery_other }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        {% if results.skipped_containers %}
+        <h5>未创建账单的柜子</h5>
+        <div class="table-responsive mb-4">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>原账单号</th>
+                        <th>港前</th>
+                        <th>公仓库内</th>
+                        <th>私仓库内</th>
+                        <th>公仓派送</th>
+                        <th>私仓派送</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for container in results.skipped_containers %}
+                    <tr>
+                        <td>{{ container.container_number }}</td>
+                        <td>{{ container.original.invoice_number }}</td>
+                        <td style="background-color: {% if container.original.preport == 'completed' %}#d4edda{% elif container.original.preport != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.preport }}</td>
+                        <td style="background-color: {% if container.original.warehouse_public == 'completed' %}#d4edda{% elif container.original.warehouse_public != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.warehouse_public }}</td>
+                        <td style="background-color: {% if container.original.warehouse_other == 'completed' %}#d4edda{% elif container.original.warehouse_other != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.warehouse_other }}</td>
+                        <td style="background-color: {% if container.original.delivery_public == 'completed' %}#d4edda{% elif container.original.delivery_public != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.delivery_public }}</td>
+                        <td style="background-color: {% if container.original.delivery_other == 'completed' %}#d4edda{% elif container.original.delivery_other != 'unstarted' %}#fff3cd{% endif %}">{{ container.original.delivery_other }}</td>
+                        <td>{{ container.reason }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        {% if results.error_details %}
+        <h5>处理失败的柜子</h5>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>错误信息</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in results.error_details %}
+                    <tr>
+                        <td>{{ error.container_number }}</td>
+                        <td>{{ error.error }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endif %}
