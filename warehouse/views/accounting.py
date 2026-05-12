@@ -7952,7 +7952,6 @@ class Accounting(View):
                 "超重费",
                 "车架费",
                 "入库拆柜费",
-                "拆柜费用",
                 "总费用",
                 "还空时间",
                 "车架天数"
@@ -7973,7 +7972,7 @@ class Accounting(View):
             ]
 
         # 4. 定义排除拆柜费的供应商列表
-        exclude_pallet_carriers = ["Kars", "东海岸", "GM"]
+        exclude_pallet_carriers = ["Kars", "东海岸", "GM", "new world"]
         is_exclude_pallet = select_carrier in exclude_pallet_carriers
 
         # 5. 处理订单数据，组装Excel行数据
