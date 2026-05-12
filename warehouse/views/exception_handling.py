@@ -1916,6 +1916,7 @@ class ExceptionHandling(View):
         if completed_statuses['delivery_other_status']:
             invoice_status_receivable.delivery_other_status = "completed"
         
+        invoice_status_receivable.finance_status = "unstarted"
         await sync_to_async(invoice_status_receivable.save)()
 
         # 8. 返回结果
