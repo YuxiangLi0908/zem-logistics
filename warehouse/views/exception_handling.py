@@ -1691,9 +1691,7 @@ class ExceptionHandling(View):
             
             if not has_non_empty_status:
                 continue
-            num += 1
-            if num > 12:
-                continue
+            
             # 关联对象已通过 select_related 预加载，可以直接访问
             container = status.container_number
             container_number_str = container.container_number
@@ -1733,6 +1731,9 @@ class ExceptionHandling(View):
                         'new': new_status,
                         'created': True
                     })
+                    num += 1
+                    if num > 12:
+                        break
                 else:
                     # 没有创建新账单
                     results['skipped_containers'].append({
