@@ -2434,11 +2434,11 @@ class ReceivableAccounting(View):
         groups_without_fee = self._get_all_delivery_groups(container, invoice, order)
         ctx = self._parse_invoice_excel_data(order, invoice, groups_without_fee)
         
-        # ac = Accounting()
-        # workbook, invoice_data = ac._generate_invoice_excel(ctx)
-        # invoice.invoice_date = invoice_data["invoice_date"]
-        # invoice.invoice_link = invoice_data["invoice_link"]
-        # invoice.save()
+        ac = Accounting()
+        workbook, invoice_data = ac._generate_invoice_excel(ctx)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
+        invoice.save()
 
         # 返回成功消息
         success_message = f"成功保存 {len(saved_items)} 条记录，总额: {total_amount:.2f} USD"
@@ -2633,6 +2633,7 @@ class ReceivableAccounting(View):
         if completed_statuses['delivery_other_status']:
             invoice_status_receivable.delivery_other_status = "completed"
         
+        invoice_status_receivable.finance_status = "unstarted"
         invoice_status_receivable.save()
 
         # 8. 返回结果
@@ -12262,7 +12263,7 @@ class ReceivableAccounting(View):
 
         if is_fix_page:
             # 要跳转回待核销固定费用的页面
-            self._fix_account_status(invoice, container)
+            self._fix_account_create_new_invoice_and_status(invoice, container)
             return self.handle_fix_account_entry_post(request, ctx)
         return self.handle_confirm_entry_post(request, ctx)
     
