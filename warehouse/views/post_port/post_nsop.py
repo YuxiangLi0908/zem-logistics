@@ -9973,7 +9973,7 @@ class PostNsop(View):
             pl_criteria &= Q(id__in=cargo_id_list)
         
         # 获取数据
-        release_cargos,_ ,_ = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
         
         # 准备 Excel 数据
         excel_data = []
