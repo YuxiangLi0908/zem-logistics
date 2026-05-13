@@ -2695,19 +2695,14 @@ class ReceivableAccounting(View):
         # 添加无费用的组
         if groups_without_fee:
             for group in groups_without_fee:
-                description.append("无派送费")
+                description.append("")
                 warehouse_code.append(group.get("destination"))
                 cbm.append(group.get("total_cbm"))
                 weight.append(group.get("total_weight_lbs"))
                 qty.append(group.get("total_pallets", 0))
                 rate.append(0)
                 amount.append(0)
-                shipping_marks = group.get("shipping_marks", "")
-                po_id = group.get("PO_ID", "")
-                if shipping_marks:
-                    note.append(f"PO: {po_id}, 唛头: {shipping_marks}")
-                else:
-                    note.append(f"PO: {po_id}")
+                note.append("")
             
            
         context = {

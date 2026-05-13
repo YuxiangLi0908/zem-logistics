@@ -614,19 +614,34 @@
     <table class="table">
         <thead>
             <tr>
-                <th>ID</th>
+                <th>Invoice Status ID</th>
+                <th>Invoice ID</th>
+                <th>Invoice Number</th>
+                <th>类型</th>
                 <th>港前状态</th>
                 <th>公仓仓库</th>
                 <th>私仓仓库</th>
                 <th>公仓派送</th>
                 <th>私仓派送</th>
                 <th>财务</th>
+                <th>操作</th>
             </tr>
         </thead>
         <tbody>
             {% for status in invoicestatus_object %}
             <tr>
                 <td>{{ status.id }}</td>
+                <td>{{ status.invoice.id|default:'' }}</td>
+                <td>{{ status.invoice.invoice_number|default:'' }}</td>
+                <td>
+                    {% if status.invoice_type == 'receivable' %}
+                        应收
+                    {% elif status.invoice_type == 'payable' %}
+                        应付
+                    {% else %}
+                        {{ status.invoice_type }}
+                    {% endif %}
+                </td>
                 <td>
                     <form method="post">
                         {% csrf_token %}
@@ -732,6 +747,15 @@
                                 </option>
                             {% endfor %}
                         </select>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" onsubmit="return confirm('确定要删除这条记录及其对应的 Invoice 吗？');">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="delete_invoice_status">
+                        <input type="hidden" name="record_id" value="{{ status.id }}">
+                        <input type="hidden" name="search_value" value="{{ search_value }}">
+                        <button type="submit" class="action-btn btn-danger" style="padding: 4px 10px;">删除</button>
                     </form>
                 </td>
             </tr>

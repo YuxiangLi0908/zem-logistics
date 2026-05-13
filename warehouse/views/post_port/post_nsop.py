@@ -14720,7 +14720,7 @@ class PostNsop(View):
         elif isa:
             shipment_criteria &= Q(appointment_id__icontains=isa)
         # 查找shipment
-        target_shipment = await sync_to_async(Shipment.objects.get)(shipment_criteria)
+        target_shipment = await sync_to_async(Shipment.objects.select_related('fleet_number').get)(shipment_criteria)
         
         if not target_shipment:
             context['error_messages'] = '未找到对应的预约批次'
