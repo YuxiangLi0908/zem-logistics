@@ -797,19 +797,23 @@ class ExceptionHandling(View):
             
             results = []
             
-            # 查询vessel_etd在1月1日之后的所有Order记录，并获取container_number
+            # 查询vessel_etd在1月1日之后的所有Order记录
             orders = Order.objects.select_related('vessel_id', 'container_number').filter(
                 vessel_id__vessel_etd__gte=datetime(datetime.now().year, 1, 1)
             )
             
-            # 获取所有不重复的container_number
-            container_ids = set()
+            # 按container_number分组，获取每个柜子的vessel_etd
+            container_vessel_map = {}
             for order in orders:
                 if order.container_number:
-                    container_ids.add(order.container_number.id)
+                    container_id = order.container_number.id
+                    if container_id not in container_vessel_map:
+                        # 只保存第一个遇到的vessel_etd（防止同一个柜子有多个order的情况）
+                        vessel_etd = order.vessel_id.vessel_etd if order.vessel_id else None
+                        container_vessel_map[container_id] = vessel_etd
             
             # 遍历每个container_number，查询invoice_statusv2表中的应收状态记录
-            for container_id in container_ids:
+            for container_id, vessel_etd in container_vessel_map.items():
                 # 查询应收的状态记录
                 invoice_statuses = InvoiceStatusv2.objects.filter(
                     container_number_id=container_id,
@@ -822,34 +826,40 @@ class ExceptionHandling(View):
                 # 如果只有一条记录，检查finance_status是否为completed
                 elif len(invoice_statuses) == 1:
                     invoice_status = invoice_statuses[0]
-                    if invoice_status.finance_status == 'completed':
-                        # 检查五个状态是否都为completed
-                        has_incomplete = False
-                        if invoice_status.preport_status != 'completed':
-                            has_incomplete = True
-                        if invoice_status.warehouse_public_status != 'completed':
-                            has_incomplete = True
-                        if invoice_status.warehouse_other_status != 'completed':
-                            has_incomplete = True
-                        if invoice_status.delivery_public_status != 'completed':
-                            has_incomplete = True
-                        if invoice_status.delivery_other_status != 'completed':
-                            has_incomplete = True
+                    # 只要检查五个状态是否都为completed（不管finance_status是什么）
+                    has_incomplete = False
+                    if invoice_status.finance_status != 'completed':
+                        continue
+                    if invoice_status.preport_status != 'completed':
+                        has_incomplete = True
+                    if invoice_status.warehouse_public_status != 'completed':
+                        has_incomplete = True
+                    if invoice_status.warehouse_other_status != 'completed':
+                        has_incomplete = True
+                    if invoice_status.delivery_public_status != 'completed':
+                        has_incomplete = True
+                    if invoice_status.delivery_other_status != 'completed':
+                        has_incomplete = True
+                    
+                    # 如果有状态不是completed，记录下来
+                    if has_incomplete:
+                        container_number = invoice_status.container_number.container_number if invoice_status.container_number else ''
+                        invoice_number = invoice_status.invoice.invoice_number if invoice_status.invoice else ''
                         
-                        # 如果有状态不是completed，记录下来
-                        if has_incomplete:
-                            container_number = invoice_status.container_number.container_number if invoice_status.container_number else ''
-                            invoice_number = invoice_status.invoice.invoice_number if invoice_status.invoice else ''
-                            
-                            results.append({
-                                'container_number': container_number,
-                                'invoice_number': invoice_number,
-                                'preport_status': invoice_status.preport_status,
-                                'warehouse_public_status': invoice_status.warehouse_public_status,
-                                'warehouse_other_status': invoice_status.warehouse_other_status,
-                                'delivery_public_status': invoice_status.delivery_public_status,
-                                'delivery_other_status': invoice_status.delivery_other_status
-                            })
+                        # 格式化vessel_etd
+                        vessel_etd_str = vessel_etd.strftime('%Y-%m-%d') if vessel_etd else ''
+                        
+                        results.append({
+                            'container_number': container_number,
+                            'invoice_number': invoice_number,
+                            'preport_status': invoice_status.preport_status,
+                            'warehouse_public_status': invoice_status.warehouse_public_status,
+                            'warehouse_other_status': invoice_status.warehouse_other_status,
+                            'delivery_public_status': invoice_status.delivery_public_status,
+                            'delivery_other_status': invoice_status.delivery_other_status,
+                            'finance_status': invoice_status.finance_status,
+                            'vessel_etd': vessel_etd_str
+                        })
             
             return results
         
