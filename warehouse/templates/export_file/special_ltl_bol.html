@@ -1,0 +1,283 @@
+{% load static %}
+{% block content %}
+<style>
+    .page-break {
+        page-break-before: always;
+    }
+    @media print {
+        .page-break {
+            page-break-before: always;
+        }
+        .container {
+            display:flex;
+            flex-direction:row;
+            {% comment %} align-items:center;
+            justify-content:center;
+            flex-wrap: nowrap; {% endcomment %}
+        }
+        .table {
+            border-collapse:separate;
+            border-spacing: 0;
+        }
+        .larger-text {
+            font-size: 24px;
+        }  
+        .medium-text {
+            font-size: 18px;
+        } 
+        .checkbox-like {
+            position: relative;
+            padding-left: 25px;
+            cursor: pointer;
+          }
+         .checkbox-like::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 15px;
+            height: 15px;
+            border: 1px solid #000;
+            background-color: #fff;
+          }
+          .rectangle {
+            width: 200px; 
+            height: 100px; 
+            
+         }
+         .wrap-text {
+            word-wrap: break-word;
+            word-break: break-all;
+        }
+    }
+</style>
+
+<div style="font-size: 13px;">
+    <table style="width: 100%;">
+        <tr style="border-bottom: 1px solid black;">
+            <td style="width: 30%;">
+                
+            </td>
+            <td style="width: 40%; text-align:center; padding-top:35px;">
+                <h1><b>BILL OF LADING</b></h1>
+            </td>
+            <td style="width: 30%;"></td>
+        </tr>
+    </table>
+    <table style="width: 120%;">
+        <tr>
+            <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
+                <b class="larger-text">SHIPPER</b><br>
+                {% if "SAV-31326" == warehouse %}
+                1001 Trade Center Pkwy, Rincon,GA,31326<br>LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
+                {% elif "NJ-07001" == warehouse %}
+                27 Engelhard Ave, Avenel, NJ,07001<br>meilin &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6463390570
+                {% elif "LA-91761" == warehouse %}
+                5450E Francis St Ontario, CA,91761,United States<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6263897353
+                {% elif "LA-91748" == warehouse %}
+                19545 San Jose Ave City of Industry, CA,91748,United States<br>Ricko &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;626-759-3942
+                {% elif "LA-91766" == warehouse %}
+                1601 W Mission Blvd, Pomona, CA 91766<br>Allywork &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;213-510-5188-Ext 803
+                {% elif "LA-91730" == warehouse %}
+                9570 Santa Anita Ave, Rancho Cucamonga<br>CA 91730<br>Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246
+                {% else %}
+                <br><br><br><br>
+                {% endif %}
+            </td>
+            <td style="width:10%;"></td>
+            <td style="width: 55%; text-align:center; border-bottom: 1px solid black;">
+                <span style="font-family: STSong-Light;">柜号：</span>{{ container_number|safe }}
+                <br>
+                <span style="font-family: STSong-Light;">目的地：</span>{{ destination|safe }}
+                <br>
+                <span style="font-family: STSong-Light;">唛头：</span>{{ shipping_mark|safe }}
+            </td>
+        </tr>
+    </table>
+    <table style="width: 120%;">
+        <tr>
+            <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
+                <b class="larger-text">CONSIGNEE</b>
+                {% if contact_flag %}
+                <br>{{ contact.company }}
+                {% if contact.Road %}
+                <br>{{ contact.Road }}
+                {% endif %}
+                {% if contact.city %}
+                <br>{{ contact.city }}
+                {% endif %}
+                {% if contact.name %}
+                <br>{{ contact.name }}
+                {% endif %}
+                {% if contact.phone %}
+                <br>{{ contact.phone }}
+                {% endif %}
+                {% else %}
+                <br><br><br><br>
+                {% endif %}
+            </td>
+            <td style="width:10%;">             
+            </td>
+            <td style="width: 55%; text-align:center; border-bottom: 1px solid black; padding-top:5px;">
+                <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
+                <br>
+                <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ carrier }}
+                <br>
+                <b class="medium-text">Pickup date</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ pickup_time }}               
+            </td>
+        </tr>
+    </table>
+    <table style="width: 120%;">
+        <tr>
+            <td style="width: 55%; padding:5px;"> 
+                <b class="larger-text"> PICKUP REMARKS</b>
+                <br>Ready from <b>09:00 AM</b> to <b>05:30 PM</b>
+            </td>
+            <td style="width:10%;"></td>
+            <td style="width: 55%; text-align:center;">   
+                <b class="larger-text"> DELIVERY REMARKS</b>
+                {% if "LA" not in warehouse %}
+                <br>Ready from <b>09:00 AM</b> to <b>14:00 PM</b>   
+                {% endif %}         
+            </td>
+        </tr>
+    </table>
+    <div style="padding:20px;">
+        <b style="text-align:center;">Accessorials:</b>
+    <div>
+    <table style="width: 100%; padding:6px; font-size:16px;">
+        <tr>
+            <td style="width:20%; border:none;"></td>
+            <td style="width:30%; text-align:center; border: 1px solid black;"> Pallet:<br><b>{{ pallet }}</b></td>
+            <td style="width:30%; text-align:center; border: 1px solid black;"> Pcs:<br><b>{{ pcs }}</b></td>
+            <td style="width:20%; border:none;"></td>
+        </tr>
+    </table>
+    
+</div>
+<span style="font-family: STSong-Light;">{{ appointment_info }}</span>
+<div style="font-size: 12px;">
+    <div style="padding-bottom:0;">
+        <b>* Put 2-4 labels on each pallet/HU</b><br>
+        * Weights are total for number of handling units stated. Do not multiply weight by number of handling units.<br>
+        <b> THIS SHIPMENT HAS A PREASSIGNED PRO#and BARCODE DO NOTAPPLY PROSTICKER</b>
+    </div>
+    <table style="width: 120%; border-top:1px solid black; padding:5px;">
+        <tr>
+            <td style="width:40%; border-right:1px solid black; padding:5px;">
+                <b class="medium-text"> Shipper signature/date</b><br><br>
+                This is to certify that the above-named<br>
+                materials are properly classified,<br>
+                described,packaged, marked and labeled,<br>
+                and are in proper condition for transportation<br>
+                according to the applicable regulations of<br>
+                the Department of Transportation.
+            </td>
+            <td style="width:20%;">
+                <b class="medium-text"> Trailer Loaded:</b><br>
+                <span class="checkbox-like">By Shipper</span>
+                <span class="checkbox-like">By Driver</span>
+            </td>
+            <td style="width:20%;">
+                <b class="medium-text"> Freight Counted:</b><br>
+                <span class="checkbox-like">By Shipper</span>
+                <span class="checkbox-like">By Driver/Pallets said to contain</span>
+                <span class="checkbox-like">By Driver/Pieces</span>
+            </td>
+            <td style="width:40%;border-left:1px solid black; padding:5px;">
+                <b class="medium-text"> Carrier signature/date</b><br><br>
+                Carrier acknowledges receipt of packages<br>
+                and required placards / Carriers certifies<br>
+                emergency response information was made<br>
+                available and / or carrier has the DOT<br>
+                emergency response guidebook or equivalent<br>
+                documentation in the vechicle.
+            </td>
+        </tr>
+    </table>
+    <table style="width: 120%; font-size:13px;border-bottom:1px solid black; text-align:left; padding: 5px;">
+        <tr>
+            <td style="width:40%;">Signature__________________ <br><br>Date     __________________ 
+            </td>
+            <td style="width:20%;">
+                <b>  H/U Count:</b><br>
+                <div class="rectangle"></div>  
+            </td>
+            <td style="width:20%;">
+                <b>  Piece Count:</b><br>
+                
+            </td>
+            <td style="width:40%;">
+                Signature__________________ <br><br>
+                Date     __________________ 
+            </td>
+        </tr>
+    </table>
+    <span>ATTENTION TO CARRIERS : ZEM does not authorize any additional services (such as inside delivery, etc) that are not listed on the BOL and will not be held liable for charges of an extra services that were not authorized prior. </span>
+    <span style="font-size:12px; padding-top:0;">NOTE: Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. 14706(c)(1)(A) and (B)</span>
+</div>
+{% if pickup_attachments or pickup_has_pdf %}
+<div style="padding: 10px 0;">
+    {% for att in pickup_attachments %}
+        {% if att.kind == "image" %}
+        <div style="text-align:center; padding: 10px 0;">
+            <img src="{{ att.src }}" style="width: 700px; height: auto;">
+        </div>
+        {% else %}
+        <div style="border: 1px solid #000; padding: 8px; font-size: 12px; white-space: normal;">
+            {{ att.html|safe }}
+        </div>
+        {% endif %}
+    {% endfor %}
+    <div style="padding-top: 10px; font-size: 14px;">
+        <span style="font-size: 1px; color: #ffffff; line-height: 1px;">__ZEM_PICKUP_PDF_ANCHOR__</span>
+        <br>containers: <b>{{ container_number|safe }}</b><br>
+        shipping_mark: <b>{{ shipping_mark|safe }}</b>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+<br><br>
+<b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
+<table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 
+    <thead> 
+        <tr>
+            <th style="width: 7%; border: none;"></th>
+            <th style="width: 14%; border:1px solid black;">container number</th>
+            <th style="width: 14%; border:1px solid black;">destination</th>
+            <th style="width: 18%; border:1px solid black;">shipping_mark</th>
+            <th style="width: 13%; border:1px solid black;">pallets</th>
+            <th style="width: 13%; border:1px solid black;">pcs</th>
+            <th style="width: 13%; border:1px solid black;">carrier</th>
+            {% if "LA-91761" == warehouse %}
+            <th style="width: 8%; border:1px solid black;">slot</th>
+            {% endif %}
+            <th style="width: 8%; border: none;"></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in arm_pickup %}
+        <tr style="text-align:center;">
+            <th style="width: 7%; border: none;"></th>
+            <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
+            <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
+            <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+            {% if "LA-91761" == warehouse %}
+            <td style="text-align:center; border:1px solid black;">
+                {{ p.slot|default:"&nbsp;" }}
+            </td>
+            {% endif %}
+            <th style="width: 8%; border: none;"></th>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<br/><br/>
+<div style="font-size: 18px; font-family: STSong-Light; padding-left: 80px;">
+{{ notes|safe }}
+</div>
+{% endblock %}

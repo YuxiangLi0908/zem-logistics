@@ -126,6 +126,8 @@ class PostNsop(View):
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     template_ltl_bol_multi = "export_file/ltl_bol_multi.html"
+    template_special_ltl_bol = "export_file/special_ltl_bol.html"
+    template_special_multi_ltl_bol = "export_file/ltl_bol_multi_special.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766", "LA-91730": "LA-91730"}
     load_type_options = {
@@ -2943,6 +2945,8 @@ class PostNsop(View):
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
         contact = {}
         arm_pickup_groups = []
+        has_special_operation = False
+        appointment_info_details = []
 
         def safe_int(value, default: int = 0) -> int:
             if value is None:
@@ -3077,6 +3081,13 @@ class PostNsop(View):
                         group_contact = row_contact
                         contact_flag = True
                         contact = group_contact
+                    # 提取是否特操和预约信息详情
+                    is_special_op = row.get("is_special_operation", "否")
+                    if is_special_op == "是":
+                        has_special_operation = True
+                    appt_detail = str(row.get("appointment_info_detail", "")).strip()
+                    if appt_detail:
+                        appointment_info_details.append(appt_detail)
                     row_dict = {
                         "container_number__container_number": str(
                             row.get("container_number__container_number", "")
@@ -3276,8 +3287,17 @@ class PostNsop(View):
                 if part_str:
                     all_marks.append(part_str)
         group_shipping_mark = format_two_per_line(all_marks)
+        all_destinations = []
+        for a in arm_pickup:
+            dest_value = a.get("destination", "")
+            dest_str = dest_value.strip()
+            if dest_str and dest_str not in all_destinations:
+                all_destinations.append(dest_str)
+        group_destination = format_two_per_line(all_destinations)
         pickup_attachments, pickup_pdfs = extract_pickup_attachments(arm_pickup)
         notes_str = "<br>".join(filter(None, notes))
+        # 拼接预约信息详情
+        appointment_info_str = "\n".join(appointment_info_details)
         barcode_type = "code128"
         barcode_class = barcode.get_barcode_class(barcode_type)
 
@@ -3340,11 +3360,11 @@ class PostNsop(View):
                 group_arm_pro = ""
                 group_carrier = ""
                 group_container_number = ""
-                group_destination = ""
                 group_pallet = 0
                 group_pcs = 0
                 group_container_numbers = []
                 group_marks = []
+                group_destinations = []
                 for row in group_rows:
                     if not group_arm_pro:
                         group_arm_pro = row.get("shipment_batch_number__ARM_PRO", "")
@@ -3356,8 +3376,10 @@ class PostNsop(View):
                         group_container_number = row.get(
                             "container_number__container_number", ""
                         )
-                    if not group_destination:
-                        group_destination = row.get("destination", "")
+                    dest_value = row.get("destination", "")
+                    dest_str = dest_value.strip()
+                    if dest_str and dest_str not in group_destinations:
+                        group_destinations.append(dest_str)
                     group_pallet += safe_int(row.get("total_pallet", 0))
                     group_pcs += safe_int(row.get("total_pcs", 0))
                     group_container_numbers.append(
@@ -3368,6 +3390,8 @@ class PostNsop(View):
                         part_str = part.strip()
                         if part_str:
                             group_marks.append(part_str)
+                
+                group_destination = format_two_per_line(group_destinations)
 
                 if not group_arm_pro or group_arm_pro == "None":
                     if '自提' in group_destination:
@@ -3388,6 +3412,7 @@ class PostNsop(View):
                         "pcs": group_pcs,
                         "container_number": format_two_per_line(group_container_numbers),
                         "shipping_mark": format_two_per_line(group_marks),
+                        "destination": group_destination,
                         "pickup_attachments": group_attachments,
                         "pickup_has_pdf": bool(group_pdfs),
                         "barcode": generate_barcode_base64(barcode_content),
@@ -3402,15 +3427,19 @@ class PostNsop(View):
                 "bol_pages": bol_pages,
                 "arm_pickup": arm_pickup,
                 "notes_table": notes_table,
+                "appointment_info": appointment_info_str,
             }
-            template = get_template(self.template_ltl_bol_multi)
+            if has_special_operation:
+                template = get_template(self.template_special_multi_ltl_bol)
+            else:       
+                template = get_template(self.template_ltl_bol_multi)
             html = template.render(context)
             pickup_pdfs = all_pickup_pdfs
         else:
             if arm_pro == "" or arm_pro == "None" or arm_pro is None:
-                if '自提' in destination:
-                    destination = 'client pickup'
-                barcode_content = f"{container_number}|{destination}"
+                if '自提' in group_destination:
+                    group_destination = 'client pickup'
+                barcode_content = f"{container_number}|{group_destination}"
             else:
                 barcode_content = f"{arm_pro}"
             barcode_base64 = generate_barcode_base64(barcode_content)
@@ -3426,6 +3455,7 @@ class PostNsop(View):
                 "pcs": pcs,
                 "container_number": group_container_number,
                 "shipping_mark": group_shipping_mark,
+                "destination": group_destination,
                 "barcode": barcode_base64,
                 "pickup_attachments": pickup_attachments,
                 "pickup_has_pdf": bool(pickup_pdfs),
@@ -3434,8 +3464,12 @@ class PostNsop(View):
                 "contact_flag": contact_flag,
                 "pickup_time": pickup_time,
                 "notes": notes_str,
+                "appointment_info": appointment_info_str,
             }
-            template = get_template(self.template_ltl_bol)
+            if has_special_operation:
+                template = get_template(self.template_special_ltl_bol)
+            else:
+                template = get_template(self.template_ltl_bol)
             html = template.render(context)
 
         pdf_buffer = io.BytesIO()
@@ -3450,7 +3484,10 @@ class PostNsop(View):
             # 防止文件名太长
             return value[:100]
         safe_shipping_mark = sanitize_filename(shipping_mark)
-        safe_destination = sanitize_filename(destination)
+        if is_multi_arm_pickup:
+            safe_destination = sanitize_filename(group_destination)
+        else:
+            safe_destination = sanitize_filename(group_destination)
         if is_multi_arm_pickup:
             segments = []
             for group in arm_pickup_groups:
