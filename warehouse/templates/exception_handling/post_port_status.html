@@ -1266,11 +1266,13 @@
                     <tr>
                         <th>柜号</th>
                         <th>Invoice Number</th>
+                        <th>Vessel ETD</th>
                         <th>港前状态</th>
                         <th>公仓库内状态</th>
                         <th>私仓库内状态</th>
                         <th>公仓派送状态</th>
                         <th>私仓派送状态</th>
+                        <th>财务状态</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1278,11 +1280,13 @@
                     <tr>
                         <td>{{ result.container_number }}</td>
                         <td>{{ result.invoice_number }}</td>
+                        <td>{{ result.vessel_etd }}</td>
                         <td style="background-color: {% if result.preport_status != 'completed' %}#fff3cd{% endif %}">{{ result.preport_status }}</td>
                         <td style="background-color: {% if result.warehouse_public_status != 'completed' %}#fff3cd{% endif %}">{{ result.warehouse_public_status }}</td>
                         <td style="background-color: {% if result.warehouse_other_status != 'completed' %}#fff3cd{% endif %}">{{ result.warehouse_other_status }}</td>
                         <td style="background-color: {% if result.delivery_public_status != 'completed' %}#fff3cd{% endif %}">{{ result.delivery_public_status }}</td>
                         <td style="background-color: {% if result.delivery_other_status != 'completed' %}#fff3cd{% endif %}">{{ result.delivery_other_status }}</td>
+                        <td>{{ result.finance_status }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
