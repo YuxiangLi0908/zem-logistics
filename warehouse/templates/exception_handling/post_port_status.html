@@ -195,6 +195,19 @@
     </form>
 </div>
 
+<!-- 补开主张单表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="supplement_main_invoice">
+        <div class="search-input-group">
+            <input type="text" name="main_container_number" class="search-input"
+                   placeholder="输入柜号" required>
+            <button type="submit" class="search-btn" style="background-color: #e67e22;">补开主账单</button>
+        </div>
+    </form>
+</div>
+
 <!-- 消息提示 -->
 {% if messages %}
     {% for message in messages %}
