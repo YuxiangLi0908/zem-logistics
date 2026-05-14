@@ -91,6 +91,7 @@ class OrderCreation(View):
         'JH': 'JH',
         '新元':'新元',
         '义乌大鲸':'义乌大鲸',
+        '国惠': '国惠',
     }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
