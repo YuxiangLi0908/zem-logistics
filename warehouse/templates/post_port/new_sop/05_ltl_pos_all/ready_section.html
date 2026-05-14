@@ -1420,7 +1420,7 @@
     function renderSelfPickupTable(data) {
         const contentDiv = document.getElementById('armPickupContent');
         let html = `
-            <table style="width:100%; border-collapse:collapse; font-size:13px; min-width: 1400px;" 
+            <table style="width:100%; border-collapse:collapse; font-size:13px; min-width: 1800px;" 
                 cellpadding="8" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
@@ -1433,6 +1433,8 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px;">Carrier</th>  
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 180px;">提货时间</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px;">备注</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px;">是否特操</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px;">预约信息详情</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 140px;">图片</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px;">操作</th>
                 </thead>
@@ -1448,7 +1450,9 @@
                 total_pcs: item.total_pcs || '',
                 carrier: item.carrier || '',
                 appointment_datetime: item.appointment_datetime || '',
-                note: (item.shipment_batch_number__note || item.note || '').toString().replace('None', '')
+                note: (item.shipment_batch_number__note || item.note || '').toString().replace('None', ''),
+                is_special_operation: item.is_special_operation || '否',
+                appointment_info_detail: (item.appointment_info_detail || '').toString().replace('None', '')
             };
             if (cleanData.total_pallet === 0) cleanData.total_pallet = 0;
             if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
@@ -1513,6 +1517,18 @@
                                 data-field="shipment_batch_number__note" 
                                 style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 80px; padding: 6px; font-size: 13px;">${cleanData.note}</textarea>
                     </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <select class="arm-select" data-field="is_special_operation"
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                            <option value="否" ${cleanData.is_special_operation === '否' ? 'selected' : ''}>否</option>
+                            <option value="是" ${cleanData.is_special_operation === '是' ? 'selected' : ''}>是</option>
+                        </select>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="appointment_info_detail" 
+                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 60px; padding: 6px; font-size: 13px;">${cleanData.appointment_info_detail}</textarea>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64="${(item.pickup_image || '').toString().replace(/"/g,'&quot;')}"
                             onchange="handleArmPickupImageChange(this)"
@@ -1550,7 +1566,7 @@
         const contentDiv = document.getElementById('armPickupContent');
         let html = `
             <div style="overflow-x: auto;">
-            <table style="min-width: 1600px; border-collapse:collapse; font-size:13px;" 
+            <table style="min-width: 2000px; border-collapse:collapse; font-size:13px;" 
                 cellpadding="6" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
@@ -1569,6 +1585,8 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Phone</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">备注</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">库位</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">是否特操</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">预约信息详情</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px;">图片</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">操作</th>
                 </thead>
@@ -1588,7 +1606,9 @@
                 address: (item.address || '').toString().replace('None', ''),
                 note: (item.shipment_batch_number__note || '').toString().replace('None', ''),
                 slot: (item.slot || '').toString().replace('None', ''),
-                pickup_image: (item.pickup_image || '').toString()
+                pickup_image: (item.pickup_image || '').toString(),
+                is_special_operation: item.is_special_operation || '否',
+                appointment_info_detail: (item.appointment_info_detail || '').toString().replace('None', '')
             };
             
             // 特别处理数值字段，如果是数字0就显示0
@@ -1707,6 +1727,18 @@
                             data-field="slot" 
                             value="${cleanData.slot}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">
+                        <select class="arm-select" data-field="is_special_operation"
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                            <option value="否" ${cleanData.is_special_operation === '否' ? 'selected' : ''}>否</option>
+                            <option value="是" ${cleanData.is_special_operation === '是' ? 'selected' : ''}>是</option>
+                        </select>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
+                        <textarea class="arm-textarea" 
+                                data-field="appointment_info_detail" 
+                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 60px; padding: 6px; font-size: 13px;">${cleanData.appointment_info_detail}</textarea>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px; text-align: center;">
                         <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64="${cleanData.pickup_image.replace(/"/g,'&quot;')}"
@@ -1925,6 +1957,18 @@
                                 data-field="shipment_batch_number__note" 
                                 style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
                     </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <select class="arm-select" data-field="is_special_operation"
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                            <option value="否" selected>否</option>
+                            <option value="是">是</option>
+                        </select>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="appointment_info_detail" 
+                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64=""
                             onchange="handleArmPickupImageChange(this)"
@@ -2043,6 +2087,18 @@
                             data-field="slot" 
                             value="" 
                             style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <select class="arm-select" data-field="is_special_operation"
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                            <option value="否" selected>否</option>
+                            <option value="是">是</option>
+                        </select>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="appointment_info_detail" 
+                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64=""
