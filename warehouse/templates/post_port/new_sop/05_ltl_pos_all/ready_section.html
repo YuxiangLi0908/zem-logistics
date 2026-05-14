@@ -130,6 +130,7 @@
                 <th>出库</th>
                 <th>拣货单</th> 
                 <th>下载</th>
+                <th>费用</th>
                 <th style="min-width: 100px;">操作</th>
             </tr>
             <tr class="search-row">
@@ -152,13 +153,14 @@
                 <td></td>
                 <td></td>
                 <td></td>
+                <td></td>
             </tr>
         </thead>
         <tbody>
             {% for fleet_group in ready_to_ship_data %}
                 {% with fleet_rowspan=fleet_group.total_cargos %}
                     <tr class="group-separator">
-                        <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                        <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                             height: 2px; padding: 0;"></td>
                     </tr>
                     {% if not fleet_group.shipments %}
@@ -187,7 +189,7 @@
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
-                            <td colspan="3"></td> <!-- 占位：出库、拣货单、下载 -->
+                            <td colspan="4"></td> <!-- 占位：出库、拣货单、下载、费用 -->
                             <td style="vertical-align: middle;">
                                 {% if fleet_group.carrier == 'Maersk' %}
                                     <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -253,7 +255,7 @@
                                         <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                         {% if is_first_shipment %}
-                                            <td rowspan="{{ fleet_rowspan }}" colspan="3"></td> <!-- 占位：出库、拣货单、下载 -->
+                                            <td rowspan="{{ fleet_rowspan }}" colspan="4"></td> <!-- 占位：出库、拣货单、下载、费用 -->
                                             <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                 {% if fleet_group.carrier == 'Maersk' %}
                                                     <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -490,6 +492,20 @@
                                                             {% endif %}
                                                         </div>
                                                     {% endif %}
+                                                </td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
+                                                    <button class="action-btn" onclick="openCostModal('{{ fleet_group.fleet_number }}')"
+                                                        style="background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+                                                            color: white;
+                                                            border: none;
+                                                            padding: 6px 12px;
+                                                            border-radius: 6px;
+                                                            font-size: 0.8rem;
+                                                            cursor: pointer;
+                                                            transition: all 0.3s ease;
+                                                            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.3);">
+                                                        查看费用
+                                                    </button>
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                     {% if fleet_group.carrier == 'Maersk' %}
@@ -2320,5 +2336,62 @@
 
         // 提交
         form.submit();
+    }
+
+    // 打开费用模态框
+    function openCostModal(fleetNumber) {
+        const modal = document.getElementById('costModal');
+        const loadingDiv = document.getElementById('costModalLoading');
+        const contentDiv = document.getElementById('costModalContent');
+        const emptyDiv = document.getElementById('costModalEmpty');
+        const tableBody = document.getElementById('costTableBody');
+
+        // 显示加载状态
+        loadingDiv.style.display = 'block';
+        contentDiv.style.display = 'none';
+        emptyDiv.style.display = 'none';
+        modal.style.display = 'block';
+
+        // 清空表格
+        tableBody.innerHTML = '';
+
+        // 发送AJAX请求
+        const formData = new FormData();
+        formData.append('fleet_number', fleetNumber);
+        formData.append('step', 'get_cost_data');
+        formData.append('csrfmiddlewaretoken', document.querySelector('input[name="csrfmiddlewaretoken"]').value);
+
+        fetch('', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+
+            if (data.success && data.cost_data && data.cost_data.length > 0) {
+                // 填充表格
+                data.cost_data.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="word-wrap: break-word; word-break: break-all; white-space: normal;">${item.container_number || '-'}</td>
+                        <td style="word-wrap: break-word; word-break: break-all; white-space: normal;">${item.shipping_mark || '-'}</td>
+                        <td style="word-wrap: break-word; word-break: break-all; white-space: normal;">${item.ltl_cost || '-'}</td>
+                        <td style="word-wrap: break-word; word-break: break-all; white-space: normal;">${item.ltl_quote || '-'}</td>
+                        <td style="word-wrap: break-word; word-break: break-all; white-space: normal;">${item.ltl_cost_note || '-'}</td>
+                        <td style="word-wrap: break-word; word-break: break-all; white-space: normal;">${item.ltl_quote_note || '-'}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+                contentDiv.style.display = 'block';
+            } else {
+                emptyDiv.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            loadingDiv.style.display = 'none';
+            emptyDiv.style.display = 'block';
+        });
     }
 </script>

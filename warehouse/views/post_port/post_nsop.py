@@ -281,11 +281,13 @@ class PostNsop(View):
         # 处理柜号仓点查询
         if step == "search_by_container_and_destination":
             return await self.handle_search_by_container_and_destination(request)
-        
-
+               
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
+        elif step == "get_cost_data":
+            # LTL查看待出库时，po的报价/成本
+            return await self.handle_get_cost_data(request)
         elif step == "palletize_other_selfdelivery":
             pk = kwargs.get("pk")
             template, context = await self.handle_other_selfdelivery_packing_list_post(request, pk)
@@ -2595,6 +2597,76 @@ class PostNsop(View):
         except Exception as e:
             import traceback
             error_msg = f'查询失败: {str(e)}'
+            return JsonResponse({'success': False, 'message': error_msg}, status=500)
+
+    async def handle_get_cost_data(self, request: HttpRequest) -> JsonResponse:
+        """根据车次号获取费用信息"""
+        try:
+            fleet_number = request.POST.get('fleet_number', '').strip()
+            if not fleet_number:
+                return JsonResponse({'success': False, 'message': '车次号不能为空'}, status=400)
+
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    'shipment_batch_number',
+                    'container_number'
+                )
+                .filter(shipment_batch_number__fleet_number__fleet_number=fleet_number)
+                .values(
+                    'container_number__container_number',
+                    'PO_ID',
+                    'shipping_mark',
+                    'ltl_cost',
+                    'ltl_quote',
+                    'ltl_cost_note',
+                    'ltl_quote_note'
+                )
+            )
+            # 按照container_number、PO_ID、shipping_mark进行分组聚合
+            cost_data_dict = {}
+            for pallet in pallets:
+                key = (
+                    pallet.get('container_number__container_number', ''),
+                    pallet.get('PO_ID', ''),
+                    pallet.get('shipping_mark', '')
+                )
+                if key not in cost_data_dict:
+                    cost_data_dict[key] = {
+                        'container_number': pallet.get('container_number__container_number', ''),
+                        'po_id': pallet.get('PO_ID', ''),
+                        'shipping_mark': pallet.get('shipping_mark', ''),
+                        'ltl_cost': 0,
+                        'ltl_quote': 0,
+                        'ltl_cost_note': set(),
+                        'ltl_quote_note': set()
+                    }
+                
+                # 累加费用
+                if pallet.get('ltl_cost') is not None:
+                    cost_data_dict[key]['ltl_cost'] += pallet['ltl_cost']
+                if pallet.get('ltl_quote') is not None:
+                    cost_data_dict[key]['ltl_quote'] += pallet['ltl_quote']
+                
+                # 收集备注
+                if pallet.get('ltl_cost_note'):
+                    cost_data_dict[key]['ltl_cost_note'].add(pallet['ltl_cost_note'])
+                if pallet.get('ltl_quote_note'):
+                    cost_data_dict[key]['ltl_quote_note'].add(pallet['ltl_quote_note'])
+
+            # 转换为列表格式，合并备注
+            cost_data_list = []
+            for data in cost_data_dict.values():
+                data['ltl_cost_note'] = '; '.join(data['ltl_cost_note']) if data['ltl_cost_note'] else ''
+                data['ltl_quote_note'] = '; '.join(data['ltl_quote_note']) if data['ltl_quote_note'] else ''
+                cost_data_list.append(data)
+
+            return JsonResponse({
+                'success': True,
+                'cost_data': cost_data_list
+            })
+        except Exception as e:
+            import traceback
+            error_msg = f'获取费用信息失败: {str(e)}'
             return JsonResponse({'success': False, 'message': error_msg}, status=500)
 
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:

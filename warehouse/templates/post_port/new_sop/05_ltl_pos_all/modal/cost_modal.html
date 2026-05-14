@@ -1,0 +1,59 @@
+<!-- 查看费用模态框 -->
+<div id="costModal" class="modal">
+    <div class="modal-content" style="width: 90%; max-width: 1200px; margin-top: 60px;">
+        <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h4 style="color: var(--secondary-color); margin: 0;">
+                    <i class="fas fa-dollar-sign"></i> 费用详情
+                </h4>
+                <div>
+                    <span class="close-btn" onclick="closeCostModal()" style="width: 35px; height: 35px; background: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3); transition: all 0.3s ease;">&times;</span>
+                </div>
+            </div>
+
+            <div id="costModalLoading" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                <p>加载中...</p>
+            </div>
+            <div id="costModalContent" style="display: none;">
+                <div class="table-container" style="max-height: 400px;">
+                    <table class="data-table" style="width: 100%; table-layout: fixed;">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">柜号</th>
+                                <th style="width: 25%;">唛头</th>
+                                <th style="width: 12%;">LTL费用</th>
+                                <th style="width: 12%;">LTL报价</th>
+                                <th style="width: 18%;">LTL费用备注</th>
+                                <th style="width: 18%;">LTL报价备注</th>
+                            </tr>
+                        </thead>
+                        <tbody id="costTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="costModalEmpty" style="text-align: center; padding: 30px; display: none;">
+                <p>暂无费用数据</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function closeCostModal() {
+        document.getElementById("costModal").style.display = "none";
+    }
+
+    // 点击背景关闭
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('costModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeCostModal();
+                }
+            });
+        }
+    });
+</script>
