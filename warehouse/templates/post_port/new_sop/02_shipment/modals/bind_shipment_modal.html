@@ -955,7 +955,12 @@
         }
     });
 
-    document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
+    // 先移除之前的事件监听器（避免重复绑定）
+    const bindShipmentForm = document.getElementById('bindShipmentForm');
+    const newBindShipmentForm = bindShipmentForm.cloneNode(true);
+    bindShipmentForm.parentNode.replaceChild(newBindShipmentForm, bindShipmentForm);
+
+    newBindShipmentForm.addEventListener('submit', function(e) {
         const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
         if (selected.length === 0) {
             alert('请至少选择一个PO！');
@@ -1007,16 +1012,18 @@
         const nonMasterIdsValue = collectNonMasterIds();
         document.getElementById('modalNonMasterIds').value = nonMasterIdsValue;
 
-        const shipmentCargoId = document.getElementById('shipment_cargo_id').value;
-        const operationType = document.getElementById('modalSuggestionId').value;
+        const operationType = document.getElementById('operationType').value;
         const confirmMessage = operationType === 'remove_po' ? '确定要减掉选中的PO吗？' : '确定提交所选PO吗？';
 
         if (confirm(confirmMessage)) {
             const btn = this.querySelector('button[type="submit"]');
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
             btn.disabled = true;
-            // 移除 this.submit() 调用，避免重复触发提交事件
-            // 表单会正常提交，因为我们没有阻止默认行为（e.preventDefault() 只在验证失败时使用）
+            // 表单会正常提交，不需要额外调用 submit()
+        } else {
+            // 用户点击取消，阻止表单提交
+            e.preventDefault();
+            return;
         }
     });
 </script>
