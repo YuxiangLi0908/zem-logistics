@@ -378,6 +378,9 @@ class ExceptionHandling(View):
         elif step == "invoicev2_modify_is_master_bill":
             template, context = await self.handle_invoicev2_modify_is_master_bill(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "check_invoice_status":
+            template, context = await self.handle_check_invoice_status(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "overweight_single_save":
             template, context = await self.handle_overweight_single_save(request)
             return await sync_to_async(render)(request, template, context)
@@ -782,6 +785,79 @@ class ExceptionHandling(View):
             'invoice_master_results': results,
             'success_count': success_count,
             'failure_count': failure_count,
+            'total_count': len(results)
+        }
+        return self.template_post_port_status, context
+
+    async def handle_check_invoice_status(self, request):
+        '''查询应收状态异常的柜号'''
+        def perform_sync():
+            from django.db.models import Q
+            from datetime import datetime
+            
+            results = []
+            
+            # 查询vessel_etd在1月1日之后的所有Order记录，并获取container_number
+            orders = Order.objects.select_related('vessel_id', 'container_number').filter(
+                vessel_id__vessel_etd__gte=datetime(datetime.now().year, 1, 1)
+            )
+            
+            # 获取所有不重复的container_number
+            container_ids = set()
+            for order in orders:
+                if order.container_number:
+                    container_ids.add(order.container_number.id)
+            
+            # 遍历每个container_number，查询invoice_statusv2表中的应收状态记录
+            for container_id in container_ids:
+                # 查询应收的状态记录
+                invoice_statuses = InvoiceStatusv2.objects.filter(
+                    container_number_id=container_id,
+                    invoice_type='receivable'
+                ).select_related('container_number', 'invoice')
+                
+                # 如果有多条记录，跳过
+                if len(invoice_statuses) > 1:
+                    continue
+                # 如果只有一条记录，检查finance_status是否为completed
+                elif len(invoice_statuses) == 1:
+                    invoice_status = invoice_statuses[0]
+                    if invoice_status.finance_status == 'completed':
+                        # 检查五个状态是否都为completed
+                        has_incomplete = False
+                        if invoice_status.preport_status != 'completed':
+                            has_incomplete = True
+                        if invoice_status.warehouse_public_status != 'completed':
+                            has_incomplete = True
+                        if invoice_status.warehouse_other_status != 'completed':
+                            has_incomplete = True
+                        if invoice_status.delivery_public_status != 'completed':
+                            has_incomplete = True
+                        if invoice_status.delivery_other_status != 'completed':
+                            has_incomplete = True
+                        
+                        # 如果有状态不是completed，记录下来
+                        if has_incomplete:
+                            container_number = invoice_status.container_number.container_number if invoice_status.container_number else ''
+                            invoice_number = invoice_status.invoice.invoice_number if invoice_status.invoice else ''
+                            
+                            results.append({
+                                'container_number': container_number,
+                                'invoice_number': invoice_number,
+                                'preport_status': invoice_status.preport_status,
+                                'warehouse_public_status': invoice_status.warehouse_public_status,
+                                'warehouse_other_status': invoice_status.warehouse_other_status,
+                                'delivery_public_status': invoice_status.delivery_public_status,
+                                'delivery_other_status': invoice_status.delivery_other_status
+                            })
+            
+            return results
+        
+        # 将整个同步逻辑包装在一次 sync_to_async 中
+        results = await sync_to_async(perform_sync)()
+        
+        context = {
+            'invoice_status_check_results': results,
             'total_count': len(results)
         }
         return self.template_post_port_status, context
