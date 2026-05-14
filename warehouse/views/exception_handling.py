@@ -369,6 +369,9 @@ class ExceptionHandling(View):
         elif step =="delete_invoice_status":
             template, context = await self.handle_delete_invoice_status(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "supplement_main_invoice":
+            template, context = await self.handle_supplement_main_invoice(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "assign_invoice_number":
             template, context = await self.handle_assign_invoice_number(request)
             return await sync_to_async(render)(request, template, context)
@@ -419,6 +422,61 @@ class ExceptionHandling(View):
             messages.success(request, f"成功删除 Invoice Status ID: {record_id} 及其对应的 Invoice")
         except Exception as e:
             messages.error(request, f"删除失败: {str(e)}")
+        
+        return await self.handle_search_shipment(request)
+
+    async def handle_supplement_main_invoice(self, request):
+        '''补开主张单'''
+        container_number_input = request.POST.get("main_container_number", "").strip()
+        
+        if not container_number_input:
+            messages.error(request, "请输入柜号")
+            return await self.handle_search_shipment(request)
+        
+        try:
+            # 查找container
+            container = await sync_to_async(Container.objects.get)(container_number=container_number_input)
+            
+            # 查找这个柜子的invoicev2记录
+            invoices = await sync_to_async(list)(
+                Invoicev2.objects.filter(container_number=container)
+            )
+            
+            if len(invoices) != 1:
+                messages.error(request, f"柜号 {container_number_input} 查到 {len(invoices)} 条账单，需要且仅需要1条账单")
+                return await self.handle_search_shipment(request)
+            
+            current_invoice = invoices[0]
+            
+            # 查找对应的invoice_statusv2记录，检查finance_status是否是completed
+            try:
+                invoice_status = await sync_to_async(InvoiceStatusv2.objects.get)(
+                    invoice=current_invoice,
+                    invoice_type="receivable"
+                )
+                
+                if invoice_status.finance_status != "completed":
+                    messages.error(request, f"账单 {current_invoice.invoice_number} 的财务状态不是已完成，不允许补开")
+                    return await self.handle_search_shipment(request)
+                
+            except InvoiceStatusv2.DoesNotExist:
+                messages.error(request, f"未找到账单 {current_invoice.invoice_number} 的应收状态记录")
+                return await self.handle_search_shipment(request)
+            
+            # 调用_fix_account_create_new_invoice_and_status
+            invoice, status_rec, _ = await self._fix_account_create_new_invoice_and_status(
+                container_number_input, current_invoice
+            )
+            
+            if invoice:
+                messages.success(request, f"成功补开主账单: {invoice.invoice_number}")
+            else:
+                messages.info(request, f"柜号 {container_number_input} 不需要补开账单（当前账单已完成或有其他未完成的账单）")
+            
+        except Container.DoesNotExist:
+            messages.error(request, f"未找到柜号为 {container_number_input} 的柜子")
+        except Exception as e:
+            messages.error(request, f"补开主账单失败: {str(e)}")
         
         return await self.handle_search_shipment(request)
 
@@ -1736,43 +1794,36 @@ class ExceptionHandling(View):
                 'delivery_other': status.delivery_other_status
             }
             
-            try:
-                # 3. 调用_fix_account_create_new_invoice_and_status创建新账单（由这个函数去判断是否需要创建）
-                invoice, status_rec, _ = await self._fix_account_create_new_invoice_and_status(
-                    container_number_str, current_invoice
-                )
+            # 3. 调用_fix_account_create_new_invoice_and_status创建新账单（由这个函数去判断是否需要创建）
+            invoice, status_rec, _ = await self._fix_account_create_new_invoice_and_status(
+                container_number_str, current_invoice
+            )
+            
+            if invoice:
+                # 创建了新账单
+                new_status = {
+                    'invoice_number': invoice.invoice_number,
+                    'preport': status_rec.preport_status,
+                    'warehouse_public': status_rec.warehouse_public_status,
+                    'warehouse_other': status_rec.warehouse_other_status,
+                    'delivery_public': status_rec.delivery_public_status,
+                    'delivery_other': status_rec.delivery_other_status
+                }
                 
-                if invoice:
-                    # 创建了新账单
-                    new_status = {
-                        'invoice_number': invoice.invoice_number,
-                        'preport': status_rec.preport_status,
-                        'warehouse_public': status_rec.warehouse_public_status,
-                        'warehouse_other': status_rec.warehouse_other_status,
-                        'delivery_public': status_rec.delivery_public_status,
-                        'delivery_other': status_rec.delivery_other_status
-                    }
-                    
-                    results['success'] += 1
-                    results['processed_containers'].append({
-                        'container_number': container_number_str,
-                        'original': original_status,
-                        'new': new_status,
-                        'created': True
-                    })
-                else:
-                    # 没有创建新账单
-                    results['skipped_containers'].append({
-                        'container_number': container_number_str,
-                        'original': original_status,
-                        'created': False,
-                        'reason': '不需要创建新账单（当前账单已完成或有其他未完成的账单）'
-                    })
-            except Exception as e:
-                results['errors'] += 1
-                results['error_details'].append({
+                results['success'] += 1
+                results['processed_containers'].append({
                     'container_number': container_number_str,
-                    'error': str(e)
+                    'original': original_status,
+                    'new': new_status,
+                    'created': True
+                })
+            else:
+                # 没有创建新账单
+                results['skipped_containers'].append({
+                    'container_number': container_number_str,
+                    'original': original_status,
+                    'created': False,
+                    'reason': '不需要创建新账单（当前账单已完成或有其他未完成的账单）'
                 })
         context = {
             'results': results,
