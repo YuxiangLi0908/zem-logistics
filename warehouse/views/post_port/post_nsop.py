@@ -9973,7 +9973,7 @@ class PostNsop(View):
             pl_criteria &= Q(id__in=cargo_id_list)
         
         # 获取数据
-        release_cargos,_ ,_ = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
         
         # 准备 Excel 数据
         excel_data = []
@@ -14720,7 +14720,7 @@ class PostNsop(View):
         elif isa:
             shipment_criteria &= Q(appointment_id__icontains=isa)
         # 查找shipment
-        target_shipment = await sync_to_async(Shipment.objects.get)(shipment_criteria)
+        target_shipment = await sync_to_async(Shipment.objects.select_related('fleet_number').get)(shipment_criteria)
         
         if not target_shipment:
             context['error_messages'] = '未找到对应的预约批次'

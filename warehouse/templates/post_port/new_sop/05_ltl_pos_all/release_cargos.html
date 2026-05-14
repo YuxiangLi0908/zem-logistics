@@ -355,6 +355,9 @@
         <button class="column-toggle-btn" id="columnToggleBtn" onclick="toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
+        <button class="action-btn btn-primary" onclick="copySelectedReleaseRows()">
+            <i class="fas fa-copy"></i> 复制选中行
+        </button>
 
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
@@ -1083,7 +1086,73 @@
             }
         });
 
-        
+        // 复制选中的行
+        function copySelectedReleaseRows() {
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('filter-row');
+                });
+
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要复制的行');
+                return;
+            }
+
+            // 获取表格列名
+            const table = document.getElementById('unscheduled_cargoTable');
+            const headerRow = table.querySelector('thead tr');
+            const columnCount = headerRow.cells.length;
+
+            // 构建复制的内容
+            let copyText = '';
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const rowData = [];
+                
+                for (let i = 0; i < columnCount; i++) {
+                    const cell = row.cells[i];
+                    // 跳过复选框列和操作列
+                    if (cell.classList.contains('checkbox-cell') || cell.classList.contains('action-col')) {
+                        continue;
+                    }
+                    // 跳过隐藏的列
+                    if (cell.classList.contains('hidden-column')) {
+                        continue;
+                    }
+                    // 获取单元格文本（处理textarea等特殊元素）
+                    const textarea = cell.querySelector('textarea');
+                    const text = textarea ? textarea.value.trim() : cell.textContent.trim();
+                    rowData.push(text);
+                }
+                
+                if (rowData.length > 0) {
+                    copyText += rowData.join('\t') + '\n';
+                }
+            });
+
+            // 复制到剪贴板
+            if (copyText) {
+                navigator.clipboard.writeText(copyText).then(() => {
+                    alert(`已复制 ${selectedCheckboxes.length} 行到剪贴板`);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    // 降级方案：使用传统方式
+                    const textarea = document.createElement('textarea');
+                    textarea.value = copyText;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        alert(`已复制 ${selectedCheckboxes.length} 行到剪贴板`);
+                    } catch (e) {
+                        alert('复制失败，请手动复制');
+                    }
+                    document.body.removeChild(textarea);
+                });
+            }
+        }
 
         // 将函数暴露到全局作用域，以便HTML中的onclick能调用
         window.unscheduled_toggleSelectAll = unscheduled_toggleSelectAll;
@@ -1097,6 +1166,7 @@
         window.toggleColumn = toggleColumn;
         window.toggleColumnFromPanel = toggleColumnFromPanel;
         window.toggleColumnPanel = toggleColumnPanel;
+        window.copySelectedReleaseRows = copySelectedReleaseRows;
     })(); // 立即执行
 
     function submitSingleReleaseCommand(btn) {

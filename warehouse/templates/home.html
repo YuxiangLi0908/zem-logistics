@@ -1528,10 +1528,10 @@
                             {% endif %}
                         </div>
                     </td>
-                    <td>{{ p.delivery_method|default:"-" }}</td>
-                    <td class="col-marks" title="{{ p.delivery_method }}">{{ p.delivery_method|default:"-" }}</td>
-                    <td class="col-fba" title="{{ p.shipping_marks }}">{{ p.shipping_marks|default:"-" }}</td>
+                    <td class="col-fba" title="{{ p.shipping_marks }}">{{ p.shipping_marks|default:"-" }}</td>                 
                     <td class="col-ref" title="{{ p.fba_ids }}">{{ p.fba_ids|default:"-" }}</td>
+                    <td class="col-ref" title="{{ p.ref_ids }}">{{ p.ref_ids|default:"-" }}</td>
+                    <td itle="{{ p.delivery_method }}">{{ p.delivery_method|default:"-" }}</td>
                     
                     <td>
                         <div class="status-icon 

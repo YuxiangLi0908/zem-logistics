@@ -318,6 +318,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_type_to_fleet_type":
             template, context = await self.handle_update_shipment_type_to_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "supplement_account_for_fix":
+            template, context = await self.handle_supplement_account_for_fix(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "update_invoice_status_to_completed":
             template, context = await self.handle_update_invoice_status_to_completed(request)
             return await sync_to_async(render)(request, template, context) 
@@ -363,6 +366,9 @@ class ExceptionHandling(View):
         elif step =="update_invoice_status":
             template, context = await self.handle_update_invoice_status(request)
             return await sync_to_async(render)(request, template, context)
+        elif step =="delete_invoice_status":
+            template, context = await self.handle_delete_invoice_status(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "assign_invoice_number":
             template, context = await self.handle_assign_invoice_number(request)
             return await sync_to_async(render)(request, template, context)
@@ -393,6 +399,27 @@ class ExceptionHandling(View):
             setattr(obj, field, value)
             await sync_to_async(obj.save)(update_fields=[field])
 
+        return await self.handle_search_shipment(request)
+
+    async def handle_delete_invoice_status(self, request):
+        '''删除 invoice_statusv2 和对应的 invoicev2'''
+        record_id = request.POST.get("record_id")
+        search_value = request.POST.get("search_value")
+        try:
+            status_obj = await sync_to_async(InvoiceStatusv2.objects.select_related('invoice').get)(id=record_id)
+            invoice_obj = status_obj.invoice
+            
+            # 删除 invoice_statusv2
+            await sync_to_async(status_obj.delete)()
+            
+            # 删除对应的 invoicev2
+            if invoice_obj:
+                await sync_to_async(invoice_obj.delete)()
+            
+            messages.success(request, f"成功删除 Invoice Status ID: {record_id} 及其对应的 Invoice")
+        except Exception as e:
+            messages.error(request, f"删除失败: {str(e)}")
+        
         return await self.handle_search_shipment(request)
 
     async def handle_search_receivable_total_fee(self, request):
@@ -1394,7 +1421,6 @@ class ExceptionHandling(View):
                 
                 # 定义同步函数处理组合柜计算
                 def process_combine_delivery():
-                    from warehouse.views.receivable_accounting import ReceivableAccounting
                     receivable_accounting = ReceivableAccounting()
                     
                     # 获取费用详情
@@ -1658,8 +1684,270 @@ class ExceptionHandling(View):
         }
         
         return self.template_temporary_function, context
+    
+    async def handle_supplement_account_for_fix(self, request):        
+        from datetime import date
+        # 1. 查询finance_status是completed，并且preport_status到delivery_other_status中有不为空的记录
+        # 只取 vessel_etd 在 2026年3月1号 之后的，只取前10条
+        # 预加载关联对象，避免异步上下文访问外键时报错
+        status_list = await sync_to_async(list)(
+            InvoiceStatusv2.objects.select_related('container_number', 'invoice')
+            .filter(
+                finance_status="completed", 
+                invoice_type="receivable",
+                # 通过多层关联筛选 vessel_etd >= 2026-03-01
+                container_number__orders__vessel_id__vessel_etd__gte=date(2026, 3, 1)
+            )
+        )
         
+        results = {
+            'success': 0,
+            'errors': 0,
+            'error_details': [],
+            'processed_containers': [],  # 包含柜号、原账单状态、新账单状态
+            'skipped_containers': []     # 不需要创建的柜子
+        }
+        # 2. 遍历找到的记录
+        for status in status_list:
+            # 检查preport_status到delivery_other_status中有不为空的记录
+            has_non_empty_status = any([
+                status.preport_status != "unstarted",
+                status.warehouse_public_status != "unstarted",
+                status.warehouse_other_status != "unstarted",
+                status.delivery_public_status != "unstarted",
+                status.delivery_other_status != "unstarted"
+            ])
+            
+            if not has_non_empty_status:
+                continue
+            
+            # 关联对象已通过 select_related 预加载，可以直接访问
+            container = status.container_number
+            container_number_str = container.container_number
+            current_invoice = status.invoice
+            
+            # 记录原账单的状态
+            original_status = {
+                'invoice_number': current_invoice.invoice_number,
+                'preport': status.preport_status,
+                'warehouse_public': status.warehouse_public_status,
+                'warehouse_other': status.warehouse_other_status,
+                'delivery_public': status.delivery_public_status,
+                'delivery_other': status.delivery_other_status
+            }
+            
+            try:
+                # 3. 调用_fix_account_create_new_invoice_and_status创建新账单（由这个函数去判断是否需要创建）
+                invoice, status_rec, _ = await self._fix_account_create_new_invoice_and_status(
+                    container_number_str, current_invoice
+                )
+                
+                if invoice:
+                    # 创建了新账单
+                    new_status = {
+                        'invoice_number': invoice.invoice_number,
+                        'preport': status_rec.preport_status,
+                        'warehouse_public': status_rec.warehouse_public_status,
+                        'warehouse_other': status_rec.warehouse_other_status,
+                        'delivery_public': status_rec.delivery_public_status,
+                        'delivery_other': status_rec.delivery_other_status
+                    }
+                    
+                    results['success'] += 1
+                    results['processed_containers'].append({
+                        'container_number': container_number_str,
+                        'original': original_status,
+                        'new': new_status,
+                        'created': True
+                    })
+                else:
+                    # 没有创建新账单
+                    results['skipped_containers'].append({
+                        'container_number': container_number_str,
+                        'original': original_status,
+                        'created': False,
+                        'reason': '不需要创建新账单（当前账单已完成或有其他未完成的账单）'
+                    })
+            except Exception as e:
+                results['errors'] += 1
+                results['error_details'].append({
+                    'container_number': container_number_str,
+                    'error': str(e)
+                })
+        context = {
+            'results': results,
+            'success_messages': f'处理完成！成功创建 {results["success"]} 个账单，跳过 {len(results["skipped_containers"])} 个，失败 {results["errors"]} 个'
+        }
+        
+        return self.template_post_port_status, context
 
+    async def _fix_account_create_new_invoice_and_status(self, container_number: str, invoice: Invoicev2) -> tuple[Invoicev2, InvoiceStatusv2, InvoiceStatusv2]:
+        """
+        创建账单和状态记录（应收）- 补充账单专用
+        :param container_number: 柜号
+        :param invoice: 当前的invoice
+        :return: (invoice, invoice_status_receivable, None)
+        """
+        # 1. 基础校验 + 查询订单
+        try:
+            order = await sync_to_async(
+                Order.objects.select_related(
+                    "customer_name", "container_number"
+                ).get
+            )(container_number__container_number=container_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到柜号为 {container_number} 的订单")
+
+        container = order.container_number
+
+        # 2. 找到对应的invoice_statusv2的invoice_type是receivable的记录
+        try:
+            current_status = await sync_to_async(
+                InvoiceStatusv2.objects.get
+            )(
+                invoice=invoice,
+                invoice_type="receivable"
+            )
+        except InvoiceStatusv2.DoesNotExist:
+            raise ValueError(f"未找到invoice {invoice.invoice_number} 的应收状态")
+
+        # 3. 检查当前账单从preport_status到delivery_other_status是否都完成了
+        current_all_completed = all([
+            current_status.preport_status == "completed",
+            current_status.warehouse_public_status == "completed",
+            current_status.warehouse_other_status == "completed",
+            current_status.delivery_public_status == "completed",
+            current_status.delivery_other_status == "completed"
+        ])
+
+        if current_all_completed:
+            # 当前账单的所有阶段都完成了，不需要创建
+            return None, None, None
+
+        # 4. 查找除这个invoice之外的其他invoice记录
+        other_invoices = await sync_to_async(list)(
+            Invoicev2.objects.filter(
+                container_number=container
+            ).exclude(id=invoice.id)
+        )
+
+        # 5. 检查其他invoice的finance_status是否有未完成的
+        has_unfinished_other = False
+        for other_inv in other_invoices:
+            try:
+                other_status = await sync_to_async(
+                    InvoiceStatusv2.objects.get
+                )(
+                    invoice=other_inv,
+                    invoice_type="receivable"
+                )
+            except InvoiceStatusv2.DoesNotExist:
+                other_status = None
+            
+            if other_status and other_status.finance_status != "completed":
+                has_unfinished_other = True
+                break
+        
+        if has_unfinished_other:
+            # 有其他invoice的finance_status未完成，不需要创建
+            return None, None, None
+
+        # 6. 记录这个柜子所有账单中已经完成的状态（用于同步到新账单）
+        completed_statuses = {
+            'preport_status': False,
+            'warehouse_public_status': False,
+            'warehouse_other_status': False,
+            'delivery_public_status': False,
+            'delivery_other_status': False
+        }
+
+        # 检查当前账单
+        if current_status.preport_status == "completed":
+            completed_statuses['preport_status'] = True
+        if current_status.warehouse_public_status == "completed":
+            completed_statuses['warehouse_public_status'] = True
+        if current_status.warehouse_other_status == "completed":
+            completed_statuses['warehouse_other_status'] = True
+        if current_status.delivery_public_status == "completed":
+            completed_statuses['delivery_public_status'] = True
+        if current_status.delivery_other_status == "completed":
+            completed_statuses['delivery_other_status'] = True
+
+        # 检查其他账单
+        for other_inv in other_invoices:
+            try:
+                other_status = await sync_to_async(
+                    InvoiceStatusv2.objects.get
+                )(
+                    invoice=other_inv,
+                    invoice_type="receivable"
+                )
+            except InvoiceStatusv2.DoesNotExist:
+                continue
+            
+            if other_status.preport_status == "completed":
+                completed_statuses['preport_status'] = True
+            if other_status.warehouse_public_status == "completed":
+                completed_statuses['warehouse_public_status'] = True
+            if other_status.warehouse_other_status == "completed":
+                completed_statuses['warehouse_other_status'] = True
+            if other_status.delivery_public_status == "completed":
+                completed_statuses['delivery_public_status'] = True
+            if other_status.delivery_other_status == "completed":
+                completed_statuses['delivery_other_status'] = True
+
+        # 7. 创建新账单及状态
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
+
+        # 7.1 生成唯一的 invoice_number（避免重复）
+        base_invoice_number = f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
+        invoice_number = base_invoice_number
+        counter = 1
+        while await sync_to_async(
+            Invoicev2.objects.filter(invoice_number=invoice_number).exists
+        )():
+            invoice_number = f"{base_invoice_number}{counter}"
+            counter += 1
+
+        # 7.2 新建发票
+        new_invoice = await sync_to_async(
+            Invoicev2.objects.create
+        )(
+            container_number=container,
+            invoice_number=invoice_number,
+            created_at=current_date,
+            is_master_bill=True,
+        )
+
+        # 7.3 新建应收状态
+        invoice_status_receivable = await sync_to_async(
+            InvoiceStatusv2.objects.create
+        )(
+            container_number=container,
+            invoice=new_invoice,
+            invoice_type="receivable"
+        )
+
+        # 7.4 同步已完成的状态（避免重复确认）
+        if completed_statuses['preport_status']:
+            invoice_status_receivable.preport_status = "completed"
+        if completed_statuses['warehouse_public_status']:
+            invoice_status_receivable.warehouse_public_status = "completed"
+        if completed_statuses['warehouse_other_status']:
+            invoice_status_receivable.warehouse_other_status = "completed"
+        if completed_statuses['delivery_public_status']:
+            invoice_status_receivable.delivery_public_status = "completed"
+        if completed_statuses['delivery_other_status']:
+            invoice_status_receivable.delivery_other_status = "completed"
+        
+        invoice_status_receivable.finance_status = "unstarted"
+        await sync_to_async(invoice_status_receivable.save)()
+
+        # 8. 返回结果
+        return new_invoice, invoice_status_receivable, None
+    
     async def handle_update_shipment_type_to_fleet_type(self, request):
         fleets_without_type = await sync_to_async(list)(
             Fleet.objects.filter(
@@ -3778,7 +4066,7 @@ class ExceptionHandling(View):
                 context['fleet_sp'] = fleet_sp
             elif search_type == 'invoicestatus':
                 invoicestatus_object = await sync_to_async(
-                    lambda: list(InvoiceStatusv2.objects.filter(
+                    lambda: list(InvoiceStatusv2.objects.select_related('invoice', 'container_number').filter(
                         container_number__container_number=search_value,
                         invoice_type="receivable"
                     ))
