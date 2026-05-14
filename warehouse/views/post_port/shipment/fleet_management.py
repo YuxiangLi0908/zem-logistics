@@ -1003,7 +1003,6 @@ class FleetManagement(View):
         )
 
         criteria = models.Q(
-            arrived_at__isnull=False,
             shipped_at__gte=tz_2026_01_01,
             shipment_schduled_at__gte=tz_2026_01_01,
             fleet_number__fleet_type__in=['LTL', '客户自提'],
@@ -2662,7 +2661,6 @@ class FleetManagement(View):
 
         # 初始化查询条件
         criteria = Q(
-            arrived_at__isnull=False,
             shipped_at__gte=tz_2026_01_01,
             shipment_schduled_at__gte=tz_2026_01_01,
             fleet_number__fleet_type__in=['LTL', '客户自提']
