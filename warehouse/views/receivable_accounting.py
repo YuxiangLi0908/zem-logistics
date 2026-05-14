@@ -5789,6 +5789,10 @@ class ReceivableAccounting(View):
             else:
                 # 有invoice，处理每条invoice
                 for invoice in invoices:
+                    # 检查is_master_bill，如果是False就跳过
+                    if invoice.is_master_bill == False:
+                        continue
+                        
                     # 获取预加载的状态列表
                     status_list = getattr(invoice, 'receivable_status_list', [])
                     status_obj = status_list[0] if status_list else None
@@ -5852,12 +5856,25 @@ class ReceivableAccounting(View):
                             })
                             previous_order_data_list.append(row_data)
         
+        # --- 7. 过滤未开列表：如果柜子在已开列表中已经有了，从未开列表中去掉 ---
+        # 收集已开列表的柜号
+        previous_container_numbers = set()
+        for data in previous_order_data_list:
+            if data['container_number__container_number']:
+                previous_container_numbers.add(data['container_number__container_number'])
+        
+        # 过滤未开列表
+        filtered_order_data_list = []
+        for data in order_data_list:
+            if data['container_number__container_number'] not in previous_container_numbers:
+                filtered_order_data_list.append(data)
+        
         existing_customers = Customer.objects.all().order_by("zem_name")
         
         context.update({
             'start_date': start_date,
             'end_date': end_date,
-            'order': order_data_list,
+            'order': filtered_order_data_list,
             'previous_order': previous_order_data_list,
             "order_form": OrderForm(),
             "warehouse_options": self.warehouse_options,
