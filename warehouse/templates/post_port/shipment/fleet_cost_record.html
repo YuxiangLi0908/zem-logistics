@@ -205,7 +205,7 @@
                         <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 180px;">出库批次</th>
                         <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 180px;">预约批次</th>
                         <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 110px;">预约号</th>
-                        <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 110px;">Carrier</th>
+                        <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 110px;">供应商</th>
                         <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 130px;">预约发车日期</th>
                         <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 130px;">实际发车日期</th>
                         <th class="th" style="padding: 14px 12px; font-size: 14px; border-right: 1px solid #e5e6eb; color: #333; font-weight: 600; min-width: 90px;">总重lbs</th>
@@ -238,8 +238,11 @@
                             <input type="text" class="table-filter" data-column="appointment_id" placeholder="搜索ISA (空格分隔多关键词)..." size="15" style="font-size: 13px; padding: 8px 10px; width: 100%; border-radius: 4px; border: 1px solid #dcdfe6; transition: border 0.2s;">
                         </th>
                         <th class="th" style="padding: 10px; font-size: 14px; border-right: 1px solid #e5e6eb;">
-                            <input type="text" class="table-filter" data-column="carrier" placeholder="搜索carrier (空格分隔多关键词)..." size="15" style="font-size: 13px; padding: 8px 10px; width: 100%; border-radius: 4px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                            <input type="text" class="table-filter" data-column="Supplier"
+                                   placeholder="搜索供应商 (空格分隔多关键词)..." size="15"
+                                   style="font-size: 13px; padding: 8px 10px; width: 100%; border-radius: 4px; border: 1px solid #dcdfe6; transition: border 0.2s;">
                         </th>
+
                         <th class="th" style="padding: 10px; font-size: 14px; border-right: 1px solid #e5e6eb;"></th>
                         <th class="th" style="padding: 10px; font-size: 14px; border-right: 1px solid #e5e6eb;"></th>
                         <th class="th" style="padding: 10px; font-size: 14px; border-right: 1px solid #e5e6eb;"></th>
@@ -284,7 +287,7 @@
                         <td class="td" data-field="fleet_number" style="max-width: 130px; word-break: break-all; padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.fleet_number }}</td>
                         <td class="td" data-field="batch_number" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.shipment_batch_number }}</td>
                         <td class="td" data-field="appointment_id" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.appointment_id|default_if_none:"" }}</td>
-                        <td class="td" data-field="carrier" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.carrier|default_if_none:"" }}</td>
+                        <td class="td" data-field="Supplier" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.Supplier|default_if_none:"" }}</td>
                         <td class="td" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
                         <td class="td" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">
                             {% if f.arrival_status == "past_due" %}
