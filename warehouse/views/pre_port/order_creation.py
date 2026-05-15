@@ -1667,7 +1667,7 @@ class OrderCreation(View):
                     "destination",
                     "address",
                     "note",
-                    "office_note"
+                    "office_note",
                     "long",
                     "width",
                     "height",
