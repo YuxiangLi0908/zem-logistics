@@ -1,0 +1,512 @@
+{% load custom_filters %}
+<!-- 删除PO模态框 -->
+<div id="removePoModal" class="modal">
+    <div class="modal-content" style="width: 100%; max-width: 1400px; max-height: 85vh;">
+        <div class="modal-header">
+            <h3><i class="fas fa-minus-circle"></i> 删除PO <span id="removeModalShipmentBatchLabel" style="margin-left: 8px; font-size: 0.9em; opacity: 0.9;"></span></h3>
+            <span class="close" onclick="closeRemovePoModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="removePoForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="bind_group_shipment">
+                <input type="hidden" name="suggestion_id" id="removeModalSuggestionId">
+                <input type="hidden" name="cargo_ids" id="removeModalCargoIds">
+                <input type="hidden" name="plt_ids" id="removeModalPltIds">
+                <input type="hidden" name="non_master_ids" id="removeModalNonMasterIds">
+                <input type="hidden" name="shipment_batch_number" id="removeModalShipmentBatchNumber">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
+                <input type="hidden" name="operation_type" id="removeOperationType" value="remove_po">
+                
+                <!-- 预约信息显示 -->
+                <div class="modal-form-section">
+                    <h4><i class="fas fa-truck"></i> 预约信息</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>预约类型</th>
+                                <th class="ftl-field">预约账号</th>
+                                <th>预约号</th>
+                                <th class="ftl-field">Scheduled Time</th>
+                                <th>Pickup Time</th>
+                                <th>发货仓库</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <select name="shipment_type" id="removeShipmentType" class="form-select">
+                                        {% for k, v in shipment_type_options.items %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="ftl-field">
+                                    <select name="shipment_account" id="removeShipmentAccount" class="form-select">
+                                        {% for k, v in account_options.items %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="appointment_id" id="removeAppointmentId" class="form-input" readonly>
+                                </td>
+                                <td class="ftl-field">
+                                    <input type="datetime-local" id="removeScheduledTime" name="shipment_appointment" class="form-input" readonly>
+                                </td>
+                                <td>
+                                    <input type="datetime-local" id="removePickupTime" name="pickup_time" class="form-input" readonly>
+                                </td>
+                                <td>
+                                    <select name="origin" id="removeOrigin" class="form-select" readonly>
+                                        {% for k, v in warehouse_options.items %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="ftl-field">装车类型</th>
+                                <th class="ftl-field">Pickup Number</th>
+                                <th>目的地</th>
+                                <th>地址</th>
+                                <th>备注</th>
+                                <th class="ftl-field">shipment ID</th>
+                            </tr>
+                            <tr>
+                                <td class="ftl-field">
+                                    <select name="load_type" id="removeLoadType" class="form-select" readonly>
+                                        {% for k, v in load_type_options.items %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="ftl-field">
+                                    <input type="text" name="pickupNumber" id="removePickupNumber" class="form-input" readonly>
+                                </td>
+                                <td>
+                                    <input type="text" name="destination" id="removeDestination" class="form-input" readonly>
+                                </td>
+                                <td>
+                                    <input type="text" name="address" id="removeAddressDetail" class="form-input" readonly>
+                                </td>
+                                <td>
+                                    <input type="text" name="note" id="removeNote" class="form-input" readonly>
+                                </td>
+                                <td class="ftl-field">
+                                    <input type="text" name="shipment_cargo_id" id="removeShipmentCargoId" class="form-input" readonly>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 货物选择区域 -->
+                <div id="removeCargoSelectionArea" class="modal-form-section">
+                    <h4><i class="fas fa-box"></i> 选择要删除的PO</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; min-width: 40px;">
+                                    <input type="checkbox" id="removeSelectAllCargos">
+                                </th>
+                                <th style="width: 150px; min-width: 150px;">REF ID</th>
+                                <th style="width: 150px; min-width: 150px;">FBA ID</th>
+                                <th style="width: 100px; min-width: 100px;">柜号</th>
+                                <th style="width: 100px; min-width: 100px;">目的地</th>
+                                <th style="width: 80px; min-width: 80px;">板数</th>
+                                <th style="width: 80px; min-width: 80px;">CBM</th>
+                                <th style="width: 70px; min-width: 70px;">是否甩板</th>
+                                <th style="width: 90px; min-width: 90px;">入仓时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="removeCargoSelectionBody">
+                        </tbody>
+                        <tfoot style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
+                            <tr>
+                                <td colspan="2" style="text-align: right;">当前选中总计:</td>
+                                <td id="removeTotalDestCount">0 条</td>
+                                <td id="removeSumPallets">0.00</td>
+                                <td id="removeSumCbm">0.000</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check"></i> 确认减掉
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeRemovePoModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+    @keyframes modalSlideIn {
+        from { opacity: 0; transform: translate(-50%, -60%); }
+        to { opacity: 1; transform: translate(-50%, -50%); }
+    }
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .modal-header h3 { margin: 0; font-size: 1.3rem; font-weight: 600; }
+    .modal-header .close {
+        color: white; font-size: 28px; font-weight: bold; cursor: pointer; opacity: 0.8; transition: opacity 0.3s;
+    }
+    .modal-header .close:hover { opacity: 1; }
+    .modal-body { padding: 25px; }
+    .modal-form-section { margin-bottom: 20px; }
+    .modal-form-section h4 {
+        color: var(--secondary-color); margin-bottom: 15px; font-size: 1.1rem;
+        border-bottom: 2px solid var(--light-color); padding-bottom: 8px;
+    }
+    .modal-table {
+        width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9rem; table-layout: fixed;
+    }
+    .modal-table th {
+        background-color: #f8f9fa; padding: 12px 8px; text-align: left; font-weight: 600; color: var(--secondary-color);
+        border-bottom: 2px solid #e9ecef;
+    }
+    .modal-table td { padding: 10px 8px; border-bottom: 1px solid #f1f3f4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .modal-table tr:hover { background-color: #f8f9fa; }
+    .modal-actions { display: flex; justify-content: center; gap: 15px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #e9ecef; }
+    .modal-btn {
+        padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem;
+        transition: all 0.3s ease; min-width: 120px;
+    }
+    .modal-btn-success { background: var(--success-color); color: white; }
+    .modal-btn-success:hover { background: #27ae60; transform: translateY(-1px); }
+    .modal-btn-danger { background: var(--danger-color); color: white; }
+    .modal-btn-danger:hover { background: #c0392b; transform: translateY(-1px); }
+    .form-select, .form-input {
+        width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
+        box-sizing: border-box; max-width: 100%;
+    }
+    .form-select:focus, .form-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2); }
+    .form-input[readonly], .form-select[readonly] { background-color: #e9ecef; cursor: not-allowed; }
+</style>
+
+<script>
+// 删除PO模态框的JavaScript
+document.querySelectorAll('.open-remove-po-modal').forEach(btn => {
+    btn.addEventListener('click', function() {
+        setTimeout(() => {
+            console.log('Remove PO button clicked');
+            const appointmentId = this.dataset.appointmentId || '';
+            const shipmentType = this.dataset.shipmentType || '';
+            const shipmentBatchNumber = this.dataset.shipmentBatchNumber || '';
+            const loadType = this.dataset.loadType || '';
+            const destination = this.dataset.destination || '';
+            const scheduledTime = this.dataset.scheduledTime || '';
+            const pickupTime = this.dataset.pickupTime || '';
+            const pickupNumber = this.dataset.pickupNumber || '';
+            const shipmentAccount = this.dataset.shipmentAccount || '';
+            const origin = this.dataset.origin || '';
+            const note = this.dataset.note || '';
+            const carrier = this.dataset.carrier || '';
+            const addressDetail = this.dataset.addressDetail || '';
+            const shipmentCargoId = this.dataset.shipmentCargoId || '';
+            const armBol = this.dataset.armBol || '';
+            
+            console.log('Appointment ID:', appointmentId);
+            
+            // 获取该预约的所有货物行
+            const appointmentRow = this.closest('tr');
+            const groupRows = getRowsByAppointmentRemove(appointmentRow, appointmentId);
+            
+            console.log('Found group rows:', groupRows.length);
+            
+            const cargos = [];
+            groupRows.forEach(row => {
+                const containerTd = row.querySelector('td.container-no-col');
+                const offloadTimeTd = row.querySelector('td.offload-time-col');
+                const isDroppedTd = row.querySelector('td.is-dropped');
+                const customerNameTd = row.querySelector('td.customer-name-col');
+                
+                let isDropped = false;
+                if (isDroppedTd) {
+                    const text = isDroppedTd.textContent.trim();
+                    if (text && text !== '无主约时间') {
+                        isDropped = true;
+                    }
+                }
+                
+                cargos.push({
+                    cargo_id: row.dataset.cargoId || '',
+                    plt_ids: row.dataset.pltId || '',
+                    ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
+                    fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
+                    customer_name: customerNameTd?.innerText.trim() || '-',
+                    container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
+                    location: destination,
+                    total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
+                    total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
+                    total_weight: row.querySelector('.weight-col')?.innerText.trim() || '0',
+                    offload_time: offloadTimeTd ? offloadTimeTd.textContent.trim() : '无入仓时间',
+                    is_dropped: isDropped,
+                });
+            });
+            
+            console.log('Cargos collected:', cargos);
+            
+            openRemovePoModal({
+                appointment_id: appointmentId,
+                shipment_type: shipmentType,
+                shipment_batch_number: shipmentBatchNumber,
+                load_type: loadType,
+                destination: destination,
+                scheduled_time: scheduledTime,
+                pickup_time: pickupTime,
+                pickup_number: pickupNumber,
+                shipment_account: shipmentAccount,
+                origin: origin,
+                note: note,
+                carrier: carrier,
+                address_detail: addressDetail,
+                shipment_cargo_id: shipmentCargoId,
+                arm_bol: armBol,
+                cargos: cargos
+            });
+        }, 0);
+    });
+});
+
+function getRowsByAppointmentRemove(startRow, appointmentId) {
+    const rows = [];
+    
+    // 找到第一行（有rowspan的行）
+    let headerRow = startRow;
+    while (headerRow && !headerRow.querySelector('td:first-child[rowspan]')) {
+        headerRow = headerRow.previousElementSibling;
+    }
+    
+    if (!headerRow) {
+        headerRow = startRow;
+    }
+    
+    const firstTd = headerRow.querySelector('td:first-child');
+    const rowspan = firstTd ? parseInt(firstTd.getAttribute('rowspan')) || 1 : 1;
+    
+    let currentIndex = Array.from(headerRow.parentNode.children).indexOf(headerRow);
+    const allRows = Array.from(headerRow.parentNode.children);
+    
+    for (let i = 0; i < rowspan; i++) {
+        const nextRow = allRows[currentIndex + i];
+        if (nextRow) {
+            rows.push(nextRow);
+        }
+    }
+    
+    return rows;
+}
+
+function openRemovePoModal(data) {
+    console.log('Opening remove PO modal with data:', data);
+    
+    // 设置预约信息
+    document.getElementById('removeModalSuggestionId').value = '';
+    document.getElementById('removeModalShipmentBatchNumber').value = data.shipment_batch_number || '';
+    
+    // 更新模态框标题
+    const batchLabel = document.getElementById('removeModalShipmentBatchLabel');
+    if (batchLabel && data.shipment_batch_number) {
+        batchLabel.textContent = data.shipment_batch_number;
+    }
+    
+    // 设置预约表单数据
+    const shipmentTypeSelect = document.getElementById('removeShipmentType');
+    if (shipmentTypeSelect && data.shipment_type) {
+        shipmentTypeSelect.value = data.shipment_type;
+    }
+    
+    document.getElementById('removeAppointmentId').value = data.appointment_id || '';
+    if (data.scheduled_time) {
+        document.getElementById('removeScheduledTime').value = data.scheduled_time.replace(' ', 'T');
+    }
+    if (data.pickup_time) {
+        document.getElementById('removePickupTime').value = data.pickup_time.replace(' ', 'T');
+    }
+    document.getElementById('removePickupNumber').value = data.pickup_number || '';
+    document.getElementById('removeDestination').value = data.destination || '';
+    document.getElementById('removeAddressDetail').value = data.address_detail || '';
+    document.getElementById('removeNote').value = data.note === 'None' ? '' : (data.note || '');
+    document.getElementById('removeOrigin').value = data.origin || '';
+    document.getElementById('removeShipmentCargoId').value = data.shipment_cargo_id || '';
+    
+    if (data.load_type) {
+        document.getElementById('removeLoadType').value = data.load_type;
+    }
+    
+    if (data.shipment_account) {
+        const select = document.getElementById('removeShipmentAccount');
+        if (select) {
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === data.shipment_account) {
+                    select.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // 渲染货物列表
+    const tbody = document.getElementById('removeCargoSelectionBody');
+    tbody.innerHTML = '';
+    
+    let allCargoIds = [];
+    let allPltIds = [];
+    
+    console.log('Rendering cargos:', data.cargos);
+    
+    data.cargos.forEach(c => {
+        const tr = document.createElement('tr');
+        const isDroppedIcon = c.is_dropped 
+            ? '<span style="color: #28a745;"><i class="fas fa-check"></i></span>' 
+            : '<span style="color: #dc3545;"><i class="fas fa-times"></i></span>';
+        
+        tr.innerHTML = `
+            <td><input type="checkbox" class="remove-cargo-checkbox" 
+                data-cargo-id="${c.cargo_id}" 
+                data-plt-id="${c.plt_ids}" 
+                data-pallets="${c.total_pallet}" 
+                data-cbm="${c.total_cbm}"></td>
+            <td>${c.ref_ids}</td>
+            <td>${c.fba_ids}</td>
+            <td>${c.container_no}</td>
+            <td>${c.location || ''}</td>
+            <td>${c.total_pallet}</td>
+            <td>${c.total_cbm}</td>
+            <td style="text-align: center;">${isDroppedIcon}</td>
+            <td>${c.offload_time}</td>
+        `;
+        tbody.appendChild(tr);
+        
+        if (c.cargo_id && c.cargo_id.trim() !== '') allCargoIds.push(c.cargo_id);
+        if (c.plt_ids && c.plt_ids.trim() !== '') allPltIds.push(c.plt_ids);
+    });
+    
+    document.getElementById('removeModalCargoIds').value = allCargoIds.join(',');
+    document.getElementById('removeModalPltIds').value = allPltIds.join(',');
+    
+    // 初始化货物选择功能
+    initializeRemoveCargoSelection();
+    
+    // 显示模态框
+    document.getElementById('removePoModal').style.display = 'block';
+}
+
+function initializeRemoveCargoSelection() {
+    const selectAll = document.getElementById('removeSelectAllCargos');
+    const checkboxes = document.querySelectorAll('.remove-cargo-checkbox');
+    
+    // 重新绑定全选事件
+    const newSelectAll = selectAll.cloneNode(true);
+    selectAll.parentNode.replaceChild(newSelectAll, selectAll);
+    
+    // 默认都不勾选
+    newSelectAll.checked = false;
+    
+    newSelectAll.addEventListener('click', function() {
+        const allCheckboxes = document.querySelectorAll('.remove-cargo-checkbox');
+        allCheckboxes.forEach(cb => cb.checked = this.checked);
+        updateRemoveHiddenIds();
+    });
+    
+    // 重新绑定每个复选框的事件
+    checkboxes.forEach(checkbox => {
+        const newCheckbox = checkbox.cloneNode(true);
+        checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+        
+        newCheckbox.addEventListener('change', function() {
+            updateRemoveHiddenIds();
+            const allCheckboxes = document.querySelectorAll('.remove-cargo-checkbox');
+            const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+            const someChecked = Array.from(allCheckboxes).some(cb => cb.checked);
+            
+            newSelectAll.checked = allChecked;
+            newSelectAll.indeterminate = !allChecked && someChecked;
+        });
+    });
+    
+    updateRemoveHiddenIds();
+}
+
+function updateRemoveHiddenIds() {
+    const selected = Array.from(document.querySelectorAll('.remove-cargo-checkbox:checked'));
+    const cargoIds = selected.map(cb => cb.dataset.cargoId).filter(id => id && id.trim() !== '');
+    const pltIds = selected.map(cb => cb.dataset.pltId).filter(id => id && id.trim() !== '');
+    
+    document.getElementById('removeModalCargoIds').value = cargoIds.join(',');
+    document.getElementById('removeModalPltIds').value = pltIds.join(',');
+    
+    // 构建non_master_ids - 保持为空，因为没有是主约列了
+    document.getElementById('removeModalNonMasterIds').value = '';
+    
+    // 更新统计
+    let totalPallets = 0;
+    let totalCbm = 0;
+    
+    selected.forEach(cb => {
+        totalPallets += parseFloat(cb.dataset.pallets || 0);
+        totalCbm += parseFloat(cb.dataset.cbm || 0);
+    });
+    
+    document.getElementById('removeSumPallets').innerText = totalPallets.toFixed(2);
+    document.getElementById('removeSumCbm').innerText = totalCbm.toFixed(3);
+    document.getElementById('removeTotalDestCount').innerText = selected.length + ' 条';
+}
+
+function closeRemovePoModal() {
+    document.getElementById('removePoModal').style.display = 'none';
+}
+
+document.querySelector('#removePoModal .close').addEventListener('click', closeRemovePoModal);
+
+// 表单提交
+document.getElementById('removePoForm').addEventListener('submit', function(e) {
+    if (!confirm('确定要删除选中的PO吗？')) {
+        e.preventDefault();
+        return;
+    }
+});
+</script>

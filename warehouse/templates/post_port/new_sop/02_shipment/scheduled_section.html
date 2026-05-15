@@ -51,7 +51,7 @@
         <strong>已排约</strong>的货物，筛选条件：
         <strong>送仓时间在 2025-10-10 之后</strong>、
         <strong>未排车</strong>、
-        <strong>PO类型为公仓</strong>、
+        <strong>PO类型为公仓</strong>
     </div>
     <div class="table-container">
         <table class="data-table">
@@ -217,8 +217,7 @@
                                 </button>
                             </form>
         
-                            <button class="action-btn btn-warning open-bind-modal"
-                                    data-has-appointment="1"
+                            <button class="action-btn btn-warning open-remove-po-modal"
                                     data-appointment-id="{{ shipment_group.appointment_id }}"
                                     data-shipment-type="{{ shipment_group.shipment_type }}"
                                     data-shipment-batch-number="{{ shipment_group.shipment_batch_number }}"
@@ -230,10 +229,10 @@
                                     data-note="{{ shipment_group.note }}"
                                     data-carrier="{{ shipment_group.carrier }}"
                                     data-address-detail="{{ shipment_group.address_detail }}"
-                                    data-operation-type="remove_po"
                                     data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
                                     data-pickup-number="{{ shipment_group.pickup_number }}"
-                                    data-ARM-BOL="{{ shipment_group.ARM_BOL }}">
+                                    data-shipment-cargo-id="{{ shipment_group.shipment_cargo_id }}"
+                                    data-arm-bol="{{ shipment_group.ARM_BOL }}">
                                 <i class="fas fa-square-minus"></i> 删除PO
                             </button>
                             <button class="action-btn btn-primary open-edit-modal"
