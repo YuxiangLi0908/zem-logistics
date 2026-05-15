@@ -844,7 +844,7 @@ class ExceptionHandling(View):
                     
                     # 如果有状态不是completed，记录下来
                     if has_incomplete:
-                        invoice, status_rec, _ = self._fix_account_create_new_invoice_and_status(
+                        invoice, status_rec, _ = self._fix_account_create_new_invoice_and_status_sync(
                             invoice_status.container_number.container_number, invoice_status.invoice
                         )
                         container_number = invoice_status.container_number.container_number if invoice_status.container_number else ''
@@ -2085,6 +2085,160 @@ class ExceptionHandling(View):
         
         invoice_status_receivable.finance_status = "unstarted"
         await sync_to_async(invoice_status_receivable.save)()
+
+        # 8. 返回结果
+        return new_invoice, invoice_status_receivable, None
+
+    def _fix_account_create_new_invoice_and_status_sync(self, container_number: str, invoice: Invoicev2) -> tuple[Invoicev2, InvoiceStatusv2, InvoiceStatusv2]:
+        """
+        创建账单和状态记录（应收）- 补充账单专用 - 同步版本
+        :param container_number: 柜号
+        :param invoice: 当前的invoice
+        :return: (invoice, invoice_status_receivable, None)
+        """
+        from datetime import datetime
+        # 1. 基础校验 + 查询订单
+        try:
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number__container_number=container_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到柜号为 {container_number} 的订单")
+
+        container = order.container_number
+
+        # 2. 找到对应的invoice_statusv2的invoice_type是receivable的记录
+        try:
+            current_status = InvoiceStatusv2.objects.get(
+                invoice=invoice,
+                invoice_type="receivable"
+            )
+        except InvoiceStatusv2.DoesNotExist:
+            raise ValueError(f"未找到invoice {invoice.invoice_number} 的应收状态")
+
+        # 3. 检查当前账单从preport_status到delivery_other_status是否都完成了
+        current_all_completed = all([
+            current_status.preport_status == "completed",
+            current_status.warehouse_public_status == "completed",
+            current_status.warehouse_other_status == "completed",
+            current_status.delivery_public_status == "completed",
+            current_status.delivery_other_status == "completed"
+        ])
+
+        if current_all_completed:
+            # 当前账单的所有阶段都完成了，不需要创建
+            return None, None, None
+
+        # 4. 查找除这个invoice之外的其他invoice记录
+        other_invoices = list(
+            Invoicev2.objects.filter(
+                container_number=container
+            ).exclude(id=invoice.id)
+        )
+
+        # 5. 检查其他invoice的finance_status是否有未完成的
+        has_unfinished_other = False
+        for other_inv in other_invoices:
+            try:
+                other_status = InvoiceStatusv2.objects.get(
+                    invoice=other_inv,
+                    invoice_type="receivable"
+                )
+            except InvoiceStatusv2.DoesNotExist:
+                other_status = None
+            
+            if other_status and other_status.finance_status != "completed":
+                has_unfinished_other = True
+                break
+        
+        if has_unfinished_other:
+            # 有其他invoice的finance_status未完成，不需要创建
+            return None, None, None
+
+        # 6. 记录这个柜子所有账单中已经完成的状态（用于同步到新账单）
+        completed_statuses = {
+            'preport_status': False,
+            'warehouse_public_status': False,
+            'warehouse_other_status': False,
+            'delivery_public_status': False,
+            'delivery_other_status': False
+        }
+
+        # 检查当前账单
+        if current_status.preport_status == "completed":
+            completed_statuses['preport_status'] = True
+        if current_status.warehouse_public_status == "completed":
+            completed_statuses['warehouse_public_status'] = True
+        if current_status.warehouse_other_status == "completed":
+            completed_statuses['warehouse_other_status'] = True
+        if current_status.delivery_public_status == "completed":
+            completed_statuses['delivery_public_status'] = True
+        if current_status.delivery_other_status == "completed":
+            completed_statuses['delivery_other_status'] = True
+
+        # 检查其他账单
+        for other_inv in other_invoices:
+            try:
+                other_status = InvoiceStatusv2.objects.get(
+                    invoice=other_inv,
+                    invoice_type="receivable"
+                )
+            except InvoiceStatusv2.DoesNotExist:
+                continue
+            
+            if other_status.preport_status == "completed":
+                completed_statuses['preport_status'] = True
+            if other_status.warehouse_public_status == "completed":
+                completed_statuses['warehouse_public_status'] = True
+            if other_status.warehouse_other_status == "completed":
+                completed_statuses['warehouse_other_status'] = True
+            if other_status.delivery_public_status == "completed":
+                completed_statuses['delivery_public_status'] = True
+            if other_status.delivery_other_status == "completed":
+                completed_statuses['delivery_other_status'] = True
+
+        # 7. 创建新账单及状态
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
+
+        # 7.1 生成唯一的 invoice_number（避免重复）
+        base_invoice_number = f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
+        invoice_number = base_invoice_number
+        counter = 1
+        while Invoicev2.objects.filter(invoice_number=invoice_number).exists():
+            invoice_number = f"{base_invoice_number}{counter}"
+            counter += 1
+
+        # 7.2 新建发票
+        new_invoice = Invoicev2.objects.create(
+            container_number=container,
+            invoice_number=invoice_number,
+            created_at=current_date,
+            is_master_bill=True,
+        )
+
+        # 7.3 新建应收状态
+        invoice_status_receivable = InvoiceStatusv2.objects.create(
+            container_number=container,
+            invoice=new_invoice,
+            invoice_type="receivable"
+        )
+
+        # 7.4 同步已完成的状态（避免重复确认）
+        if completed_statuses['preport_status']:
+            invoice_status_receivable.preport_status = "completed"
+        if completed_statuses['warehouse_public_status']:
+            invoice_status_receivable.warehouse_public_status = "completed"
+        if completed_statuses['warehouse_other_status']:
+            invoice_status_receivable.warehouse_other_status = "completed"
+        if completed_statuses['delivery_public_status']:
+            invoice_status_receivable.delivery_public_status = "completed"
+        if completed_statuses['delivery_other_status']:
+            invoice_status_receivable.delivery_other_status = "completed"
+        
+        invoice_status_receivable.finance_status = "unstarted"
+        invoice_status_receivable.save()
 
         # 8. 返回结果
         return new_invoice, invoice_status_receivable, None
