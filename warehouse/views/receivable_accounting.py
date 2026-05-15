@@ -5876,7 +5876,7 @@ class ReceivableAccounting(View):
         container_records = defaultdict(list)
         for data in temp_list:
             container_num = data['container_number__container_number']
-            container_records[container_num].append(data)
+            container_records[container_num].append(data) 
         
         filtered_order_data_list = []
         for container_num, records in container_records.items():
