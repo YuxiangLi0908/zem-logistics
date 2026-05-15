@@ -4823,7 +4823,7 @@ class ReceivableAccounting(View):
             # 定义构建函数
             def build_order_data(inv=None, status_obj=None):
                 created_at = None
-                if inv and len(container_invoices) > 1:
+                if inv and len(container_invoices) > 1 and not inv.is_master_bill:
                     created_at = inv.created_at
                 
                 return {
@@ -5220,7 +5220,7 @@ class ReceivableAccounting(View):
             def build_order_data(inv=None, status_obj=None):
                 created_at = None
                 # 只有多账单才去拿时间，且只拿 created_at，不碰 history 以免 N+1
-                if inv and len(container_invoices) > 1:
+                if inv and len(container_invoices) > 1 and not inv.is_master_bill:
                     created_at = inv.created_at 
                 
                 return {
@@ -6633,8 +6633,8 @@ class ReceivableAccounting(View):
             # 提取公共数据构建逻辑
             def build_order_data(inv=None, status_obj=None, is_hold=False):
                 created_at = None
-                if inv and len(container_invoices) > 1:
-                    # 只有多个账单时才需要时间区分，避免额外 getattr 开销
+                if inv and len(container_invoices) > 1 and not inv.is_master_bill:
+                    # 只有多个账单且不是主账单时才需要时间区分，避免额外 getattr 开销
                     created_at = inv.created_at # 假设 created_at 存在，不做 history 复杂查询以保性能
                 
                 return {

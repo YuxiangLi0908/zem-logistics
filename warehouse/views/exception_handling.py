@@ -843,6 +843,9 @@ class ExceptionHandling(View):
                     
                     # 如果有状态不是completed，记录下来
                     if has_incomplete:
+                        invoice, status_rec, _ = self._fix_account_create_new_invoice_and_status(
+                            invoice_status.container_number.container_number, invoice_status.invoice
+                        )
                         container_number = invoice_status.container_number.container_number if invoice_status.container_number else ''
                         invoice_number = invoice_status.invoice.invoice_number if invoice_status.invoice else ''
                         
