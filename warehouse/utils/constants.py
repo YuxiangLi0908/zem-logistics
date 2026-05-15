@@ -50,7 +50,8 @@ CONTAINER_PICKUP_CARRIER = [
     ("客户自送", "客户自送"),
     ("Janice", "Janice"),
     ("辉煌", "辉煌"),
-    ("new world", "new world")
+    ("new world", "new world"),
+    ("JCR", "JCR")
 ]
 
 CLEARANCE_OPTIONS = [
@@ -117,6 +118,7 @@ WAREHOUSE_OPTIONS = [
     ("NJ-07001", "NJ-07001"),
     ("NJ-08817", "NJ-08817"),
     ("SAV-31326", "SAV-31326"),
+    ("SAV-31419", "SAV-31419"),
     ("LA-91761", "LA-91761"),
     ("TX-77503", "TX-77503"),
     ("LA-91789", "LA-91789"),

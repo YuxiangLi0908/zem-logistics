@@ -129,7 +129,7 @@ class PostNsop(View):
     template_special_ltl_bol = "export_file/special_ltl_bol.html"
     template_special_multi_ltl_bol = "export_file/ltl_bol_multi_special.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
-    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766", "LA-91730": "LA-91730"}
+    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "SAV-31419": "SAV-31419", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766", "LA-91730": "LA-91730"}
     load_type_options = {
         "卡板": "卡板",
         "地板": "地板",
