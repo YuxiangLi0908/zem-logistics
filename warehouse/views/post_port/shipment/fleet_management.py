@@ -4056,7 +4056,7 @@ class FleetManagement(View):
                                 s.fleet_number and s.fleet_number.fleet_number) else "",
                     "shipment_batch_number": s.shipment_batch_number or "",
                     "appointment_id": s.appointment_id or "",
-                    "carrier": s.carrier or "",
+                    "Supplier": s.fleet_number.Supplier if (s.fleet_number and s.fleet_number.Supplier) else "",
                     # 日期字段（兼容空值）
                     "appointment_datetime": s.fleet_number.appointment_datetime.strftime("%Y-%m-%d")
                     if (s.fleet_number and s.fleet_number.appointment_datetime) else "",
@@ -4092,7 +4092,7 @@ class FleetManagement(View):
         # 表头（与前端表格列完全一致）
         writer.writerow([
             'PickUp Number', '费用', '出库批次', '预约批次', '预约号',
-            'Carrier', '预约发车日期', '实际发车日期', '总重lbs', '总CBM',
+            '供应商', '预约发车日期', '实际发车日期', '总重lbs', '总CBM',
             '总卡板数', '备注', '退回费用', '录入时间', '操作人'
         ])
 
@@ -4104,7 +4104,7 @@ class FleetManagement(View):
                 item["fleet_number"],
                 item["shipment_batch_number"],
                 item["appointment_id"],
-                item["carrier"],
+                item["Supplier"],
                 item["appointment_datetime"],
                 item["departured_at"],
                 item["shipped_weight"],
