@@ -34,11 +34,11 @@ class WarehouseDashView(View):
             return redirect("login")
 
         context = self.get_warehouse_dash_context(request)
-        context["warehouse"] = self.area
+        context["warehouse_filter"] = self.area
         return render(request, self.warehouse_dash_template, context)
     
     def get_warehouse_dash_context(self, request: HttpRequest) -> dict:
-        warehouse = request.POST.get("warehouse", None)
+        warehouse = request.POST.get("warehouse_filter", None)
         historical_inventory = self._get_historical_inventory(warehouse)
         next_week_inventory = self._get_next_week_inventory(warehouse)
 
