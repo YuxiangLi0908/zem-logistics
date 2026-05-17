@@ -97,11 +97,11 @@ class PowerAutomateWebhook(View):
 
     def _parse_filename(self, filename: str) -> dict[str, Any]:
         """
-        Parse filename format: "{MM.DD}+{container_number}+{delivery_method}+{shipping_mark}+{BOL/LABEL/BOL+LABEL}+{shipment_batch_number}+{shipment_type}+..."
+        Parse filename format: "{MM.DD}+{container_number}+{shipping_mark}+{BOL/LABEL/BOL+LABEL}+{shipment_batch_number}+{shipment_type}+..."
         Returns dict with shipment_batch_number and file_type (BOL, LABEL, or BOL+LABEL)
         """
         parts = filename.split("+")
-        if len(parts) < 6:
+        if len(parts) < 5:
             raise ValueError(f"Invalid filename format: {filename}")
         
         # Find the document type (BOL, LABEL, or BOL+LABEL) - usually at index 4
