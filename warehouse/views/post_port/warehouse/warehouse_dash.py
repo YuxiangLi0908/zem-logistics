@@ -47,7 +47,10 @@ class WarehouseDashView(View):
         context = {
             "historical_metrics": historical_metrics,
             "next_week_inventory": next_week_inventory,
+            "warehouse_filter": warehouse,
+            "area": self.area,
         }
+        raise ValueError(f"Context: {context}")
         return context
     
     def _get_historical_inventory(self, warehouse: str) -> dict:
