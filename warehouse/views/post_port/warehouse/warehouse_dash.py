@@ -21,7 +21,7 @@ class Week(Func):
 
 
 class WarehouseDashView(View):
-    warehouse_dash_template = 'post_port/warehouse_operations/01_warehouse_dash.html'
+    warehouse_dash_template = 'post_port/warehouse_dash/01_warehouse_dash.html'
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
