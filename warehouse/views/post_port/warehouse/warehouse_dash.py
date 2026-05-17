@@ -6,6 +6,7 @@ from django.db import models
 from django.utils.timezone import now
 from collections import defaultdict
 from statistics import mean, stdev
+from math import sqrt, erf
 
 from warehouse.models.pallet import Pallet
 from warehouse.models.packing_list import PackingList
@@ -34,36 +35,34 @@ class WarehouseDashView(View):
             return redirect("login")
 
         context = self.get_warehouse_dash_context(request)
-        context["warehouse_filter"] = self.area
         return render(request, self.warehouse_dash_template, context)
     
     def get_warehouse_dash_context(self, request: HttpRequest) -> dict:
         warehouse = request.POST.get("warehouse_filter", None)
         historical_inventory = self._get_historical_inventory(warehouse)
         next_week_inventory = self._get_next_week_inventory(warehouse)
-
-        historical_metrics = self._calculate_historical_metrics(historical_inventory)
+        inventory_metrics = self._calculate_historical_metrics(historical_inventory)
+        inventory_metrics = self._merge_inventory(inventory_metrics, next_week_inventory)
 
         context = {
-            "historical_metrics": historical_metrics,
-            "next_week_inventory": next_week_inventory,
-            "warehouse_filter": warehouse,
+            "inventory_metrics": inventory_metrics,
+            "warehouse": warehouse,
             "area": self.area,
         }
-        raise ValueError(f"Context: {context}")
         return context
     
     def _get_historical_inventory(self, warehouse: str) -> dict:
         today = now().date()
-        nine_weeks_ago = today - timedelta(weeks=9)
-        nine_weeks_ago_start = nine_weeks_ago - timedelta(days=nine_weeks_ago.weekday())
+        thirteen_weeks_ago = today - timedelta(weeks=13)
+        thirteen_weeks_ago_start = thirteen_weeks_ago - timedelta(days=thirteen_weeks_ago.weekday())
         data = Pallet.objects.prefetch_related(
                 "container_number",
                 "shipment_batch_number",
                 "container_number__orders__offload_id",
             ).filter(
                 location__startswith=warehouse,
-                container_number__orders__offload_id__offload_at__gte=nine_weeks_ago_start
+                delivery_type="public",
+                container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start
             ).annotate(
                 week=Week("container_number__orders__offload_id__offload_at")
             ).values(
@@ -78,16 +77,26 @@ class WarehouseDashView(View):
         today = now().date()
         next_week_start = today + timedelta(days=(7 - today.weekday()))
         next_week_end = next_week_start + timedelta(days=6)
+        criteria = models.Q(
+            container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
+            container_number__orders__vessel_id__vessel_eta__gte=next_week_start,
+            container_number__orders__vessel_id__vessel_eta__lte=next_week_end,
+            container_number__orders__cancel_notification=False
+        ) | models.Q(
+            container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
+            container_number__orders__vessel_id__vessel_eta__lte=next_week_start,
+            container_number__orders__cancel_notification=False,
+            container_number__orders__offload_id__offload_at__isnull=True,
+            container_number__orders__offload_id__offload_required=True,
+        )
         data = PackingList.objects.prefetch_related(
                 "container_number__orders__vessel_id",
                 "container_number__orders__retrieval_id",
+                "container_number__orders__offload_id",
                 "container_number__orders__warehouse",
                 "container_number__orders",
             ).filter(
-                container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
-                container_number__orders__vessel_id__vessel_eta__gte=next_week_start,
-                container_number__orders__vessel_id__vessel_eta__lte=next_week_end,
-                container_number__orders__cancel_notification=False
+                criteria
             ).values(
                 "destination"
             ).annotate(
@@ -95,10 +104,24 @@ class WarehouseDashView(View):
             )
         return list(data)
     
+    def _merge_inventory(self, inventory_metrics, next_week_inventory):
+        # Create a new merged inventory
+        for next_entry in next_week_inventory:
+            destination = next_entry['destination']
+            if destination in inventory_metrics:
+                inventory_metrics[destination]['next_week_cbm'] = next_entry['total_cbm']
+        return inventory_metrics
+
     def _calculate_historical_metrics(self, historical_inventory: list) -> dict:
         today = now().date()
         current_week = today.isocalendar()[1]
-        metrics = defaultdict(lambda: {"average_weekly_cbm": 0, "cv": 0, "active_week_ratio": 0, "stability_score": 0})
+        metrics = defaultdict(lambda: {
+            "average_weekly_cbm": 0,
+            "cv": 0,
+            "active_week_ratio": 0,
+            "stability_score": 0,
+            "confidence_interval": (0, 0),
+        })
 
         # Group data by destination
         grouped_data = defaultdict(list)
@@ -115,9 +138,21 @@ class WarehouseDashView(View):
             avg_cbm = mean(weekly_cbms) if weekly_cbms else 0
             stddev_cbm = stdev(weekly_cbms) if len(weekly_cbms) > 1 else 0
 
+            # Calculate 99% confidence interval without scipy
+            if total_weeks > 1:
+                z_value = 2.576  # Approximation for 99% confidence level
+                margin_of_error = z_value * (stddev_cbm / sqrt(total_weeks))
+                confidence_interval = (
+                    max(avg_cbm - margin_of_error, 0),
+                    avg_cbm + margin_of_error,
+                )
+            else:
+                confidence_interval = (avg_cbm, avg_cbm)
+
             metrics[destination]["average_weekly_cbm"] = avg_cbm
             metrics[destination]["cv"] = stddev_cbm / avg_cbm if avg_cbm > 0 else 0
-            metrics[destination]["active_week_ratio"] = active_weeks / total_weeks if total_weeks > 0 else 0
+            metrics[destination]["active_week_ratio"] = active_weeks / 13 * 100  # using 13 weeks of data
+            metrics[destination]["confidence_interval"] = confidence_interval
 
             all_avg_cbms.append(avg_cbm)
             all_cvs.append(metrics[destination]["cv"])
@@ -139,8 +174,8 @@ class WarehouseDashView(View):
                 0.2 * normalized_avg_cbm
             )
 
-        return metrics
-
+        return dict(sorted(metrics.items(), key=lambda item: item[1]["stability_score"], reverse=True))        
+    
     def _user_authenticate(self, request: HttpRequest):
         if request.user.is_authenticated:
             return True
