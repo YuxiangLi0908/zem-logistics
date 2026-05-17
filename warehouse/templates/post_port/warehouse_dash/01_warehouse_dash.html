@@ -144,7 +144,8 @@
                 </tr>
             </thead>
             <tbody>
-                {% for destination, metrics in historical_metrics.items %}
+                {% for item in historical_metrics.items %}
+                {% with destination=item.0 metrics=item.1 %}
                 <tr>
                     <td>{{ destination }}</td>
                     <td>{{ metrics.average_weekly_cbm|floatformat:2 }}</td>
@@ -152,6 +153,7 @@
                     <td>{{ metrics.active_week_ratio|floatformat:2 }}</td>
                     <td>{{ metrics.stability_score|floatformat:2 }}</td>
                 </tr>
+                {% endwith %}
                 {% endfor %}
             </tbody>
         </table>
