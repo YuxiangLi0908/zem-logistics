@@ -1409,14 +1409,14 @@ class OrderCreation(View):
             if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                 po_id_hkey = f"{dm}-{dest}"
                 po_id_seg = (
-                    f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                 )
             elif dm == "客户自提" or dest == "客户自提":
                 po_id_hkey = f"{dm}-{dest}"
                 po_id_seg = (
                     f"S{sm[-4:]}"
                     if sm
-                    else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                 )
             else:
                 po_id_hkey = f"{dm}-{dest}"
