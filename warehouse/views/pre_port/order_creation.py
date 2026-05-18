@@ -1319,6 +1319,8 @@ class OrderCreation(View):
             'arrive_at_destination': 'True',
             'empty_returned': 'True',
             'empty_returned_at': created_at,
+            "planned_release_time":created_at,
+            "temp_t49_available_for_pickup": True,
         }
         retrieval = Retrieval(**retrieval_data)
         await sync_to_async(retrieval.save)()
@@ -1443,7 +1445,7 @@ class OrderCreation(View):
             request.POST.getlist("total_cbm"),
             request.POST.getlist("total_pallet"),
             po_ids,
-            ["public"] * max(len(request.POST.getlist("delivery_method") or []), 1)
+            ["other"] * max(len(request.POST.getlist("delivery_method") or []), 1)
         ]
         #填充空列和最长的长度相同
         max_length = max(len(field) for field in fields)
@@ -1468,7 +1470,7 @@ class OrderCreation(View):
                 total_weight_kg=d[6],
                 cbm=d[7],
                 PO_ID=d[9],
-                delivery_type=d[10],
+                delivery_type="other",
             )
             for d in pl_data
         ]

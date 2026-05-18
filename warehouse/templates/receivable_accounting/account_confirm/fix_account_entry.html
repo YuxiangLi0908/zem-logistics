@@ -766,7 +766,7 @@
                             <button type="button" onclick="submitBatchAction('invoice_order_select')"  class="action-btn btn-primary">生成STMT</button>
                             <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">导出</button>
                             <button type="button" onclick="submitBatchAction('invoice_order_delivered')" class="action-btn btn-primary">通知</button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_reject')"  class="action-btn btn-warning">重开</button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_reject', 'fix_account_entry')"  class="action-btn btn-warning">重开</button>
                             <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
                                 <i class="fas fa-dollar-sign"></i> 核销
                             </button>
@@ -1146,7 +1146,7 @@
     }
 
     // 批量操作提交
-    function submitBatchAction(step) {
+    function submitBatchAction(step, sourcePage) {
         const invoiceIds = getSelectedInvoiceIds();
 
         if (invoiceIds.length === 0) {
