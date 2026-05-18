@@ -167,9 +167,9 @@ class WarehouseDashView(View):
         for destination in metrics:
             normalized_cv = 1 - normalize(metrics[destination]["cv"], min_cv, max_cv)
             normalized_avg_cbm = normalize(metrics[destination]["average_weekly_cbm"], min_avg_cbm, max_avg_cbm)
-
+            normalized_active_week_ratio = metrics[destination]["active_week_ratio"] / 100  # Convert to 0-1 scale
             metrics[destination]["stability_score"] = (
-                0.5 * metrics[destination]["active_week_ratio"] +
+                0.5 * normalized_active_week_ratio +
                 0.3 * normalized_cv +
                 0.2 * normalized_avg_cbm
             )
