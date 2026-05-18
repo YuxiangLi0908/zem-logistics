@@ -2012,9 +2012,8 @@ class ReceivableAccounting(View):
         # 如果有 invoice_item，绑定到当前 invoice_id，并更新主账单
         if invoice_items.exists():
             invoice_items.update(invoice_number_id=invoice_id)
-            # 更新主账单
-            invoice = Invoicev2.objects.select_related('container_number').filter(id=invoice_id)
-            self._update_invoice_total(invoice, invoice.container_number, True)
+            # 更新主账单（直接复用之前已经获取的 current_invoice）
+            self._update_invoice_total(current_invoice, container, True)
 
         # 删除 status_records（如果存在）
         if status_records.exists():
@@ -4919,7 +4918,7 @@ class ReceivableAccounting(View):
                     finance_status = base_data['finance_status']
                     
                     # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                    if finance_status == "completed" and preport_status != "completed":
+                    if finance_status in ["completed", "tobeconfirmed"] and preport_status == "unstarted":
                         continue
                     
                     # 根据状态分组 (逻辑完全参考原代码)
@@ -5338,7 +5337,7 @@ class ReceivableAccounting(View):
                         finance_status = p_item['finance_status']
                         
                         # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                        if finance_status == "completed" and p_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
                             pass
                         elif p_status in ["unstarted", "in_progress", None]:
                             wh_public_to_record_orders.append(p_item)
@@ -5354,7 +5353,7 @@ class ReceivableAccounting(View):
                         finance_status = s_item['finance_status']
                         
                         # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                        if finance_status == "completed" and s_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
                             pass
                         elif s_status in ["unstarted", "in_progress", None]:
                             wh_self_to_record_orders.append(s_item)
@@ -6791,7 +6790,7 @@ class ReceivableAccounting(View):
                         p_status = item['public_status']
                         finance_status = item['finance_status']
                         # 关键过滤：如果财务已经确认但公仓状态不是 completed，不显示
-                        if finance_status == "completed" and p_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
                             pass
                         elif p_status in ["unstarted", "in_progress", None]:
                             dl_public_to_record_orders.append(item)
@@ -6806,7 +6805,7 @@ class ReceivableAccounting(View):
                         s_status = item['self_status']
                         finance_status = item['finance_status']
                         # 关键过滤：如果财务已经确认但私仓状态不是 completed，不显示
-                        if finance_status == "completed" and s_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and s_status == "unstarted":
                             pass
                         elif s_status in ["unstarted", "in_progress", None]:
                             dl_self_to_record_orders.append(item)
