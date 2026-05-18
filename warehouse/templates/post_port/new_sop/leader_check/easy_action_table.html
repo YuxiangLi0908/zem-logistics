@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+{% csrf_token %}
+<style>
+/* 全局样式变量 */
+:root {
+    --primary-color: #1677ff;
+    --success-color: #52c41a;
+    --bg-color: #f5f7fa;
+    --border-color: #e5e6eb;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-placeholder: #999999;
+    --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* 页面容器 */
+.table-tool-page {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* 页面标题 */
+.page-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+}
+
+/* 创建表格模块布局 */
+.create-table-layout {
+    display: flex;
+    gap: 24px;
+}
+
+/* 表格设置面板 */
+.settings-panel {
+    width: 25%;
+    min-width: 280px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: var(--panel-shadow);
+}
+
+.settings-panel .panel-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+}
+
+.form-group input::placeholder {
+    color: var(--text-placeholder);
+}
+
+/* 按钮组 */
+.btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.btn-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 8px 0;
+}
+
+.btn {
+    padding: 10px 16px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #4096ff;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #fff;
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+    background: rgba(22, 119, 255, 0.04);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: #fff;
+}
+
+.btn-success:hover {
+    background: #73d13d;
+    transform: translateY(-1px);
+}
+
+/* 表格编辑区 */
+.editor-panel {
+    flex: 1;
+    min-width: 0;
+    background: #fff;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: var(--panel-shadow);
+}
+
+.editor-panel .panel-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+}
+
+.empty-hint {
+    color: var(--text-placeholder);
+    font-size: 14px;
+    text-align: center;
+    padding: 60px 20px;
+}
+
+/* 表格样式 */
+.editable-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.editable-table th,
+.editable-table td {
+    border: 1px solid var(--border-color);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.editable-table th {
+    background: var(--bg-color);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.editable-table [contenteditable="true"] {
+    outline: none;
+    min-height: 20px;
+}
+
+.editable-table [contenteditable="true"]:focus {
+    background: rgba(22, 119, 255, 0.04);
+}
+
+/* Toast提示 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+    display: none;
+}
+
+.toast.show {
+    display: block;
+}
+
+.toast-success {
+    background: var(--success-color);
+}
+
+.toast-error {
+    background: #ff4d4f;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 响应式适配 */
+@media (max-width: 992px) {
+    .create-table-layout {
+        flex-direction: column;
+    }
+    
+    .settings-panel {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .btn-group {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+        min-width: calc(50% - 6px);
+    }
+    
+    .btn-divider {
+        display: none;
+    }
+}
+</style>
+
+<div class="table-tool-page">
+    <h2 class="page-title">表格工具</h2>
+    
+    <div class="create-table-layout">
+        <!-- 表格设置面板 -->
+        <div class="settings-panel">
+            <h3 class="panel-title">表格设置</h3>
+            
+            <div class="form-group">
+                <label for="tableTitle">表格标题</label>
+                <input type="text" id="tableTitle" placeholder="请输入表格标题" value="Packing List" oninput="updatePreviewTitle()">
+            </div>
+            
+            <div class="form-group">
+                <label for="topMargin">标题上方间距 (px)</label>
+                <input type="number" id="topMargin" value="50" min="0" max="200" oninput="updateTopMargin()">
+            </div>
+            
+            <div class="form-group">
+                <label for="titleFontSize">标题字号 (px)</label>
+                <input type="number" id="titleFontSize" value="20" min="8" max="40" oninput="updateTitleFontSize()">
+            </div>
+            
+            <div class="form-group">
+                <label for="tableFontSize">表格字号 (px)</label>
+                <input type="number" id="tableFontSize" value="14" min="8" max="24" oninput="updateTableFontSize()">
+            </div>
+            
+            <div class="form-group">
+                <label for="rowCount">行数</label>
+                <input type="number" id="rowCount" value="5" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="colCount">列数</label>
+                <input type="number" id="colCount" value="4" min="1">
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="createTable()">创建表格</button>
+                
+                <div class="btn-divider"></div>
+                
+                <button class="btn btn-secondary" onclick="addRow()">添加行</button>
+                <button class="btn btn-secondary" onclick="addColumn()">添加列</button>
+            </div>
+        </div>
+        
+        <!-- 表格编辑区 -->
+        <div class="editor-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 class="panel-title" style="margin: 0;">表格预览</h3>
+                <button class="btn btn-success" onclick="generatePDF()">生成PDF</button>
+            </div>
+            <div id="previewContainer" style="padding: 0 80px;">
+                <div id="previewTitle" style="text-align: center; font-size: 20px; font-weight: bold; margin-top: 50px; margin-bottom: 20px;"></div>
+                <div id="editableTable" style="font-size: 14px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast提示 -->
+<div class="toast" id="toast"></div>
+
+<script>
+let currentTableData = [];
+
+// 获取CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 页面加载时创建默认表格
+document.addEventListener('DOMContentLoaded', function() {
+    renderEmptyState();
+    updatePreviewTitle();
+});
+
+// 更新预览标题
+function updatePreviewTitle() {
+    const title = document.getElementById('tableTitle').value;
+    const previewTitle = document.getElementById('previewTitle');
+    previewTitle.textContent = title;
+}
+
+// 更新标题上方间距
+function updateTopMargin() {
+    const topMargin = document.getElementById('topMargin').value;
+    const previewTitle = document.getElementById('previewTitle');
+    previewTitle.style.marginTop = topMargin + 'px';
+}
+
+// 更新标题字号
+function updateTitleFontSize() {
+    const titleFontSize = document.getElementById('titleFontSize').value;
+    const previewTitle = document.getElementById('previewTitle');
+    previewTitle.style.fontSize = titleFontSize + 'px';
+}
+
+// 更新表格字号
+function updateTableFontSize() {
+    const tableFontSize = document.getElementById('tableFontSize').value;
+    const editableTable = document.getElementById('editableTable');
+    editableTable.style.fontSize = tableFontSize + 'px';
+    // 更新已创建的表格的字号
+    const cells = editableTable.querySelectorAll('th, td');
+    cells.forEach(cell => {
+        cell.style.fontSize = tableFontSize + 'px';
+    });
+}
+
+// 显示空白状态
+function renderEmptyState() {
+    const container = document.getElementById('editableTable');
+    container.innerHTML = '<div class="empty-hint">表格将在这里生成，点击「创建表格」开始编辑</div>';
+}
+
+// 创建表格
+function createTable() {
+    const rows = parseInt(document.getElementById('rowCount').value);
+    const cols = parseInt(document.getElementById('colCount').value);
+    
+    currentTableData = [];
+    for (let i = 0; i < rows; i++) {
+        let row = [];
+        for (let j = 0; j < cols; j++) {
+            row.push('');
+        }
+        currentTableData.push(row);
+    }
+    
+    renderTable();
+    showToast('表格创建成功', 'success');
+}
+
+// 渲染表格
+function renderTable() {
+    const container = document.getElementById('editableTable');
+    let html = '<table class="editable-table">';
+    
+    for (let i = 0; i < currentTableData.length; i++) {
+        html += '<tr>';
+        for (let j = 0; j < currentTableData[i].length; j++) {
+            if (i === 0) {
+                html += `<th contenteditable="true" oninput="updateCell(${i}, ${j}, this.innerText)">${currentTableData[i][j]}</th>`;
+            } else {
+                html += `<td contenteditable="true" oninput="updateCell(${i}, ${j}, this.innerText)">${currentTableData[i][j]}</td>`;
+            }
+        }
+        html += '</tr>';
+    }
+    
+    html += '</table>';
+    container.innerHTML = html;
+}
+
+// 更新单元格
+function updateCell(row, col, value) {
+    if (currentTableData[row]) {currentTableData[row][col] = value;
+    }
+}
+
+// 添加行
+function addRow() {
+    if (currentTableData.length === 0) {
+        showToast('请先创建表格', 'error');
+        return;
+    }
+    const newRow = Array(currentTableData[0].length).fill('');
+    currentTableData.push(newRow);
+    renderTable();
+    showToast('已添加新行', 'success');
+}
+
+// 添加列
+function addColumn() {
+    if (currentTableData.length === 0) {
+        showToast('请先创建表格', 'error');
+        return;
+    }
+    for (let i = 0; i < currentTableData.length; i++) {
+        currentTableData[i].push('');
+    }
+    renderTable();
+    showToast('已添加新列', 'success');
+}
+
+// 生成PDF
+function generatePDF() {
+    if (currentTableData.length === 0) {
+        showToast('请先创建表格', 'error');
+        return;
+    }
+    
+    const title = document.getElementById('tableTitle').value;
+    const topMargin = document.getElementById('topMargin').value;
+    const titleFontSize = document.getElementById('titleFontSize').value;
+    const tableFontSize = document.getElementById('tableFontSize').value;
+    const csrftoken = getCookie('csrftoken');
+    
+    const formData = new FormData();
+    formData.append('step', 'generate_table_pdf');
+    formData.append('title', title);
+    formData.append('topMargin', topMargin);
+    formData.append('titleFontSize', titleFontSize);
+    formData.append('tableFontSize', tableFontSize);
+    formData.append('tableData', JSON.stringify(currentTableData));
+    
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        // 如果响应不是ok，尝试读取错误文本
+        return response.text().then(text => {
+            throw new Error(text || '生成PDF失败');
+        });
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = title + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        showToast('PDF生成完成', 'success');
+    })
+    .catch(error => {
+        showToast('生成PDF失败: ' + error.message, 'error');
+    });
+}
+
+// 显示Toast提示
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast toast-' + type + ' show';
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+</script>
+{% endblock %}

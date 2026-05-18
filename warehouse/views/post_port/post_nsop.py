@@ -120,6 +120,7 @@ class PostNsop(View):
     template_client_exception = "post_port/new_sop/leader_check/client_exception.html"
     template_pod_reupload = "post_port/new_sop/leader_check/pod_reupload.html"
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
+    template_easy_action_table = "post_port/new_sop/leader_check/easy_action_table.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -256,6 +257,8 @@ class PostNsop(View):
         elif step == "other_selfpick_cargos_container_palletization":
             template, context = await self.handle_other_selfpick_cargos_container_palletization(request, pk)
             return render(request, template, context)
+        elif step == "easy_action":
+            return render(request, self.template_easy_action_table, {})
 
         else:
             raise ValueError('输入错误')
@@ -668,6 +671,8 @@ class PostNsop(View):
         elif step == "cancel_post_other_selfpick_cargos":
             template, context = await self.handle_cancel_post_other_selfpick_cargos(request)
             return render(request, template, context)
+        elif step == "generate_table_pdf":
+            return await self.handle_generate_table_pdf(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -10354,7 +10359,6 @@ class PostNsop(View):
         '''LTL保存自行编辑的货物信息'''
         # 1. 判断是批量保存还是单行保存
         batch_data_raw = request.POST.get('batch_data')
-        print(request.POST)
         if batch_data_raw:
             try:
                 update_items = json.loads(batch_data_raw)
@@ -16055,3 +16059,67 @@ class PostNsop(View):
             'source_type': source_type,
             'is_virtual_sp': is_virtual_sp
         }
+
+    async def handle_generate_table_pdf(self, request: HttpRequest) -> HttpResponse:
+        """生成PDF表格"""
+        title = await sync_to_async(request.POST.get)('title', 'Packing List')
+        top_margin = await sync_to_async(request.POST.get)('topMargin', '50')
+        title_font_size = await sync_to_async(request.POST.get)('titleFontSize', '20')
+        table_font_size = await sync_to_async(request.POST.get)('tableFontSize', '14')
+        table_data_json = await sync_to_async(request.POST.get)('tableData', '[]')
+        table_data = json.loads(table_data_json)
+        
+        # 转换px到pt (1px ≈ 0.75pt)
+        top_margin_pt = int(top_margin) * 0.75
+        title_font_size_pt = int(title_font_size) * 0.75
+        table_font_size_pt = int(table_font_size) * 0.75
+        
+        # 固定的表格两侧间距
+        table_side_padding_pt = 80
+        
+        # 构建HTML - 使用内联样式和pt单位，与项目其他PDF保持一致
+        html_content = f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body style="font-family: STSong-Light, SimSun, STSong, Arial, sans-serif;">
+            <div style="padding-top: {top_margin_pt}pt;">
+                <h1 style="text-align: center; margin-bottom: 15pt; font-family: STSong-Light; font-size: {title_font_size_pt}pt;">{escape(title)}</h1>
+                <div style="padding-left: {table_side_padding_pt}pt; padding-right: {table_side_padding_pt}pt;">
+                    <table style="border-collapse: collapse; width: 100%; font-size: {table_font_size_pt}pt;">
+        '''
+        
+        # 生成表格内容
+        for i, row in enumerate(table_data):
+            html_content += '<tr>'
+            for j, cell in enumerate(row):
+                if i == 0:
+                    # 表头
+                    html_content += f'<th style="border: 1px solid #000; padding: 6pt; text-align: left; font-family: STSong-Light; background-color: #f2f2f2; font-size: {table_font_size_pt}pt;">{escape(cell)}</th>'
+                else:
+                    # 普通单元格
+                    html_content += f'<td style="border: 1px solid #000; padding: 6pt; text-align: left; font-family: STSong-Light; font-size: {table_font_size_pt}pt;">{escape(cell)}</td>'
+            html_content += '</tr>'
+        
+        html_content += '''
+                </table>
+            </div>
+        </body>
+        </html>
+        '''
+        
+        # 生成PDF
+        result = BytesIO()
+        pdf = pisa.CreatePDF(BytesIO(html_content.encode('utf-8')), dest=result, link_callback=link_callback)
+        
+        if pdf.err:
+            return HttpResponse(f'生成PDF失败: {pdf.err}', status=500)
+        
+        result.seek(0)
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        safe_title = title.replace('"', '_').replace('\\', '_')
+        response['Content-Disposition'] = f'attachment; filename="{safe_title}.pdf"'
+        
+        return response
