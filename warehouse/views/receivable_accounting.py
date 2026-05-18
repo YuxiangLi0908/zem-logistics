@@ -5353,7 +5353,7 @@ class ReceivableAccounting(View):
                         finance_status = s_item['finance_status']
                         
                         # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
+                        if finance_status in ["completed", "tobeconfirmed"] and s_status == "unstarted":
                             pass
                         elif s_status in ["unstarted", "in_progress", None]:
                             wh_self_to_record_orders.append(s_item)
