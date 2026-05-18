@@ -51,6 +51,7 @@
                                         <a href="{% url 'warehouse_operations' %}?step=warehousing_operation">入库</a>
                                         <a href="{% url 'warehouse_operations' %}?step=counting_pallet">盘点及特操</a>
                                         <a href="{% url 'warehouse_operations' %}?step=upcoming_fleet">出库</a>
+                                        <a href="{% url 'warehouse_dash' %}" target="_blank">数据监控</a>
                                     </div>
                                 </div>
                                 <a href="{% url 'warehouse_operations' %}?step=privaty_management">私仓管理</a>
@@ -111,6 +112,7 @@
                                         <a href="{% url 'post_nsop' %}?step=LTL_pallets" target="_blank">库存排约</a>
                                         <a href="{% url 'post_nsop' %}?step=LTL_history_po" target="_blank">历史数据</a>
                                         <a href="{% url 'pod' %}?step=fleet_cost_record_ltl" target="_blank">ltl派送成本录入</a>
+                                        <a href="{% url 'create_order' %}?step=peer_po_creation_other">私仓外配货物登记</a>
                                     </div>
                                 </div>
                                 <div class="nested-dropdown">
