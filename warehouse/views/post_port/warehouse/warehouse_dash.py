@@ -75,7 +75,7 @@ class WarehouseDashView(View):
     
     def _get_next_week_inventory(self, warehouse: str) -> dict:
         today = now().date()
-        next_week_start = today + timedelta(days=(7 - today.weekday()))
+        next_week_start = today + timedelta(days=1)
         next_week_end = next_week_start + timedelta(days=6)
         criteria = models.Q(
             container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
