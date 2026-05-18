@@ -1970,8 +1970,63 @@ class ReceivableAccounting(View):
         for c in cells:
             ws.merge_cells(c)
 
+    def _rollback_check_and_delete_other_invoice(self, invoice_id) -> bool:
+        """
+        财务固定费用回退时，检查是不是另一条账单还没开始录，没开始录就删掉。
+        """
+        current_invoice = Invoicev2.objects.select_related('container_number').get(id=invoice_id)
+        container = current_invoice.container_number
+        if not container:
+            raise ValueError("当前账单对应柜号查不到")
+
+        # 直接查询这个柜子的、不是当前invoice_id的账单
+        other_invoices = Invoicev2.objects.filter(container_number=container).exclude(id=invoice_id)
+        if len(other_invoices) != 1:
+            return False
+
+        other_invoice = other_invoices[0]
+
+        # 检查另一条的invoicestatusv2是否所有状态都是unstarted
+        status_records = InvoiceStatusv2.objects.filter(
+            invoice_id=other_invoice.id,
+            invoice_type="receivable"
+        )
+
+        all_unstarted = True
+        for status in status_records:
+            if (status.preport_status != "unstarted" or
+                status.warehouse_public_status != "unstarted" or
+                status.warehouse_other_status != "unstarted" or
+                status.delivery_public_status != "unstarted" or
+                status.delivery_other_status != "unstarted" or
+                status.finance_status != "unstarted"):
+                all_unstarted = False
+                break
+
+        if not all_unstarted:
+            return False
+
+        # 检查是否有 invoice_item 记录
+        invoice_items = InvoiceItemv2.objects.filter(invoice_number_id=other_invoice.id)
+
+        # 如果有 invoice_item，绑定到当前 invoice_id，并更新主账单
+        if invoice_items.exists():
+            invoice_items.update(invoice_number_id=invoice_id)
+            # 更新主账单（直接复用之前已经获取的 current_invoice）
+            self._update_invoice_total(current_invoice, container, True)
+
+        # 删除 status_records（如果存在）
+        if status_records.exists():
+            status_records.delete()
+
+        # 删除 other_invoice
+        other_invoice.delete()
+
+        return True
+
     def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
         raw = request.POST.get("selectedInvoiceIds", "[]")
+        source_page = request.POST.get("source_page", "")
         try:
             invoice_id_list = [int(i) for i in json.loads(raw)]
         except (ValueError, TypeError, json.JSONDecodeError):
@@ -1979,9 +2034,16 @@ class ReceivableAccounting(View):
 
         if not invoice_id_list:
             context = {'error_messages':'未选择任何账单！'}
-            return self.handle_confirm_entry_post(request,context)
+            if source_page == "fix_account_entry":
+                return self.handle_fix_account_entry_post(request, context)
+            return self.handle_confirm_entry_post(request, context)
 
         with transaction.atomic():
+            # 如果是从fix_account_entry来的，先检查并删除另一条invoice
+            if source_page == "fix_account_entry":
+                for invoice_id in invoice_id_list:
+                    self._rollback_check_and_delete_other_invoice(invoice_id)
+
             # 重开时，把是组合柜额外费用类型的记录删除，因为再开的时候会重新生成
             InvoiceItemv2.objects.filter(
                 invoice_number_id__in=invoice_id_list,
@@ -2004,7 +2066,9 @@ class ReceivableAccounting(View):
 
 
         context = {'success_messages':'账单退回状态成功！'}
-        return self.handle_confirm_entry_post(request,context)
+        if source_page == "fix_account_entry":
+            return self.handle_fix_account_entry_post(request, context)
+        return self.handle_confirm_entry_post(request, context)
 
     def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
         '''生成STMT'''
@@ -4854,7 +4918,7 @@ class ReceivableAccounting(View):
                     finance_status = base_data['finance_status']
                     
                     # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                    if finance_status == "completed" and preport_status != "completed":
+                    if finance_status in ["completed", "tobeconfirmed"] and preport_status == "unstarted":
                         continue
                     
                     # 根据状态分组 (逻辑完全参考原代码)
@@ -5273,7 +5337,7 @@ class ReceivableAccounting(View):
                         finance_status = p_item['finance_status']
                         
                         # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                        if finance_status == "completed" and p_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
                             pass
                         elif p_status in ["unstarted", "in_progress", None]:
                             wh_public_to_record_orders.append(p_item)
@@ -5289,7 +5353,7 @@ class ReceivableAccounting(View):
                         finance_status = s_item['finance_status']
                         
                         # 关键过滤：如果财务已经确认但本阶段未完成，不显示
-                        if finance_status == "completed" and s_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
                             pass
                         elif s_status in ["unstarted", "in_progress", None]:
                             wh_self_to_record_orders.append(s_item)
@@ -5827,6 +5891,7 @@ class ReceivableAccounting(View):
                         'finance_status': finance_status,
                         'has_invoice': True,
                         'cancel_notification': o.cancel_notification,
+                        'invoice_link': invoice.invoice_link,
                     }
 
                     if finance_status != "completed":
@@ -5864,11 +5929,40 @@ class ReceivableAccounting(View):
             if data['container_number__container_number']:
                 previous_container_numbers.add(data['container_number__container_number'])
         
-        # 过滤未开列表
-        filtered_order_data_list = []
+        # 第一步过滤：去掉已经在已开列表中的柜子
+        temp_list = []
         for data in order_data_list:
             if data['container_number__container_number'] not in previous_container_numbers:
-                filtered_order_data_list.append(data)
+                temp_list.append(data)
+        
+        # 第二步过滤：如果同一个柜子有多条记录，且其中有invoice_link的记录，保留有invoice_link的，去掉没有的
+        # 先按柜号分组
+        container_records = defaultdict(list)
+        for data in temp_list:
+            container_num = data['container_number__container_number']
+            container_records[container_num].append(data) 
+        
+        filtered_order_data_list = []
+        for container_num, records in container_records.items():
+            if len(records) == 1:
+                # 只有一条记录，直接保留
+                filtered_order_data_list.append(records[0])
+            else:
+                # 多条记录，检查是否有invoice_link
+                has_link_records = []
+                no_link_records = []
+                for record in records:
+                    if record.get('invoice_link'):
+                        has_link_records.append(record)
+                    else:
+                        no_link_records.append(record)
+                
+                if has_link_records:
+                    # 有invoice_link的记录，只保留这些
+                    filtered_order_data_list.extend(has_link_records)
+                else:
+                    # 都没有invoice_link，全部保留
+                    filtered_order_data_list.extend(records)
         
         existing_customers = Customer.objects.all().order_by("zem_name")
         
@@ -6696,7 +6790,7 @@ class ReceivableAccounting(View):
                         p_status = item['public_status']
                         finance_status = item['finance_status']
                         # 关键过滤：如果财务已经确认但公仓状态不是 completed，不显示
-                        if finance_status == "completed" and p_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
                             pass
                         elif p_status in ["unstarted", "in_progress", None]:
                             dl_public_to_record_orders.append(item)
@@ -6711,7 +6805,7 @@ class ReceivableAccounting(View):
                         s_status = item['self_status']
                         finance_status = item['finance_status']
                         # 关键过滤：如果财务已经确认但私仓状态不是 completed，不显示
-                        if finance_status == "completed" and s_status != "completed":
+                        if finance_status in ["completed", "tobeconfirmed"] and s_status == "unstarted":
                             pass
                         elif s_status in ["unstarted", "in_progress", None]:
                             dl_self_to_record_orders.append(item)
