@@ -1187,10 +1187,18 @@
         endDateInput.value = document.querySelector('input[name="end_date"]')?.value || '';
         endDateInput.className = 'dynamic-input';
 
+        // source_page
+        const sourcePageInput = document.createElement('input');
+        sourcePageInput.type = 'hidden';
+        sourcePageInput.name = 'source_page';
+        sourcePageInput.value = 'fix_account_entry';
+        sourcePageInput.className = 'dynamic-input';
+
         form.appendChild(invoiceInput);
         form.appendChild(stepInput);
         form.appendChild(startDateInput);
         form.appendChild(endDateInput);
+        form.appendChild(sourcePageInput);
 
         form.submit();
     }
