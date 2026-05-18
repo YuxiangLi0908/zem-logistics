@@ -1970,68 +1970,60 @@ class ReceivableAccounting(View):
         for c in cells:
             ws.merge_cells(c)
 
-    def _check_and_delete_other_invoice(self, invoice_id) -> None:
+    def _rollback_check_and_delete_other_invoice(self, invoice_id) -> bool:
         """
-        检查柜子是否有2条invoice记录，如果有且另一条的invoicestatusv2所有状态都没录过，就删除另一条
+        财务固定费用回退时，检查是不是另一条账单还没开始录，没开始录就删掉。
         """
-        try:
-            current_invoice = Invoicev2.objects.select_related('container_number').get(id=invoice_id)
-            container = current_invoice.container_number
-            if not container:
-                return
+        current_invoice = Invoicev2.objects.select_related('container_number').get(id=invoice_id)
+        container = current_invoice.container_number
+        if not container:
+            raise ValueError("当前账单对应柜号查不到")
 
-            # 查询这个柜子的所有invoice
-            all_invoices = Invoicev2.objects.filter(container_number=container)
-            if len(all_invoices) != 2:
-                return
+        # 直接查询这个柜子的、不是当前invoice_id的账单
+        other_invoices = Invoicev2.objects.filter(container_number=container).exclude(id=invoice_id)
+        if len(other_invoices) != 1:
+            return False
 
-            # 找到另一条invoice
-            other_invoice = None
-            for inv in all_invoices:
-                if inv.id != invoice_id:
-                    other_invoice = inv
-                    break
+        other_invoice = other_invoices[0]
 
-            if not other_invoice:
-                return
+        # 检查另一条的invoicestatusv2是否所有状态都是unstarted
+        status_records = InvoiceStatusv2.objects.filter(
+            invoice_id=other_invoice.id,
+            invoice_type="receivable"
+        )
 
-            # 检查另一条的invoicestatusv2
-            status_exists = InvoiceStatusv2.objects.filter(
-                invoice_id=other_invoice.id,
-                invoice_type="receivable"
-            ).exists()
+        all_unstarted = True
+        for status in status_records:
+            if (status.preport_status != "unstarted" or
+                status.warehouse_public_status != "unstarted" or
+                status.warehouse_other_status != "unstarted" or
+                status.delivery_public_status != "unstarted" or
+                status.delivery_other_status != "unstarted" or
+                status.finance_status != "unstarted"):
+                all_unstarted = False
+                break
 
-            if not status_exists:
-                # 没有状态记录，删除另一条
-                InvoiceItemv2.objects.filter(invoice_number_id=other_invoice.id).delete()
-                other_invoice.delete()
-                return
+        if not all_unstarted:
+            return False
 
-            # 检查是否所有状态都是unstarted
-            status_records = InvoiceStatusv2.objects.filter(
-                invoice_id=other_invoice.id,
-                invoice_type="receivable"
-            )
+        # 检查是否有 invoice_item 记录
+        invoice_items = InvoiceItemv2.objects.filter(invoice_number_id=other_invoice.id)
 
-            all_unstarted = True
-            for status in status_records:
-                if (status.preport_status != "unstarted" or
-                    status.warehouse_public_status != "unstarted" or
-                    status.warehouse_other_status != "unstarted" or
-                    status.delivery_public_status != "unstarted" or
-                    status.delivery_other_status != "unstarted" or
-                    status.finance_status != "unstarted"):
-                    all_unstarted = False
-                    break
+        # 如果有 invoice_item，绑定到当前 invoice_id，并更新主账单
+        if invoice_items.exists():
+            invoice_items.update(invoice_number_id=invoice_id)
+            # 更新主账单
+            invoice = Invoicev2.objects.select_related('container_number').filter(id=invoice_id)
+            self._update_invoice_total(invoice, invoice.container_number, True)
 
-            if all_unstarted:
-                # 所有状态都是unstarted，删除另一条
-                InvoiceItemv2.objects.filter(invoice_number_id=other_invoice.id).delete()
-                status_records.delete()
-                other_invoice.delete()
+        # 删除 status_records（如果存在）
+        if status_records.exists():
+            status_records.delete()
 
-        except Exception:
-            pass
+        # 删除 other_invoice
+        other_invoice.delete()
+
+        return True
 
     def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
         raw = request.POST.get("selectedInvoiceIds", "[]")
@@ -2051,7 +2043,7 @@ class ReceivableAccounting(View):
             # 如果是从fix_account_entry来的，先检查并删除另一条invoice
             if source_page == "fix_account_entry":
                 for invoice_id in invoice_id_list:
-                    self._check_and_delete_other_invoice(invoice_id)
+                    self._rollback_check_and_delete_other_invoice(invoice_id)
 
             # 重开时，把是组合柜额外费用类型的记录删除，因为再开的时候会重新生成
             InvoiceItemv2.objects.filter(
