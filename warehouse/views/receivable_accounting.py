@@ -5827,6 +5827,7 @@ class ReceivableAccounting(View):
                         'finance_status': finance_status,
                         'has_invoice': True,
                         'cancel_notification': o.cancel_notification,
+                        'invoice_link': invoice.invoice_link,
                     }
 
                     if finance_status != "completed":
@@ -5864,11 +5865,40 @@ class ReceivableAccounting(View):
             if data['container_number__container_number']:
                 previous_container_numbers.add(data['container_number__container_number'])
         
-        # 过滤未开列表
-        filtered_order_data_list = []
+        # 第一步过滤：去掉已经在已开列表中的柜子
+        temp_list = []
         for data in order_data_list:
             if data['container_number__container_number'] not in previous_container_numbers:
-                filtered_order_data_list.append(data)
+                temp_list.append(data)
+        
+        # 第二步过滤：如果同一个柜子有多条记录，且其中有invoice_link的记录，保留有invoice_link的，去掉没有的
+        # 先按柜号分组
+        container_records = defaultdict(list)
+        for data in temp_list:
+            container_num = data['container_number__container_number']
+            container_records[container_num].append(data) 
+        
+        filtered_order_data_list = []
+        for container_num, records in container_records.items():
+            if len(records) == 1:
+                # 只有一条记录，直接保留
+                filtered_order_data_list.append(records[0])
+            else:
+                # 多条记录，检查是否有invoice_link
+                has_link_records = []
+                no_link_records = []
+                for record in records:
+                    if record.get('invoice_link'):
+                        has_link_records.append(record)
+                    else:
+                        no_link_records.append(record)
+                
+                if has_link_records:
+                    # 有invoice_link的记录，只保留这些
+                    filtered_order_data_list.extend(has_link_records)
+                else:
+                    # 都没有invoice_link，全部保留
+                    filtered_order_data_list.extend(records)
         
         existing_customers = Customer.objects.all().order_by("zem_name")
         
