@@ -126,7 +126,7 @@ class InvoiceStatusv2(models.Model):
         default="unstarted",
         choices=[
             ("unstarted", "未开始"),
-            ("tobeconfirmed", "待确认"),
+            ("tobeconfirmed", "回退"),
             ("completed", "已完成"),
         ]
     )    
