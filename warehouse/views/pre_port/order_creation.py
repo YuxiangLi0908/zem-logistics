@@ -1349,6 +1349,7 @@ class OrderCreation(View):
         offload_data = {
             "offload_id": offload_id,
             "offload_at": created_at,
+            "offload_other_at": created_at,
             "offload_required": True ,
             'total_pallet': pallets,
         }
@@ -1578,6 +1579,7 @@ class OrderCreation(View):
         offload_data = {
             "offload_id": offload_id,
             "offload_at": created_at,
+            "offload_other_at": created_at,
             "offload_required": True ,
             'total_pallet': pallets,
         }
