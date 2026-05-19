@@ -303,6 +303,8 @@
                 <option value="QuotationMaster" {% if table_name == 'QuotationMaster' %}selected{% endif %}>QuotationMaster - 报价主表</option>
                 <option value="TransferLocation" {% if table_name == 'TransferLocation' %}selected{% endif %}>TransferLocation - 转运位置</option>
                 <option value="Vessel" {% if table_name == 'Vessel' %}selected{% endif %}>Vessel - 船运信息</option>
+                <option value="Offload" {% if table_name == 'Offload' %}selected{% endif %}>Offload - 卸柜信息</option>
+                <option value="Retrieval" {% if table_name == 'Retrieval' %}selected{% endif %}>Retrieval - 提柜信息</option>
             </select>
 
             <select name="search_field" class="search-select" required id="search_field_select">
@@ -570,6 +572,14 @@
             'Vessel': [
                 ['id', 'ID'],
                 ['vessel', '船名']
+            ],
+            'Offload': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'Retrieval': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
             ]
         };
         
