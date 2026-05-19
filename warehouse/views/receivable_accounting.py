@@ -5763,7 +5763,7 @@ class ReceivableAccounting(View):
                 # 只有 other，offload_other_at 有就行
                 return offload.offload_other_at is not None
             else:
-                raise ValueError('没有找到该柜下的 packinglist')
+                return False
     
     def handle_fix_account_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         '''应收账单——固定费用管理查询'''
