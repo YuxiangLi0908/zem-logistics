@@ -30,7 +30,7 @@
             </button>
         </div>
         <div style="font-size: 12px; color: #888; margin-top: 4px;">
-            注：仅 LA 仓库需要拆分公/私仓
+            注：仅 LA,SAV 仓库需要拆分公/私仓
         </div>
     </form>
 
@@ -319,7 +319,7 @@
                             <td class="td">{{ c.customer_name }}</td>
                             <td class="td">{{ c.container_number.container_type }}</td>
                             <td class="td">{{ c.offload_id.offload_at|date:"M-j" }}</td>
-                            {% if 'LA' in warehouse %}
+                            {% if 'LA' in warehouse or 'SAV' in warehouse %}
                                 <td class="td">{{ c.offload_id.public_total_pallet }}</td>
                             {% else %}
                                 <td class="td">{{ c.offload_id.total_pallet }}</td>
@@ -454,6 +454,28 @@
                                     <form method="post" action="">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="cancel_la_public">
+                                        <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
+                                        <button type="submit" class="btn btn-danger" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
+                                            <i class="bi bi-x-octagon"></i>
+                                        </button>
+                                    </form>
+                                {% elif 'SAV' in warehouse and storehouse == 'public' %}
+                                    <form method="post" action="">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="cancel_sav_public">
+                                        <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
+                                        <button type="submit" class="btn btn-danger" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
+                                            <i class="bi bi-x-octagon"></i>
+                                        </button>
+                                    </form>
+                                {% elif 'SAV' in warehouse and storehouse == 'other' %}
+                                    <form method="post" action="">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="cancel_sav_other">
                                         <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <input type="hidden" name="storehouse" value="{{ storehouse }}">

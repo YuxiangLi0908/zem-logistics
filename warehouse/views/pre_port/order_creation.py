@@ -609,40 +609,30 @@ class OrderCreation(View):
         return self.template_order_create_supplement, context
 
     async def handle_order_management_list_get(
-        self,
-        start_date_eta: str = None,
-        end_date_eta: str = None,
-        start_date_etd: str = None,
-        end_date_etd: str = None,
+            self,
+            start_date_eta: str = None,
+            end_date_eta: str = None,
+            start_date_etd: str = None,
+            end_date_etd: str = None,
     ) -> tuple[Any, Any]:
-        start_date_eta = (
-            (datetime.now().date() + timedelta(days=-30)).strftime("%Y-%m-%d")
-            if not start_date_eta and not start_date_etd
-            else start_date_eta
-        )
-        end_date_eta = (
-            (datetime.now().date() + timedelta(days=30)).strftime("%Y-%m-%d")
-            if not end_date_eta and not end_date_etd
-            else end_date_eta
-        )
+        # 默认时间：ETA 最近30天
+        if not start_date_eta and not start_date_etd:
+            start_date_eta = (datetime.now().date() + timedelta(days=-30)).strftime("%Y-%m-%d")
+        if not end_date_eta and not end_date_etd:
+            end_date_eta = (datetime.now().date() + timedelta(days=30)).strftime("%Y-%m-%d")
+
         criteria = None
         if start_date_eta and end_date_eta:
-            criteria = (models.Q(
-                vessel_id__vessel_eta__gte=start_date_eta,
-                vessel_id__vessel_eta__lte=end_date_eta,
-            ) | models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta))
-        if start_date_etd:
-            if end_date_etd:
-                if criteria == None:
-                    criteria = models.Q(
-                        vessel_id__vessel_etd__gte=start_date_etd,
-                        vessel_id__vessel_etd__lte=end_date_etd,
-                    )
-                else:
-                    criteria &= models.Q(
-                        vessel_id__vessel_etd__gte=start_date_etd,
-                        vessel_id__vessel_etd__lte=end_date_etd,
-                    )
+            criteria = (
+                    models.Q(vessel_id__vessel_eta__gte=start_date_eta, vessel_id__vessel_eta__lte=end_date_eta) |
+                    models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta)
+            )
+
+        if start_date_etd and end_date_etd:
+            etd_q = models.Q(vessel_id__vessel_etd__gte=start_date_etd, vessel_id__vessel_etd__lte=end_date_etd)
+            criteria = criteria & etd_q if criteria else etd_q
+
+        # 查询订单
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id",
@@ -651,43 +641,92 @@ class OrderCreation(View):
                 "retrieval_id",
                 "offload_id",
                 "warehouse",
-            ).filter(criteria)
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(criteria if criteria else models.Q())
         )
-        # 判断一下柜子的状态
+
+        # 遍历设置状态
         for order in orders:
+            status = "未知"
+
+            # 1. 已取消
             if order.cancel_notification:
                 status = "已取消"
+
+            # 2. T49 待追踪
             elif not order.add_to_t49:
                 status = "T49待追踪"
+
             else:
-                if not order.retrieval_id.actual_retrieval_timestamp:
-                    if not order.retrieval_id.retrieval_carrier:
+                ret = order.retrieval_id
+                offload = order.offload_id
+                container = order.container_number
+
+                # 安全判断：防止 None 报错
+                if not ret:
+                    status = "未设置提柜信息"
+                    order.status = status
+                    continue
+
+                # 3. 未设置实际提柜时间
+                if not ret.actual_retrieval_timestamp:
+                    if not ret.retrieval_carrier:
                         status = "待预约提柜"
                     else:
                         status = "待确认提柜"
+
+                # 4. 已提柜，未到仓
+                elif not ret.arrive_at_destination:
+                    status = "待确认到仓"
+
+                # 5. 已到仓 → 拆柜逻辑
                 else:
-                    if not order.retrieval_id.arrive_at_destination:
-                        status = "待确认到仓"
-                    else:
-                        if order.retrieval_id.retrieval_destination_area == "LA":
-                            if not order.offload_id.offload_at and not order.offload_id.offload_other_at:
+                    # 取出当前柜子所有托盘的 delivery_type
+                    packing_list = await sync_to_async(list)(container.packinglist_set.all())
+                    delivery_types = [p.delivery_type for p in packing_list if p.delivery_type]
+
+                    has_public = "public" in delivery_types
+                    has_other = "other" in delivery_types
+                    all_public = all(d == "public" for d in delivery_types) if delivery_types else False
+                    all_other = all(d == "other" for d in delivery_types) if delivery_types else False
+
+                    # 判断地区：LA / SAV
+                    if ret.retrieval_destination_area in ["LA", "SAV"]:
+
+                        # 既有公仓也有私仓
+                        if has_public and has_other:
+                            if not offload.offload_at and not offload.offload_other_at:
                                 status = "公仓，私仓待确认拆柜"
-                            elif order.offload_id.offload_at and not order.offload_id.offload_other_at:
+                            elif offload.offload_at and not offload.offload_other_at:
                                 status = "公仓已拆柜，私仓未拆柜"
-                            elif not order.offload_id.offload_at and order.offload_id.offload_other_at:
+                            elif not offload.offload_at and offload.offload_other_at:
                                 status = "公仓未拆柜，私仓已拆柜"
-                            elif order.offload_id.offload_at and order.offload_id.offload_other_at:
+                            elif offload.offload_at and offload.offload_other_at:
                                 status = "已拆柜"
+
+                        # 全部公仓
+                        elif all_public:
+                            if not offload.offload_at:
+                                status = "公仓待确认拆柜"
                             else:
-                                status = "未知"
+                                status = "已拆柜"
+
+                        # 全部私仓
+                        elif all_other:
+                            if not offload.offload_other_at:
+                                status = "私仓待确认拆柜"
+                            else:
+                                status = "已拆柜"
+
+                    # 其他地区
+                    else:
+                        if not offload.offload_at:
+                            status = "待确认拆柜"
                         else:
-                            if not order.offload_id.offload_at:
-                                status = "待确认拆柜"
-                            elif order.offload_id.offload_at:
-                                status = "已拆柜"
-                            else:
-                                status = "未知"
+                            status = "已拆柜"
+
             order.status = status
+
         context = {
             "orders": orders,
             "start_date_eta": start_date_eta,
@@ -695,6 +734,7 @@ class OrderCreation(View):
             "start_date_etd": start_date_etd,
             "end_date_etd": end_date_etd,
         }
+
         return self.template_order_list, context
 
     async def handle_order_management_container_get(

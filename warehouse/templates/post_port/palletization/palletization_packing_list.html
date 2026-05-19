@@ -200,6 +200,24 @@
                         <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;"
                                 onclick="processForm()">确认
                         </button>
+                    {% elif 'SAV' in warehouse and storehouse == 'public' %}
+                        <input type="hidden" name="step" value="palletize_sav_public">
+                        <input type="datetime-local" name="offload_time" class="form-input"
+                               style="height: 35px; padding: 0 8px;">
+                        <input type="hidden" name="name" value="{{ warehouse }}">
+                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
+                        <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;"
+                                onclick="processForm()">确认
+                        </button>
+                    {% elif 'SAV' in warehouse and storehouse == 'other' %}
+                        <input type="hidden" name="step" value="palletize_sav_other">
+                        <input type="datetime-local" name="offload_time" class="form-input"
+                               style="height: 35px; padding: 0 8px;">
+                        <input type="hidden" name="name" value="{{ warehouse }}">
+                        <input type="hidden" name="storehouse" value="{{ storehouse }}">
+                        <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;"
+                                onclick="processForm()">确认
+                        </button>
                     {% else %}
                         <input type="hidden" name="step" value="palletize">
                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
