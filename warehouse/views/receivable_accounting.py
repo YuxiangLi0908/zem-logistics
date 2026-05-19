@@ -5728,6 +5728,43 @@ class ReceivableAccounting(View):
         })
         return self.template_confirm_entry, context
     
+    def _is_container_unloaded(self, order: 'Order') -> bool:
+        """判断柜子是否拆完柜"""
+        container = order.container_number
+        if not container:
+            raise ValueError('container表没有这个柜子')
+        
+        offload = order.offload_id
+        if not offload:
+            raise ValueError('offload表没有这个柜子')
+        
+        # 判断是否是 LA 的柜子
+        is_la = False
+        if order.retrieval_id and order.retrieval_id.retrieval_destination_precise:
+            if 'LA' in order.retrieval_id.retrieval_destination_precise:
+                is_la = True
+        
+        if not is_la:
+            # 不是 LA 的柜子，只看 offload_at
+            return offload.offload_at is not None
+        else:
+            
+            # 查找该柜下的 packinglist
+            has_public = PackingList.objects.filter(container_number=container, delivery_type='public').exists()
+            has_other = PackingList.objects.filter(container_number=container, delivery_type='other').exists()
+            
+            if has_public and has_other:
+                # 两者都有，需要 offload_at 和 offload_other_at 都有
+                return offload.offload_at is not None and offload.offload_other_at is not None
+            elif has_public:
+                # 只有 public，offload_at 有就行
+                return offload.offload_at is not None
+            elif has_other:
+                # 只有 other，offload_other_at 有就行
+                return offload.offload_other_at is not None
+            else:
+                raise ValueError('没有找到该柜下的 packinglist')
+    
     def handle_fix_account_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         '''应收账单——固定费用管理查询'''
         if not context:
@@ -5852,7 +5889,8 @@ class ReceivableAccounting(View):
                     'has_invoice': False,
                     'cancel_notification': o.cancel_notification,
                 }
-                order_data_list.append(row_data)
+                if self._is_container_unloaded(o):
+                    order_data_list.append(row_data)
             else:
                 # 有invoice，处理每条invoice
                 for invoice in invoices:
@@ -5898,7 +5936,8 @@ class ReceivableAccounting(View):
 
                     if finance_status != "completed":
                         # === 待开 (Order List) ===
-                        order_data_list.append(row_data)
+                        if self._is_container_unloaded(o):
+                            order_data_list.append(row_data)
                     else:
                         # === 已开 (Previous Order List) ===
                         # 计算剩余金额
