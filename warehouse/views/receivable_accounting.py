@@ -2023,10 +2023,17 @@ class ReceivableAccounting(View):
 
         # 删除 other_invoice
         other_invoice.delete()
-
+        # 因为当前这个柜子只有一条账单了，所有财务状态归为未开始，因为未开始的前面账单阶段才显示，回退的不显示
+        status_main = InvoiceStatusv2.objects.get(
+            invoice_id=invoice_id,
+            invoice_type="receivable"
+        )
+        status_main.finance_status = "unstarted"
+        status_main.save()
         return True
 
     def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
+        '''账单回退功能'''
         raw = request.POST.get("selectedInvoiceIds", "[]")
         source_page = request.POST.get("source_page", "")
         try:
