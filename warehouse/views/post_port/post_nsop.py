@@ -12400,7 +12400,7 @@ class PostNsop(View):
         ]
 
     async def _get_order_not_palletized_other_selfpick_cargos(self, warehouse: str) -> Order:
-        """私仓未打板 客户自提"""
+        """私仓未打板"""
         packinglist = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
@@ -12459,7 +12459,7 @@ class PostNsop(View):
         ]
 
     async def _get_order_palletized_other_selfpick_cargos(self, warehouse: str) -> Order:
-        """私仓已打板 客户自提"""
+        """私仓已打板"""
         pallet = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
