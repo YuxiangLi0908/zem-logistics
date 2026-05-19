@@ -2048,6 +2048,13 @@ class ReceivableAccounting(View):
             return self.handle_confirm_entry_post(request, context)
 
         with transaction.atomic():
+            status_updated = InvoiceStatusv2.objects.filter(
+                invoice_id__in=invoice_id_list,
+                invoice_type="receivable",
+            ).update(
+                finance_status="tobeconfirmed"
+            )
+
             # 如果是从fix_account_entry来的，先检查并删除另一条invoice
             if source_page == "fix_account_entry":
                 for invoice_id in invoice_id_list:
@@ -2058,13 +2065,6 @@ class ReceivableAccounting(View):
                 invoice_number_id__in=invoice_id_list,
                 item_category='combina_extra_fee'
             ).delete()
-
-            status_updated = InvoiceStatusv2.objects.filter(
-                invoice_id__in=invoice_id_list,
-                invoice_type="receivable",
-            ).update(
-                finance_status="tobeconfirmed"
-            )
 
             invoice_updated = Invoicev2.objects.filter(
                 id__in=invoice_id_list
