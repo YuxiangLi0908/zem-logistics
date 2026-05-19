@@ -669,12 +669,24 @@ class OrderCreation(View):
                     if not order.retrieval_id.arrive_at_destination:
                         status = "待确认到仓"
                     else:
-                        if not order.offload_id.offload_at:
-                            status = "待确认拆柜"
-                        elif order.offload_id.offload_at:
-                            status = "已拆柜"
+                        if order.retrieval_id.retrieval_destination_area == "LA":
+                            if not order.offload_id.offload_at and not order.offload_id.offload_other_at:
+                                status = "公仓，私仓待确认拆柜"
+                            elif order.offload_id.offload_at and not order.offload_id.offload_other_at:
+                                status = "公仓已拆柜，私仓未拆柜"
+                            elif not order.offload_id.offload_at and order.offload_id.offload_other_at:
+                                status = "公仓未拆柜，私仓已拆柜"
+                            elif order.offload_id.offload_at and order.offload_id.offload_other_at:
+                                status = "已拆柜"
+                            else:
+                                status = "未知"
                         else:
-                            status = "未知"
+                            if not order.offload_id.offload_at:
+                                status = "待确认拆柜"
+                            elif order.offload_id.offload_at:
+                                status = "已拆柜"
+                            else:
+                                status = "未知"
             order.status = status
         context = {
             "orders": orders,
