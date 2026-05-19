@@ -52,6 +52,8 @@ from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
+from warehouse.models.offload import Offload
+from warehouse.models.retrieval import Retrieval
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from django.db import transaction
 from asgiref.sync import sync_to_async
@@ -3109,6 +3111,8 @@ class ExceptionHandling(View):
             'QuotationMaster': QuotationMaster,
             'TransferLocation': TransferLocation,
             'Vessel': Vessel,
+            'Offload': Offload,
+            'Retrieval': Retrieval,
         }
         
         return model_map.get(table_name)
@@ -3116,6 +3120,29 @@ class ExceptionHandling(View):
     async def query_table_data_all(self, table_name: str, search_field: str, search_value: str):
         """查询表数据 - 返回所有匹配的记录（支持普通模型和历史表）"""
         try:
+            # 特殊处理：Offload 和 Retrieval 表，先从 Order 表找，然后通过外键找到
+            if table_name in ['Offload', 'Retrieval'] and search_field == 'container_number':
+                def get_special_records():
+                    # 先查找 Order 表中匹配的记录
+                    orders = Order.objects.filter(container_number__container_number__icontains=search_value)
+                    if not orders.exists():
+                        return []
+                    
+                    # 获取所有唯一的外键ID
+                    if table_name == 'Offload':
+                        offload_ids = orders.values_list('offload_id', flat=True).distinct()
+                        offload_ids = [oid for oid in offload_ids if oid is not None]
+                        records = list(Offload.objects.filter(id__in=offload_ids).values())
+                    else:  # Retrieval
+                        retrieval_ids = orders.values_list('retrieval_id', flat=True).distinct()
+                        retrieval_ids = [rid for rid in retrieval_ids if rid is not None]
+                        records = list(Retrieval.objects.filter(id__in=retrieval_ids).values())
+                    
+                    logger.info(f"查询 {table_name}（通过Order表）成功，结果数：{len(records)}")
+                    return records
+                
+                return await sync_to_async(get_special_records)()
+
             # 根据表名获取模型/历史管理器
             model = await self.get_model_by_name(table_name)
             if not model:
@@ -3205,6 +3232,8 @@ class ExceptionHandling(View):
             'QuotationMaster': QuotationMaster,
             'TransferLocation': TransferLocation,
             'Vessel': Vessel,
+            'Offload': Offload,
+            'Retrieval': Retrieval,
         }
         
         if table_name not in model_map:
@@ -3447,6 +3476,14 @@ class ExceptionHandling(View):
             'Vessel': [
                 ('id', 'ID'),
                 ('vessel', 'vessel')
+            ],
+            'Offload': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'Retrieval': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
             ]
         }
         
