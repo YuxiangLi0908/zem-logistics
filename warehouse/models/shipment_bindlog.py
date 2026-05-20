@@ -15,11 +15,25 @@ class ShipmentBindingLog(models.Model):
         ('packing_list', 'PackingList'),
     ]
     
+    # 约类型（主约还是实际约）
+    SHIPMENT_TYPE_CHOICES = [
+        ('master', '主约'),
+        ('actual', '实际约'),
+    ]
+    
     # 基础字段
     operation_type = models.CharField(
         max_length=20,
         choices=OPERATION_TYPE_CHOICES,
         verbose_name='操作类型'
+    )
+    
+    shipment_type = models.CharField(
+        max_length=20,
+        choices=SHIPMENT_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='约类型'
     )
     
     po_type = models.CharField(
