@@ -2890,20 +2890,41 @@ class ExceptionHandling(View):
         
         # 批量更新
         packinglists_to_update = []
+        log_groups = {}  # 按container_number和PO_ID分组
+        
         async for packinglist in empty_packinglists:
             empty_count += 1
             packinglist.shipment_batch_number = shipment
             packinglist.master_shipment_batch_number = shipment
             packinglists_to_update.append(packinglist)
             
-            # 记录日志
+            container_number_val = packinglist.container_number.container_number if packinglist.container_number else None
+            po_id_val = packinglist.PO_ID
+            key = (container_number_val, po_id_val)
+            
+            if key not in log_groups:
+                log_groups[key] = {
+                    'container_number': container_number_val,
+                    'po_id': po_id_val,
+                    'destination': packinglist.destination,
+                    'warehouse': None,  # PackingList没有location字段
+                    'delivery_type': packinglist.delivery_type,
+                }
+        
+        # 记录日志（分组记录）
+        for log_data in log_groups.values():
             await sync_to_async(ShipmentBindingLogger.log_bind)(
                 operator=user,
                 po_type='packing_list',
-                po_id=packinglist.id,
+                po_id=log_data['po_id'],
                 shipment_batch_number=shipment.shipment_batch_number,
                 operation_button='异常处理的上传加塞po文件的上传文件按钮',
                 shipment_type='all',
+                container_number=log_data['container_number'],
+                destination=log_data['destination'],
+                warehouse=log_data['warehouse'],
+                delivery_type=log_data['delivery_type'],
+                skip_get_po_info=True,
             )
         
         if packinglists_to_update:
@@ -3008,17 +3029,39 @@ class ExceptionHandling(View):
         if empty_pallets:
             try:
                 # 批量更新并记录日志
+                log_groups = {}  # 按container_number和PO_ID分组
+                
                 for pallet in empty_pallets:
                     pallet.shipment_batch_number = shipment
                     pallet.master_shipment_batch_number = shipment
-                    # 记录日志
+                    
+                    container_number_val = pallet.container_number.container_number if pallet.container_number else None
+                    po_id_val = pallet.PO_ID
+                    key = (container_number_val, po_id_val)
+                    
+                    if key not in log_groups:
+                        log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': pallet.destination,
+                            'warehouse': pallet.location,
+                            'delivery_type': pallet.delivery_type,
+                        }
+                
+                # 记录日志（分组记录）
+                for log_data in log_groups.values():
                     await sync_to_async(ShipmentBindingLogger.log_bind)(
                         operator=user,
                         po_type='pallet',
-                        po_id=pallet.id,
+                        po_id=log_data['po_id'],
                         shipment_batch_number=shipment.shipment_batch_number,
                         operation_button='异常处理的上传加塞po文件的上传文件按钮',
                         shipment_type='all',
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
                     )
                 
                 # 使用sync_to_async包装批量保存
