@@ -112,6 +112,8 @@ class ShipmentBindingLogger:
         destination: str = None,
         warehouse: str = None,
         shipment_type: str = 'actual',
+        delivery_type: str = None,
+        skip_get_po_info: bool = False,
     ):
         """
         记录绑定操作
@@ -119,35 +121,40 @@ class ShipmentBindingLogger:
         参数:
             operator: 操作用户
             po_type: PO类型 ('pallet' 或 'packing_list')
-            po_id: PO ID
+            po_id: PO ID 或 PO_ID 字段值
             shipment_batch_number: Shipment批次号
             operation_button: 操作按钮名称（可选）
             note: 备注（可选）
             container_number: 柜号（可选，不传则自动获取）
             destination: 仓点（可选，不传则自动获取）
             warehouse: 仓库（可选，不传则自动获取）
+            delivery_type: 仓库类型（可选，不传则自动获取）
+            skip_get_po_info: 是否跳过通过po_id查询PO信息（默认False）
             
         返回:
             ShipmentBindingLog 对象
         """
-        # 获取PO信息
-        po_info = ShipmentBindingLogger._get_po_info(po_type, po_id)
+        po_display = f"{po_type}-{po_id}"
+        final_delivery_type = delivery_type
         
-        # 如果没有获取到PO信息，也尝试记录
-        if po_info:
-            po_display = po_info['po_display']
-            delivery_type = po_info['delivery_type']
+        # 如果需要获取PO信息
+        if not skip_get_po_info:
+            # 获取PO信息
+            po_info = ShipmentBindingLogger._get_po_info(po_type, po_id)
             
-            # 如果用户没有传这些信息，使用PO的信息
-            if container_number is None:
-                container_number = po_info['container_number']
-            if destination is None:
-                destination = po_info['destination']
-            if warehouse is None:
-                warehouse = po_info['warehouse']
-        else:
-            po_display = f"{po_type}-{po_id}"
-            delivery_type = None
+            # 如果没有获取到PO信息，也尝试记录
+            if po_info:
+                po_display = po_info['po_display']
+                if delivery_type is None:
+                    final_delivery_type = po_info['delivery_type']
+                
+                # 如果用户没有传这些信息，使用PO的信息
+                if container_number is None:
+                    container_number = po_info['container_number']
+                if destination is None:
+                    destination = po_info['destination']
+                if warehouse is None:
+                    warehouse = po_info['warehouse']
         
         # 记录日志
         log = ShipmentBindingLog.objects.create(
@@ -156,7 +163,7 @@ class ShipmentBindingLogger:
             po_id=po_id,
             po_display=po_display,
             shipment_batch_number=shipment_batch_number,
-            delivery_type=delivery_type,
+            delivery_type=final_delivery_type,
             container_number=container_number,
             destination=destination,
             warehouse=warehouse,
@@ -182,6 +189,8 @@ class ShipmentBindingLogger:
         destination: str = None,
         warehouse: str = None,
         shipment_type: str = 'actual',
+        delivery_type: str = None,
+        skip_get_po_info: bool = False,
     ):
         """
         记录解绑操作
@@ -189,41 +198,46 @@ class ShipmentBindingLogger:
         参数:
             operator: 操作用户
             po_type: PO类型 ('pallet' 或 'packing_list')
-            po_id: PO ID
+            po_id: PO ID 或 PO_ID 字段值
             shipment_batch_number: Shipment批次号（可选，不传则自动获取）
             operation_button: 操作按钮名称（可选）
             note: 备注（可选）
             container_number: 柜号（可选，不传则自动获取）
             destination: 仓点（可选，不传则自动获取）
             warehouse: 仓库（可选，不传则自动获取）
+            delivery_type: 仓库类型（可选，不传则自动获取）
+            skip_get_po_info: 是否跳过通过po_id查询PO信息（默认False）
             
         返回:
             ShipmentBindingLog 对象
         """
-        # 获取PO信息
-        po_info = ShipmentBindingLogger._get_po_info(po_type, po_id)
+        po_display = f"{po_type}-{po_id}"
+        final_delivery_type = delivery_type
         
-        # 如果没有获取到PO信息，也尝试记录
-        if po_info:
-            po_display = po_info['po_display']
-            delivery_type = po_info['delivery_type']
+        # 如果需要获取PO信息
+        if not skip_get_po_info:
+            # 获取PO信息
+            po_info = ShipmentBindingLogger._get_po_info(po_type, po_id)
             
-            # 如果用户没有传 shipment_batch_number，从PO获取
-            if shipment_batch_number is None:
-                po = po_info['po']
-                if po.shipment_batch_number:
-                    shipment_batch_number = po.shipment_batch_number.shipment_batch_number
-            
-            # 如果用户没有传这些信息，使用PO的信息
-            if container_number is None:
-                container_number = po_info['container_number']
-            if destination is None:
-                destination = po_info['destination']
-            if warehouse is None:
-                warehouse = po_info['warehouse']
-        else:
-            po_display = f"{po_type}-{po_id}"
-            delivery_type = None
+            # 如果没有获取到PO信息，也尝试记录
+            if po_info:
+                po_display = po_info['po_display']
+                if delivery_type is None:
+                    final_delivery_type = po_info['delivery_type']
+                
+                # 如果用户没有传 shipment_batch_number，从PO获取
+                if shipment_batch_number is None:
+                    po = po_info['po']
+                    if po.shipment_batch_number:
+                        shipment_batch_number = po.shipment_batch_number.shipment_batch_number
+                
+                # 如果用户没有传这些信息，使用PO的信息
+                if container_number is None:
+                    container_number = po_info['container_number']
+                if destination is None:
+                    destination = po_info['destination']
+                if warehouse is None:
+                    warehouse = po_info['warehouse']
         
         # 记录日志
         log = ShipmentBindingLog.objects.create(
@@ -232,7 +246,7 @@ class ShipmentBindingLogger:
             po_id=po_id,
             po_display=po_display,
             shipment_batch_number=shipment_batch_number,
-            delivery_type=delivery_type,
+            delivery_type=final_delivery_type,
             container_number=container_number,
             destination=destination,
             warehouse=warehouse,
