@@ -58,6 +58,9 @@ from warehouse.utils.constants import (
     SP_URL,
     amazon_fba_locations, WAREHOUSE_OPTIONS,
 )
+from warehouse.utils.shipment_binding_utils import (
+    ShipmentBindingLogger,
+)
 
 
 class ShippingManagement(View):
@@ -493,6 +496,7 @@ class ShippingManagement(View):
     async def handle_batch_shipment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''旧版预约出库的批量预约功能，已停用'''
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             file = request.FILES["file"]
@@ -1323,6 +1327,7 @@ class ShippingManagement(View):
     async def handle_appointment_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        '''最根本的预约出库功能'''
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
@@ -1634,9 +1639,18 @@ class ShippingManagement(View):
                         id__in=pl_ids
                     )
                 )
+
                 pl_po_ids = set()
+                # 分组记录日志 - 跟踪哪些组更新了主约
+                pl_log_groups = {}
+                pl_updated_master_keys = set()
+                
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
+                    
+                    container_number_val = pl.container_number.container_number if pl.container_number else None
+                    po_id_val = pl.PO_ID
+                    key = (container_number_val, po_id_val)
                     
                     # 判断是否为主约，默认为True（如果不在 non_master_pl_ids 中）
                     is_master = pl.id not in non_master_pl_ids
@@ -1647,7 +1661,40 @@ class ShippingManagement(View):
                             # 因为一个仓点的主约，每次都是一起更新，所以如果同PO_ID的任意一个没有主约，这个PO_ID下的pl都要更新主约
                             pl_po_ids.add(pl.PO_ID)
                             pl.master_shipment_batch_number = shipment
+                            pl_updated_master_keys.add(key)
+                    
                     container_number.add(pl.container_number.container_number)
+                    
+                    # 记录基础信息（实际约一定更新）
+                    if key not in pl_log_groups:
+                        pl_log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': pl.destination,
+                            'warehouse': None,
+                            'delivery_type': pl.delivery_type,
+                        }
+                
+                # 记录日志：根据是否更新主约决定用all还是actual
+                for key, log_data in pl_log_groups.items():
+                    if key in pl_updated_master_keys:
+                        shipment_type = "all"
+                    else:
+                        shipment_type = "actual"
+                    
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="packing_list",
+                        po_id=log_data['po_id'],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button="最根本的预约出库函数更新PL的约，首约",
+                        shipment_type=shipment_type,
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
+                    )
 
                 if pl_po_ids:
                     await sync_to_async(
@@ -1678,9 +1725,18 @@ class ShippingManagement(View):
                         id__in=plt_ids
                     )
                 )
+
+                # 分组记录日志 - 跟踪哪些组更新了主约
+                plt_log_groups = {}
+                plt_updated_master_keys = set()
+                
                 for p in pallet:
                     p.shipment_batch_number = shipment
                     plt_shipment_po_ids.add(p.PO_ID)
+                    
+                    container_number_val = p.container_number.container_number if p.container_number else None
+                    po_id_val = p.PO_ID
+                    key = (container_number_val, po_id_val)
                     
                     # 判断是否为主约，默认为True（如果不在 non_master_pallet_ids 中）
                     is_master = p.id not in non_master_pallet_ids
@@ -1690,6 +1746,39 @@ class ShippingManagement(View):
                         if p_master_shipment is None:
                             plt_master_po_ids.add(p.PO_ID)
                             p.master_shipment_batch_number = shipment
+                            plt_updated_master_keys.add(key)
+                    
+                    # 记录基础信息（实际约一定更新）
+                    if key not in plt_log_groups:
+                        plt_log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': p.destination,
+                            'warehouse': p.location,
+                            'delivery_type': p.delivery_type,
+                        }
+                
+                # 记录日志：根据是否更新主约决定用all还是actual
+                for key, log_data in plt_log_groups.items():
+                    if key in plt_updated_master_keys:
+                        shipment_type = "all"
+                    else:
+                        shipment_type = "actual"
+                    
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="pallet",
+                        po_id=log_data['po_id'],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button="最根本的预约出库函数更新PLT的约，首约",
+                        shipment_type=shipment_type,
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
+                    )
+                
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
@@ -1851,6 +1940,7 @@ class ShippingManagement(View):
     async def handle_alter_po_shipment_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        '''更新约信息'''
         shipment_batch_number = request.POST.get("shipment_batch_number")
         alter_type = request.POST.get("alter_type")
         shipment = await sync_to_async(
@@ -1881,27 +1971,76 @@ class ShippingManagement(View):
             else:
                 plt_ids = parse_ids(plt_ids_key)
         if alter_type == "add":
+            # 添加PO，更新pl
             container_number = set()
             selections = request.POST.getlist("is_shipment_added")
-            # 添加PO，更新pl
+            
             if pl_ids:
                 packing_list = await sync_to_async(list)(
                     PackingList.objects.select_related("container_number").filter(
                         id__in=pl_ids
                     )
                 )
+
                 pl_master_po_ids = set()
+                # 分组记录日志 - 跟踪哪些组更新了主约
+                pl_log_groups = {}
+                pl_updated_master_keys = set()
+                
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
+                    
+                    container_number_val = pl.container_number.container_number if pl.container_number else None
+                    po_id_val = pl.PO_ID
+                    key = (container_number_val, po_id_val)
+                    
                     pl_master_shipment = await self.get_master_shipment(pl)
                     if pl_master_shipment is None:  # 添加PO时，主约为空就赋值给主约
                         pl_master_po_ids.add(pl.PO_ID)
                         pl.master_shipment_batch_number = shipment
+                        pl_updated_master_keys.add(key)
+                    
                     shipment.total_weight += pl.total_weight_lbs
                     shipment.total_pcs += pl.pcs
                     shipment.total_cbm += pl.cbm
                     shipment.total_pallet += int(pl.cbm / 2)
                     container_number.add(pl.container_number.container_number)
+                    
+                    # 记录基础信息（实际约一定更新）
+                    if key not in pl_log_groups:
+                        pl_log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': pl.destination,
+                            'warehouse': None,
+                            'delivery_type': pl.delivery_type,
+                        }
+                
+                # 记录日志：根据是否更新主约决定用all还是actual
+                for key, log_data in pl_log_groups.items():
+                    if key in pl_updated_master_keys:
+                        shipment_type = "all"
+                    else:
+                        shipment_type = "actual"
+                    if name == "post_nsop":
+                        operation_button = "工作一览添加PO时PL绑定约"
+                    else:
+                        operation_button = "旧预约出库添加PO时PL绑定约"
+                    
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="packing_list",
+                        po_id=log_data['po_id'],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button=operation_button,
+                        shipment_type=shipment_type,
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
+                    )
+                
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
@@ -1930,16 +2069,62 @@ class ShippingManagement(View):
                         id__in=plt_ids
                     )
                 )
+
                 p_master_po_ids = set()  # 需要改主约的
                 p_shipment_po_ids = set()  # 需要改实际约的
+                # 分组记录日志 - 跟踪哪些组更新了主约
+                plt_log_groups = {}
+                plt_updated_master_keys = set()
+                
                 for p in pallet:
                     p.shipment_batch_number = shipment
                     p_shipment_po_ids.add(p.PO_ID)
+                    
+                    container_number_val = p.container_number.container_number if p.container_number else None
+                    po_id_val = p.PO_ID
+                    key = (container_number_val, po_id_val)
 
                     p_master_shipment = await self.get_master_shipment(p)
                     if p_master_shipment is None:
                         p_master_po_ids.add(p.PO_ID)
                         p.master_shipment_batch_number = shipment
+                        plt_updated_master_keys.add(key)
+                    
+                    # 记录基础信息（实际约一定更新）
+                    if key not in plt_log_groups:
+                        plt_log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': p.destination,
+                            'warehouse': p.location,
+                            'delivery_type': p.delivery_type,
+                        }
+                
+                # 记录日志：根据是否更新主约决定用all还是actual
+                for key, log_data in plt_log_groups.items():
+                    if key in plt_updated_master_keys:
+                        shipment_type = "all"
+                    else:
+                        shipment_type = "actual"
+                    if name == "post_nsop":
+                        operation_button = "工作一览添加PO时PLt绑定约"
+                    else:
+                        operation_button = "旧预约出库添加PO时PLt绑定约"
+                    
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="pallet",
+                        po_id=log_data['po_id'],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button=operation_button,
+                        shipment_type=shipment_type,
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
+                    )
+                
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
@@ -2004,13 +2189,23 @@ class ShippingManagement(View):
                         id__in=pl_ids
                     )
                 )
+
                 pl_master_po_ids = set()  # 要移除主约的PO_ID
+                # 分组记录日志 - 跟踪哪些组更新了主约
+                pl_log_groups = {}
+                pl_updated_master_keys = set()
+                
                 for pl in packing_list:
                     fleet_po_ids.add(pl.PO_ID)
                     shipment.total_weight -= pl.total_weight_lbs
                     shipment.total_pcs -= pl.pcs
                     shipment.total_cbm -= pl.cbm
                     shipment.total_pallet -= int(pl.cbm / 2)
+                    
+                    container_number_val = pl.container_number.container_number if pl.container_number else None
+                    po_id_val = pl.PO_ID
+                    key = (container_number_val, po_id_val)
+                    
                     pl_master_shipment = await sync_to_async(
                         lambda: pl.master_shipment_batch_number
                     )()
@@ -2022,9 +2217,47 @@ class ShippingManagement(View):
                         await sync_to_async(
                             lambda: setattr(pl, "master_shipment_batch_number", None)
                         )()
+                        pl_updated_master_keys.add(key)
+                    
                     await sync_to_async(
                         lambda: setattr(pl, "shipment_batch_number", None)
                     )()
+                    
+                    # 记录基础信息（实际约一定更新）
+                    if key not in pl_log_groups:
+                        pl_log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': pl.destination,
+                            'warehouse': None,
+                            'delivery_type': pl.delivery_type,
+                        }
+                
+                # 记录日志：根据是否更新主约决定用all还是actual
+                for key, log_data in pl_log_groups.items():
+                    if key in pl_updated_master_keys:
+                        shipment_type = "all"
+                    else:
+                        shipment_type = "actual"
+                    if name == "post_nsop":
+                        operation_button = "工作一览删除PO时PL解绑约"
+                    else:
+                        operation_button = "旧预约出库删除PO时PL解绑约"
+                    
+                    await sync_to_async(ShipmentBindingLogger.log_unbind)(
+                        operator=request.user,
+                        po_type="packing_list",
+                        po_id=log_data['po_id'],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button=operation_button,
+                        shipment_type=shipment_type,
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
+                    )
+                
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
@@ -2040,11 +2273,20 @@ class ShippingManagement(View):
                 pallet = await sync_to_async(list)(
                     Pallet.objects.select_related("container_number").filter(id__in=plt_ids)
                 )
+
                 plt_master_po_ids = set()  # 需要改主约的
                 plt_shipment_po_ids = set()  # 需要改实际约的
+                # 分组记录日志 - 跟踪哪些组更新了主约
+                plt_log_groups = {}
+                plt_updated_master_keys = set()
+                
                 for plt in pallet:
                     fleet_po_ids.add(plt.PO_ID)
                     plt_shipment_po_ids.add(plt.PO_ID)
+                    
+                    container_number_val = plt.container_number.container_number if plt.container_number else None
+                    po_id_val = plt.PO_ID
+                    key = (container_number_val, po_id_val)
 
                     plt_master_shipment = await sync_to_async(
                         lambda: plt.master_shipment_batch_number
@@ -2055,9 +2297,47 @@ class ShippingManagement(View):
                         await sync_to_async(
                             lambda: setattr(plt, "master_shipment_batch_number", None)
                         )()
+                        plt_updated_master_keys.add(key)
+                    
                     await sync_to_async(
                         lambda: setattr(plt, "shipment_batch_number", None)
                     )()
+                    
+                    # 记录基础信息（实际约一定更新）
+                    if key not in plt_log_groups:
+                        plt_log_groups[key] = {
+                            'container_number': container_number_val,
+                            'po_id': po_id_val,
+                            'destination': plt.destination,
+                            'warehouse': plt.location,
+                            'delivery_type': plt.delivery_type,
+                        }
+                
+                # 记录日志：根据是否更新主约决定用all还是actual
+                for key, log_data in plt_log_groups.items():
+                    if key in plt_updated_master_keys:
+                        shipment_type = "all"
+                    else:
+                        shipment_type = "actual"
+
+                    if name == "post_nsop":
+                        operation_button = "工作一览删除PO时PLt解绑约"
+                    else:
+                        operation_button = "旧预约出库删除PO时PLt解绑约"
+                    
+                    await sync_to_async(ShipmentBindingLogger.log_unbind)(
+                        operator=request.user,
+                        po_type="pallet",
+                        po_id=log_data['po_id'],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button=operation_button,
+                        shipment_type=shipment_type,
+                        container_number=log_data['container_number'],
+                        destination=log_data['destination'],
+                        warehouse=log_data['warehouse'],
+                        delivery_type=log_data['delivery_type'],
+                        skip_get_po_info=True,
+                    )
 
                 await sync_to_async(bulk_update_with_history)(
                     pallet,

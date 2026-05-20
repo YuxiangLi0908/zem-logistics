@@ -54,7 +54,7 @@ from django.db.models import (
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.utils.config import app_config
-from warehouse.utils.shipment_binding_utils import ShipmentBindingPermission, ShipmentBindingLogger
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 import asyncio
 import aiohttp
 from django.http import JsonResponse, HttpResponseForbidden
@@ -4232,18 +4232,6 @@ class PostNsop(View):
         page = request.POST.get("page")
         shipped_pallet_ids = []
         
-        # 权限校验
-        if page in ["ltl_pos", "ltl_history_po"]:
-            # 需要私仓权限
-            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
-                context.update({"error_messages": f"您没有私仓的操作权限"})
-                return await self.handle_fleet_schedule_post(request,context)
-        else:
-            # 需要公仓权限
-            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
-                context.update({"error_messages": f"您没有公仓的操作权限"})
-                return await self.handle_fleet_schedule_post(request,context)
-        
         for plt_id, p_shipped in zip(plt_ids, actual_shipped_pallet):
             # 清理数据：移除空字符串和None
             if not plt_id or not p_shipped:
@@ -4370,7 +4358,7 @@ class PostNsop(View):
                 shipment_type='actual',
                 container_number=log_data['container_number'],
                 destination=first_pl.destination,
-                warehouse=first_pl.location if hasattr(first_pl, 'location') else None,
+                warehouse=None,
                 delivery_type=first_pl.delivery_type,
                 skip_get_po_info=True,
             )

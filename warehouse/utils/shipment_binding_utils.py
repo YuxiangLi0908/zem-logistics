@@ -37,9 +37,21 @@ class ShipmentBindingLogger:
     
     @staticmethod
     def get_beijing_time() -> datetime:
-        """获取北京时间"""
+        """获取北京时间（naive datetime，直接表示北京时间）"""
         beijing_tz = pytz.timezone('Asia/Shanghai')
-        return timezone.now().astimezone(beijing_tz)
+        now_utc = timezone.now()  # 获取当前 aware 的 UTC 时间
+        beijing_time = now_utc.astimezone(beijing_tz)  # 转换为北京时间 aware
+        
+        # 返回 naive datetime，小时、分钟、秒都保留正确的北京时间
+        return datetime(
+            year=beijing_time.year,
+            month=beijing_time.month,
+            day=beijing_time.day,
+            hour=beijing_time.hour,
+            minute=beijing_time.minute,
+            second=beijing_time.second,
+            microsecond=beijing_time.microsecond,
+        )
     
     @staticmethod
     def _get_po_info(po_type: str, po_id: int):
