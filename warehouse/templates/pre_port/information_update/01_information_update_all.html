@@ -466,7 +466,7 @@
                             {% if not warehouse_options %}
                                 <option value="">暂无仓库数据</option>
                             {% else %}
-                                {% for k, v in warehouse_options %}
+                                {% for k, v in warehouse_options.items %}
                                     <option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
                                 {% endfor %}
                             {% endif %}
