@@ -28,6 +28,29 @@ def navbar(context):
         "generous_and_wide": generous_and_wide,
     }
 
+@register.inclusion_tag("palletization.html", takes_context=True)
+def palletization(context):
+    user = context["user"]
+    unpacking_personnel = False
+
+    if user and user.is_authenticated:
+        # 使用线程池执行同步查询
+        try:
+            # 在新线程中执行同步查询
+            unpacking_personnel = _run_in_thread(
+                lambda: Group.objects.filter(
+                    name="unpacking_personnel",
+                    user=user
+                ).exists()
+            )
+        except:
+            unpacking_personnel = False
+
+    return {
+        "user": user,
+        "unpacking_personnel": unpacking_personnel,
+    }
+
 
 def _run_in_thread(sync_func):
     """在新线程中运行同步函数"""
