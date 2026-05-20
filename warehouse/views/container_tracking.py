@@ -645,33 +645,79 @@ class ContainerTracking(View):
                         repair_count = 0
                         if unmatched_pallets:
                             repair_count = len(unmatched_pallets)
+                            # 分组记录日志
+                            log_groups_actual = {}  # 只更新实际约的组
+                            log_groups_all = {}     # 更新主约和实际约的组
+                            
                             for plt in unmatched_pallets:
                                 #如果有主约，就把实际约=主约
                                 if plt.master_shipment_batch_number:
                                     plt.shipment_batch_number = plt.master_shipment_batch_number
-                                    # 记录日志（实际约）
-                                    await sync_to_async(ShipmentBindingLogger.log_bind)(
-                                        operator=user,
-                                        po_type='pallet',
-                                        po_id=plt.id,
-                                        shipment_batch_number=plt.master_shipment_batch_number.shipment_batch_number,
-                                        operation_button='后台管理的系统各种特殊操作的预约表落实到系统，让实际约等于主约',
-                                        shipment_type='actual',
-                                    )
+                                    
+                                    container_number_val = plt.container_number.container_number if plt.container_number else None
+                                    po_id_val = plt.PO_ID
+                                    key = (container_number_val, po_id_val)
+                                    
+                                    if key not in log_groups_actual:
+                                        log_groups_actual[key] = {
+                                            'container_number': container_number_val,
+                                            'po_id': po_id_val,
+                                            'destination': plt.destination,
+                                            'warehouse': plt.location,
+                                            'delivery_type': plt.delivery_type,
+                                            'shipment_batch_number': plt.master_shipment_batch_number.shipment_batch_number,
+                                        }
                                 else:
                                     #如果没有主约，让主约，实际约=这个约
                                     plt.shipment_batch_number = shipment
                                     plt.master_shipment_batch_number = shipment
-                                    # 记录日志（主约和实际约）
-                                    await sync_to_async(ShipmentBindingLogger.log_bind)(
-                                        operator=user,
-                                        po_type='pallet',
-                                        po_id=plt.id,
-                                        shipment_batch_number=shipment.shipment_batch_number,
-                                        operation_button='后台管理的系统各种特殊操作的预约表落实到系统，绑定主约和实际约',
-                                        shipment_type='all',
-                                    )
+                                    
+                                    container_number_val = plt.container_number.container_number if plt.container_number else None
+                                    po_id_val = plt.PO_ID
+                                    key = (container_number_val, po_id_val)
+                                    
+                                    if key not in log_groups_all:
+                                        log_groups_all[key] = {
+                                            'container_number': container_number_val,
+                                            'po_id': po_id_val,
+                                            'destination': plt.destination,
+                                            'warehouse': plt.location,
+                                            'delivery_type': plt.delivery_type,
+                                            'shipment_batch_number': shipment.shipment_batch_number,
+                                        }
                                 await plt.asave()
+                            
+                            # 记录实际约的日志
+                            for log_data in log_groups_actual.values():
+                                await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                    operator=user,
+                                    po_type='pallet',
+                                    po_id=log_data['po_id'],
+                                    shipment_batch_number=log_data['shipment_batch_number'],
+                                    operation_button='后台管理的系统各种特殊操作的预约表落实到系统，让实际约等于主约',
+                                    shipment_type='actual',
+                                    container_number=log_data['container_number'],
+                                    destination=log_data['destination'],
+                                    warehouse=log_data['warehouse'],
+                                    delivery_type=log_data['delivery_type'],
+                                    skip_get_po_info=True,
+                                )
+                            
+                            # 记录all的日志
+                            for log_data in log_groups_all.values():
+                                await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                    operator=user,
+                                    po_type='pallet',
+                                    po_id=log_data['po_id'],
+                                    shipment_batch_number=log_data['shipment_batch_number'],
+                                    operation_button='后台管理的系统各种特殊操作的预约表落实到系统，绑定主约和实际约',
+                                    shipment_type='all',
+                                    container_number=log_data['container_number'],
+                                    destination=log_data['destination'],
+                                    warehouse=log_data['warehouse'],
+                                    delivery_type=log_data['delivery_type'],
+                                    skip_get_po_info=True,
+                                )
 
                             
                         if repair_count > 0:
