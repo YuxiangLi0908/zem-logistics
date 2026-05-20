@@ -34,6 +34,38 @@
         </div>
     </form>
 
+    {% if 'unpacking_personnel' in group_names or request.user.is_superuser %}
+        <div style="margin: 16px 0;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
+                <!-- 下载模板 -->
+                <form method="post" action="" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="download_unpacking">
+                    <button type="submit"
+                            style="padding: 6px 12px; background-color: #165DFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        <i class="fas fa-download"></i> 下载拆柜Excel模板
+                    </button>
+                </form>
+
+                <!-- 上传Excel -->
+                <form method="post" enctype="multipart/form-data"
+                      style="margin:0; display: flex; align-items: center; gap: 8px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="upload_unpacking">
+                    <input type="file" name="excel_file" accept=".xlsx,.xls" required
+                           style="font-size:14px; padding:4px;">
+                    <button type="submit"
+                            style="padding: 6px 12px; background-color: #e53e3e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        <i class="fas fa-upload"></i> 上传拆柜Excel
+                    </button>
+                </form>
+            </div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                模板必须包含：柜号 | 唛头 | 入库箱数 | 打板数 只允许上传LA私仓柜子（其余仓库柜子不支持）
+            </div>
+        </div>
+    {% endif %}
+
     <div id="loading-bar" style="display: none; text-align: center; padding: 10px;">
         <div class="spinner"></div>
         <p style="font-size: 12px; color: #666;">Loading, please wait...</p>

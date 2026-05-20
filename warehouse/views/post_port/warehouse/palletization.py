@@ -6,6 +6,7 @@ import random
 import re
 import string
 import uuid
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 from django.utils import timezone
@@ -13,6 +14,8 @@ from datetime import timedelta
 import barcode
 import pandas as pd
 import pytz
+import openpyxl
+from django.contrib import messages
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
 from django.contrib import messages
@@ -34,10 +37,12 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Cast, Concat
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.template.loader import get_template
 from django.utils import timezone
+from django.utils.encoding import escape_uri_path
+from django.utils.http import content_disposition_header
 from django.views import View
 from PIL import Image
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
@@ -121,6 +126,10 @@ class Palletization(View):
         elif step == "upload_excel":
             template, context = await self.upload_excel_post(request)
             return render(request, template, context)
+        elif step == "download_unpacking":
+            return await self.handle_download_unpacking(request)
+        elif step == "upload_unpacking":
+            return await self.handle_upload_unpacking(request)
         elif step == "upload_warehouse":
             template, context = await self.handle_upload_warehouse_post(request)
             return render(request, template, context)
@@ -273,6 +282,198 @@ class Palletization(View):
             return self.template_pallet_abnormal_records_display, context
         else:
             return self.template_pallet_abnormal, context
+
+    async def handle_download_unpacking(self, request: HttpRequest) -> HttpResponse:
+        """下载 Excel 模板（4列：柜号，唛头，入库箱数，打板数）"""
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "拆柜入库模板"
+
+        headers = ["柜号", "唛头", "入库箱数", "打板数"]
+        ws.append(headers)
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        filename = "拆柜上传模板.xlsx"
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{escape_uri_path(filename)}"
+
+        wb.save(response)
+        return response
+
+    async def handle_upload_unpacking(self, request: HttpRequest) -> HttpResponse:
+        """私仓上传excel进行拆柜【终极版，直接入库】"""
+        from django.http import QueryDict
+        from collections import defaultdict
+        import openpyxl
+        from django.utils import timezone
+        import re
+        import random
+        import string
+
+        if not request.FILES.get("excel_file"):
+            messages.error(request, "请选择上传文件")
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        file = request.FILES["excel_file"]
+        try:
+            wb = openpyxl.load_workbook(file)
+            ws = wb.active
+        except:
+            messages.error(request, "文件格式错误，请上传 .xlsx 或 .xls 文件")
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        try:
+            header = [str(cell.value).strip() for cell in ws[1]]
+        except:
+            header = []
+
+        required = ["柜号", "唛头", "入库箱数", "打板数"]
+        if header != required:
+            messages.error(request, f"模板错误！必须是：{' | '.join(required)}")
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        container_map = defaultdict(list)
+        row_errors = []
+
+        for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            container_number = str(row[0]).strip() if row[0] else ""
+            shipping_mark = str(row[1]).strip() if row[1] else ""
+            pcs = str(row[2]).strip() if row[2] else ""
+            n_pallet = str(row[3]).strip() if row[3] else ""
+
+            if not all([container_number, shipping_mark, pcs, n_pallet]):
+                row_errors.append(f"第{row_num}行：有空值")
+                continue
+
+            try:
+                pcs = int(pcs)
+                n_pallet = int(n_pallet)
+            except:
+                row_errors.append(f"第{row_num}行：箱数/板数必须是数字")
+                continue
+
+            try:
+                packing = await sync_to_async(
+                    PackingList.objects.select_related("container_number").get
+                )(
+                    container_number__container_number=container_number,
+                    shipping_mark=shipping_mark,
+                )
+            except PackingList.DoesNotExist:
+                row_errors.append(f"第{row_num}行：未找到装箱单 {container_number} | {shipping_mark}")
+                continue
+            except Exception as e:
+                row_errors.append(f"第{row_num}行：{str(e)}")
+                continue
+
+            order = await sync_to_async(
+                Order.objects.select_related("offload_id", "retrieval_id", "container_number")
+                .filter(container_number=packing.container_number)
+                .first
+            )()
+
+            if not order:
+                row_errors.append(f"第{row_num}行：未找到订单")
+                continue
+
+            container_map[container_number].append({
+                "packing": packing,
+                "order": order,
+                "pcs": pcs,
+                "n_pallet": n_pallet,
+            })
+
+        success = 0
+        errors = []
+
+        # ======================
+        # 直接在这里执行拆柜，不调用任何外部方法！
+        # 100% 能写入 offload_other_at
+        # ======================
+        for container_no, items in container_map.items():
+            try:
+                order = items[0]["order"]
+                offload = order.offload_id
+                container = order.container_number
+
+                # 已拆柜跳过
+                if offload.offload_other_at:
+                    errors.append(f"{container_no} 已拆柜")
+                    continue
+
+                # 直接设置拆柜时间 ✅
+                now = timezone.now()
+                offload.offload_other_at = now
+                total_pallet = sum(i["n_pallet"] for i in items)
+                offload.other_total_pallet = total_pallet
+
+                if offload.total_pallet is None:
+                    offload.total_pallet = total_pallet
+                else:
+                    offload.total_pallet += total_pallet
+
+                await sync_to_async(offload.save)()
+
+                # 生成托盘数据
+                pallet_data = []
+                for item in items:
+                    packing = item["packing"]
+                    pcs = item["pcs"]
+                    n_pallet = item["n_pallet"]
+
+                    pallet_data += await self._split_pallet(
+                        order,
+                        n_pallet,
+                        pcs,
+                        packing.pcs,
+                        float(packing.cbm or 0),
+                        float(packing.total_weight_lbs or 0),
+                        packing.destination or "",
+                        packing.delivery_method or "",
+                        "other",
+                        packing.note or "",
+                        packing.shipment_batch_number or "",
+                        packing.master_shipment_batch_number or "",
+                        packing.shipping_mark or "",
+                        packing.fba_id or "",
+                        packing.ref_id or "",
+                        packing.PO_ID or "",
+                        order.id,
+                        packing.address or "",
+                        packing.zipcode or "",
+                        packing.contact_name or "",
+                        None,
+                        None,
+                        ""
+                    )
+
+                # 批量保存托盘
+                instances = [Pallet(**d) for d in pallet_data]
+                await sync_to_async(bulk_create_with_history)(instances, Pallet)
+
+                # 更新柜子类型
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(container_number=container)
+                )
+                types = {p.delivery_type for p in pallets if p.delivery_type}
+                if types:
+                    container.delivery_type = types.pop() if len(types) == 1 else "mixed"
+                    await sync_to_async(container.save)()
+
+                await self._ltl_parameter_transfer(container)
+                success += 1
+
+            except Exception as e:
+                errors.append(f"{container_no} 失败：{str(e)}")
+
+        if errors:
+            messages.warning(request, f"成功{success}个，错误：{' | '.join(errors[:5])}")
+        else:
+            messages.success(request, f"✅ 上传拆柜全部成功！{success} 个柜子已完成")
+
+        return redirect(request.META.get("HTTP_REFERER"))
 
     async def handle_daily_operation_get(
         self, warehouse: str = None, include_all: bool = False
