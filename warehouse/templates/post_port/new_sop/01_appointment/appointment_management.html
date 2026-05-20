@@ -436,7 +436,7 @@
                         </td>
                         <td>
                             <select name="origin" id="origin-select">
-                                {% for k, v in warehouse_options.items %}
+                                {% for k, v in warehouse_options %}
                                 <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
                             </select>
@@ -516,7 +516,7 @@
                             <th>发货仓库</th>
                             <td>
                                 <select name="origin" id="editModalOrigin" class="form-select">
-                                    {% for k, v in warehouse_options.items %}
+                                    {% for k, v in warehouse_options %}
                                     <option value="{{ v }}">{{ k }}</option>
                                     {% endfor %}
                                 </select>

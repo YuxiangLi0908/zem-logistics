@@ -122,7 +122,7 @@
                 <input type="hidden" name="step" value="warehouse_daily_get">
                 <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                 <select name="warehouse_filter">
-                    {% for v, d in warehouse_options.items %}
+                    {% for v, d in warehouse_options %}
                         <option value="{{v}}" {% if warehouse == v %}selected{% endif %}>{{d}}</option>
                     {% endfor %}
                 </select>

@@ -277,7 +277,7 @@
         {% endfor %}
         
         let warehouseOptionsHTML = '';
-        {% for key, value in warehouse_options.items %}
+        {% for key, value in warehouse_options %}
             warehouseOptionsHTML += `<option value="{{ value }}">{{ key }}</option>`;
         {% endfor %}
         

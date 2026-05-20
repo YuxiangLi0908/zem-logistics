@@ -458,7 +458,7 @@
         `;
         
         // 添加仓库选项
-        {% for k, v in warehouse_options.items %}
+        {% for k, v in warehouse_options %}
             formHTML += `<option value="{{ v }}">{{ k }}</option>`;
         {% endfor %}
         

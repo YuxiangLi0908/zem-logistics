@@ -273,7 +273,7 @@
                 <label>仓库</label>
                 <select name="warehouse">
                     <option value="">全部</option>
-                    {% for key, value in warehouse_options.items %}
+                    {% for key, value in warehouse_options %}
                     {% if key %}
                     <option value="{{ key }}" {% if warehouse == key %}selected{% endif %}>{{ value }}</option>
                     {% endif %}

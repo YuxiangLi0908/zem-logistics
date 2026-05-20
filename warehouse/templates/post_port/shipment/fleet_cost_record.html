@@ -58,7 +58,7 @@
                     <label class="filter-label"><b>所属仓</b></label>
                     <select name="area" class="form-select"
                             style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
-                        {% for k, v in warehouse_options.items %}
+                        {% for k, v in warehouse_options %}
                             <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
                         {% endfor %}
                     </select>

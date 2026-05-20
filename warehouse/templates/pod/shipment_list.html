@@ -11,7 +11,7 @@
         <input type="text" name="batch_number" value="{{ batch_number }}">
         <b style="margin-right: 5px;">所属仓:</b>
         <select name="area">
-            {% for k, v in warehouse_options.items %}
+            {% for k, v in warehouse_options %}
             <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
