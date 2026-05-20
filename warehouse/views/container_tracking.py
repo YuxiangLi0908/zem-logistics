@@ -21,6 +21,7 @@ from warehouse.models.invoice import Invoice
 from warehouse.models.invoice_details import InvoiceDelivery
 
 from warehouse.views.terminal49_webhook import T49Webhook
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 
 class ContainerTracking(View):
     t49_tracking_url = "https://api.terminal49.com/v2/tracking_requests"
@@ -64,6 +65,7 @@ class ContainerTracking(View):
                 template, context = await self.handle_po_sp_match_search_la(request)
                 return await sync_to_async(render)(request, template, context)
         elif step == "sp_operation":
+            # 这个函数是25年，根据客服表登记的po和约的绑定情况，来帮他们矫正po绑定约的，现在不用了
             warehouse = request.POST.get('warehouse')
             if warehouse == "SAV" or warehouse == "NJ":
                 template, context = await self.handle_sp_operation_get(request)
@@ -360,12 +362,13 @@ class ContainerTracking(View):
     async def handle_sp_operation_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        # NJ/SAV根据客服登记表，批量进行矫正约的实际情况
         warehouse = request.POST.get('warehouse')
         if warehouse == "SAV":
             result = await self._sav_excel_normalization(request)        
         elif warehouse == "NJ":
             result = await self._nj_excel_normalization(request)   
-        match_result = await self.detail_appointment_abnormalities(result['result'])
+        match_result = await self.detail_appointment_abnormalities(result['result'], request.user)
         context = {
             'result': match_result['result'],
             'processed_abnormalities': match_result['processed_abnormalities'],
@@ -378,8 +381,9 @@ class ContainerTracking(View):
     async def handle_sp_operation_la(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        # LA根据客服登记表，批量进行矫正约的实际情况
         result = await self._la_excel_normalization(request)
-        match_result = await self.detail_appointment_abnormalities(result['result'])
+        match_result = await self.detail_appointment_abnormalities(result['result'], request.user)
         context = {
             'result': match_result['result'],
             'processed_abnormalities': match_result['processed_abnormalities'],
@@ -437,7 +441,8 @@ class ContainerTracking(View):
         }
         return self.template_po_sp_match, context
     
-    async def detail_appointment_abnormalities(self, result_dict):
+    async def detail_appointment_abnormalities(self, result_dict, user):
+        # 根据客服表上每个约的实际绑定po在系统做调整
         abnormalities = []
         processed_abnormalities = []  # 记录已处理的异常
         remaining_abnormalities = []  # 记录未处理的异常
@@ -639,15 +644,34 @@ class ContainerTracking(View):
                         
                         repair_count = 0
                         if unmatched_pallets:
+                            repair_count = len(unmatched_pallets)
                             for plt in unmatched_pallets:
                                 #如果有主约，就把实际约=主约
                                 if plt.master_shipment_batch_number:
                                     plt.shipment_batch_number = plt.master_shipment_batch_number
+                                    # 记录日志（实际约）
+                                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                        operator=user,
+                                        po_type='pallet',
+                                        po_id=plt.id,
+                                        shipment_batch_number=plt.master_shipment_batch_number.shipment_batch_number,
+                                        operation_button='后台管理的系统各种特殊操作的预约表落实到系统，让实际约等于主约',
+                                        shipment_type='actual',
+                                    )
                                 else:
                                     #如果没有主约，让主约，实际约=这个约
                                     plt.shipment_batch_number = shipment
                                     plt.master_shipment_batch_number = shipment
-                                await pallet.asave()
+                                    # 记录日志（主约和实际约）
+                                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                        operator=user,
+                                        po_type='pallet',
+                                        po_id=plt.id,
+                                        shipment_batch_number=shipment.shipment_batch_number,
+                                        operation_button='后台管理的系统各种特殊操作的预约表落实到系统，绑定主约和实际约',
+                                        shipment_type='all',
+                                    )
+                                await plt.asave()
 
                             
                         if repair_count > 0:
@@ -869,10 +893,6 @@ class ContainerTracking(View):
                             if not pallet.shipment_batch_number:
                                 # 如果外键为空，归为异常
                                 unmatched_pallets.append(pallet)
-                            # elif pallet.shipment_batch_number.shipment_batch_number == batch_number:
-                            #     matched_pallets.append(pallet)
-                            # else:
-                            #     unmatched_pallets.append(pallet)
                         if unmatched_count:
                             # 异常6：没有关联到正确的预约批次
                             total_count = len(pallets)

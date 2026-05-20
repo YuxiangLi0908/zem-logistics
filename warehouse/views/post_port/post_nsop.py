@@ -54,6 +54,7 @@ from django.db.models import (
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.utils.config import app_config
+from warehouse.utils.shipment_binding_utils import ShipmentBindingPermission, ShipmentBindingLogger
 import asyncio
 import aiohttp
 from django.http import JsonResponse, HttpResponseForbidden
@@ -4223,11 +4224,25 @@ class PostNsop(View):
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        ''' 加塞功能'''
         context = {}
         appointment_id = request.POST.get("add_pallet_ISA")
         plt_ids = request.POST.getlist("plt_ids")
         actual_shipped_pallet = request.POST.getlist("actual_shipped_pallet")
+        page = request.POST.get("page")
         shipped_pallet_ids = []
+        
+        # 权限校验
+        if page in ["ltl_pos", "ltl_history_po"]:
+            # 需要私仓权限
+            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
+                context.update({"error_messages": f"您没有私仓的操作权限"})
+                return await self.handle_fleet_schedule_post(request,context)
+        else:
+            # 需要公仓权限
+            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
+                context.update({"error_messages": f"您没有公仓的操作权限"})
+                return await self.handle_fleet_schedule_post(request,context)
         
         for plt_id, p_shipped in zip(plt_ids, actual_shipped_pallet):
             # 清理数据：移除空字符串和None
@@ -4273,10 +4288,98 @@ class PostNsop(View):
         for pallet in pallets:
             pallet.shipment_batch_number = shipment
             plt_to_update.append(pallet)
+        
+        # 根据 container_number 和 PO_ID 合并记录
+        log_groups = {}
+        for pallet in plt_to_update:
+            container_number = pallet.container_number.container_number if pallet.container_number else None
+            po_id = pallet.PO_ID
+            key = (container_number, po_id)
+            
+            if key not in log_groups:
+                log_groups[key] = {
+                    'container_number': container_number,
+                    'po_id': po_id,
+                    'destination': pallet.destination,
+                    'warehouse': pallet.location,
+                    'delivery_type': pallet.delivery_type,
+                }
+        
+        # 确定 operation_button
+        if page in ["ltl_pos", "ltl_history_po"]:
+            operation_button = "私仓工作一览的加塞按钮"
+        elif page == "arm_appointment":
+            operation_button = "四大仓工作一览的加塞按钮"
+        else:
+            operation_button = "公仓工作一览的加塞按钮"
+        
+        # 记录日志
+        for log_data in log_groups.values():
+            await sync_to_async(ShipmentBindingLogger.log_bind)(
+                operator=request.user,
+                po_type='pallet',
+                po_id=log_data['po_id'],
+                shipment_batch_number=shipment.shipment_batch_number,
+                operation_button=operation_button,
+                shipment_type='actual',
+                container_number=log_data['container_number'],
+                destination=log_data['destination'],
+                warehouse=log_data['warehouse'],
+                delivery_type=log_data['delivery_type'],
+                skip_get_po_info=True,
+            )
+        
         if plt_to_update:
             result = await sync_to_async(bulk_update_with_history)(
                 plt_to_update,
                 Pallet,
+                fields=["shipment_batch_number"],
+            )
+        
+        pl_to_update = []
+        
+        for log_data in log_groups.values():
+            # 查找对应的 PackingList 记录
+            if not log_data['container_number']:
+                continue
+                
+            packing_lists = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    container_number__container_number=log_data['container_number'],
+                    PO_ID=log_data['po_id'],
+                    shipment_batch_number__isnull=True,
+                )
+            )
+            
+            if not packing_lists:
+                continue
+                
+            # 修改约
+            for pl in packing_lists:
+                pl.shipment_batch_number = shipment
+                pl_to_update.append(pl)
+            
+            # 直接记录日志（用第一条记录的信息）
+            first_pl = packing_lists[0]
+            await sync_to_async(ShipmentBindingLogger.log_bind)(
+                operator=request.user,
+                po_type='packing_list',
+                po_id=log_data['po_id'],
+                shipment_batch_number=shipment.shipment_batch_number,
+                operation_button=operation_button,
+                shipment_type='actual',
+                container_number=log_data['container_number'],
+                destination=first_pl.destination,
+                warehouse=first_pl.location if hasattr(first_pl, 'location') else None,
+                delivery_type=first_pl.delivery_type,
+                skip_get_po_info=True,
+            )
+        
+        # 更新 PackingList
+        if pl_to_update:
+            await sync_to_async(bulk_update_with_history)(
+                pl_to_update,
+                PackingList,
                 fields=["shipment_batch_number"],
             )
         if 'error_messages' not in context:
@@ -4284,6 +4387,10 @@ class PostNsop(View):
         page = request.POST.get("page")
         if page == "arm_appointment":
             return await self.handle_unscheduled_pos_post(request,context)
+        elif page == "ltl_pos":
+            return await self.handle_ltl_unscheduled_pos_post(request,context)
+        elif page == "ltl_history_po":
+            return await  self.handle_ltl_history_pos_post(request,context)
         else:
             return await self.handle_fleet_schedule_post(request,context)
     
