@@ -4131,7 +4131,7 @@ class PostNsop(View):
         mutable_post["pickupList"] = None
         warehouse = mutable_post["warehouse"]
         context = {}
-        for key, code in WAREHOUSE_OPTIONS.items():
+        for key, code in warehouse_options():
             if key in warehouse:
                 mutable_post["warehouse"] = code
 

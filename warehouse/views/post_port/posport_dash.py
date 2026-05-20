@@ -70,7 +70,7 @@ class PostportDash(View):
         mutable_post["pickupList"] = None
         area = mutable_post["area"]
 
-        for key, code in WAREHOUSE_OPTIONS.items():
+        for key, code in warehouse_options():
             if key in area:
                 mutable_post["warehouse"] = code
 

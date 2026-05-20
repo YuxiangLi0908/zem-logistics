@@ -68,7 +68,7 @@
                                 
                                 <td>
                                     <select name="origin" id="origin-select-1" class="form-select">
-                                        {% for k, v in warehouse_options.items %}
+                                        {% for k, v in warehouse_options %}
                                             {% if k == "" and v == "" %}
                                                 <option value="" disabled selected hidden>请选择仓库</option>
                                             {% else %}

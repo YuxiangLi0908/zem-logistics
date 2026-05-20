@@ -138,7 +138,7 @@
                         <tr>
                             <td class="td">
                                 <select name="origin" id="origin-select-1" style="font-size: 13px;">
-                                    {% for k, v in warehouse_options.items %}
+                                    {% for k, v in warehouse_options %}
                                     <option value="{{ v }}">{{ k }}</option>
                                     {% endfor %}
                                 </select>
@@ -181,7 +181,7 @@
                         <tr>
                             <td class="td">
                                 <select name="origin" id="origin-select-2" style="font-size: 13px;">
-                                    {% for k, v in warehouse_options.items %}
+                                    {% for k, v in warehouse_options %}
                                     <option value="{{ v }}">{{ k }}</option>
                                     {% endfor %}
                                 </select>
@@ -248,7 +248,7 @@
                             <td class="td"><input type="datetime-local" name="shipment_est_arrival" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
                             <td class="td">
                                 <select name="origin" id="origin-select-3" style="font-size: 13px;">
-                                    {% for k, v in warehouse_options.items %}
+                                    {% for k, v in warehouse_options %}
                                     <option value="{{ v }}" {% if k == shipment.origin %}selected{% endif %}>{{ k }}</option>
                                     {% endfor %}
                                 </select>
@@ -313,7 +313,7 @@
                         <tr>
                             <td class="td">
                                 <select name="origin" id="origin-select-4" style="font-size: 13px;">
-                                    {% for k, v in warehouse_options.items %}
+                                    {% for k, v in warehouse_options %}
                                     <option value="{{ v }}" {% if k == shipment.origin %}selected{% endif %}>{{ k }}</option>
                                     {% endfor %}
                                 </select>

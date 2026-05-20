@@ -28,7 +28,7 @@
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap;">
             <b>选择仓点区域:</b>
             <select name="warehouse_filter" style="width: 120px;">
-                {% for k, v in warehouse_options.items %}
+                {% for k, v in warehouse_options %}
                     {% if warehouse_filter == v %}
                         <option value="{{ v }}" selected>{{ k }}</option>
                     {% else %}

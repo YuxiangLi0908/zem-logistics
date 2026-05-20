@@ -542,7 +542,7 @@
                         <input type="hidden" name="search_value" value="{{ search_value }}">
                         <input type="hidden" name="search_type" value="{{ search_type }}">
                         <select name="origin" class="origin-select" onchange="this.form.submit()">
-                            {% for key, value in warehouse_options.items %}
+                            {% for key, value in warehouse_options %}
                             <option value="{{ value }}" {% if fleet.origin == value %}selected{% endif %}>{{ key }}</option>
                             {% endfor %}
                         </select>
