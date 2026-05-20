@@ -304,14 +304,11 @@ class Palletization(View):
         return response
 
 
-    logger = logging.getLogger(__name__)
+
 
     async def handle_upload_unpacking(self, request: HttpRequest) -> HttpResponse:
         """私仓上传excel进行拆柜【终极版，直接入库】"""
-        from django.http import QueryDict
-        from collections import defaultdict
-        import openpyxl
-        from django.utils import timezone
+        logger = logging.getLogger(__name__)
 
         if not request.FILES.get("excel_file"):
             logger.warning("上传拆柜失败：未选择文件")
