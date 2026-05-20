@@ -19,6 +19,7 @@ class ShipmentBindingLog(models.Model):
     SHIPMENT_TYPE_CHOICES = [
         ('master', '主约'),
         ('actual', '实际约'),
+        ('all', '俩约')
     ]
     
     # 基础字段
