@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import json
+import logging
 import random
 import re
 import string
@@ -302,18 +303,18 @@ class Palletization(View):
         wb.save(response)
         return response
 
+
+    logger = logging.getLogger(__name__)
+
     async def handle_upload_unpacking(self, request: HttpRequest) -> HttpResponse:
         """私仓上传excel进行拆柜【终极版，直接入库】"""
         from django.http import QueryDict
         from collections import defaultdict
         import openpyxl
         from django.utils import timezone
-        import re
-        import random
-        import string
 
         if not request.FILES.get("excel_file"):
-            messages.error(request, "请选择上传文件")
+            logger.warning("上传拆柜失败：未选择文件")
             return redirect(request.META.get("HTTP_REFERER"))
 
         file = request.FILES["excel_file"]
@@ -321,7 +322,7 @@ class Palletization(View):
             wb = openpyxl.load_workbook(file)
             ws = wb.active
         except:
-            messages.error(request, "文件格式错误，请上传 .xlsx 或 .xls 文件")
+            logger.warning("上传拆柜失败：文件格式错误")
             return redirect(request.META.get("HTTP_REFERER"))
 
         try:
@@ -331,7 +332,7 @@ class Palletization(View):
 
         required = ["柜号", "唛头", "入库箱数", "打板数"]
         if header != required:
-            messages.error(request, f"模板错误！必须是：{' | '.join(required)}")
+            logger.warning(f"上传拆柜失败：模板错误，需要 {required}")
             return redirect(request.META.get("HTTP_REFERER"))
 
         container_map = defaultdict(list)
@@ -365,7 +366,7 @@ class Palletization(View):
                 row_errors.append(f"第{row_num}行：未找到装箱单 {container_number} | {shipping_mark}")
                 continue
             except Exception as e:
-                row_errors.append(f"第{row_num}行：{str(e)}")
+                row_errors.append(f"第{row_num}行：查询异常 {str(e)}")
                 continue
 
             order = await sync_to_async(
@@ -388,22 +389,19 @@ class Palletization(View):
         success = 0
         errors = []
 
-        # ======================
-        # 直接在这里执行拆柜，不调用任何外部方法！
-        # 100% 能写入 offload_other_at
-        # ======================
+
+        # 直接执行拆柜逻辑
         for container_no, items in container_map.items():
             try:
                 order = items[0]["order"]
                 offload = order.offload_id
                 container = order.container_number
 
-                # 已拆柜跳过
                 if offload.offload_other_at:
-                    errors.append(f"{container_no} 已拆柜")
+                    errors.append(f"{container_no} 已拆柜，跳过")
                     continue
 
-                # 直接设置拆柜时间 ✅
+                # 设置拆柜时间（一定会写入数据库）
                 now = timezone.now()
                 offload.offload_other_at = now
                 total_pallet = sum(i["n_pallet"] for i in items)
@@ -416,7 +414,7 @@ class Palletization(View):
 
                 await sync_to_async(offload.save)()
 
-                # 生成托盘数据
+                # 生成托盘
                 pallet_data = []
                 for item in items:
                     packing = item["packing"]
@@ -449,7 +447,7 @@ class Palletization(View):
                         ""
                     )
 
-                # 批量保存托盘
+                # 保存托盘
                 instances = [Pallet(**d) for d in pallet_data]
                 await sync_to_async(bulk_create_with_history)(instances, Pallet)
 
@@ -466,12 +464,16 @@ class Palletization(View):
                 success += 1
 
             except Exception as e:
-                errors.append(f"{container_no} 失败：{str(e)}")
+                errors.append(f"{container_no} 拆柜失败：{str(e)}")
+                logger.exception(f"拆柜异常：{container_no}")
 
+        # 最终日志记录
+        if row_errors:
+            logger.warning(f"上传拆柜行错误：{row_errors}")
         if errors:
-            messages.warning(request, f"成功{success}个，错误：{' | '.join(errors[:5])}")
-        else:
-            messages.success(request, f"✅ 上传拆柜全部成功！{success} 个柜子已完成")
+            logger.warning(f"上传拆柜失败：{errors}")
+
+        logger.info(f"上传拆柜完成：成功={success}，失败={len(errors)}")
 
         return redirect(request.META.get("HTTP_REFERER"))
 
@@ -596,7 +598,7 @@ class Palletization(View):
                     "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
                     "warehouse": warehouse,
                     "storehouse": storehouse,
-                    "storehouse_form": {"public": "public", "other": "other"}, "unpacking_personnel": unpacking_personnel,
+                    "storehouse_form": {"public": "public", "other": "other"},
                 }
             else:
                 order_not_palletized, order_palletized, order_with_shipment = (
@@ -636,11 +638,10 @@ class Palletization(View):
                     "storehouse_form": {"public": "public", "other": "other"},
                     "storehouse": storehouse,
                     "warehouse": warehouse,
-                    "unpacking_personnel": unpacking_personnel,
                 }
         else:
             storehouse_form = {"public": "public", "other": "other"}
-            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form, "unpacking_personnel": unpacking_personnel,}
+            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form,}
         return self.template_main, context
 
     async def handle_all_get_palletized(

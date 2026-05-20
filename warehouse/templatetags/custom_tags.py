@@ -34,16 +34,11 @@ def palletization(context):
     unpacking_personnel = False
 
     if user and user.is_authenticated:
-        # 使用线程池执行同步查询
         try:
-            # 在新线程中执行同步查询
             unpacking_personnel = _run_in_thread(
-                lambda: Group.objects.filter(
-                    name="unpacking_personnel",
-                    user=user
-                ).exists()
+                lambda: user.groups.filter(name="unpacking_personnel").exists()
             )
-        except:
+        except Exception:
             unpacking_personnel = False
 
     return {
