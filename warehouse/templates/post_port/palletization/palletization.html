@@ -34,7 +34,7 @@
         </div>
     </form>
 
-    {% if 'unpacking_personnel' in group_names or request.user.is_superuser %}
+    {% if unpacking_personnel or request.user.is_superuser %}
         <div style="margin: 16px 0;">
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
                 <!-- 下载模板 -->
