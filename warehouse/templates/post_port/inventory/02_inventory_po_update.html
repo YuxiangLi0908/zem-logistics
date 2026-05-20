@@ -12,6 +12,7 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="update_po">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
     <input type="hidden" name="plt_ids" value="{{ plt_ids }}">
     <input type="hidden" name="container_number" value="{{ pallet.container }}">
     <input type="hidden" name="is_destroyed" id="is_destroyed" value="False">
@@ -50,7 +51,7 @@
                 </select>
             </td>
             <td class="td">
-                <select name="delivery_type">
+                <select name="delivery_type_new">
                     {% for k, v in delivery_types %}
                     <option value="{{ v }}" {%if v == pallet.delivery_type %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}

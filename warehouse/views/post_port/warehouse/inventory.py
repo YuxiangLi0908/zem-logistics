@@ -567,6 +567,7 @@ class Inventory(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
+        delivery_type = request.POST.get("delivery_type")
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
         pallet = await self._get_inventory_pallet(warehouse, models.Q(id__in=plt_ids))
@@ -582,6 +583,7 @@ class Inventory(View):
             "packing_list": packing_list,
             "pallet": pallet[0],
             "warehouse": warehouse,
+            "delivery_type": delivery_type,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "plt_ids": ",".join([str(i) for i in plt_ids]),
             "delivery_types": [
@@ -657,7 +659,7 @@ class Inventory(View):
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
-        delivery_type_new = request.POST.get("delivery_type")
+        delivery_type_new = request.POST.get("delivery_type_new")
         total_weight_new = round(float(request.POST.get("weight", 0)), 4)
         total_pcs_new = int(request.POST.get("pcs", 0))
         total_cbm_new = round(float(request.POST.get("cbm", 0)), 2)
