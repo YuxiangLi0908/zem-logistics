@@ -26,13 +26,13 @@ from django.views import View
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
+from warehouse.utils.constants import WAREHOUSE_OPTIONS
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    warehouse_mapping = {"NJ": "NJ-07001", "SAV": "SAV-31326", "SAV-31419": "SAV-31419", "SAV-31408": "SAV-31408", "SAV-31322": "SAV-31322", "LA": "LA-91761", "LA-91789": "LA-91789", "LA-91748": "LA-91748", "LA-91766": "LA-91766", "LA-91730": "LA-91730"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         
@@ -70,7 +70,7 @@ class PostportDash(View):
         mutable_post["pickupList"] = None
         area = mutable_post["area"]
 
-        for key, code in self.warehouse_mapping.items():
+        for key, code in WAREHOUSE_OPTIONS.items():
             if key in area:
                 mutable_post["warehouse"] = code
 

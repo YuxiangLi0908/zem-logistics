@@ -34,7 +34,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
-from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 
 
 class Inventory(View):
@@ -52,22 +52,6 @@ class Inventory(View):
     template_inventory_list_and_merge = (
         "post_port/inventory/inventory_list_and_merge.html"
     )
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-        "LA-91730": "LA-91730"
-    }
 
     delivery_type_options = {
         "": "",
@@ -133,15 +117,15 @@ class Inventory(View):
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options, "delivery_type_options": self.delivery_type_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options}
         return self.template_counting_main, context
 
     async def handle_inventory_management_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options, "delivery_type_options": self.delivery_type_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options}
         return self.template_inventory_management_main, context
 
     async def handle_pallet_merge_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options, "delivery_type_options": self.delivery_type_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options}
         return self.template_inventory_list_and_merge, context
 
     async def handle_export_inventory(self, request: HttpRequest) -> HttpResponse:
@@ -244,7 +228,7 @@ class Inventory(View):
             "warehouse": warehouse,
             "delivery_type": delivery_type,
             "delivery_type_options": self.delivery_type_options,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
             "total_cbm": total_cbm,
@@ -307,7 +291,7 @@ class Inventory(View):
 
             updated_count_p = await sync_to_async(update_packinglists)()
             context = {
-                "warehouse_options": self.warehouse_options,
+                "warehouse_options": WAREHOUSE_OPTIONS,
                 "warehouse": warehouse,
                 "delivery_type_options": self.delivery_type_options,
                 "delivery_type": delivery_type,
@@ -363,7 +347,7 @@ class Inventory(View):
         context = {
             "warehouse": warehouse,
             "delivery_type": delivery_type,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "delivery_type_options": self.delivery_type_options,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,

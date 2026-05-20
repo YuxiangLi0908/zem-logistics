@@ -27,7 +27,7 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    SYSTEM_FOLDER,
+    SYSTEM_FOLDER, WAREHOUSE_OPTIONS,
 )
 
 
@@ -35,22 +35,7 @@ from warehouse.utils.constants import (
 class POD(View):
     template_main = "pod/shipment_list.html"
     template_shipment_detail = "pod/shipment_detail.html"
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-        "LA-91730": "LA-91730"
-    }
+
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -81,7 +66,7 @@ class POD(View):
         shipment_list = self._get_not_delivered_shipment()
         context = {
             "shipment_list": shipment_list,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
         }
         return context
 
@@ -183,7 +168,7 @@ class POD(View):
             "fleet_number": fleet_number,
             "batch_number": batch_number,
             "fleet": shipment,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "area": area,
         }
         return context

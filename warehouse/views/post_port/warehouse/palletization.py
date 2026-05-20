@@ -79,17 +79,6 @@ class Palletization(View):
     template_pallet_warehouse_zone = (
         "post_port/palletization/palletization_warehouse_zone.html"
     )
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "LA-91761": "LA-91761",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-    }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -387,7 +376,7 @@ class Palletization(View):
             "shipment": shipment,
             "fleet": fleet,
             "arrived_containers": arrived_containers,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
         }
         return self.template_pallet_daily_operation, context
@@ -616,7 +605,7 @@ class Palletization(View):
             context = {
                 'warehouse': warehouse,
                 "storehouse": storehouse,
-                'warehouse_options': pn.warehouse_options,
+                'warehouse_options': WAREHOUSE_OPTIONS,
                 "storehouse_form": {"public": "public", "other": "other"},
                 "packinglist_not_selfpick_cargos": packinglist_not_selfpick_cargos,
                 "packinglist_selfpick_cargos": packinglist_selfpick_cargos,

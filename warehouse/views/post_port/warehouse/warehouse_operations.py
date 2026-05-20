@@ -46,7 +46,7 @@ from warehouse.utils.constants import (
     SP_URL,
     SP_DOC_LIB,
     SYSTEM_FOLDER,
-    APP_ENV
+    APP_ENV, WAREHOUSE_OPTIONS
 )
 
 class WarehouseOperations(View):
@@ -54,21 +54,7 @@ class WarehouseOperations(View):
     template_upcoming_fleet = "post_port/warehouse_operations/03_upcoming_fleet.html"
     template_counting_pallet = "post_port/warehouse_operations/02_counting_pallet.html"
 
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91730": "LA-91730"
-    }
+
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -249,7 +235,7 @@ class WarehouseOperations(View):
 
     async def warehousing_operation_get(self, request: HttpRequest):
         context = {
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
         }
         return self.template_warehousing_operation, context
 
@@ -393,7 +379,7 @@ class WarehouseOperations(View):
 
         context = {
             'retrieval': retrieval,
-            'warehouse_options': self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             'warehouse': request.POST.get('warehouse_filter'),
             'total_count': total_count,
             'current_time': current_time  # 传递当前时间到前端（可选，用于前端二次验证）
@@ -456,13 +442,13 @@ class WarehouseOperations(View):
     async def handle_counting_pallet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
         return self.template_counting_pallet, context
     
     async def handle_upcoming_fleet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
         return self.template_upcoming_fleet, context
     
 
@@ -768,7 +754,7 @@ class WarehouseOperations(View):
             if plt['delivery_type'] == "other":
                 private_inventory.append(plt)
         context = {
-            'warehouse_options': self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             'warehouse': warehouse,
             'total_inventory': total_inventory,
             'private_inventory': private_inventory,
@@ -1143,7 +1129,7 @@ class WarehouseOperations(View):
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
-            'warehouse_options': self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             'fleets': fleet_data,
             'warehouse': warehouse,
             'shipment_type_filter': shipment_type_filter,
