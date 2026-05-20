@@ -43,6 +43,7 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.maersk_price_rate import MaerskPriceRate
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.shipment_bindlog import ShipmentBindingLog
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)
@@ -81,3 +82,25 @@ admin.site.register(Invoicev2, SimpleHistoryAdmin)
 admin.site.register(InvoiceItemv2, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatusv2, SimpleHistoryAdmin)
 admin.site.register(MaerskPriceRate, SimpleHistoryAdmin)
+
+
+class ShipmentBindingLogAdmin(SimpleHistoryAdmin):
+    list_display = ['operator_username', 'operation_type', 'po_type', 'po_display', 
+                   'shipment_batch_number', 'delivery_type', 'container_number', 
+                   'operation_button', 'operation_time_beijing']
+    list_filter = ['operation_type', 'po_type', 'delivery_type', 'operation_time_beijing', 'operator']
+    search_fields = ['operator_username', 'po_display', 'shipment_batch_number', 'container_number', 'note']
+    readonly_fields = ['operation_time_utc', 'operation_time_beijing', 'operator_username']
+    date_hierarchy = 'operation_time_beijing'
+    
+    def has_add_permission(self, request):
+        return False  # 不允许手动添加
+    
+    def has_change_permission(self, request, obj=None):
+        return False  # 不允许修改
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser  # 只有超级用户可以删除
+
+
+admin.site.register(ShipmentBindingLog, ShipmentBindingLogAdmin)

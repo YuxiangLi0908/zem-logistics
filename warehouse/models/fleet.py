@@ -67,6 +67,7 @@ class Fleet(models.Model):
     fleet_verify_status = models.BooleanField(default=False, null=True, blank=True, verbose_name="ltl录入成本页面核实状态")
     train_related = models.CharField(max_length=50, null=True, blank=True, verbose_name="ltl关联车次为一提多卸")
     check_by_leader = models.BooleanField(default=False, null=True, blank=True, verbose_name="组长是否核对了出库的货物")
+    delivery_type = models.CharField(max_length=255, null=True, blank=True,choices=[('public', '公仓'), ('other', '私仓')],verbose_name='仓库类型')
     history = HistoricalRecords()
 
     class Meta:

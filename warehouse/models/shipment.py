@@ -68,6 +68,7 @@ class Shipment(models.Model):
     is_notified_customer = models.BooleanField(default=False, null=True, blank=True)
     pod_to_customer = models.BooleanField(default=False, null=True, blank=True, verbose_name='LTL是否将POD传给客户')
     is_virtual_sp = models.BooleanField(default=False, null=True, blank=True, verbose_name='虚构的约')
+    delivery_type = models.CharField(max_length=255, null=True, blank=True,choices=[('public', '公仓'), ('other', '私仓')],verbose_name='仓库类型')
     history = HistoricalRecords()
 
     class Meta:
