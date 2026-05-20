@@ -2918,10 +2918,11 @@ class ReceivableAccounting(View):
                     return self.template_invoice_combina_edit, ctx
         
         #查找报价表
-        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
-        if quotation_error:
-            context.update({"error_messages": quotation_error})
-            return self.template_fix_account_entry, context
+        if order.order_type != "直送":
+            quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+            if quotation_error:
+                context.update({"error_messages": quotation_error})
+                return self.template_fix_account_entry, context
         
         # 匹配柜型
         container = Container.objects.get(container_number=order.container_number)
@@ -2930,13 +2931,14 @@ class ReceivableAccounting(View):
             context.update({"error_messages": "柜型格式错误，请修改！"})
             return self.template_fix_account_entry, context
 
-        #然后开始自动计算，先自动计算提拆费
-        if not is_combina:
-            # 非组合才有提拆费
-            self._auto_calculate_pickup_fee(request, order, quotation, context, match, invoice, container)
+        if order.order_type != "直送":
+            #然后开始自动计算，先自动计算提拆费
+            if not is_combina:
+                # 非组合才有提拆费
+                self._auto_calculate_pickup_fee(request, order, quotation, context, match, invoice, container)
 
-        # 再自动计算派送费
-        self._auto_calculate_delivery_fee(request, order, quotation, context, match, invoice, container, is_combina)
+            # 再自动计算派送费
+            self._auto_calculate_delivery_fee(request, order, quotation, context, match, invoice, container, is_combina)
         
         # 其他费用
         if is_combina:       
