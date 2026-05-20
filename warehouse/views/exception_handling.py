@@ -58,6 +58,7 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from django.db import transaction
 from asgiref.sync import sync_to_async
 from warehouse.views.terminal49_webhook import T49Webhook
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -2495,12 +2496,12 @@ class ExceptionHandling(View):
             
             # 查找并更新pallet记录
             pallet_result = await self.update_pallet_records(
-                container_number, destination, shipment, processing_logs, row_number
+                container_number, destination, shipment, processing_logs, row_number, request.user
             )
             
             # 查找并更新packinglist记录  
             packinglist_result = await self.update_packinglist_records(
-                container_number, destination, shipment, processing_logs, row_number
+                container_number, destination, shipment, processing_logs, row_number, request.user
             )
             
             # 分别记录每个表的更新结果
@@ -2832,7 +2833,7 @@ class ExceptionHandling(View):
         return self.template_query_pallet_packinglist, context
 
 
-    async def update_packinglist_records(self,container_number, destination, shipment, processing_logs, row_number):
+    async def update_packinglist_records(self,container_number, destination, shipment, processing_logs, row_number, user):
         """更新packinglist记录"""
         #try:
         result = {'updated': 0, 'message': ''}
@@ -2894,6 +2895,16 @@ class ExceptionHandling(View):
             packinglist.shipment_batch_number = shipment
             packinglist.master_shipment_batch_number = shipment
             packinglists_to_update.append(packinglist)
+            
+            # 记录日志
+            await sync_to_async(ShipmentBindingLogger.log_bind)(
+                operator=user,
+                po_type='packing_list',
+                po_id=packinglist.id,
+                shipment_batch_number=shipment.shipment_batch_number,
+                operation_button='异常处理的上传加塞po文件的上传文件按钮',
+                shipment_type='all',
+            )
         
         if packinglists_to_update:
             #try:
@@ -2934,7 +2945,7 @@ class ExceptionHandling(View):
         #     })
         return {'updated': 0, 'message': f'查询失败: {str(e)}'}
     
-    async def update_pallet_records(self, container_number, destination, shipment, processing_logs, row_number):
+    async def update_pallet_records(self, container_number, destination, shipment, processing_logs, row_number, user):
         """更新pallet记录"""
         #try:
         result = {'updated': 0, 'message': ''}
@@ -2996,10 +3007,19 @@ class ExceptionHandling(View):
         
         if empty_pallets:
             try:
-                # 批量更新
+                # 批量更新并记录日志
                 for pallet in empty_pallets:
                     pallet.shipment_batch_number = shipment
                     pallet.master_shipment_batch_number = shipment
+                    # 记录日志
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=user,
+                        po_type='pallet',
+                        po_id=pallet.id,
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button='异常处理的上传加塞po文件的上传文件按钮',
+                        shipment_type='all',
+                    )
                 
                 # 使用sync_to_async包装批量保存
                 def bulk_update_pallets(pallets):
