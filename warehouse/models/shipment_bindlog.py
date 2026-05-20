@@ -43,7 +43,7 @@ class ShipmentBindingLog(models.Model):
         verbose_name='PO类型'
     )
     
-    po_id = models.IntegerField(verbose_name='PO ID')
+    po_id = models.CharField(max_length=500, null=True, blank=True, verbose_name='PO_ID')
     po_display = models.CharField(max_length=500, null=True, blank=True, verbose_name='PO显示信息')
     
     # Shipment信息
