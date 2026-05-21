@@ -15999,69 +15999,16 @@ class PostNsop(View):
             pallet_count = len(pallets_to_update)
             packinglist_count = len(packinglists_to_update)
             
-            # 按 container_number 和 PO_ID 分组记录 Pallet 日志
-            pallet_log_groups = {}
-            for pallet in pallets_to_update:
-                container_num = pallet.container_number.container_number if pallet.container_number else None
-                po_id = pallet.PO_ID
-                key = (container_num, po_id)
-                
-                if key not in pallet_log_groups:
-                    pallet_log_groups[key] = {
-                        'container_number': container_num,
-                        'po_id': po_id,
-                        'destination': pallet.destination,
-                        'warehouse': pallet.location,
-                        'delivery_type': pallet.delivery_type,
-                    }
-            
-            # 记录 Pallet 日志
-            for log_data in pallet_log_groups.values():
-                await sync_to_async(ShipmentBindingLogger.log_unbind)(
-                    operator=request.user,
-                    po_type='pallet',
-                    po_id=log_data['po_id'],
-                    shipment_batch_number=target_shipment.shipment_batch_number,
-                    operation_button='工作一览的 批次货物核对的 客户端的约核对的 解绑主约按钮',
-                    shipment_type='master',
-                    container_number=log_data['container_number'],
-                    destination=log_data['destination'],
-                    warehouse=log_data['warehouse'],
-                    delivery_type=log_data['delivery_type'],
-                    skip_get_po_info=True,
-                )
-            
-            # 按 container_number 和 PO_ID 分组记录 PackingList 日志
-            pl_log_groups = {}
-            for pl in packinglists_to_update:
-                container_num = pl.container_number.container_number if pl.container_number else None
-                po_id = pl.PO_ID
-                key = (container_num, po_id)
-                
-                if key not in pl_log_groups:
-                    pl_log_groups[key] = {
-                        'container_number': container_num,
-                        'po_id': po_id,
-                        'destination': pl.destination,
-                        'warehouse': None,
-                        'delivery_type': pl.delivery_type,
-                    }
-            
-            # 记录 PackingList 日志
-            for log_data in pl_log_groups.values():
-                await sync_to_async(ShipmentBindingLogger.log_unbind)(
-                    operator=request.user,
-                    po_type='packing_list',
-                    po_id=log_data['po_id'],
-                    shipment_batch_number=target_shipment.shipment_batch_number,
-                    operation_button='工作一览的 批次货物核对的 客户端的约核对的 解绑主约按钮',
-                    shipment_type='master',
-                    container_number=log_data['container_number'],
-                    destination=log_data['destination'],
-                    warehouse=log_data['warehouse'],
-                    delivery_type=log_data['delivery_type'],
-                    skip_get_po_info=True,
-                )
+            # 记录日志
+            await ShipmentBindingLogger.log_shipment_operation_by_objects(
+                operator=request.user,
+                pallets=pallets_to_update,
+                packing_lists=packinglists_to_update,
+                shipment_batch_number=target_shipment.shipment_batch_number,
+                operation_button='工作一览的 批次货物核对的 客户端的约核对的 解绑主约按钮',
+                operation_type='unbind',
+                shipment_type='master'
+            )
             
             # 执行更新操作
             if pallets_to_update:
