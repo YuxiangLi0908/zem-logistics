@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load static custom_filters %}
+
+{% block content %}
+<div class="container-fluid" style="padding: 1.5rem 0;">
+    <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); margin-bottom: 1.5rem;">
+        <div class="card-header" style="background-color: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; padding: 0.75rem 1.25rem;">
+            <h5 style="margin-bottom: 0; font-size: 1.1rem;">约绑定/解绑记录查询</h5>
+        </div>
+        <div class="card-body" style="padding: 1.25rem;">
+            <form method="post" style="width: 100%;">
+                {% csrf_token %}
+                <div class="row" style="display: flex; flex-wrap: wrap; margin-right: -0.75rem; margin-left: -0.75rem; align-items: flex-end;">
+                    
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="start_date" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">开始日期</label>
+                      <input type="date" name="start_date" id="start_date" class="form-control" 
+                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                             value="{{ start_date|default:'' }}">
+                  </div>
+                  
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="end_date" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">结束日期</label>
+                      <input type="date" name="end_date" id="end_date" class="form-control" 
+                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                             value="{{ end_date|default:'' }}">
+                  </div>
+                  
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="shipment_batch_number" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">Shipment批次号</label>
+                      <input type="text" name="shipment_batch_number" id="shipment_batch_number" class="form-control" 
+                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                             placeholder="输入批次号" 
+                             value="{{ shipment_batch_number|default:'' }}">
+                  </div>
+                  
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="po_id" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">PO_ID</label>
+                      <div class="input-group" style="display: flex; flex-wrap: nowrap;">
+                          <input type="text" name="po_id" id="po_id" class="form-control" 
+                                 style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem 0 0 0.25rem;"
+                                 placeholder="输入PO_ID" 
+                                 value="{{ po_id|default:'' }}">
+                          <button type="submit" class="btn btn-primary" style="min-width: 80px; display: inline-block; font-weight: 400; line-height: 1.5; color: #fff; text-align: center; text-decoration: none; vertical-align: middle; cursor: pointer; background-color: #0d6efd; border: 1px solid #0d6efd; padding: 0.375rem 0.75rem; font-size: 0.875rem; border-radius: 0 0.25rem 0.25rem 0;">
+                              <i class="fas fa-search" style="margin-right: 0.25rem;"></i> 查询
+                          </button>
+                      </div>
+                  </div>
+                </div>
+                <input type="hidden" name="step" value="shipment_binding_log_query">
+            </form>
+        </div>
+    </div>
+    
+    {% if logs %}
+    <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);">
+      <div class="card-header" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-bottom: 1px solid rgba(0, 0, 0, 0.125);">
+          <h6 style="margin-bottom: 0; font-size: 1rem;">查询结果</h6>
+      </div>
+      <div class="card-body" style="padding: 0; max-height: 600px; overflow-y: auto;">
+          <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse; table-layout: fixed;">
+                <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
+                    <tr>
+                        <th style="padding: 0.75rem; width: 160px; white-space: nowrap;">操作时间</th>
+                        <th style="padding: 0.75rem; width: 100px;">操作人</th>
+                        <th style="padding: 0.75rem; width: 100px;">操作类型</th>
+                        <th style="padding: 0.75rem; width: 100px;">约类型</th>
+                        <th style="padding: 0.75rem; width: 100px;">PO类型</th>
+                        <th style="padding: 0.75rem; width: 150px;">PO_ID</th>
+                        <th style="padding: 0.75rem; width: 220px;">Shipment批次</th>
+                        <th style="padding: 0.75rem; width: 160px;">柜号</th>
+                        <th style="padding: 0.75rem; width: 120px;">仓点</th>
+                        <th style="padding: 0.75rem; width: 100px;">仓库</th>
+                        <th style="padding: 0.75rem; width: 300px;">操作按钮</th>
+                        <th style="padding: 0.75rem; width: 120px;">备注</th>
+                    </tr>
+                    <tr style="position: sticky; top: 37px; background-color: #f8f9fa;">
+                        <th style="padding: 0.5rem; width: 160px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索时间" oninput="filterTable()" data-column="0">
+                        </th>
+                        <th style="padding: 0.5rem; width: 100px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索操作人" oninput="filterTable()" data-column="1">
+                        </th>
+                        <th style="padding: 0.5rem; width: 100px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索操作类型" oninput="filterTable()" data-column="2">
+                        </th>
+                        <th style="padding: 0.5rem; width: 100px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索约类型" oninput="filterTable()" data-column="3">
+                        </th>
+                        <th style="padding: 0.5rem; width: 100px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索PO类型" oninput="filterTable()" data-column="4">
+                        </th>
+                        <th style="padding: 0.5rem; width: 150px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索PO_ID" oninput="filterTable()" data-column="5">
+                        </th>
+                        <th style="padding: 0.5rem; width: 220px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索批次号" oninput="filterTable()" data-column="6">
+                        </th>
+                        <th style="padding: 0.5rem; width: 160px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索柜号" oninput="filterTable()" data-column="7">
+                        </th>
+                        <th style="padding: 0.5rem; width: 120px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索仓点" oninput="filterTable()" data-column="8">
+                        </th>
+                        <th style="padding: 0.5rem; width: 100px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索仓库" oninput="filterTable()" data-column="9">
+                        </th>
+                        <th style="padding: 0.5rem; width: 300px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索操作按钮" oninput="filterTable()" data-column="10">
+                        </th>
+                        <th style="padding: 0.5rem; width: 120px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索备注" oninput="filterTable()" data-column="11">
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 0.75rem; vertical-align: top; width: 160px;">{{ log.operation_time_beijing|date:"Y-m-d H:i:s" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 100px;">
+                            {% if log.operator %}
+                                {{ log.operator.username }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 100px;">
+                            <span style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; 
+                                {% if log.operation_type == 'bind' %}background-color: #198754; color: white;
+                                {% else %}background-color: #dc3545; color: white;{% endif %}">
+                                {{ log.get_operation_type_display }}
+                            </span>
+                        </td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 100px;">
+                            {% if log.shipment_type %}
+                                {{ log.get_shipment_type_display }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 100px;">{{ log.get_po_type_display }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 150px;">{{ log.po_id|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 220px;">{{ log.shipment_batch_number|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 160px;">{{ log.container_number|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 120px;">{{ log.destination|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 100px;">{{ log.warehouse|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 300px;">{{ log.operation_button|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 120px;">{{ log.note|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+          </div>
+      </div>
+      <div class="card-footer" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-top: 1px solid rgba(0, 0, 0, 0.125);">
+          <small style="color: #6c757d;">共 {{ logs|length }} 条记录</small>
+      </div>
+  </div>
+  {% else %}
+  <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);">
+      <div class="card-body text-center" style="padding: 3rem 1.25rem;">
+          <i class="fas fa-search" style="font-size: 3rem; color: #6c757d; margin-bottom: 1rem;"></i>
+          <p style="color: #6c757d; margin-bottom: 0;">暂无记录，请选择查询条件后点击查询</p>
+      </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function filterTable() {
+    const filters = [];
+    document.querySelectorAll('thead input[type="text"]').forEach(input => {
+        filters.push(input.value.toLowerCase());
+    });
+    
+    document.querySelectorAll('tbody tr').forEach(row => {
+        let showRow = true;
+        const cells = row.querySelectorAll('td');
+
+        filters.forEach((filter, colIndex) => {
+            if (filter && colIndex < cells.length) {
+                const cellText = cells[colIndex].textContent.toLowerCase();
+                if (!cellText.includes(filter)) {
+                    showRow = false;
+                }
+            }
+        });
+        
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

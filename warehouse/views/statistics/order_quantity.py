@@ -33,6 +33,7 @@ from warehouse.models.order import Order
 from warehouse.models.shipment import Shipment
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.models.maersk_price_rate import MaerskPriceRate
+from warehouse.models.shipment_bindlog import ShipmentBindingLog
 from warehouse.utils.constants import MODEL_CHOICES
 
 
@@ -44,6 +45,7 @@ class OrderQuantity(View):
     template_delivery_cost_status = "statistics/delivery_cost_status.html"
     template_timeliness_statistics = "statistics/delivery_timeliness_statistics.html"
     template_maersk_rate = "statistics/maersk_rate.html"
+    template_shipment_binding_log = "statistics/shipment_binding_log.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -63,6 +65,11 @@ class OrderQuantity(View):
             context = {"model_choices": MODEL_CHOICES}
             return await sync_to_async(render)(
                 request, self.template_historical, context
+            )
+        elif step == "shipment_binding_log":
+            context = {}
+            return await sync_to_async(render)(
+                request, self.template_shipment_binding_log, context
             )
         elif step == "profit_analysis":
             if not await self._validate_user_profit(request.user):
@@ -225,6 +232,9 @@ class OrderQuantity(View):
                 "success": "删除成功"
             }
             return await sync_to_async(render)(request, self.template_maersk_rate, context)
+        elif step == "shipment_binding_log_query":
+            template, context = await self.handle_shipment_binding_log_query(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "selection":
             template, context = await self.handle_order_quantity_get(request)
             return await sync_to_async(render)(request, template, context)
@@ -2138,3 +2148,57 @@ class OrderQuantity(View):
         return await sync_to_async(
             lambda: user.groups.filter(name="order_profit").exists()
         )()
+
+    async def handle_shipment_binding_log_query(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """处理 ShipmentBindingLog 查询"""
+        # 获取查询参数
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        shipment_batch_number = request.POST.get("shipment_batch_number", "").strip()
+        po_id = request.POST.get("po_id", "").strip()
+        
+        # 设置默认时间范围：过去一个月到今天
+        today = datetime.today()
+        one_month_ago = today - timedelta(days=30)
+        
+        if not start_date:
+            start_date = one_month_ago.strftime("%Y-%m-%d")
+        if not end_date:
+            end_date = today.strftime("%Y-%m-%d")
+        
+        # 构建查询条件
+        criteria = Q()
+        
+        # 时间范围筛选
+        start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+        end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+        criteria &= Q(operation_time_utc__gte=start_datetime)
+        criteria &= Q(operation_time_utc__lt=end_datetime)
+        
+        # Shipment批次号筛选
+        if shipment_batch_number:
+            criteria &= Q(shipment_batch_number__icontains=shipment_batch_number)
+        
+        # PO_ID筛选
+        if po_id:
+            criteria &= Q(po_id__icontains=po_id)
+        
+        # 查询记录
+        logs = await sync_to_async(list)(
+            ShipmentBindingLog.objects.select_related("operator")
+            .filter(criteria)
+            .order_by("-operation_time_utc")
+        )
+        
+        # 准备返回数据
+        context = {
+            "logs": logs,
+            "start_date": start_date,
+            "end_date": end_date,
+            "shipment_batch_number": shipment_batch_number,
+            "po_id": po_id,
+        }
+        
+        return self.template_shipment_binding_log, context
