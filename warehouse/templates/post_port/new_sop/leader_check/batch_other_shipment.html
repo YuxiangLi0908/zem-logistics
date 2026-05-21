@@ -255,6 +255,7 @@
                     <ul>
                         <li>表头必须包含：柜号、唛头、卡板、CBM、pickup time、承运公司、供应商、预约类型、备注、发货仓库、车次成本、出库时间、送达时间</li>
                         <li>唛头、pickup time 、承运公司、供应商、预约类型、发货仓库 为必填项，默认回传出库单为不回传，默认自动排车</li>
+                        <li>供应商必须是以下之一：ARM, ASH, Lifeng, ZEM, TRANSITO INC, ALLWAYS, ISSY TRUCKING, LLT Freight Inc, AMF, FWT, Fastline, fortune, FOREST SHIPPING USA INC, Forest Shipping New York INC, FUTURE, EAZ, Newworld, 鹏峰, client pickup</li>
                         <li>分组通过空行识别，每组包含一组预约信息和多个柜号信息</li>
                     </ul>
                 </div>
@@ -275,29 +276,22 @@
             <!-- 批量预约按钮 -->
             <form method="post" style="margin-bottom: 24px;">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success" style="width: 200px; {% for group in groups %}{% if group.validation_errors %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}{% endfor %}" {% for group in groups %}{% if group.validation_errors %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}{% endfor %}>
+                <button type="submit" class="btn btn-success" style="width: 200px; {% for group in groups %}{% if group.validation_errors or group.has_error %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}" {% for group in groups %}{% if group.validation_errors or group.has_error %}disabled onclick="alert('存在错误，请先修正')"{% endif %}{% endfor %}>
                     确认批量预约
                 </button>
-                <input type="hidden" name="step" value="batch_shipment_confirm">
+                <input type="hidden" name="step" value="batch_other_shipment_confirm">
                 <input type="hidden" name="group_count" value="{{ groups|length }}">
                 {% for group in groups %}
-                <input type="hidden" name="group_{{ forloop.counter }}_appointment_time" value="{{ group.appointment_time }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_isa" value="{{ group.isa }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_pickup_time" value="{{ group.pickup_time|default:'' }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_pickup_number" value="{{ group.pickup_number|default:'' }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_shipment_id" value="{{ group.shipment_id|default:'' }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_appointment_account" value="{{ group.appointment_account }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_pickup_time" value="{{ group.pickup_time }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_carrier" value="{{ group.carrier }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_supplier" value="{{ group.supplier }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_appointment_type" value="{{ group.appointment_type }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_loading_type" value="{{ group.loading_type }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_car_group" value="{{ group.car_group }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_destination" id="group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_total_weight" value="{{ group.total_weight|default:0 }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_total_pcs" value="{{ group.total_pcs|default:0 }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_total_cbm" value="{{ group.total_cbm|default:0 }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_total_pallet" value="{{ group.total_pallet|default:0 }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_pallet_only" value="{{ group.pallet_only|default:True }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_note" value="{{ group.note|default:'' }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_origin" value="{{ group.origin|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_destination" id="group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_fleet_cost" value="{{ group.fleet_cost|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_departure_time" value="{{ group.departure_time|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_arrival_time" value="{{ group.arrival_time|default:'' }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_container_count" value="{{ group.containers|length }}">
                 {% for container in group.containers %}
                 <input type="hidden" name="group_{{ forloop.parentloop.counter }}_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
@@ -310,7 +304,7 @@
             <div class="card" style="margin-bottom: 24px; border-left: 4px solid {% if group.validation_errors %}#dc3545{% else %}#007bff{% endif %};">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <div>
-                        <h5 style="font-size: 14px; font-weight: 600; color: #333333;">车组{{ group.car_group }} - 分组 {{ forloop.counter }}</h5>
+                        <h5 style="font-size: 14px; font-weight: 600; color: #333333;">分组 {{ forloop.counter }}</h5>
                         {% if group.validation_errors %}
                         <div style="margin-top: 4px; font-size: 12px; color: #dc3545;">
                             <span style="font-weight: 500;">验证错误:</span> {{ group.validation_errors|join:', ' }}
@@ -319,28 +313,21 @@
                     </div>
                     <form method="post" style="display: inline-block;">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 12px; {% if group.validation_errors or group.car_group_has_error %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}" {% if group.validation_errors or group.car_group_has_error %}disabled onclick="alert('车组内存在错误，请先修正')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}>
+                        <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 12px; {% if group.validation_errors or group.has_error %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}" {% if group.validation_errors or group.has_error %}disabled onclick="alert('分组内存在错误，请先修正')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}>
                             预约出库
                         </button>
-                        <input type="hidden" name="step" value="batch_shipment_confirm">
+                        <input type="hidden" name="step" value="batch_other_shipment_confirm">
                         <input type="hidden" name="group_count" value="1">
-                        <input type="hidden" name="group_1_appointment_time" value="{{ group.appointment_time }}">
-                        <input type="hidden" name="group_1_isa" value="{{ group.isa }}">
-                        <input type="hidden" name="group_1_pickup_time" value="{{ group.pickup_time|default:'' }}">
-                        <input type="hidden" name="group_1_pickup_number" value="{{ group.pickup_number|default:'' }}">
-                        <input type="hidden" name="group_1_shipment_id" value="{{ group.shipment_id|default:'' }}">
-                        <input type="hidden" name="group_1_appointment_account" value="{{ group.appointment_account }}">
+                        <input type="hidden" name="group_1_pickup_time" value="{{ group.pickup_time }}">
+                        <input type="hidden" name="group_1_carrier" value="{{ group.carrier }}">
+                        <input type="hidden" name="group_1_supplier" value="{{ group.supplier }}">
                         <input type="hidden" name="group_1_appointment_type" value="{{ group.appointment_type }}">
-                        <input type="hidden" name="group_1_loading_type" value="{{ group.loading_type }}">
-                        <input type="hidden" name="group_1_car_group" value="{{ group.car_group }}">
-                        <input type="hidden" name="group_1_destination" id="single_group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
-                        <input type="hidden" name="group_1_total_weight" value="{{ group.total_weight|default:0 }}">
-                        <input type="hidden" name="group_1_total_pcs" value="{{ group.total_pcs|default:0 }}">
-                        <input type="hidden" name="group_1_total_cbm" value="{{ group.total_cbm|default:0 }}">
-                        <input type="hidden" name="group_1_total_pallet" value="{{ group.total_pallet|default:0 }}">
-                        <input type="hidden" name="group_1_pallet_only" value="{{ group.pallet_only|default:True }}">
                         <input type="hidden" name="group_1_note" value="{{ group.note|default:'' }}">
                         <input type="hidden" name="group_1_origin" value="{{ group.origin|default:'' }}">
+                        <input type="hidden" name="group_1_destination" id="single_group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
+                        <input type="hidden" name="group_1_fleet_cost" value="{{ group.fleet_cost|default:'' }}">
+                        <input type="hidden" name="group_1_departure_time" value="{{ group.departure_time|default:'' }}">
+                        <input type="hidden" name="group_1_arrival_time" value="{{ group.arrival_time|default:'' }}">
                         <input type="hidden" name="group_1_container_count" value="{{ group.containers|length }}">
                         {% for container in group.containers %}
                         <input type="hidden" name="group_1_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
@@ -353,64 +340,44 @@
                     <h6 style="font-size: 12px; font-weight: 600; color: #666666; margin-bottom: 12px;">预约信息</h6>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                         <div>
-                            <span style="font-size: 12px; color: #86909C;">预约时间:</span>
-                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.appointment_time %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.appointment_time }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">ISA:</span>
-                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.isa %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.isa }}</p>
-                        </div>
-                        <div>
                             <span style="font-size: 12px; color: #86909C;">pickup time:</span>
                             <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.pickup_time %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.pickup_time|default:'-' }}</p>
                         </div>
                         <div>
-                            <span style="font-size: 12px; color: #86909C;">PickUp number:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.pickup_number|default:'-' }}</p>
+                            <span style="font-size: 12px; color: #86909C;">承运公司:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.carrier %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.carrier|default:'-' }}</p>
                         </div>
                         <div>
-                            <span style="font-size: 12px; color: #86909C;">Shipment ID:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.shipment_id|default:"无" }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">预约账号:</span>
-                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.appointment_account %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.appointment_account }}</p>
+                            <span style="font-size: 12px; color: #86909C;">供应商:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.supplier %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.supplier|default:'-' }}</p>
                         </div>
                         <div>
                             <span style="font-size: 12px; color: #86909C;">预约类型:</span>
                             <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.appointment_type %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.appointment_type }}</p>
                         </div>
                         <div>
-                            <span style="font-size: 12px; color: #86909C;">装车类型:</span>
-                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.loading_type %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.loading_type }}</p>
+                            <span style="font-size: 12px; color: #86909C;">发货仓库:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.origin %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.origin|default:'-' }}</p>
                         </div>
                         <div>
                             <span style="font-size: 12px; color: #86909C;">目的地:</span>
-                            <input type="text" class="destination-input" data-group-index="{{ forloop.counter }}" data-form-index="{{ forloop.counter }}" value="{{ group.destination|default:'' }}" style="width: 100%; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                            <input type="text" class="destination-input" data-group-index="{{ forloop.counter }}" value="{{ group.destination|default:'' }}" style="width: 100%; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">车次成本:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.fleet_cost|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">出库时间:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.departure_time|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">送达时间:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.arrival_time|default:'-' }}</p>
                         </div>
                         <div>
                             <span style="font-size: 12px; color: #86909C;">备注:</span>
                             <p style="font-size: 14px; font-weight: 500;">{{ group.note|default:'-' }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">仓库:</span>
-                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.origin %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.origin|default:'-' }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">总重量:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_weight|default:0 }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">总件数:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_pcs|default:0 }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">总CBM:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_cbm|default:0 }}</p>
-                        </div>
-                        <div>
-                            <span style="font-size: 12px; color: #86909C;">总板数:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_pallet|default:0 }} {% if not group.pallet_only %}<span style="font-size: 10px; color: #86909C;">(预估)</span>{% else %}<span style="font-size: 10px; color: #86909C;">(实际)</span>{% endif %}</p>
                         </div>
                     </div>
                 </div>
@@ -419,16 +386,13 @@
                 <div>
                     <h6 style="font-size: 12px; font-weight: 600; color: #666666; margin-bottom: 12px;">
                         柜子信息 ({{ group.containers|length }} 个柜)
-                        <span style="font-size: 10px; font-weight: normal; color: #999; margin-left: 8px;">
-                            提示：已打板的按卡板列的板数预约，未打板的全部预约
-                        </span>
                     </h6>
                     <div class="table-responsive">
                         <table class="result-table" style="font-size: 12px;">
                             <thead>
                                 <tr>
                                     <th style="padding: 8px;">柜号</th>
-                                    <th style="padding: 8px;">仓点</th>
+                                    <th style="padding: 8px;">唛头</th>
                                     <th style="padding: 8px;">CBM</th>
                                     <th style="padding: 8px;">卡板</th>
                                     <th style="padding: 8px;">是否打板</th>
@@ -440,11 +404,11 @@
                                 {% for container in group.containers %}
                                 <tr>
                                     <td style="padding: 8px;">{{ container.container_number }}</td>
-                                    <td style="padding: 8px;">{{ container.warehouse }}</td>
+                                    <td style="padding: 8px;">{{ container.mark }}</td>
                                     <td style="padding: 8px;">{{ container.cbm }}</td>
                                     <td style="padding: 8px;">{{ container.pallet }}</td>
                                     <td style="padding: 8px;">
-                                        {% if container.is_pallet %}
+                                        {% if container.stats.pallet_only %}
                                         <span style="color: #28a745; font-weight: 600; font-size: 18px;">✓</span>
                                         {% else %}
                                         <span style="color: #dc3545; font-weight: 600; font-size: 18px;">✗</span>
@@ -480,16 +444,11 @@
                 <thead>
                     <tr>
                         <th>分组编号</th>
-                        <th>车组号</th>
-                        <th>预约时间</th>
-                        <th>ISA</th>
                         <th>pickup time</th>
-                        <th>PickUp number</th>
-                        <th>预约账号</th>
+                        <th>承运公司</th>
+                        <th>供应商</th>
                         <th>预约类型</th>
                         <th>柜号数量</th>
-                        <th>批次号</th>
-                        <th>车次号</th>
                         <th>状态</th>
                     </tr>
                 </thead>
@@ -497,16 +456,11 @@
                     {% for result in results %}
                     <tr>
                         <td>{{ result.group_index }}</td>
-                        <td>{{ result.car_group }}</td>
-                        <td>{{ result.appointment_time }}</td>
-                        <td>{{ result.isa }}</td>
                         <td>{{ result.pickup_time|default:'-' }}</td>
-                        <td>{{ result.pickup_number|default:'-' }}</td>
-                        <td>{{ result.appointment_account }}</td>
+                        <td>{{ result.carrier|default:'-' }}</td>
+                        <td>{{ result.supplier|default:'-' }}</td>
                         <td>{{ result.appointment_type }}</td>
                         <td>{{ result.container_count }}</td>
-                        <td>{{ result.shipment_batch_number }}</td>
-                        <td>{{ result.fleet_number|default:'-' }}</td>
                         <td>
                             <span class="status-badge {% if result.status == '成功' %}status-success{% else %}status-error{% endif %}">
                                 {{ result.status }}
@@ -548,7 +502,7 @@
         fileName.classList.add('file-placeholder');
         clearFile.style.display = 'none';
     });
-
+    
     // 处理目的地输入框变化
     const destinationInputs = document.querySelectorAll('.destination-input');
     destinationInputs.forEach(input => {
