@@ -108,7 +108,7 @@ class Palletization(View):
             template, context = await self.handle_daily_operation_get()
             return render(request, template, context)
         else:
-            template, context = await self.handle_all_get()
+            template, context = await self.handle_all_get(request)
             return render(request, template, context)
 
     async def post(
@@ -581,7 +581,15 @@ class Palletization(View):
         }
         return self.template_pallet_daily_operation, context
 
-    async def handle_all_get(self, warehouse: str = None, storehouse: str = None) -> tuple[str, dict[str, Any]]:
+    async def handle_all_get(self, request, warehouse: str = None, storehouse: str = None) -> tuple[str, dict[str, Any]]:
+        @sync_to_async
+        def check_perm():
+            if not request.user.is_authenticated:
+                return False
+            return request.user.groups.filter(name="unpacking_personnel").exists()
+
+        unpacking_personnel = await check_perm()
+
         if warehouse and storehouse:
             warehouse = None if warehouse == "Empty" else warehouse
             if 'LA' in warehouse or 'SAV' in warehouse:
@@ -596,6 +604,7 @@ class Palletization(View):
                     "warehouse": warehouse,
                     "storehouse": storehouse,
                     "storehouse_form": {"public": "public", "other": "other"},
+                    "unpacking_personnel": unpacking_personnel,
                 }
             else:
                 order_not_palletized, order_palletized, order_with_shipment = (
@@ -635,10 +644,11 @@ class Palletization(View):
                     "storehouse_form": {"public": "public", "other": "other"},
                     "storehouse": storehouse,
                     "warehouse": warehouse,
+                    "unpacking_personnel": unpacking_personnel,
                 }
         else:
             storehouse_form = {"public": "public", "other": "other"}
-            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form,}
+            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form, "unpacking_personnel": unpacking_personnel,}
         return self.template_main, context
 
     async def handle_all_get_palletized(
@@ -826,7 +836,7 @@ class Palletization(View):
                 }
                 template, context = self.template_main, context
         else:
-            template, context = await self.handle_all_get(warehouse, storehouse)
+            template, context = await self.handle_all_get(request, warehouse, storehouse)
         return template, context
 
     async def handle_upload_warehouse_post(
