@@ -60,7 +60,9 @@ from warehouse.utils.constants import (
 )
 from warehouse.utils.shipment_binding_utils import (
     ShipmentBindingLogger,
+    ShipmentBindingPermission,
 )
+from django.http import HttpResponseForbidden
 
 
 class ShippingManagement(View):
@@ -140,6 +142,9 @@ class ShippingManagement(View):
             template, context = await self.handle_shipment_list_get(request)
             return render(request, template, context)
         elif step == "appointment_management":
+            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
+                return HttpResponseForbidden("你没有公仓备约界面权限!")
+     
             template, context = await self.handle_appointment_management_get(request)
             return render(request, template, context)
         elif step == "shipment_detail_display":
