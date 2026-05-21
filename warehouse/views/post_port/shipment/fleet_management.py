@@ -57,6 +57,7 @@ from PIL import Image
 from PyPDF2 import PdfMerger, PdfReader
 from simple_history.utils import bulk_update_with_history
 from xhtml2pdf import pisa
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -141,6 +142,16 @@ class FleetManagement(View):
         "FWT": "FWT",
         "SunZong": "SunZong",
     }
+
+    async def _get_delivery_type_filter(self, user):
+        """根据用户权限获取delivery_type过滤条件"""
+        if user.is_superuser:
+            return Q()  # 超级用户可以看所有
+        if await sync_to_async(ShipmentBindingPermission.has_public_permission)(user):
+            return Q(delivery_type='public') | Q(delivery_type__isnull=True)
+        if await sync_to_async(ShipmentBindingPermission.has_other_permission)(user):
+            return Q(delivery_type='other') | Q(delivery_type__isnull=True)
+        return Q(id__in=[])  # 没有权限的用户看不到任何数据
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -688,6 +699,7 @@ class FleetManagement(View):
         area = request.POST.get("area")
         if area == "None" or not area:
             area = None
+        delivery_type_filter = await self._get_delivery_type_filter(request.user)
         criteria = models.Q(
             is_arrived=False,
             is_canceled=False,
@@ -708,6 +720,7 @@ class FleetManagement(View):
         shipments = await sync_to_async(list)(
             Shipment.objects.prefetch_related("fleet_number")
             .filter(criteria)
+            .filter(delivery_type_filter)
             .order_by("shipped_at")
         )
         shipment_fleet_dict = {}
@@ -3548,12 +3561,14 @@ class FleetManagement(View):
     async def handle_pod_upload_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''旧版预约出库的POD上传'''
         fleet_number = request.GET.get("fleet_number", "")
         batch_number = request.GET.get("batch_number", "")
 
         area = request.POST.get("area") or None
         arrived_at = request.POST.get("arrived_at")
 
+        delivery_type_filter = await self._get_delivery_type_filter(request.user)
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
@@ -3582,6 +3597,7 @@ class FleetManagement(View):
         shipment = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
             .filter(criteria)
+            .filter(delivery_type_filter)
             .order_by("shipped_at")
         )
         context = {
@@ -4408,6 +4424,7 @@ class FleetManagement(View):
             else request.POST.get("warehouse")
         )
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        delivery_type_filter = await self._get_delivery_type_filter(request.user)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
@@ -4417,7 +4434,7 @@ class FleetManagement(View):
                 appointment_id__isnull=False,
                 shipment_appointment__gte=timezone.datetime(2025, 10, 1),
                 #shipment_type="FTL",   非FTL的，都会自动排车，所以这个条件可以暂时隐藏
-            ).exclude(
+            ).filter(delivery_type_filter).exclude(
                 appointment_id__icontains='None'
             ).order_by("-batch", "shipment_appointment")
         )
@@ -4426,7 +4443,7 @@ class FleetManagement(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
-            )
+            ).filter(delivery_type_filter)
             .prefetch_related("shipment")
             .annotate(
                 shipment_batch_numbers=StringAgg(
@@ -4623,12 +4640,13 @@ class FleetManagement(View):
             else request.POST.get("warehouse")
         )
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        delivery_type_filter = await self._get_delivery_type_filter(request.user)
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
-            )
+            ).filter(delivery_type_filter)
             .prefetch_related("shipment")
             .annotate(
                 shipment_batch_numbers=StringAgg(

@@ -33,6 +33,8 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
 from warehouse.utils.constants import amazon_fba_locations
+from warehouse.utils.shipment_binding_utils import ShipmentBindingPermission
+from django.http import HttpResponseForbidden
 from warehouse.views.bol import BOL
 
 
@@ -42,6 +44,16 @@ class ScheduleShipment(View):
     template_td = "schedule_shipment/td_shipment.html"
     template_dd = "schedule_shipment/dd_shipment.html"
     template_confirmation = "schedule_shipment/confirmation.html"
+
+    def _get_delivery_type_filter(self, user):
+        """根据用户权限获取delivery_type过滤条件"""
+        if user.is_superuser:
+            return Q()  # 超级用户可以看所有
+        if ShipmentBindingPermission.has_public_permission(user):
+            return Q(delivery_type="public")
+        if ShipmentBindingPermission.has_other_permission(user):
+            return Q(delivery_type="other")
+        return Q(id__in=[])  # 没有权限的用户看不到任何数据
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -73,16 +85,18 @@ class ScheduleShipment(View):
     def handle_destination_get(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.GET.get("warehouse")
         destination = request.GET.get("destination")
+        delivery_type_filter = self._get_delivery_type_filter(request.user)
         packing_list = PackingList.objects.select_related(
             "container_number",
             "container_number__orders__warehouse",
             "shipment_batch_number",
             "container_number__orders__customer_name",
         ).filter(
-            container_number__orders__warehouse__name=warehouse,
-            destination=destination,
-            n_pallet__isnull=False,
-            shipment_batch_number__isnull=True,
+            models.Q(container_number__orders__warehouse__name=warehouse)
+            & models.Q(destination=destination)
+            & models.Q(n_pallet__isnull=False)
+            & models.Q(shipment_batch_number__isnull=True)
+            & delivery_type_filter
         )
         packing_list = packing_list.values(
             "id",
@@ -104,7 +118,7 @@ class ScheduleShipment(View):
         context = {
             "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
             "packing_list_not_scheduled": self._get_packing_list_not_scheduled(
-                warehouse
+                warehouse, request.user
             ),
             "order_packing_list": order_packing_list,
             "ids": [pl["id"] for pl in packing_list],
@@ -149,7 +163,7 @@ class ScheduleShipment(View):
         else:
             bol = BOL()
             context = bol.handle_search_post(request)
-            packing_list_not_scheduled = self._get_packing_list_not_scheduled(warehouse)
+            packing_list_not_scheduled = self._get_packing_list_not_scheduled(warehouse, request.user)
             context.update(
                 {
                     "warehouse_form": warehouse_form,
@@ -167,6 +181,7 @@ class ScheduleShipment(View):
         ids = [i.split(",") for i in ids]
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
+            delivery_type_filter = self._get_delivery_type_filter(request.user)
             packling_list = (
                 PackingList.objects.select_related(
                     "container_number",
@@ -175,6 +190,7 @@ class ScheduleShipment(View):
                     "pallet",
                 )
                 .filter(id__in=selected)
+                .filter(delivery_type_filter)
                 .values(
                     "id",
                     "fba_id",
@@ -201,6 +217,7 @@ class ScheduleShipment(View):
             total_pallet = (
                 PackingList.objects.select_related("pallet")
                 .filter(id__in=selected)
+                .filter(delivery_type_filter)
                 .values("pallet__pallet_id")
                 .distinct()
                 .count()
@@ -299,7 +316,8 @@ class ScheduleShipment(View):
 
             pl_ids = request.POST.get("pl_ids").strip("][").split(", ")
             pl_ids = [int(i) for i in pl_ids]
-            packing_list = PackingList.objects.filter(id__in=pl_ids)
+            delivery_type_filter = self._get_delivery_type_filter(request.user)
+            packing_list = PackingList.objects.filter(id__in=pl_ids).filter(delivery_type_filter)
             for pl in packing_list:
                 pl.shipment_batch_number = shipment
             bulk_update_with_history(
@@ -354,7 +372,8 @@ class ScheduleShipment(View):
         request.POST = mutable_post
         return self.handle_warehouse_post(request)
 
-    def _get_packing_list_not_scheduled(self, warehouse: str) -> PackingList:
+    def _get_packing_list_not_scheduled(self, warehouse: str, user=None) -> PackingList:
+        delivery_type_filter = self._get_delivery_type_filter(user) if user else Q()
         return (
             PackingList.objects.select_related(
                 "container_number",
@@ -371,6 +390,7 @@ class ScheduleShipment(View):
                     container_number__orders__offload_id__total_pallet__isnull=False
                 )
                 & models.Q(shipment_batch_number__isnull=True)
+                & delivery_type_filter
             )
             .annotate(
                 custom_delivery_method=Case(
