@@ -296,114 +296,121 @@ class ShipmentBindingLogger:
         """
         from warehouse.models.pallet import Pallet
         from warehouse.models.packing_list import PackingList
+        from asgiref.sync import sync_to_async
         
         # 处理 Pallet 日志
         if pallet_ids:
-            from asgiref.sync import sync_to_async
-            pallets = await sync_to_async(list)(
-                Pallet.objects.filter(id__in=pallet_ids)
-            )
-            
-            # 按 container_number 和 PO_ID 分组
-            pallet_log_groups = {}
-            for pallet in pallets:
-                container_num = pallet.container_number.container_number if pallet.container_number else None
-                po_id = pallet.PO_ID
-                key = (container_num, po_id)
+            @sync_to_async
+            def process_pallets():
+                pallets = list(
+                    Pallet.objects.filter(id__in=pallet_ids).select_related('container_number')
+                )
                 
-                if key not in pallet_log_groups:
-                    pallet_log_groups[key] = {
-                        'container_number': container_num,
-                        'po_id': po_id,
-                        'destination': pallet.destination,
-                        'warehouse': pallet.location,
-                        'delivery_type': pallet.delivery_type,
-                    }
+                # 按 container_number 和 PO_ID 分组
+                pallet_log_groups = {}
+                for pallet in pallets:
+                    container_num = pallet.container_number.container_number if pallet.container_number else None
+                    po_id = pallet.PO_ID
+                    key = (container_num, po_id)
+                    
+                    if key not in pallet_log_groups:
+                        pallet_log_groups[key] = {
+                            'container_number': container_num,
+                            'po_id': po_id,
+                            'destination': pallet.destination,
+                            'warehouse': pallet.location,
+                            'delivery_type': pallet.delivery_type,
+                        }
+                
+                # 记录 Pallet 日志
+                for log_data in pallet_log_groups.values():
+                    if operation_type == 'bind':
+                        ShipmentBindingLogger.log_bind(
+                            operator=operator,
+                            po_type='pallet',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
+                    else:
+                        ShipmentBindingLogger.log_unbind(
+                            operator=operator,
+                            po_type='pallet',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
             
-            # 记录 Pallet 日志
-            for log_data in pallet_log_groups.values():
-                if operation_type == 'bind':
-                    await sync_to_async(ShipmentBindingLogger.log_bind)(
-                        operator=operator,
-                        po_type='pallet',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
-                else:
-                    await sync_to_async(ShipmentBindingLogger.log_unbind)(
-                        operator=operator,
-                        po_type='pallet',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
+            await process_pallets()
         
         # 处理 PackingList 日志
         if packinglist_ids:
-            from asgiref.sync import sync_to_async
-            packing_lists = await sync_to_async(list)(
-                PackingList.objects.filter(id__in=packinglist_ids)
-            )
-            
-            # 按 container_number 和 PO_ID 分组
-            pl_log_groups = {}
-            for pl in packing_lists:
-                container_num = pl.container_number.container_number if pl.container_number else None
-                po_id = pl.PO_ID
-                key = (container_num, po_id)
+            @sync_to_async
+            def process_packing_lists():
+                packing_lists = list(
+                    PackingList.objects.filter(id__in=packinglist_ids).select_related('container_number')
+                )
                 
-                if key not in pl_log_groups:
-                    pl_log_groups[key] = {
-                        'container_number': container_num,
-                        'po_id': po_id,
-                        'destination': pl.destination,
-                        'warehouse': None,
-                        'delivery_type': pl.delivery_type,
-                    }
+                # 按 container_number 和 PO_ID 分组
+                pl_log_groups = {}
+                for pl in packing_lists:
+                    container_num = pl.container_number.container_number if pl.container_number else None
+                    po_id = pl.PO_ID
+                    key = (container_num, po_id)
+                    
+                    if key not in pl_log_groups:
+                        pl_log_groups[key] = {
+                            'container_number': container_num,
+                            'po_id': po_id,
+                            'destination': pl.destination,
+                            'warehouse': None,
+                            'delivery_type': pl.delivery_type,
+                        }
+                
+                # 记录 PackingList 日志
+                for log_data in pl_log_groups.values():
+                    if operation_type == 'bind':
+                        ShipmentBindingLogger.log_bind(
+                            operator=operator,
+                            po_type='packing_list',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
+                    else:
+                        ShipmentBindingLogger.log_unbind(
+                            operator=operator,
+                            po_type='packing_list',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
             
-            # 记录 PackingList 日志
-            for log_data in pl_log_groups.values():
-                if operation_type == 'bind':
-                    await sync_to_async(ShipmentBindingLogger.log_bind)(
-                        operator=operator,
-                        po_type='packing_list',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
-                else:
-                    await sync_to_async(ShipmentBindingLogger.log_unbind)(
-                        operator=operator,
-                        po_type='packing_list',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
+            await process_packing_lists()
     
     @staticmethod
     async def log_shipment_operation_by_objects(
@@ -427,104 +434,110 @@ class ShipmentBindingLogger:
             operation_type: 操作类型 ('bind' 或 'unbind')
             shipment_type: shipment 类型 (默认 'actual')
         """
+        from asgiref.sync import sync_to_async
+        
         # 处理 Pallet 日志
         if pallets:
-            from asgiref.sync import sync_to_async
-            
-            # 按 container_number 和 PO_ID 分组
-            pallet_log_groups = {}
-            for pallet in pallets:
-                container_num = pallet.container_number.container_number if pallet.container_number else None
-                po_id = pallet.PO_ID
-                key = (container_num, po_id)
+            @sync_to_async
+            def process_pallets():
+                # 按 container_number 和 PO_ID 分组
+                pallet_log_groups = {}
+                for pallet in pallets:
+                    container_num = pallet.container_number.container_number if pallet.container_number else None
+                    po_id = pallet.PO_ID
+                    key = (container_num, po_id)
+                    
+                    if key not in pallet_log_groups:
+                        pallet_log_groups[key] = {
+                            'container_number': container_num,
+                            'po_id': po_id,
+                            'destination': pallet.destination,
+                            'warehouse': pallet.location,
+                            'delivery_type': pallet.delivery_type,
+                        }
                 
-                if key not in pallet_log_groups:
-                    pallet_log_groups[key] = {
-                        'container_number': container_num,
-                        'po_id': po_id,
-                        'destination': pallet.destination,
-                        'warehouse': pallet.location,
-                        'delivery_type': pallet.delivery_type,
-                    }
+                # 记录 Pallet 日志
+                for log_data in pallet_log_groups.values():
+                    if operation_type == 'bind':
+                        ShipmentBindingLogger.log_bind(
+                            operator=operator,
+                            po_type='pallet',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
+                    else:
+                        ShipmentBindingLogger.log_unbind(
+                            operator=operator,
+                            po_type='pallet',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
             
-            # 记录 Pallet 日志
-            for log_data in pallet_log_groups.values():
-                if operation_type == 'bind':
-                    await sync_to_async(ShipmentBindingLogger.log_bind)(
-                        operator=operator,
-                        po_type='pallet',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
-                else:
-                    await sync_to_async(ShipmentBindingLogger.log_unbind)(
-                        operator=operator,
-                        po_type='pallet',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
+            await process_pallets()
         
         # 处理 PackingList 日志
         if packing_lists:
-            from asgiref.sync import sync_to_async
-            
-            # 按 container_number 和 PO_ID 分组
-            pl_log_groups = {}
-            for pl in packing_lists:
-                container_num = pl.container_number.container_number if pl.container_number else None
-                po_id = pl.PO_ID
-                key = (container_num, po_id)
+            @sync_to_async
+            def process_packing_lists():
+                # 按 container_number 和 PO_ID 分组
+                pl_log_groups = {}
+                for pl in packing_lists:
+                    container_num = pl.container_number.container_number if pl.container_number else None
+                    po_id = pl.PO_ID
+                    key = (container_num, po_id)
+                    
+                    if key not in pl_log_groups:
+                        pl_log_groups[key] = {
+                            'container_number': container_num,
+                            'po_id': po_id,
+                            'destination': pl.destination,
+                            'warehouse': None,
+                            'delivery_type': pl.delivery_type,
+                        }
                 
-                if key not in pl_log_groups:
-                    pl_log_groups[key] = {
-                        'container_number': container_num,
-                        'po_id': po_id,
-                        'destination': pl.destination,
-                        'warehouse': None,
-                        'delivery_type': pl.delivery_type,
-                    }
+                # 记录 PackingList 日志
+                for log_data in pl_log_groups.values():
+                    if operation_type == 'bind':
+                        ShipmentBindingLogger.log_bind(
+                            operator=operator,
+                            po_type='packing_list',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
+                    else:
+                        ShipmentBindingLogger.log_unbind(
+                            operator=operator,
+                            po_type='packing_list',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=shipment_batch_number,
+                            operation_button=operation_button,
+                            shipment_type=shipment_type,
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
             
-            # 记录 PackingList 日志
-            for log_data in pl_log_groups.values():
-                if operation_type == 'bind':
-                    await sync_to_async(ShipmentBindingLogger.log_bind)(
-                        operator=operator,
-                        po_type='packing_list',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
-                else:
-                    await sync_to_async(ShipmentBindingLogger.log_unbind)(
-                        operator=operator,
-                        po_type='packing_list',
-                        po_id=log_data['po_id'],
-                        shipment_batch_number=shipment_batch_number,
-                        operation_button=operation_button,
-                        shipment_type=shipment_type,
-                        container_number=log_data['container_number'],
-                        destination=log_data['destination'],
-                        warehouse=log_data['warehouse'],
-                        delivery_type=log_data['delivery_type'],
-                        skip_get_po_info=True,
-                    )
+            await process_packing_lists()
