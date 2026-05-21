@@ -28,24 +28,6 @@ def navbar(context):
         "generous_and_wide": generous_and_wide,
     }
 
-@register.inclusion_tag("palletization.html", takes_context=True)
-def palletization(context):
-    user = context["user"]
-    unpacking_personnel = False
-
-    if user and user.is_authenticated:
-        try:
-            unpacking_personnel = _run_in_thread(
-                lambda: user.groups.filter(name="unpacking_personnel").exists()
-            )
-        except Exception:
-            unpacking_personnel = False
-
-    return {
-        "user": user,
-        "unpacking_personnel": unpacking_personnel,
-    }
-
 
 def _run_in_thread(sync_func):
     """在新线程中运行同步函数"""
