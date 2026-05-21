@@ -15796,6 +15796,17 @@ class PostNsop(View):
                 thread_sensitive=True
             )(master_shipment_batch_number_id=new_shipment.id)
         
+        # 记录日志
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=pallet_ids,
+            packinglist_ids=packinglist_ids,
+            shipment_batch_number=new_shipment.shipment_batch_number,
+            operation_button="工作一览的 客户端约 创建虚构主约",
+            operation_type="bind",
+            shipment_type="master"
+        )
+        
         
         # 重新调用搜索功能，保留原有的搜索条件
         context = {
@@ -15809,7 +15820,7 @@ class PostNsop(View):
         return template, context
     
     async def handle_bind_existing_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """po绑定已有的约为主约"""       
+        """客户端的约 po绑定已有的约为主约"""       
         context = {}
         # 获取表单数据
         ids_string = request.POST.get('bind_ids_string', '')
@@ -15867,10 +15878,27 @@ class PostNsop(View):
             )
         
         # 如果有pallet绑定了，也把相同PO_ID的packinglist绑定上
+        additional_pl_ids = []
         if po_ids:
+            additional_pls = await sync_to_async(list)(
+                PackingList.objects.filter(PO_ID__in=po_ids).exclude(id__in=packinglist_ids)
+            )
+            additional_pl_ids = [pl.id for pl in additional_pls]
             await sync_to_async(PackingList.objects.filter(PO_ID__in=po_ids).update)(
                 master_shipment_batch_number=target_shipment
             )
+        
+        # 记录日志 - 合并原始的和额外的 packinglist ids
+        all_packinglist_ids = packinglist_ids + additional_pl_ids
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=pallet_ids,
+            packinglist_ids=all_packinglist_ids,
+            shipment_batch_number=target_shipment.shipment_batch_number,
+            operation_button="工作一览的 客户端的约 绑定已有的约",
+            operation_type="bind",
+            shipment_type="master"
+        )
         
         context['success_messages'] = '绑定成功!'
 
