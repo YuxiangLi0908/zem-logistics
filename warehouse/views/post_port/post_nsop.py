@@ -6635,7 +6635,7 @@ class PostNsop(View):
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:  
-        '''港后的预约出库功能''' 
+        '''港后公仓的预约出库功能''' 
         context = {}
         shipment_type = request.POST.get('shipment_type')
         page = request.POST.get("page")
