@@ -6358,7 +6358,8 @@ class PostNsop(View):
 
     async def handle_ltl_bind_group_shipment(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:    
+    ) -> tuple[str, dict[str, Any]]:  
+        '''LTL 预约出库'''  
         context = {}
         # 获取表单数据
         cargo_ids = request.POST.get('cargo_ids', '').strip()
@@ -15711,7 +15712,7 @@ class PostNsop(View):
         return self.template_master_shipment_check, context
     
     async def handle_create_fictional_master_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """创建虚构主约"""      
+        """工作一览 客户端的约 创建虚构主约"""      
         context = {}
         # 获取表单数据
         ids_string = request.POST.get('ids_string', '')
@@ -15925,7 +15926,7 @@ class PostNsop(View):
         return template, context
     
     async def handle_unbind_master_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """解绑主约"""
+        """客户端的约之解绑主约"""
         context = {}
         
         try:
@@ -15949,23 +15950,109 @@ class PostNsop(View):
                 container_number=container_number
             )
             
-            # 更新 Pallet 记录
-            pallet_count = await sync_to_async(Pallet.objects.filter(
-                container_number=container,
-                destination=destination,
-                master_shipment_batch_number=target_shipment
-            ).update)(
-                master_shipment_batch_number=None
+            # 查询主约要置为空的plt和pl
+            pallets_to_update = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number=container,
+                    destination=destination,
+                    master_shipment_batch_number=target_shipment
+                ).select_related('container_number')
             )
             
-            # 更新 PackingList 记录
-            packinglist_count = await sync_to_async(PackingList.objects.filter(
-                container_number=container,
-                destination=destination,
-                master_shipment_batch_number=target_shipment
-            ).update)(
-                master_shipment_batch_number=None
+            # 查询并更新 PackingList 记录
+            packinglists_to_update = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    container_number=container,
+                    destination=destination,
+                    master_shipment_batch_number=target_shipment
+                ).select_related('container_number')
             )
+            
+            pallet_count = len(pallets_to_update)
+            packinglist_count = len(packinglists_to_update)
+            
+            # 按 container_number 和 PO_ID 分组记录 Pallet 日志
+            pallet_log_groups = {}
+            for pallet in pallets_to_update:
+                container_num = pallet.container_number.container_number if pallet.container_number else None
+                po_id = pallet.PO_ID
+                key = (container_num, po_id)
+                
+                if key not in pallet_log_groups:
+                    pallet_log_groups[key] = {
+                        'container_number': container_num,
+                        'po_id': po_id,
+                        'destination': pallet.destination,
+                        'warehouse': pallet.location,
+                        'delivery_type': pallet.delivery_type,
+                    }
+            
+            # 记录 Pallet 日志
+            for log_data in pallet_log_groups.values():
+                await sync_to_async(ShipmentBindingLogger.log_unbind)(
+                    operator=request.user,
+                    po_type='pallet',
+                    po_id=log_data['po_id'],
+                    shipment_batch_number=target_shipment.shipment_batch_number,
+                    operation_button='工作一览的 批次货物核对的 客户端的约核对的 解绑主约按钮',
+                    shipment_type='master',
+                    container_number=log_data['container_number'],
+                    destination=log_data['destination'],
+                    warehouse=log_data['warehouse'],
+                    delivery_type=log_data['delivery_type'],
+                    skip_get_po_info=True,
+                )
+            
+            # 按 container_number 和 PO_ID 分组记录 PackingList 日志
+            pl_log_groups = {}
+            for pl in packinglists_to_update:
+                container_num = pl.container_number.container_number if pl.container_number else None
+                po_id = pl.PO_ID
+                key = (container_num, po_id)
+                
+                if key not in pl_log_groups:
+                    pl_log_groups[key] = {
+                        'container_number': container_num,
+                        'po_id': po_id,
+                        'destination': pl.destination,
+                        'warehouse': None,
+                        'delivery_type': pl.delivery_type,
+                    }
+            
+            # 记录 PackingList 日志
+            for log_data in pl_log_groups.values():
+                await sync_to_async(ShipmentBindingLogger.log_unbind)(
+                    operator=request.user,
+                    po_type='packing_list',
+                    po_id=log_data['po_id'],
+                    shipment_batch_number=target_shipment.shipment_batch_number,
+                    operation_button='工作一览的 批次货物核对的 客户端的约核对的 解绑主约按钮',
+                    shipment_type='master',
+                    container_number=log_data['container_number'],
+                    destination=log_data['destination'],
+                    warehouse=log_data['warehouse'],
+                    delivery_type=log_data['delivery_type'],
+                    skip_get_po_info=True,
+                )
+            
+            # 执行更新操作
+            if pallets_to_update:
+                for pallet in pallets_to_update:
+                    pallet.master_shipment_batch_number = None
+                await sync_to_async(bulk_update_with_history)(
+                    pallets_to_update,
+                    Pallet,
+                    fields=["master_shipment_batch_number"],
+                )
+            
+            if packinglists_to_update:
+                for pl in packinglists_to_update:
+                    pl.master_shipment_batch_number = None
+                await sync_to_async(bulk_update_with_history)(
+                    packinglists_to_update,
+                    PackingList,
+                    fields=["master_shipment_batch_number"],
+                )
             
             # 检查是否还有其他记录绑定这个 shipment
             # 检查 Pallet 表（包括 shipment_batch_number 和 master_shipment_batch_number）
