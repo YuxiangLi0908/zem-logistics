@@ -253,8 +253,8 @@
                 <div class="format-requirements" style="flex: 1; margin-right: 16px;">
                     <strong>文件格式要求:</strong>
                     <ul>
-                        <li>表头必须包含：柜号、仓点、CBM、卡板、预约时间、ISA、pickup time、PickUp number、Shipment ID、预约账号、预约类型、装车类型</li>
-                        <li>Shipment ID为非必填项，其他字段为必填项</li>
+                        <li>表头必须包含：柜号、唛头、卡板、CBM、pickup time、承运公司、供应商、预约类型、备注、发货仓库、车次成本、出库时间、送达时间</li>
+                        <li>唛头、pickup time 、承运公司、供应商、预约类型、发货仓库 为必填项，默认回传出库单为不回传，默认自动排车</li>
                         <li>分组通过空行识别，每组包含一组预约信息和多个柜号信息</li>
                     </ul>
                 </div>
@@ -263,7 +263,7 @@
                 </a>
             </div>
             
-            <input type="hidden" name="step" value="batch_shipment_upload">
+            <input type="hidden" name="step" value="batch_other_shipment_upload">
         </form>
         
         <!-- 解析结果展示 -->
