@@ -6357,7 +6357,8 @@ class PostNsop(View):
 
     async def handle_ltl_bind_group_shipment(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:    
+    ) -> tuple[str, dict[str, Any]]:  
+        '''LTL 预约出库'''  
         context = {}
         # 获取表单数据
         cargo_ids = request.POST.get('cargo_ids', '').strip()
@@ -6513,6 +6514,17 @@ class PostNsop(View):
                 master_shipment_batch_number=shipment
             )
         
+        # 记录 shipment log
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=pallet_ids,
+            packinglist_ids=packinglist_ids,
+            shipment_batch_number=batch_number,
+            operation_button="LTL预约出库",
+            operation_type="bind",
+            shipment_type="all"
+        )
+        
         success_msg = f'预约出库绑定成功! <br>批次号是:{batch_number}!'
         if auto_fleet_bool:
             success_msg += ' <br>已自动排车！'
@@ -6622,7 +6634,7 @@ class PostNsop(View):
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:  
-        '''港后的预约出库功能''' 
+        '''港后公仓的预约出库功能''' 
         context = {}
         shipment_type = request.POST.get('shipment_type')
         page = request.POST.get("page")
@@ -14854,7 +14866,7 @@ class PostNsop(View):
         )()
 
     async def handle_add_po_query_plt(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """查询柜号仓点对应的pallet记录"""
+        """实际货物核对，加塞查询"""
         context = {}
         
         query_container_number = request.POST.get('query_container_number', '').strip().upper()
@@ -14908,7 +14920,7 @@ class PostNsop(View):
         return await self.handle_fleet_po_search_post(request,context)
 
     async def handle_add_pallets_to_shipment(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """将选中的pallet记录关联到shipment"""
+        """工作一览 实际货物核对 将选中的pallet加塞到约里"""
         context = {}
         # 获取参数
         selected_pallet_ids_str = request.POST.get('selected_pallet_ids', '').strip()
@@ -14940,6 +14952,17 @@ class PostNsop(View):
             shipment_batch_number=target_shipment
         )
         
+        # 记录 shipment log
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=selected_pallet_ids,
+            packinglist_ids=[],
+            shipment_batch_number=target_shipment.shipment_batch_number,
+            operation_button="工作一览的 批次货物核对的 加塞操作",
+            operation_type="bind",
+            shipment_type="actual"
+        )
+        
         context['success_messages'] = f'成功关联{updated_count}个板子记录到预约批次'
         
         # 重新调用搜索功能以刷新页面，并传递原有的搜索条件
@@ -14962,10 +14985,12 @@ class PostNsop(View):
 
         # 找到车次信息，重新分摊
         fleet = target_shipment.fleet_number
-        fm = FleetManagement()
-        await fm.insert_fleet_shipment_pallet_fleet_cost(
-                request, fleet.fleet_number, fleet.fleet_cost
-            )
+        if fleet:
+            # 没有排车的时候，就不进行成本分配
+            fm = FleetManagement()
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
+                    request, fleet.fleet_number, fleet.fleet_cost
+                )
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request, context)
 
@@ -15710,7 +15735,7 @@ class PostNsop(View):
         return self.template_master_shipment_check, context
     
     async def handle_create_fictional_master_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """创建虚构主约"""      
+        """工作一览 客户端的约 创建虚构主约"""      
         context = {}
         # 获取表单数据
         ids_string = request.POST.get('ids_string', '')
@@ -15794,6 +15819,17 @@ class PostNsop(View):
                 thread_sensitive=True
             )(master_shipment_batch_number_id=new_shipment.id)
         
+        # 记录日志
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=pallet_ids,
+            packinglist_ids=packinglist_ids,
+            shipment_batch_number=new_shipment.shipment_batch_number,
+            operation_button="工作一览的 客户端约 创建虚构主约",
+            operation_type="bind",
+            shipment_type="master"
+        )
+        
         
         # 重新调用搜索功能，保留原有的搜索条件
         context = {
@@ -15807,7 +15843,7 @@ class PostNsop(View):
         return template, context
     
     async def handle_bind_existing_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """po绑定已有的约为主约"""       
+        """客户端的约 po绑定已有的约为主约"""       
         context = {}
         # 获取表单数据
         ids_string = request.POST.get('bind_ids_string', '')
@@ -15865,10 +15901,27 @@ class PostNsop(View):
             )
         
         # 如果有pallet绑定了，也把相同PO_ID的packinglist绑定上
+        additional_pl_ids = []
         if po_ids:
+            additional_pls = await sync_to_async(list)(
+                PackingList.objects.filter(PO_ID__in=po_ids).exclude(id__in=packinglist_ids)
+            )
+            additional_pl_ids = [pl.id for pl in additional_pls]
             await sync_to_async(PackingList.objects.filter(PO_ID__in=po_ids).update)(
                 master_shipment_batch_number=target_shipment
             )
+        
+        # 记录日志 - 合并原始的和额外的 packinglist ids
+        all_packinglist_ids = packinglist_ids + additional_pl_ids
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=pallet_ids,
+            packinglist_ids=all_packinglist_ids,
+            shipment_batch_number=target_shipment.shipment_batch_number,
+            operation_button="工作一览的 客户端的约 绑定已有的约",
+            operation_type="bind",
+            shipment_type="master"
+        )
         
         context['success_messages'] = '绑定成功!'
 
@@ -15924,7 +15977,7 @@ class PostNsop(View):
         return template, context
     
     async def handle_unbind_master_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """解绑主约"""
+        """客户端的约之解绑主约"""
         context = {}
         
         try:
@@ -15948,23 +16001,56 @@ class PostNsop(View):
                 container_number=container_number
             )
             
-            # 更新 Pallet 记录
-            pallet_count = await sync_to_async(Pallet.objects.filter(
-                container_number=container,
-                destination=destination,
-                master_shipment_batch_number=target_shipment
-            ).update)(
-                master_shipment_batch_number=None
+            # 查询主约要置为空的plt和pl
+            pallets_to_update = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number=container,
+                    destination=destination,
+                    master_shipment_batch_number=target_shipment
+                ).select_related('container_number')
             )
             
-            # 更新 PackingList 记录
-            packinglist_count = await sync_to_async(PackingList.objects.filter(
-                container_number=container,
-                destination=destination,
-                master_shipment_batch_number=target_shipment
-            ).update)(
-                master_shipment_batch_number=None
+            # 查询并更新 PackingList 记录
+            packinglists_to_update = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    container_number=container,
+                    destination=destination,
+                    master_shipment_batch_number=target_shipment
+                ).select_related('container_number')
             )
+            
+            pallet_count = len(pallets_to_update)
+            packinglist_count = len(packinglists_to_update)
+            
+            # 记录日志
+            await ShipmentBindingLogger.log_shipment_operation_by_objects(
+                operator=request.user,
+                pallets=pallets_to_update,
+                packing_lists=packinglists_to_update,
+                shipment_batch_number=target_shipment.shipment_batch_number,
+                operation_button='工作一览的 批次货物核对的 客户端的约核对的 解绑主约按钮',
+                operation_type='unbind',
+                shipment_type='master'
+            )
+            
+            # 执行更新操作
+            if pallets_to_update:
+                for pallet in pallets_to_update:
+                    pallet.master_shipment_batch_number = None
+                await sync_to_async(bulk_update_with_history)(
+                    pallets_to_update,
+                    Pallet,
+                    fields=["master_shipment_batch_number"],
+                )
+            
+            if packinglists_to_update:
+                for pl in packinglists_to_update:
+                    pl.master_shipment_batch_number = None
+                await sync_to_async(bulk_update_with_history)(
+                    packinglists_to_update,
+                    PackingList,
+                    fields=["master_shipment_batch_number"],
+                )
             
             # 检查是否还有其他记录绑定这个 shipment
             # 检查 Pallet 表（包括 shipment_batch_number 和 master_shipment_batch_number）
