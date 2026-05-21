@@ -52,6 +52,8 @@ from warehouse.utils.constants import (
 )
 from warehouse.views.export_file import export_do
 from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
+from warehouse.utils.shipment_binding_utils import ShipmentBindingPermission
+from django.http import HttpResponseForbidden
 
 
 class OrderCreation(View):
@@ -120,10 +122,14 @@ class OrderCreation(View):
             )
             return await sync_to_async(render)(request, template, context)
         elif step == "peer_po_creation":
+            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
+                return HttpResponseForbidden("你没有公仓权限创建同行的po!")
             context = {}
             template, context = await self.handle_peer_po_creation(request,context)
             return await sync_to_async(render)(request, template, context)
         elif step == "peer_po_creation_other":
+            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
+                return HttpResponseForbidden("你没有私仓权限创建同行的po!") 
             context = {}
             template, context = await self.handle_peer_po_creation_other(request,context)
             return await sync_to_async(render)(request, template, context)
@@ -160,9 +166,13 @@ class OrderCreation(View):
             template, context = await self.handle_upload_template_post(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "peer_upload_template":
+            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
+                return HttpResponseForbidden("你没有公仓权限创建同行的po!")
             template, context = await self.handle_peer_upload_template_post(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "peer_upload_template_other":
+            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
+                return HttpResponseForbidden("你没有私仓权限创建同行的po!") 
             template, context = await self.handle_peer_upload_template_other_post(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "download_template":
@@ -193,6 +203,8 @@ class OrderCreation(View):
         elif step == "export_forecast":
             return await self.handle_export_forecast(request)
         elif step == "export_forecast_other":
+            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
+                return HttpResponseForbidden("你没有私仓权限创建同行的po!") 
             return await self.handle_export_forecast_other(request)
         elif step == "export_details_by_destination":
             return await self.handle_export_details_by_destination(request)
