@@ -1695,13 +1695,17 @@ class ShippingManagement(View):
                         shipment_type = "all"
                     else:
                         shipment_type = "actual"
-                    
+                    if name == "post_nsop":
+                        operation_button = "工作一览最根本的预约出库函数更新PL的约，首约",
+                    else:
+                        operation_button = "旧版最根本的预约出库函数更新PL的约，首约",
+
                     await sync_to_async(ShipmentBindingLogger.log_bind)(
                         operator=request.user,
                         po_type="packing_list",
                         po_id=log_data['po_id'],
                         shipment_batch_number=shipment.shipment_batch_number,
-                        operation_button="最根本的预约出库函数更新PL的约，首约",
+                        operation_button=operation_button,
                         shipment_type=shipment_type,
                         container_number=log_data['container_number'],
                         destination=log_data['destination'],
@@ -1778,13 +1782,16 @@ class ShippingManagement(View):
                         shipment_type = "all"
                     else:
                         shipment_type = "actual"
-                    
+                    if name == "post_nsop":
+                        operation_button = "工作一览最根本的预约出库函数更新PLT的约，首约",
+                    else:
+                        operation_button = "旧版最根本的预约出库函数更新PLT的约，首约",
                     await sync_to_async(ShipmentBindingLogger.log_bind)(
                         operator=request.user,
                         po_type="pallet",
                         po_id=log_data['po_id'],
                         shipment_batch_number=shipment.shipment_batch_number,
-                        operation_button="最根本的预约出库函数更新PLT的约，首约",
+                        operation_button=operation_button,
                         shipment_type=shipment_type,
                         container_number=log_data['container_number'],
                         destination=log_data['destination'],
