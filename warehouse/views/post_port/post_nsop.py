@@ -6515,6 +6515,17 @@ class PostNsop(View):
                 master_shipment_batch_number=shipment
             )
         
+        # 记录 shipment log
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=pallet_ids,
+            packinglist_ids=packinglist_ids,
+            shipment_batch_number=batch_number,
+            operation_button="LTL预约出库",
+            operation_type="bind",
+            shipment_type="all"
+        )
+        
         success_msg = f'预约出库绑定成功! <br>批次号是:{batch_number}!'
         if auto_fleet_bool:
             success_msg += ' <br>已自动排车！'
