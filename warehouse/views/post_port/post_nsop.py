@@ -14856,7 +14856,7 @@ class PostNsop(View):
         )()
 
     async def handle_add_po_query_plt(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """查询柜号仓点对应的pallet记录"""
+        """实际货物核对，加塞查询"""
         context = {}
         
         query_container_number = request.POST.get('query_container_number', '').strip().upper()
@@ -14910,7 +14910,7 @@ class PostNsop(View):
         return await self.handle_fleet_po_search_post(request,context)
 
     async def handle_add_pallets_to_shipment(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """将选中的pallet记录关联到shipment"""
+        """工作一览 实际货物核对 将选中的pallet加塞到约里"""
         context = {}
         # 获取参数
         selected_pallet_ids_str = request.POST.get('selected_pallet_ids', '').strip()
@@ -14942,6 +14942,17 @@ class PostNsop(View):
             shipment_batch_number=target_shipment
         )
         
+        # 记录 shipment log
+        await ShipmentBindingLogger.log_shipment_operation(
+            operator=request.user,
+            pallet_ids=selected_pallet_ids,
+            packinglist_ids=[],
+            shipment_batch_number=target_shipment.shipment_batch_number,
+            operation_button="工作一览的 批次货物核对的 加塞操作",
+            operation_type="bind",
+            shipment_type="actual"
+        )
+        
         context['success_messages'] = f'成功关联{updated_count}个板子记录到预约批次'
         
         # 重新调用搜索功能以刷新页面，并传递原有的搜索条件
@@ -14964,10 +14975,12 @@ class PostNsop(View):
 
         # 找到车次信息，重新分摊
         fleet = target_shipment.fleet_number
-        fm = FleetManagement()
-        await fm.insert_fleet_shipment_pallet_fleet_cost(
-                request, fleet.fleet_number, fleet.fleet_cost
-            )
+        if fleet:
+            # 没有排车的时候，就不进行成本分配
+            fm = FleetManagement()
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
+                    request, fleet.fleet_number, fleet.fleet_cost
+                )
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request, context)
 
