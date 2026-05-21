@@ -116,6 +116,7 @@ class PostNsop(View):
     template_ltl_history_pos = "post_port/new_sop/06_ltl_history_pos/06_ltl_main.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
+    template_batch_other_shipment = "post_port/new_sop/leader_check/batch_other_shipment.html"
     template_fleet_check = "post_port/new_sop/leader_check/fleet_check.html"
     template_master_shipment_check = "post_port/new_sop/leader_check/master_shipment_check.html"
     template_client_exception = "post_port/new_sop/leader_check/client_exception.html"
@@ -214,6 +215,7 @@ class PostNsop(View):
         other_steps = [
             "LTL_pallets",  # 库存排约
             "LTL_history_po",  # 历史数据
+            "batch_shipment_other",
         ]
         if step in other_steps:
             if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
@@ -272,9 +274,14 @@ class PostNsop(View):
             return render(request, self.template_history_shipment, context)
         elif step == "batch_shipment":
             context = {"warehouse_options": self.warehouse_options}
-            return render(request, self.template_batch_shipment, context)
+            return render(request, self.template_batch_shipment, context)      
+        elif step == "batch_shipment_other":
+            context = {"warehouse_options": self.warehouse_options}
+            return render(request, self.template_batch_other_shipment, context)
         elif step == "download_batch_shipment_template":
             return await self.handle_download_batch_shipment_template(request)
+        elif step == "download_batch_other_shipment_template":
+            return await self.handle_download_batch_other_shipment_template(request)
         elif step == "other_selfdelivery_container_palletization":
             template, context = await self.handle_other_selfdelivery_container_palletization(request, pk)
             return render(request, template, context)
@@ -1834,6 +1841,30 @@ class PostNsop(View):
         
         return self.template_batch_shipment, context
     
+    async def handle_download_batch_other_shipment_template(self, request: HttpRequest):
+        '''下载私仓批量预约出库模板文件'''
+        import os
+        from django.http import FileResponse
+        
+        # 模板文件路径
+        template_path = os.path.join('warehouse', 'templates', 'export_file', 'batch_other_shipment_template.xlsx')
+        
+        # 检查文件是否存在
+        if not os.path.exists(template_path):
+            from django.http import HttpResponse
+            return HttpResponse('模板文件不存在', status=404)
+        
+        # 打开文件并返回
+        try:
+            f = open(template_path, 'rb')
+            response = FileResponse(f)
+            response['Content-Disposition'] = 'attachment; filename="batch_shipment_template.xlsx"'
+            response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            return response
+        except Exception as e:
+            from django.http import HttpResponse
+            return HttpResponse(f'下载失败: {str(e)}', status=500)
+        
     async def handle_download_batch_shipment_template(self, request: HttpRequest):
         '''下载批量预约出库模板文件'''
         import os
