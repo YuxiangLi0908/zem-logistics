@@ -114,7 +114,7 @@
             <div>
                 <b style="margin-right: 5px;">仓库:</b>
                 <select name="warehouse">
-                    {% for k, v in warehouse_options.items %}
+                    {% for k, v in warehouse_options %}
                         <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}
                 </select>

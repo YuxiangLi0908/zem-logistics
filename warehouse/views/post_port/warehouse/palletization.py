@@ -2,10 +2,12 @@ import asyncio
 import base64
 import io
 import json
+import logging
 import random
 import re
 import string
 import uuid
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 from django.utils import timezone
@@ -13,6 +15,8 @@ from datetime import timedelta
 import barcode
 import pandas as pd
 import pytz
+import openpyxl
+from django.contrib import messages
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
 from django.contrib import messages
@@ -34,10 +38,12 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Cast, Concat
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.template.loader import get_template
 from django.utils import timezone
+from django.utils.encoding import escape_uri_path
+from django.utils.http import content_disposition_header
 from django.views import View
 from PIL import Image
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
@@ -79,17 +85,6 @@ class Palletization(View):
     template_pallet_warehouse_zone = (
         "post_port/palletization/palletization_warehouse_zone.html"
     )
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "LA-91761": "LA-91761",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-    }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -113,7 +108,7 @@ class Palletization(View):
             template, context = await self.handle_daily_operation_get()
             return render(request, template, context)
         else:
-            template, context = await self.handle_all_get()
+            template, context = await self.handle_all_get(request)
             return render(request, template, context)
 
     async def post(
@@ -132,6 +127,10 @@ class Palletization(View):
         elif step == "upload_excel":
             template, context = await self.upload_excel_post(request)
             return render(request, template, context)
+        elif step == "download_unpacking":
+            return await self.handle_download_unpacking(request)
+        elif step == "upload_unpacking":
+            return await self.handle_upload_unpacking(request)
         elif step == "upload_warehouse":
             template, context = await self.handle_upload_warehouse_post(request)
             return render(request, template, context)
@@ -285,6 +284,196 @@ class Palletization(View):
         else:
             return self.template_pallet_abnormal, context
 
+    async def handle_download_unpacking(self, request: HttpRequest) -> HttpResponse:
+        """下载 Excel 模板（4列：柜号，唛头，入库箱数，打板数）"""
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "拆柜入库模板"
+
+        headers = ["柜号", "唛头", "入库箱数", "打板数"]
+        ws.append(headers)
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        filename = "拆柜上传模板.xlsx"
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{escape_uri_path(filename)}"
+
+        wb.save(response)
+        return response
+
+
+
+
+    async def handle_upload_unpacking(self, request: HttpRequest) -> HttpResponse:
+        """私仓上传excel进行拆柜【终极版，直接入库】"""
+        logger = logging.getLogger(__name__)
+
+        if not request.FILES.get("excel_file"):
+            logger.warning("上传拆柜失败：未选择文件")
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        file = request.FILES["excel_file"]
+        try:
+            wb = openpyxl.load_workbook(file)
+            ws = wb.active
+        except:
+            logger.warning("上传拆柜失败：文件格式错误")
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        try:
+            header = [str(cell.value).strip() for cell in ws[1]]
+        except:
+            header = []
+
+        required = ["柜号", "唛头", "入库箱数", "打板数"]
+        if header != required:
+            logger.warning(f"上传拆柜失败：模板错误，需要 {required}")
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        container_map = defaultdict(list)
+        row_errors = []
+
+        for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            container_number = str(row[0]).strip() if row[0] else ""
+            shipping_mark = str(row[1]).strip() if row[1] else ""
+            pcs = str(row[2]).strip() if row[2] else ""
+            n_pallet = str(row[3]).strip() if row[3] else ""
+
+            if not all([container_number, shipping_mark, pcs, n_pallet]):
+                row_errors.append(f"第{row_num}行：有空值")
+                continue
+
+            try:
+                pcs = int(pcs)
+                n_pallet = int(n_pallet)
+            except:
+                row_errors.append(f"第{row_num}行：箱数/板数必须是数字")
+                continue
+
+            try:
+                packing = await sync_to_async(
+                    PackingList.objects.select_related("container_number").get
+                )(
+                    container_number__container_number=container_number,
+                    shipping_mark=shipping_mark,
+                )
+            except PackingList.DoesNotExist:
+                row_errors.append(f"第{row_num}行：未找到装箱单 {container_number} | {shipping_mark}")
+                continue
+            except Exception as e:
+                row_errors.append(f"第{row_num}行：查询异常 {str(e)}")
+                continue
+
+            order = await sync_to_async(
+                Order.objects.select_related("offload_id", "retrieval_id", "container_number")
+                .filter(container_number=packing.container_number)
+                .first
+            )()
+
+            if not order:
+                row_errors.append(f"第{row_num}行：未找到订单")
+                continue
+
+            container_map[container_number].append({
+                "packing": packing,
+                "order": order,
+                "pcs": pcs,
+                "n_pallet": n_pallet,
+            })
+
+        success = 0
+        errors = []
+
+
+        # 直接执行拆柜逻辑
+        for container_no, items in container_map.items():
+            try:
+                order = items[0]["order"]
+                offload = order.offload_id
+                container = order.container_number
+
+                if offload.offload_other_at:
+                    errors.append(f"{container_no} 已拆柜，跳过")
+                    continue
+
+                # 设置拆柜时间（一定会写入数据库）
+                now = timezone.now()
+                offload.offload_other_at = now
+                total_pallet = sum(i["n_pallet"] for i in items)
+                offload.other_total_pallet = total_pallet
+
+                if offload.total_pallet is None:
+                    offload.total_pallet = total_pallet
+                else:
+                    offload.total_pallet += total_pallet
+
+                await sync_to_async(offload.save)()
+
+                # 生成托盘
+                pallet_data = []
+                for item in items:
+                    packing = item["packing"]
+                    pcs = item["pcs"]
+                    n_pallet = item["n_pallet"]
+
+                    pallet_data += await self._split_pallet(
+                        order,
+                        n_pallet,
+                        pcs,
+                        packing.pcs,
+                        float(packing.cbm or 0),
+                        float(packing.total_weight_lbs or 0),
+                        packing.destination or "",
+                        packing.delivery_method or "",
+                        "other",
+                        packing.note or "",
+                        packing.shipment_batch_number or "",
+                        packing.master_shipment_batch_number or "",
+                        packing.shipping_mark or "",
+                        packing.fba_id or "",
+                        packing.ref_id or "",
+                        packing.PO_ID or "",
+                        order.id,
+                        packing.address or "",
+                        packing.zipcode or "",
+                        packing.contact_name or "",
+                        None,
+                        None,
+                        ""
+                    )
+
+                # 保存托盘
+                instances = [Pallet(**d) for d in pallet_data]
+                await sync_to_async(bulk_create_with_history)(instances, Pallet)
+
+                # 更新柜子类型
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(container_number=container)
+                )
+                types = {p.delivery_type for p in pallets if p.delivery_type}
+                if types:
+                    container.delivery_type = types.pop() if len(types) == 1 else "mixed"
+                    await sync_to_async(container.save)()
+
+                await self._ltl_parameter_transfer(container)
+                success += 1
+
+            except Exception as e:
+                errors.append(f"{container_no} 拆柜失败：{str(e)}")
+                logger.exception(f"拆柜异常：{container_no}")
+
+        # 最终日志记录
+        if row_errors:
+            logger.warning(f"上传拆柜行错误：{row_errors}")
+        if errors:
+            logger.warning(f"上传拆柜失败：{errors}")
+
+        logger.info(f"上传拆柜完成：成功={success}，失败={len(errors)}")
+
+        return redirect(request.META.get("HTTP_REFERER"))
+
     async def handle_daily_operation_get(
         self, warehouse: str = None, include_all: bool = False
     ) -> tuple[str, dict[str, Any]]:
@@ -387,12 +576,20 @@ class Palletization(View):
             "shipment": shipment,
             "fleet": fleet,
             "arrived_containers": arrived_containers,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
         }
         return self.template_pallet_daily_operation, context
 
-    async def handle_all_get(self, warehouse: str = None, storehouse: str = None) -> tuple[str, dict[str, Any]]:
+    async def handle_all_get(self, request, warehouse: str = None, storehouse: str = None) -> tuple[str, dict[str, Any]]:
+        @sync_to_async
+        def check_perm():
+            if not request.user.is_authenticated:
+                return False
+            return request.user.groups.filter(name="unpacking_personnel").exists()
+
+        unpacking_personnel = await check_perm()
+
         if warehouse and storehouse:
             warehouse = None if warehouse == "Empty" else warehouse
             if 'LA' in warehouse or 'SAV' in warehouse:
@@ -407,6 +604,7 @@ class Palletization(View):
                     "warehouse": warehouse,
                     "storehouse": storehouse,
                     "storehouse_form": {"public": "public", "other": "other"},
+                    "unpacking_personnel": unpacking_personnel,
                 }
             else:
                 order_not_palletized, order_palletized, order_with_shipment = (
@@ -446,10 +644,11 @@ class Palletization(View):
                     "storehouse_form": {"public": "public", "other": "other"},
                     "storehouse": storehouse,
                     "warehouse": warehouse,
+                    "unpacking_personnel": unpacking_personnel,
                 }
         else:
             storehouse_form = {"public": "public", "other": "other"}
-            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form}
+            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form, "unpacking_personnel": unpacking_personnel,}
         return self.template_main, context
 
     async def handle_all_get_palletized(
@@ -616,7 +815,7 @@ class Palletization(View):
             context = {
                 'warehouse': warehouse,
                 "storehouse": storehouse,
-                'warehouse_options': pn.warehouse_options,
+                'warehouse_options': WAREHOUSE_OPTIONS,
                 "storehouse_form": {"public": "public", "other": "other"},
                 "packinglist_not_selfpick_cargos": packinglist_not_selfpick_cargos,
                 "packinglist_selfpick_cargos": packinglist_selfpick_cargos,
@@ -637,7 +836,7 @@ class Palletization(View):
                 }
                 template, context = self.template_main, context
         else:
-            template, context = await self.handle_all_get(warehouse, storehouse)
+            template, context = await self.handle_all_get(request, warehouse, storehouse)
         return template, context
 
     async def handle_upload_warehouse_post(

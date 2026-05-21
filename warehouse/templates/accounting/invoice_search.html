@@ -35,7 +35,7 @@
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
             <b style="margin-right: 5px;">选择仓点区域:</b>
                 <select name="warehouse_filter">
-                    {% for k, v in warehouse_options.items %}
+                    {% for k, v in warehouse_options %}
                         {% if warehouse_filter == v %}
                             <option value="{{ v }}" selected>{{ k }}</option>
                         {% else %}

@@ -97,7 +97,7 @@ from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
     NJ_DES, SAV_DES, LA_DES,
-    DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE
+    DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE, WAREHOUSE_OPTIONS
 )
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
 
@@ -132,7 +132,6 @@ class PostNsop(View):
     template_special_ltl_bol = "export_file/special_ltl_bol.html"
     template_special_multi_ltl_bol = "export_file/ltl_bol_multi_special.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
-    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "SAV-31419": "SAV-31419", "SAV-31408": "SAV-31408", "SAV-31322": "SAV-31322", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766", "LA-91730": "LA-91730"}
     load_type_options = {
         "卡板": "卡板",
         "地板": "地板",
@@ -261,22 +260,22 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "LTL_pallets":
             context = {
-                "warehouse_options": self.warehouse_options
+                "warehouse_options": WAREHOUSE_OPTIONS
             }
             return render(request, self.template_ltl_pos_all, context)
         elif step == "LTL_history_po":
             context = {
-                "warehouse_options": self.warehouse_options
+                "warehouse_options": WAREHOUSE_OPTIONS
             }
             return render(request, self.template_ltl_history_pos, context)
         elif step == "history_shipment":
-            context = {"warehouse_options": self.warehouse_options}
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
             return render(request, self.template_history_shipment, context)
         elif step == "batch_shipment":
-            context = {"warehouse_options": self.warehouse_options}
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
             return render(request, self.template_batch_shipment, context)      
         elif step == "batch_shipment_other":
-            context = {"warehouse_options": self.warehouse_options}
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
             return render(request, self.template_batch_other_shipment, context)
         elif step == "download_batch_shipment_template":
             return await self.handle_download_batch_shipment_template(request)
@@ -4858,7 +4857,7 @@ class PostNsop(View):
         mutable_post["pickupList"] = None
         warehouse = mutable_post["warehouse"]
         context = {}
-        for key, code in self.warehouse_options.items():
+        for key, code in warehouse_options():
             if key in warehouse:
                 mutable_post["warehouse"] = code
 
@@ -8141,7 +8140,7 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         context = {
-            "warehouse_options": self.warehouse_options
+            "warehouse_options": WAREHOUSE_OPTIONS
         }
         #if await self._validate_user_four_major_whs(request.user):
         #不看权限了，就默认打开就是四大仓的
@@ -8156,19 +8155,19 @@ class PostNsop(View):
     async def handle_appointment_management_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS}
         return self.template_main_dash, context
 
     async def handle_td_unshipment_get(    
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS}
         return self.template_td_unshipment, context
 
     async def handle_td_shipment_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS}
         return self.template_td_shipment, context
     
 
@@ -8271,7 +8270,7 @@ class PostNsop(View):
         
         context = {
             'fleets': fleet_data,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             'start_date': start_date,
             'end_date': end_date,
             'destination': destination
@@ -8303,7 +8302,7 @@ class PostNsop(View):
     async def handle_fleet_management_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS}
         return self.template_fleet_schedule, context
     
     async def _update_shipment_totals(self, sp_base_q):
@@ -8822,7 +8821,7 @@ class PostNsop(View):
             'ready_to_ship_data': ready_to_ship_data,
             'sum_fleet': sum_fleet,
             'summary': summary,        
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "warehouse": warehouse,
             "carrier_options": self.carrier_options,
@@ -8845,12 +8844,12 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': self.warehouse_options
+                    'warehouse_options': WAREHOUSE_OPTIONS
                 })
             else:
                 context = {
                     "error_messages":"未选择仓库!",
-                    'warehouse_options': self.warehouse_options,
+                    'warehouse_options': WAREHOUSE_OPTIONS,
                 }
             return self.template_td_unshipment, context
         st_type = request.POST.get("st_type", "pallet")
@@ -8880,7 +8879,7 @@ class PostNsop(View):
             'destination_list': destination_list,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
@@ -9156,12 +9155,12 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': self.warehouse_options
+                    'warehouse_options': WAREHOUSE_OPTIONS
                 })
             else:
                 context = {
                     "error_messages":"未选择仓库!",
-                    'warehouse_options': self.warehouse_options,
+                    'warehouse_options': WAREHOUSE_OPTIONS,
                 }
             return self.template_history_shipment, context
         start_date = request.POST.get("start_date")
@@ -9192,7 +9191,7 @@ class PostNsop(View):
             'warehouse': warehouse,
             'scheduled_data': scheduled_data,
             'fleet_list': schedule_fleet_data,   #已排车
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
@@ -9212,12 +9211,12 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': self.warehouse_options
+                    'warehouse_options': WAREHOUSE_OPTIONS
                 })
             else:
                 context = {
                     "error_messages":"未选择仓库!",
-                    'warehouse_options': self.warehouse_options,
+                    'warehouse_options': WAREHOUSE_OPTIONS,
                 }
             return self.template_td_shipment, context
         st_type = request.POST.get("st_type", "pallet")
@@ -9270,7 +9269,7 @@ class PostNsop(View):
             'summary': summary,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
@@ -12094,7 +12093,7 @@ class PostNsop(View):
         else:
             context.update({
                 'error_messages':"没选仓库！",
-                'warehouse_options': self.warehouse_options,
+                'warehouse_options': WAREHOUSE_OPTIONS,
             })
             return self.template_ltl_history_pos, context
         
@@ -12138,7 +12137,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             'account_options': self.arm_account_options,
             'load_type_options': LOAD_TYPE_OPTIONS,
             "selfpick_cargos": selfpick_cargos,
@@ -12366,7 +12365,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             'account_options': self.arm_account_options,
             'load_type_options': LOAD_TYPE_OPTIONS,
             "release_cargos": release_cargos,
@@ -12400,7 +12399,7 @@ class PostNsop(View):
 
         context = {
             'warehouse': warehouse,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             "packinglist_not_selfdelivery": packinglist_not_selfdelivery,
             "packinglist_selfdelivery": packinglist_selfdelivery,
             "order_with_shipment": order_with_shipment
@@ -12419,7 +12418,7 @@ class PostNsop(View):
 
         context = {
             'warehouse': warehouse,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             "packinglist_not_selfpick_cargos": packinglist_not_selfpick_cargos,
             "packinglist_selfpick_cargos": packinglist_selfpick_cargos,
             "order_with_shipment": order_with_shipment,
@@ -14145,7 +14144,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             'cargos': unshipment_pos,
             'shipments': shipments,
             'summary': summary,
@@ -14251,7 +14250,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': self.warehouse_options,
+            'warehouse_options': WAREHOUSE_OPTIONS,
             'cargos': unshipment_pos,
             'shipments': shipments,
             'summary': summary,

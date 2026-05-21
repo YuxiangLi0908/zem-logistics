@@ -28,34 +28,19 @@ from django.views import View
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
+from warehouse.utils.constants import WAREHOUSE_OPTIONS
 
 
 class TimeoutWarning(View):
     template_shipment = "post_port/timeout_inventory/timeout_shipment.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-        "LA-91730": "LA-91730"
-    }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         # if not await self._validate_user_group(request.user):
         #     return HttpResponseForbidden(
         #         "You are not authenticated to access this page!"
         #     )
-        context = {"warehouse_options": self.warehouse_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
         return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
@@ -171,7 +156,7 @@ class TimeoutWarning(View):
         )
         context = {
             "warehouse": warehouse,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "pallets": pallets,  # 未预约
             "shipments": shipments,  # 未排车
             "fleets": fleets,  # 未出库

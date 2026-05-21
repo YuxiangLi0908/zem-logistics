@@ -57,6 +57,8 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from django.db import transaction
 from asgiref.sync import sync_to_async
+
+from warehouse.utils.constants import WAREHOUSE_OPTIONS
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 import logging
@@ -99,22 +101,6 @@ class ExceptionHandling(View):
         "外配": "外配",
         "快递": "快递",
         "客户自提": "客户自提",
-    }
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-        "LA-91730": "LA-91730",
     }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
@@ -4417,7 +4403,7 @@ class ExceptionHandling(View):
     async def handle_search_shipment(self, request: HttpRequest):
         """处理查询shipment请求"""
         context = {
-            'warehouse_options':self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             'shipment_type_options': self.shipment_type_options,
         }
         

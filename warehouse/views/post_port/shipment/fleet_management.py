@@ -81,7 +81,7 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    SYSTEM_FOLDER,
+    SYSTEM_FOLDER, WAREHOUSE_OPTIONS,
 )
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.export_file import link_callback
@@ -117,22 +117,6 @@ class FleetManagement(View):
         "post_port/shipment/abnormal/01_fleet_management_main.html"
     )
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-        "LA-91730": "LA-91730"
-    }
     shipment_type_options = {
         "": "",
         "FTL/LTL": "FTL/LTL",
@@ -777,7 +761,7 @@ class FleetManagement(View):
             "shipments": shipments,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "shipment": json.dumps(shipment_fleet_dict),
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "area": area,
         }
         return self.template_delivery_and_pod, context
@@ -2650,7 +2634,7 @@ class FleetManagement(View):
             "batch_number": batch_number,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "area": area,
             "error_messages": error_messages or [],
             "success_count": success_count,
@@ -3079,7 +3063,7 @@ class FleetManagement(View):
             "end_time": end_time,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "error_messages": error_messages or [],
             "success_count": success_count,
             # 新增：传递一提多卸分组数据到前端
@@ -3621,7 +3605,7 @@ class FleetManagement(View):
             "batch_number": batch_number,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "area": area,
             "arrived_at": arrived_at,
         }

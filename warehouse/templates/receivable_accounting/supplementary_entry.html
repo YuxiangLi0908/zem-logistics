@@ -501,7 +501,7 @@
                 <div class="filter-group">
                     <label>仓点区域：</label>
                     <select name="warehouse_filter">
-                        {% for k, v in warehouse_options.items %}
+                        {% for k, v in warehouse_options %}
                             <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
                         {% endfor %}
                     </select>

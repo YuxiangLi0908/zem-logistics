@@ -116,7 +116,7 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    SYSTEM_FOLDER,
+    SYSTEM_FOLDER, WAREHOUSE_OPTIONS,
 )
 from warehouse.views.export_file import export_invoice
 import logging
@@ -159,23 +159,6 @@ class Accounting(View):
     template_invoice_payable_direct_edit = "accounting/invoice_payable_direct_edit.html"
     template_invoice_payable_direct_edit_v1 = "accounting/invoice_payable_direct_edit_v1.html"
     allowed_group = "accounting"
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31408": "SAV-31408",
-        "SAV-31419": "SAV-31419",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-        "LA-91766": "LA-91766",
-        "LA-91730": "LA-91730",
-        "直送": "直送",
-    }
 
     def get(self, request: HttpRequest) -> HttpResponse:
         # if not self._validate_user_group(request.user):
@@ -1568,7 +1551,7 @@ class Accounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
         }
         return self.template_invoice_search, context
@@ -1996,7 +1979,7 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "groups": groups,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
         }
         return self.template_invoice_preport, context
@@ -2133,7 +2116,7 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "previous_order": previous_order,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
             "groups": groups,
             "display_mix": display_mix,
@@ -2355,7 +2338,7 @@ class Accounting(View):
                 "start_date_confirm": start_date_confirm,
                 "end_date_confirm": end_date_confirm,
                 "customer": customer,
-                "warehouse_options": self.warehouse_options,
+                "warehouse_options": WAREHOUSE_OPTIONS,
                 "warehouse_filter": warehouse,
                 "invoice_type_filter": invoice_type,
                 "existing_customers": existing_customers,
@@ -2719,7 +2702,7 @@ class Accounting(View):
                 "warehouse_confirmed_orders": warehouse_confirmed_orders,
                 "delivery_pending_orders": delivery_pending_orders,
                 "delivery_confirmed_orders": None,
-                "warehouse_options": self.warehouse_options,
+                "warehouse_options": WAREHOUSE_OPTIONS,
                 "existing_customers": existing_customers,
                 "order_form": order_form,
                 "selected_customer_id": selected_customer_id,
@@ -3136,7 +3119,7 @@ class Accounting(View):
             "unload_carriers": unload_carriers,
             "warehouse_carriers": warehouse_carriers,
             "delivery_confirmed_orders": None,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "existing_customers": existing_customers,
             "order_form": order_form,
             "selected_customer_id": selected_customer_id,
@@ -3614,7 +3597,7 @@ class Accounting(View):
             "delivery_pending_orders": final_pending,
             "delivery_confirm_orders": final_confirmed,
             "delivery_confirmed_orders": None,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "existing_customers": existing_customers,
             "order_form": order_form,
             "selected_customer_id": selected_customer_id,
@@ -3939,7 +3922,7 @@ class Accounting(View):
             "pick_confirmed_orders": pick_confirmed_orders,
             "delivery_pending_orders": delivery_pending_orders,
             "delivery_confirmed_orders": None,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "existing_customers": existing_customers,
             "order_form": order_form,
             "selected_customer_id": selected_customer_id,
@@ -4337,7 +4320,7 @@ class Accounting(View):
             "warehouse_confirmed_orders": warehouse_confirmed_orders,
             "delivery_pending_orders": delivery_pending_orders,
             "delivery_confirmed_orders": None,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "existing_customers": existing_customers,
             "order_form": order_form,
             "selected_customer_id": selected_customer_id,
@@ -4550,7 +4533,7 @@ class Accounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
             "warehouse": warehouse,
             "modify_shipped_shipment": request.user.groups.filter(name="shipment_leader").exists(),
@@ -5161,7 +5144,7 @@ class Accounting(View):
             "supplier_type": supplier_type,
             "customer": customer,
             "selected_customer_id": selected_customer_id,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "order_form": order_form,
             "start_date_confirm": start_date.strftime("%Y-%m-%d"),
             "end_date_confirm": end_date.strftime("%Y-%m-%d"),
@@ -5445,7 +5428,7 @@ class Accounting(View):
             "warehouse_carriers": warehouse_carriers,
             "delivery_confirm_orders": final_confirmed,
             "delivery_confirmed_orders": None,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "existing_customers": existing_customers,
             "order_form": order_form,
             "selected_customer_id": selected_customer_id,
@@ -5602,7 +5585,7 @@ class Accounting(View):
             "supplier_type": supplier_type,
             "customer": customer,  # 客户对象
             "selected_customer_id": selected_customer_id,  # 客户ID（关键：用于前端选中）
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "order_form": order_form,  # 正确初始化的表单
             "start_date_confirm": start_date_confirm,
             "end_date_confirm": end_date_confirm,
@@ -9268,7 +9251,7 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "groups": groups,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
             "is_payable_check": is_payable_check,
             "months": reversed(months) if months else [],
@@ -9504,7 +9487,7 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "groups": groups,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
             "is_payable_check": is_payable_check,
             "months": reversed(months) if months else [],

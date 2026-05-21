@@ -56,7 +56,7 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    amazon_fba_locations,
+    amazon_fba_locations, WAREHOUSE_OPTIONS,
 )
 from warehouse.utils.shipment_binding_utils import (
     ShipmentBindingLogger,
@@ -98,21 +98,7 @@ class ShippingManagement(View):
         "MO": "MO",
         "TX": "TX",
     }
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "SAV-31419": "SAV-31419",
-        "SAV-31408": "SAV-31408",
-        "SAV-31322": "SAV-31322",
-        "LA-91761": "LA-91761",
-        "LA-91748": "LA-91748",
-        "LA-91766": "LA-91766",
-        "MO-62025": "MO-62025",
-        "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789",
-    }
+    
     account_options = {
         "": "",
         "Carrier Central1": "Carrier Central1",
@@ -271,7 +257,7 @@ class ShippingManagement(View):
                 "load_type_options": LOAD_TYPE_OPTIONS,
                 "account_options": self.account_options,
                 "warehouse": request.GET.get("warehouse"),
-                "warehouse_options": self.warehouse_options,
+                "warehouse_options": WAREHOUSE_OPTIONS,
                 "shipment_type_options": self.shipment_type_options,
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
@@ -285,7 +271,7 @@ class ShippingManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         context = {
             "load_type_options": LOAD_TYPE_OPTIONS,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "start_date": (datetime.now().date() + timedelta(days=-7)).strftime(
                 "%Y-%m-%d"
@@ -300,7 +286,7 @@ class ShippingManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         context = {
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "start_date": (datetime.now().date() + timedelta(days=-7)).strftime(
                 "%Y-%m-%d"
             ),
@@ -379,7 +365,7 @@ class ShippingManagement(View):
             "shipment_type_options": self.shipment_type_options,
             "unused_appointment": json.dumps(unused_appointment),
             "shipment_data": json.dumps(shipment_data),
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "account_options": self.account_options,
         }
@@ -1266,7 +1252,7 @@ class ShippingManagement(View):
                     "plt_ids_raw": plt_ids,
                     "address": address,
                     "shipment_data": shipment_data,
-                    "warehouse_options": self.warehouse_options,
+                    "warehouse_options": WAREHOUSE_OPTIONS,
                     "load_type_options": LOAD_TYPE_OPTIONS,
                     "shipment_type_options": self.shipment_type_options,
                     "unused_appointment": json.dumps(unused_appointment),
@@ -2891,7 +2877,7 @@ class ShippingManagement(View):
             "appointment": appointment,
             "po_appointment_summary": df.to_dict("records"),
             "warehouse": warehouse,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "upload_file_form": UploadFileForm(),
             "start_date": start_date,
             "end_date": end_date,
@@ -3058,7 +3044,7 @@ class ShippingManagement(View):
             "warehouse": warehouse,
             "start_date": appointmnet_start_date,
             "end_date": appointment_end_date,
-            "warehouse_options": self.warehouse_options,
+            "warehouse_options": WAREHOUSE_OPTIONS,
             "shipment": shipment,
         }
         return self.template_shipment_list, context
