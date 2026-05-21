@@ -54,7 +54,7 @@ from django.db.models import (
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.utils.config import app_config
-from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
 import asyncio
 import aiohttp
 from django.http import JsonResponse, HttpResponseForbidden
@@ -196,6 +196,29 @@ class PostNsop(View):
             return redirect("login")
         step = request.GET.get("step")
         pk = kwargs.get("pk", None)
+        
+        # 操作组权限检查
+        public_steps = [
+            "unscheduled_pos_all",  # 四大仓备约
+            "appointment_management",  # 备约
+            "schedule_shipment",  # 库存排约
+            "batch_shipment",  # 库存批量排约
+            "fleet_management",  # 车次操作
+            "history_shipment",  # 历史排约
+        ]
+        if step in public_steps:
+            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
+                return HttpResponseForbidden("你没有公仓派送界面的访问权限!")
+        
+        # 私仓组权限检查
+        other_steps = [
+            "LTL_pallets",  # 库存排约
+            "LTL_history_po",  # 历史数据
+        ]
+        if step in other_steps:
+            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
+                return HttpResponseForbidden("你没有私仓派送界面的访问权限!")
+        
         if step == "appointment_management":
             template, context = await self.handle_appointment_management_get(request)
             return await sync_to_async(render)(request, template, context)
@@ -279,6 +302,28 @@ class PostNsop(View):
                 step = None
         else:
             step = request.POST.get("step")
+        
+        # 操作组权限检查
+        public_steps = [
+            "unscheduled_pos_warehouse",  # 四大仓备约
+            "appointment_management_warehouse",  # 备约
+            "td_shipment_warehouse",  # 库存排约
+            "batch_shipment",  # 库存批量排约
+            "fleet_schedule_warehouse",  # 车次操作
+            "history_shipment_warehouse",  # 历史排约
+        ]
+        if step in public_steps:
+            if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
+                return HttpResponseForbidden("你没有公仓派送操作的访问权限!")
+        
+        # 私仓组权限检查
+        other_steps = [
+            "ltl_warehouse",  # 库存排约
+            "ltl_history_warehouse",  # 历史数据
+        ]
+        if step in other_steps:
+            if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
+                return HttpResponseForbidden("你没有私仓派送操作的访问权限!")
         
         print('step', step)
         
