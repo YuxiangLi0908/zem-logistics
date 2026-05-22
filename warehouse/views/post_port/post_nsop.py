@@ -2755,7 +2755,6 @@ class PostNsop(View):
         
         # 按柜号分组的数据结构，用列表，保持输入顺序
         container_results = []
-        seen_container_numbers = set()
         
         # 查询pallet数据，delivery_type为other
         for input_container_number in unique_container_list:
@@ -2776,11 +2775,6 @@ class PostNsop(View):
                 # 实际的柜号（从pallet中获取）
                 actual_container_number = pallets[0].container_number.container_number
                 display_container_number = actual_container_number
-                
-                # 检查是否已经显示过这个柜号（不区分大小写）
-                if actual_container_number.lower() in seen_container_numbers:
-                    continue
-                seen_container_numbers.add(actual_container_number.lower())
                 
                 has_data = True
                 

@@ -8078,12 +8078,18 @@ class ReceivableAccounting(View):
             if isinstance(result_new, dict) and result_new.get('error_messages'):
                 return template, result_new
             
+            # final_result = {
+            #     "normal_items": result_existing["normal_items"] + result_new["normal_items"] + result_previous_existing["normal_items"],
+            #     "combina_groups": result_existing["combina_groups"] + result_new["combina_groups"] + result_previous_existing["combina_groups"],
+            #     "combina_info": self._merge_combina_info(result_existing["combina_info"],
+            #                                             result_new["combina_info"],
+            #                                             result_previous_existing["combina_info"])
+            # }
             final_result = {
-                "normal_items": result_existing["normal_items"] + result_new["normal_items"] + result_previous_existing["normal_items"],
-                "combina_groups": result_existing["combina_groups"] + result_new["combina_groups"] + result_previous_existing["combina_groups"],
+                "normal_items": result_existing["normal_items"] + result_new["normal_items"],
+                "combina_groups": result_existing["combina_groups"] + result_new["combina_groups"],
                 "combina_info": self._merge_combina_info(result_existing["combina_info"],
-                                                        result_new["combina_info"],
-                                                        result_previous_existing["combina_info"])
+                                                        result_new["combina_info"])
             }
             
         else:
