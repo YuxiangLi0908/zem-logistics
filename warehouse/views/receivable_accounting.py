@@ -8143,7 +8143,7 @@ class ReceivableAccounting(View):
             "end_date": request.GET.get("end_date"),
             "total_container_cbm": total_container_cbm,
             "receivable_is_locked": invoice.receivable_is_locked,
-            "previous_recorded_items": previous_recorded_items,  # 之前账单已录过的项目
+            "previous_recorded_items": [],  # 之前账单已录过的项目
         })
         
         return template, context

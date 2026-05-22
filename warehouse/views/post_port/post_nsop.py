@@ -2744,8 +2744,9 @@ class PostNsop(View):
         # 按换行符分割柜号
         container_number_list = [cn.strip() for cn in container_numbers_input.split('\n') if cn.strip()]
         
-        # 构建扁平化的查询结果数据结构，方便前端渲染合并表格
-        flat_results = []
+        # 按柜号分组的数据结构，用列表，保持输入顺序
+        container_results = []
+        seen_container_numbers = set()
         
         # 查询pallet数据，delivery_type为other
         for input_container_number in container_number_list:
@@ -2760,53 +2761,52 @@ class PostNsop(View):
             if not pallets:
                 continue
             
-            # 按 PO_ID 和 shipping_mark 分组
-            po_groups = defaultdict(list)
-            for pallet in pallets:
-                key = (pallet.PO_ID or '', pallet.shipping_mark or '')
-                po_groups[key].append(pallet)
-            
-            # 计算当前柜号的总数据行数
-            container_total_rows = 0
-            for (po_id, shipping_mark), pallet_list in po_groups.items():
-                container_total_rows += len(pallet_list)
-            
-            # 为当前柜号设置起始标志
-            is_first_container_row = True
-            
             # 实际的柜号（从pallet中获取）
             actual_container_number = pallets[0].container_number.container_number
             
-            # 构建该柜号的扁平化数据
-            for (po_id, shipping_mark), pallet_list in po_groups.items():
+            # 检查是否已经显示过这个柜号（不区分大小写）
+            if actual_container_number.lower() in seen_container_numbers:
+                continue
+            seen_container_numbers.add(actual_container_number.lower())
+            
+            # 按 PO_ID 和 shipping_mark 分组
+            po_groups = []
+            po_groups_dict = defaultdict(list)
+            for pallet in pallets:
+                key = (pallet.PO_ID or '', pallet.shipping_mark or '')
+                po_groups_dict[key].append(pallet)
+            
+            # 整理分组数据
+            for (po_id, shipping_mark), pallet_list in po_groups_dict.items():
                 # 统计该组的信息
                 total_pallet_count = len(pallet_list)
                 total_cbm = sum(p.cbm or 0 for p in pallet_list)
                 
-                # 为每个pallet添加一条记录
-                for idx, pallet in enumerate(pallet_list):
-                    flat_results.append({
-                        'container_number': actual_container_number,
-                        'po_id': po_id,
-                        'shipping_mark': shipping_mark,
+                # 该组的pallet列表
+                pallets_in_group = []
+                for pallet in pallet_list:
+                    pallets_in_group.append({
                         'cbm': pallet.cbm or 0,
-                        'pieces': pallet.pcs or 0,
+                        'pcs': pallet.pcs or 0,
                         'destination': pallet.destination or '',
                         'location': pallet.location or '',
                         'note': pallet.note or '',
-                        'total_pallet_count': total_pallet_count,
-                        'total_cbm': round(total_cbm, 2) if total_cbm else 0,
-                        'is_first_in_group': idx == 0,  # 标记是否是该组第一条
-                        'is_first_in_container': is_first_container_row,  # 标记是否是该柜号第一条
-                        'container_row_span': container_total_rows if is_first_container_row else 0,  # 柜号的rowspan
-                        'group_pallet_count': total_pallet_count  # 该组有多少板
                     })
-                    
-                    # 更新标志位
-                    if is_first_container_row:
-                        is_first_container_row = False
+                
+                po_groups.append({
+                    'po_id': po_id,
+                    'shipping_mark': shipping_mark,
+                    'total_pallet_count': total_pallet_count,
+                    'total_cbm': round(total_cbm, 2) if total_cbm else 0,
+                    'pallets': pallets_in_group,
+                })
+            
+            container_results.append({
+                'container_number': actual_container_number,
+                'po_groups': po_groups,
+            })
         
-        context['flat_results'] = flat_results
+        context['container_results'] = container_results
         context['container_numbers_input'] = container_numbers_input
         context['warehouse_options'] = WAREHOUSE_OPTIONS
         

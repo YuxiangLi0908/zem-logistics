@@ -515,50 +515,53 @@
     {% endif %}
     
     <!-- 查询结果展示 -->
-    {% if flat_results %}
+    {% if container_results %}
     <div class="card" style="margin-top: 32px;">
         <h4 class="module-title">查询结果</h4>
-        <div class="table-responsive">
-            <table class="result-table" style="width: 100%;">
-                <thead>
-                    <tr>
-                        <th style="padding: 10px;">柜号</th>
-                        <th style="padding: 10px;">PO ID</th>
-                        <th style="padding: 10px;">唛头</th>
-                        <th style="padding: 10px;">板号</th>
-                        <th style="padding: 10px;">CBM</th>
-                        <th style="padding: 10px;">件数</th>
-                        <th style="padding: 10px;">目的地</th>
-                        <th style="padding: 10px;">发货仓库</th>
-                        <th style="padding: 10px;">备注</th>
-                        <th style="padding: 10px;">本组板数</th>
-                        <th style="padding: 10px;">本组CBM</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in flat_results %}
-                    <tr>
-                        {% if item.is_first_in_container %}
-                        <td style="padding: 10px; border: 1px solid #ddd; font-weight: 500; vertical-align: middle;" rowspan="{{ item.container_row_span }}">{{ item.container_number }}</td>
-                        {% endif %}
-                        {% if item.is_first_in_group %}
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: middle;" rowspan="{{ item.group_pallet_count }}">{{ item.po_id }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: middle;" rowspan="{{ item.group_pallet_count }}">{{ item.shipping_mark }}</td>
-                        {% endif %}
-                        <td style="padding: 10px; border: 1px solid #ddd;">{{ item.cbm }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">{{ item.pcs }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">{{ item.destination }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">{{ item.location }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">{{ item.note }}</td>
-                        {% if item.is_first_in_group %}
-                        <td style="padding: 10px; border: 1px solid #ddd; font-weight: 500; vertical-align: middle;" rowspan="{{ item.group_pallet_count }}">{{ item.total_pallet_count }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; font-weight: 500; vertical-align: middle;" rowspan="{{ item.group_pallet_count }}">{{ item.total_cbm }}</td>
-                        {% endif %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        
+        {% for container_data in container_results %}
+        <div style="margin-bottom: 24px;">
+            <h5 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #333;">柜号: {{ container_data.container_number }}</h5>
+            <div class="table-responsive">
+                <table class="result-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 10px;">PO ID</th>
+                            <th style="padding: 10px;">唛头</th>
+                            <th style="padding: 10px;">CBM</th>
+                            <th style="padding: 10px;">件数</th>
+                            <th style="padding: 10px;">目的地</th>
+                            <th style="padding: 10px;">发货仓库</th>
+                            <th style="padding: 10px;">备注</th>
+                            <th style="padding: 10px;">本组板数</th>
+                            <th style="padding: 10px;">本组CBM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in container_data.po_groups %}
+                            {% for pallet in group.pallets %}
+                            <tr>
+                                {% if forloop.first %}
+                                <td style="padding: 10px; border: 1px solid #ddd; vertical-align: middle;" rowspan="{{ group.total_pallet_count }}">{{ group.po_id }}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd; vertical-align: middle;" rowspan="{{ group.total_pallet_count }}">{{ group.shipping_mark }}</td>
+                                {% endif %}
+                                <td style="padding: 10px; border: 1px solid #ddd;">{{ pallet.cbm }}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">{{ pallet.pcs }}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">{{ pallet.destination }}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">{{ pallet.location }}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">{{ pallet.note }}</td>
+                                {% if forloop.first %}
+                                <td style="padding: 10px; border: 1px solid #ddd; font-weight: 500; vertical-align: middle;" rowspan="{{ group.total_pallet_count }}">{{ group.total_pallet_count }}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd; font-weight: 500; vertical-align: middle;" rowspan="{{ group.total_pallet_count }}">{{ group.total_cbm }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
+        {% endfor %}
     </div>
     {% endif %}
 </div>
