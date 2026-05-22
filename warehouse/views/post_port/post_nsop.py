@@ -2758,51 +2758,58 @@ class PostNsop(View):
                 ).select_related('container_number').order_by('PO_ID', 'shipping_mark')
             )
             
-            if not pallets:
-                continue
-            
-            # 实际的柜号（从pallet中获取）
-            actual_container_number = pallets[0].container_number.container_number
-            
-            # 检查是否已经显示过这个柜号（不区分大小写）
-            if actual_container_number.lower() in seen_container_numbers:
-                continue
-            seen_container_numbers.add(actual_container_number.lower())
-            
-            # 按 PO_ID 和 shipping_mark 分组
+            # 先确定柜号显示名称
+            display_container_number = input_container_number
+            has_data = False
             po_groups = []
-            po_groups_dict = defaultdict(list)
-            for pallet in pallets:
-                key = (pallet.PO_ID or '', pallet.shipping_mark or '')
-                po_groups_dict[key].append(pallet)
             
-            # 整理分组数据
-            for (po_id, shipping_mark), pallet_list in po_groups_dict.items():
-                # 统计该组的信息
-                total_pallet_count = len(pallet_list)
-                total_cbm = sum(p.cbm or 0 for p in pallet_list)
+            if pallets:
+                # 实际的柜号（从pallet中获取）
+                actual_container_number = pallets[0].container_number.container_number
+                display_container_number = actual_container_number
                 
-                # 该组的pallet列表
-                pallets_in_group = []
-                for pallet in pallet_list:
-                    pallets_in_group.append({
-                        'cbm': pallet.cbm or 0,
-                        'pcs': pallet.pcs or 0,
-                        'destination': pallet.destination or '',
-                        'location': pallet.location or '',
-                        'note': pallet.note or '',
+                # 检查是否已经显示过这个柜号（不区分大小写）
+                if actual_container_number.lower() in seen_container_numbers:
+                    continue
+                seen_container_numbers.add(actual_container_number.lower())
+                
+                has_data = True
+                
+                # 按 PO_ID 和 shipping_mark 分组
+                po_groups_dict = defaultdict(list)
+                for pallet in pallets:
+                    key = (pallet.PO_ID or '', pallet.shipping_mark or '')
+                    po_groups_dict[key].append(pallet)
+                
+                # 整理分组数据
+                for (po_id, shipping_mark), pallet_list in po_groups_dict.items():
+                    # 统计该组的信息
+                    total_pallet_count = len(pallet_list)
+                    total_cbm = sum(p.cbm or 0 for p in pallet_list)
+                    
+                    # 该组的pallet列表
+                    pallets_in_group = []
+                    for pallet in pallet_list:
+                        pallets_in_group.append({
+                            'cbm': pallet.cbm or 0,
+                            'pcs': pallet.pcs or 0,
+                            'destination': pallet.destination or '',
+                            'location': pallet.location or '',
+                            'note': pallet.note or '',
+                        })
+                    
+                    po_groups.append({
+                        'po_id': po_id,
+                        'shipping_mark': shipping_mark,
+                        'total_pallet_count': total_pallet_count,
+                        'total_cbm': round(total_cbm, 2) if total_cbm else 0,
+                        'pallets': pallets_in_group,
                     })
-                
-                po_groups.append({
-                    'po_id': po_id,
-                    'shipping_mark': shipping_mark,
-                    'total_pallet_count': total_pallet_count,
-                    'total_cbm': round(total_cbm, 2) if total_cbm else 0,
-                    'pallets': pallets_in_group,
-                })
             
+            # 不管有没有数据都添加，保持输入顺序
             container_results.append({
-                'container_number': actual_container_number,
+                'container_number': display_container_number,
+                'has_data': has_data,
                 'po_groups': po_groups,
             })
         
