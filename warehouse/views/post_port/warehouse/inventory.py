@@ -59,6 +59,9 @@ class Inventory(View):
         "public": "public",
     }
 
+    @staticmethod
+    def _is_hold_delivery_method(delivery_method: str | None) -> bool:
+        return "暂扣留仓(HOLD)" in str(delivery_method)
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -447,6 +450,8 @@ class Inventory(View):
         new_pallets = []
         new_packing_lists = []  # 存储分组创建的新装箱单
         old_po_id = old_pallet[0].PO_ID
+        old_created_at = old_pallet[0].created_at
+        old_released_at = old_pallet[0].released_at
         old_packinglist = await sync_to_async(list)(
             PackingList.objects.filter(PO_ID=old_po_id)
         )
@@ -518,6 +523,8 @@ class Inventory(View):
                     "location": old_pallet[0].location,
                     "PO_ID": current_po_id,  # 与新装箱单PO_ID一致
                     "delivery_type": delivery_type,
+                    "created_at": old_created_at,
+                    "released_at": old_released_at,
                 }
                 for i in range(n)
             ]
@@ -687,6 +694,11 @@ class Inventory(View):
                 # 取第一个作为模板
                 template = old_pallets[0]
                 container = template.container_number
+                released_at_new = (
+                    None
+                    if self._is_hold_delivery_method(delivery_method_new)
+                    else template.created_at
+                )
 
                 # 2. 删除旧的
                 Pallet.objects.filter(id__in=plt_ids).delete()
@@ -721,6 +733,8 @@ class Inventory(View):
                         location=location_new,
                         contact_name=template.contact_name,
                         note=note_new,
+                        created_at=template.created_at,
+                        released_at=released_at_new,
                         pcs=0,
                         cbm=0,
                         weight_lbs=0,
@@ -818,6 +832,8 @@ class Inventory(View):
                 "fba_id",
                 "ref_id",
                 "sequence_number",
+                "created_at",
+                "released_at",
             ],
         )
 
