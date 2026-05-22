@@ -373,6 +373,9 @@ class ExceptionHandling(View):
         elif step == "check_invoice_status":
             template, context = await self.handle_check_invoice_status(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_delivery_type":
+            template, context = await self.handle_update_shipment_delivery_type(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "overweight_single_save":
             template, context = await self.handle_overweight_single_save(request)
             return await sync_to_async(render)(request, template, context)
@@ -780,6 +783,74 @@ class ExceptionHandling(View):
             'total_count': len(results)
         }
         return self.template_post_port_status, context
+
+    async def handle_update_shipment_delivery_type(self, request):
+        '''给所有空的shipment的delivery_type补充值'''
+        def perform_sync():
+            results = []
+            updated_count = 0
+            
+            # 查询所有delivery_type为空的shipment
+            shipments = Shipment.objects.filter(
+                Q(delivery_type__isnull=True) | Q(delivery_type='')
+            )
+            
+            for shipment in shipments:
+                if not shipment.destination:
+                    results.append({
+                        'shipment_batch_number': shipment.shipment_batch_number,
+                        'destination': ''
+                    })
+                    continue
+                
+                # 去掉首尾空格
+                dest = shipment.destination.strip()
+                
+                # 检查规则
+                delivery_type = None
+                
+                # 规则0：客户自提 → other
+                if '客户自提' in dest or 'client pickup' in dest.lower():
+                    delivery_type = 'other'
+                elif dest == 'UPS':
+                    delivery_type = 'public'
+                # 规则1：包含五个数字 → other
+                elif re.search(r'\d{5}', dest):
+                    delivery_type = 'other'
+                # 规则2：包含四个字母 → public
+                elif re.search(r'[a-zA-Z]{4}', dest):
+                    delivery_type = 'public'
+                # 规则3：前三个是字母，紧跟着一个数字 → public
+                elif len(dest) >= 4 and re.match(r'^[a-zA-Z]{3}\d', dest):
+                    delivery_type = 'public'
+                
+                if delivery_type:
+                    shipment.delivery_type = delivery_type
+                    shipment.save()
+                    updated_count += 1
+                    
+                    # 如果shipment有关联的fleet，也更新fleet的delivery_type
+                    if shipment.fleet_number:
+                        fleet = shipment.fleet_number
+                        fleet.delivery_type = delivery_type
+                        fleet.save()
+                else:
+                    results.append({
+                        'shipment_batch_number': shipment.shipment_batch_number,
+                        'destination': dest
+                    })
+            
+            return results, updated_count
+        
+        results, updated_count = await sync_to_async(perform_sync)()
+        
+        context = {
+            'update_delivery_type_results': results,
+            'updated_count': updated_count,
+            'unassigned_count': len(results)
+        }
+        return self.template_post_port_status, context
+
 
     async def handle_check_invoice_status(self, request):
         '''查询应收状态异常的柜号'''
