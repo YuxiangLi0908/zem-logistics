@@ -1677,6 +1677,13 @@ class PostNsop(View):
                 shipment_type="all"
             )
             
+            # 如果有出库时间，调用成本分摊
+            if departure_time_dt and fleet and fleet.fleet_cost:
+                fm = FleetManagement()
+                await fm.insert_fleet_shipment_pallet_fleet_cost(
+                    request, fleet.fleet_number, fleet.fleet_cost
+                )
+            
             # 记录成功结果
             results.append({
                 'group_index': group_index,
