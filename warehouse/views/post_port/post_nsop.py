@@ -653,6 +653,9 @@ class PostNsop(View):
         elif step == "batch_other_shipment_confirm":
             template, context = await self.handle_batch_other_shipment_confirm(request)
             return render(request, template, context)
+        elif step == "query_pallet_status":
+            template, context = await self.handle_query_pallet_status(request)
+            return render(request, template, context)
         elif step == "batch_shipment_confirm":
             template, context = await self.handle_batch_shipment_confirm(request)
             return render(request, template, context)
@@ -2721,12 +2724,109 @@ class PostNsop(View):
         try:
             f = open(template_path, 'rb')
             response = FileResponse(f)
-            response['Content-Disposition'] = 'attachment; filename="batch_shipment_template.xlsx"'
+            response['Content-Disposition'] = 'attachment; filename="batch_other_shipment_template.xlsx"'
             response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             return response
         except Exception as e:
             from django.http import HttpResponse
             return HttpResponse(f'下载失败: {str(e)}', status=500)
+    
+    async def handle_query_pallet_status(self, request: HttpRequest):
+        '''查询已录板数情况'''
+        context = {'warehouse_options': WAREHOUSE_OPTIONS}
+        
+        # 获取输入的柜号列表
+        container_numbers_input = request.POST.get('container_numbers', '')
+        if not container_numbers_input.strip():
+            context['error'] = '请输入柜号'
+            return self.template_batch_other_shipment, context
+        
+        # 按换行符分割柜号
+        container_number_list = [cn.strip() for cn in container_numbers_input.split('\n') if cn.strip()]
+        
+        # 先对输入的柜号列表去重，保持输入顺序，不区分大小写
+        unique_container_list = []
+        seen_input_container_numbers = set()
+        for cn in container_number_list:
+            cn_lower = cn.lower()
+            if cn_lower not in seen_input_container_numbers:
+                seen_input_container_numbers.add(cn_lower)
+                unique_container_list.append(cn)
+        
+        # 按柜号分组的数据结构，用列表，保持输入顺序
+        container_results = []
+        seen_container_numbers = set()
+        
+        # 查询pallet数据，delivery_type为other
+        for input_container_number in unique_container_list:
+            # 查询当前柜号的pallet
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number__container_number__iexact=input_container_number,
+                    delivery_type='other'
+                ).select_related('container_number').order_by('PO_ID', 'shipping_mark')
+            )
+            
+            # 先确定柜号显示名称
+            display_container_number = input_container_number
+            has_data = False
+            po_groups = []
+            
+            if pallets:
+                # 实际的柜号（从pallet中获取）
+                actual_container_number = pallets[0].container_number.container_number
+                display_container_number = actual_container_number
+                
+                # 检查是否已经显示过这个柜号（不区分大小写）
+                if actual_container_number.lower() in seen_container_numbers:
+                    continue
+                seen_container_numbers.add(actual_container_number.lower())
+                
+                has_data = True
+                
+                # 按 PO_ID 和 shipping_mark 分组
+                po_groups_dict = defaultdict(list)
+                for pallet in pallets:
+                    key = (pallet.PO_ID or '', pallet.shipping_mark or '')
+                    po_groups_dict[key].append(pallet)
+                
+                # 整理分组数据
+                for (po_id, shipping_mark), pallet_list in po_groups_dict.items():
+                    # 统计该组的信息
+                    total_pallet_count = len(pallet_list)
+                    total_cbm = sum(p.cbm or 0 for p in pallet_list)
+                    
+                    # 该组的pallet列表
+                    pallets_in_group = []
+                    for pallet in pallet_list:
+                        pallets_in_group.append({
+                            'cbm': pallet.cbm or 0,
+                            'pcs': pallet.pcs or 0,
+                            'destination': pallet.destination or '',
+                            'location': pallet.location or '',
+                            'note': pallet.note or '',
+                        })
+                    
+                    po_groups.append({
+                        'po_id': po_id,
+                        'shipping_mark': shipping_mark,
+                        'total_pallet_count': total_pallet_count,
+                        'total_cbm': round(total_cbm, 2) if total_cbm else 0,
+                        'pallets': pallets_in_group,
+                    })
+            
+            # 不管有没有数据都添加，保持输入顺序
+            container_results.append({
+                'container_number': display_container_number,
+                'has_data': has_data,
+                'po_groups': po_groups,
+            })
+        
+        context['container_results'] = container_results
+        context['container_numbers_input'] = container_numbers_input
+        context['warehouse_options'] = WAREHOUSE_OPTIONS
+        
+        return self.template_batch_other_shipment, context
         
     async def handle_download_batch_shipment_template(self, request: HttpRequest):
         '''下载批量预约出库模板文件'''

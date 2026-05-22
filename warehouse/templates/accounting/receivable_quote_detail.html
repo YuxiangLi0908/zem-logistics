@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% load custom_tags %}
+{% block content %}
+
+<div style="max-width: 1400px; margin: 20px auto;">
+    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #2c3e50; font-weight: 600;">📊 报价表详情</h3>
+            <a href="?step=quote_master" class="btn btn-secondary" style="padding: 10px 24px; background: #9ca3af; border-color: #9ca3af; border-radius: 6px; color: white; text-decoration: none; font-weight: 500;">
+                ← 返回列表
+            </a>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger" style="padding: 15px; border-radius: 8px; background: #fecdd3; color: #8b0000; border: 1px solid #fda4af;">
+            {{ error }}
+        </div>
+        {% else %}
+        <!-- 基本信息区 -->
+        <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 10px; margin-bottom: 25px; color: #5c4832;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px;">
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">📁 文件名</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.filename }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">📅 生效日期</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.effective_date|date:"Y-m-d" }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">⏰ 上传时间</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.upload_date|date:"Y-m-d" }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">🏷️ 版本</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.version }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">🔓 是否通用</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.is_user_exclusive|yesno:"否,是" }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">👤 专属客户</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.exclusive_user|default:"-" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导航栏 -->
+        <div style="background: #fff9f5; padding: 18px; border-radius: 10px; margin-bottom: 25px; border: 2px solid #fef3c7;">
+            <h4 style="margin: 0 0 12px 0; color: #92400e; font-size: 15px; font-weight: 600;">📑 快速导航</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                {% for fee_detail in fee_details %}
+                {% with fee_type=fee_detail.fee_type %}
+                <a href="#section-{{ forloop.counter }}" 
+                   style="
+                       padding: 8px 16px; 
+                       background: {% if fee_type == 'preport' %}#ffd1dc{% elif fee_type == 'warehouse' %}#ffeaa7{% elif fee_type == 'NJ_LOCAL' %}#a8e6cf{% elif fee_type == 'NJ_AMAZON' %}#dcd0ff{% elif fee_type == 'NJ_COMBINA' %}#b5e7a0{% elif fee_type == 'LA_AMAZON' %}#ffd6a5{% elif fee_type == 'LA_COMBINA' %}#caffbf{% elif fee_type == 'SAV_AMAZON' %}#e0c3fc{% elif fee_type == 'SAV_COMBINA' %}#a7f3d0{% elif fee_type == 'direct' %}#d1d5db{% elif fee_type == 'COMBINA_STIPULATE' %}#bfdbfe{% else %}#e5e7eb{% endif %}; 
+                       color: {% if fee_type == 'preport' %}#be123c{% elif fee_type == 'warehouse' %}#92400e{% elif fee_type == 'NJ_LOCAL' %}#065f46{% elif fee_type == 'NJ_AMAZON' %}#5b21b6{% elif fee_type == 'NJ_COMBINA' %}#166534{% elif fee_type == 'LA_AMAZON' %}#9a3412{% elif fee_type == 'LA_COMBINA' %}#166534{% elif fee_type == 'SAV_AMAZON' %}#5b21b6{% elif fee_type == 'SAV_COMBINA' %}#047857{% elif fee_type == 'direct' %}#374151{% elif fee_type == 'COMBINA_STIPULATE' %}#1e40af{% else %}#4b5563{% endif %}; 
+                       text-decoration: none; 
+                       border-radius: 20px; 
+                       font-size: 13px; 
+                       font-weight: 500;
+                       transition: transform 0.2s, box-shadow 0.2s;
+                       border: 1px solid {% if fee_type == 'preport' %}#fda4af{% elif fee_type == 'warehouse' %}#fcd34d{% elif fee_type == 'NJ_LOCAL' %}#6ee7b7{% elif fee_type == 'NJ_AMAZON' %}#c4b5fd{% elif fee_type == 'NJ_COMBINA' %}#86efac{% elif fee_type == 'LA_AMAZON' %}#fdba74{% elif fee_type == 'LA_COMBINA' %}#86efac{% elif fee_type == 'SAV_AMAZON' %}#ddd6fe{% elif fee_type == 'SAV_COMBINA' %}#6ee7b7{% elif fee_type == 'direct' %}#9ca3af{% elif fee_type == 'COMBINA_STIPULATE' %}#93c5fd{% else %}#d1d5db{% endif %};
+                   " 
+                   onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';"
+                   onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                    {% if fee_type == "preport" %}码头费用说明
+                    {% elif fee_type == "warehouse" %}仓库库内操作费
+                    {% elif fee_type == "NJ_LOCAL" %}NJ本地派送
+                    {% elif fee_type == "NJ_AMAZON" %}NJ亚马逊派送费
+                    {% elif fee_type == "NJ_COMBINA" %}NJ组合柜
+                    {% elif fee_type == "LA_AMAZON" %}LA亚马逊派送费
+                    {% elif fee_type == "LA_COMBINA" %}LA组合柜
+                    {% elif fee_type == "SAV_AMAZON" %}SAV亚马逊派送费
+                    {% elif fee_type == "SAV_COMBINA" %}SAV组合柜
+                    {% elif fee_type == "direct" %}整柜直送
+                    {% elif fee_type == "COMBINA_STIPULATE" %}组合柜规则
+                    {% else %}{{ fee_type }}{% endif %}
+                </a>
+                {% endwith %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 内容区 -->
+        <div>
+            {% for fee_detail in fee_details %}
+            {% with fee_type=fee_detail.fee_type %}
+            <div id="section-{{ forloop.counter }}" style="margin-bottom: 35px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid {% if fee_type == 'preport' %}#fecdd3{% elif fee_type == 'warehouse' %}#fff3cd{% elif fee_type == 'NJ_LOCAL' %}#a7f3d0{% elif fee_type == 'NJ_AMAZON' %}#e0c3fc{% elif fee_type == 'NJ_COMBINA' %}#bbf7d0{% elif fee_type == 'LA_AMAZON' %}#fed7aa{% elif fee_type == 'LA_COMBINA' %}#bbf7d0{% elif fee_type == 'SAV_AMAZON' %}#e9d5ff{% elif fee_type == 'SAV_COMBINA' %}#a7f3d0{% elif fee_type == 'direct' %}#e5e7eb{% elif fee_type == 'COMBINA_STIPULATE' %}#bfdbfe{% else %}#e5e7eb{% endif %};">
+                <div style="
+                    background: linear-gradient(135deg, 
+                        {% if fee_type == 'preport' %}#ffd1dc 0%, #fecdd3 100%
+                        {% elif fee_type == 'warehouse' %}#ffeaa7 0%, #fff3cd 100%
+                        {% elif fee_type == 'NJ_LOCAL' %}#a8e6cf 0%, #a7f3d0 100%
+                        {% elif fee_type == 'NJ_AMAZON' %}#dcd0ff 0%, #e0c3fc 100%
+                        {% elif fee_type == 'NJ_COMBINA' %}#b5e7a0 0%, #bbf7d0 100%
+                        {% elif fee_type == 'LA_AMAZON' %}#ffd6a5 0%, #fed7aa 100%
+                        {% elif fee_type == 'LA_COMBINA' %}#caffbf 0%, #bbf7d0 100%
+                        {% elif fee_type == 'SAV_AMAZON' %}#e0c3fc 0%, #e9d5ff 100%
+                        {% elif fee_type == 'SAV_COMBINA' %}#a7f3d0 0%, #a8e6cf 100%
+                        {% elif fee_type == 'direct' %}#d1d5db 0%, #e5e7eb 100%
+                        {% elif fee_type == 'COMBINA_STIPULATE' %}#bfdbfe 0%, #dbeafe 100%
+                        {% else %}#e5e7eb 0%, #f3f4f6 100%
+                        {% endif %}
+                    ); 
+                    padding: 16px 24px; 
+                    color: {% if fee_type == 'preport' %}#be123c{% elif fee_type == 'warehouse' %}#92400e{% elif fee_type == 'NJ_LOCAL' %}#065f46{% elif fee_type == 'NJ_AMAZON' %}#5b21b6{% elif fee_type == 'NJ_COMBINA' %}#166534{% elif fee_type == 'LA_AMAZON' %}#9a3412{% elif fee_type == 'LA_COMBINA' %}#166534{% elif fee_type == 'SAV_AMAZON' %}#5b21b6{% elif fee_type == 'SAV_COMBINA' %}#047857{% elif fee_type == 'direct' %}#374151{% elif fee_type == 'COMBINA_STIPULATE' %}#1e40af{% else %}#4b5563{% endif %}; 
+                    font-weight: 600; 
+                    font-size: 17px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;">
+                    <span style="font-size: 22px;">
+                        {% if fee_type == 'preport' %}🌸
+                        {% elif fee_type == 'warehouse' %}🍊
+                        {% elif fee_type == 'NJ_LOCAL' %}🍃
+                        {% elif fee_type == 'NJ_AMAZON' %}💜
+                        {% elif fee_type == 'NJ_COMBINA' %}🌿
+                        {% elif fee_type == 'LA_AMAZON' %}🧡
+                        {% elif fee_type == 'LA_COMBINA' %}🍀
+                        {% elif fee_type == 'SAV_AMAZON' %}💎
+                        {% elif fee_type == 'SAV_COMBINA' %}🌱
+                        {% elif fee_type == 'direct' %}🩶
+                        {% elif fee_type == 'COMBINA_STIPULATE' %}💙
+                        {% else %}🤍
+                        {% endif %}
+                    </span>
+                    {% if fee_type == "preport" %}码头费用说明
+                    {% elif fee_type == "warehouse" %}仓库库内操作费
+                    {% elif fee_type == "NJ_LOCAL" %}NJ本地派送
+                    {% elif fee_type == "NJ_AMAZON" %}NJ亚马逊派送费
+                    {% elif fee_type == "NJ_COMBINA" %}NJ组合柜
+                    {% elif fee_type == "LA_AMAZON" %}LA亚马逊派送费
+                    {% elif fee_type == "LA_COMBINA" %}LA组合柜
+                    {% elif fee_type == "SAV_AMAZON" %}SAV亚马逊派送费
+                    {% elif fee_type == "SAV_COMBINA" %}SAV组合柜
+                    {% elif fee_type == "direct" %}整柜直送
+                    {% elif fee_type == "COMBINA_STIPULATE" %}组合柜规则
+                    {% else %}{{ fee_type }}{% endif %}
+                </div>
+                <div style="padding: 24px; background: white;">
+                    {% if fee_detail.niche_warehouse %}
+                    <div style="margin-bottom: 20px; padding: 14px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #fcd34d;">
+                        <strong style="color: #92400e; font-size: 14px;">⚠️ 冷门仓点:</strong>
+                        <span style="color: #92400e; margin-left: 8px;">{{ fee_detail.niche_warehouse }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% with details=fee_detail.details %}
+                        {% if details %}
+                            <div style="padding: 4px;">
+                                {% render_fee_details details fee_type %}
+                            </div>
+                        {% else %}
+                            <div style="text-align: center; padding: 40px; color: #9ca3af; font-size: 16px;">
+                                <span style="font-size: 40px; display: block; margin-bottom: 10px;">📭</span>
+                                暂无数据
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endwith %}
+            {% empty %}
+            <div style="text-align: center; padding: 60px; color: #9ca3af;">
+                <span style="font-size: 60px; display: block; margin-bottom: 20px;">📭</span>
+                <div style="font-size: 18px; font-weight: 500;">暂无费用详情数据</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 平滑滚动脚本 -->
+<script>
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+</script>
+
+{% endblock %}

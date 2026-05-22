@@ -36,6 +36,7 @@ class QuoteManagement(View):
     template_update = "quote/quote_list.html"
     template_edit = "quote/quote_edit.html"
     template_quote_master = "accounting/quote_master.html"
+    template_receivable_quote_detail = "accounting/receivable_quote_detail.html"
     template_payable_quote_master = "accounting/payable_quote_master.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -56,6 +57,9 @@ class QuoteManagement(View):
         elif step == "payable_quote_master":
             template, context = self.handle_payable_quote_master_get(request)
             return render(request, template, context)
+        elif step == "receivable_quote_detail":
+            context = self.handle_quote_detail_get(request)
+            return render(request, self.template_receivable_quote_detail, context)
         context = {}
         return render(request, self.template_create, context)
 
@@ -78,6 +82,7 @@ class QuoteManagement(View):
         elif step == "upload_quote_excel":
             template, context = self.handle_upload_quote_post(request)
             return render(request, template, context)
+        
         elif step == "upload_payable_quote_excel":
             template, context = self.handle_upload_payable_quote_post(request)
             return render(request, template, context)
@@ -1557,3 +1562,15 @@ class QuoteManagement(View):
         mutable_post.update(context)
         request.POST = mutable_post
         return self.handle_quote_search_post(request)
+
+    def handle_quote_detail_get(self, request: HttpRequest) -> dict[str, Any]:
+        quote_id = request.GET.get("qid")
+        context = {}
+        try:
+            quote = QuotationMaster.objects.get(id=quote_id)
+            fee_details = FeeDetail.objects.filter(quotation_id=quote).order_by("fee_type")
+            context["quote"] = quote
+            context["fee_details"] = fee_details
+        except QuotationMaster.DoesNotExist:
+            context["error"] = "找不到该报价表"
+        return context
