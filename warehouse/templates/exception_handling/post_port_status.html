@@ -208,6 +208,19 @@
     </form>
 </div>
 
+<!-- 合并invoice表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="merge_invoices">
+        <div class="search-input-group">
+            <input type="text" name="invoice_id" class="search-input"
+                   placeholder="输入invoice id" required>
+            <button type="submit" class="search-btn" style="background-color: #3498db;">合并invoice</button>
+        </div>
+    </form>
+</div>
+
 <!-- 消息提示 -->
 {% if messages %}
     {% for message in messages %}
@@ -240,6 +253,27 @@
             {% endfor %}
         </tbody>
     </table>
+{% endif %}
+{% endif %}
+
+<!-- 合并invoice结果 -->
+{% if merge_invoices_error %}
+<div class="message error">
+    {{ merge_invoices_error }}
+</div>
+{% endif %}
+{% if merge_invoices_result %}
+<div class="search-info">
+    <strong>主Invoice:</strong> {{ merge_invoices_result.main_invoice_number }} | 
+    <strong>柜号:</strong> {{ merge_invoices_result.container_number }} | 
+    <strong>合并Invoice数量:</strong> {{ merged_count }} | 
+    <strong>迁移费用项数量:</strong> {{ merge_invoices_result.moved_items_count }} | 
+    <strong>删除状态记录数量:</strong> {{ merge_invoices_result.deleted_status_count }}
+</div>
+{% if merge_invoices_result.merged_invoices %}
+    <div style="margin-top: 10px;">
+        <strong>已合并的Invoice:</strong> {{ merge_invoices_result.merged_invoices|join:", " }}
+    </div>
 {% endif %}
 {% endif %}
 
