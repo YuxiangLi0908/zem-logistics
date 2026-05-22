@@ -376,6 +376,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_delivery_type":
             template, context = await self.handle_update_shipment_delivery_type(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "merge_invoices":
+            template, context = await self.handle_merge_invoices(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "overweight_single_save":
             template, context = await self.handle_overweight_single_save(request)
             return await sync_to_async(render)(request, template, context)
@@ -849,6 +852,84 @@ class ExceptionHandling(View):
             'updated_count': updated_count,
             'unassigned_count': len(results)
         }
+        return self.template_post_port_status, context
+
+    async def handle_merge_invoices(self, request):
+        '''合并同一个container下的invoicev2记录'''
+        def perform_sync():
+            from django.db import transaction
+            
+            invoice_id = request.POST.get('invoice_id')
+            
+            if not invoice_id:
+                return {'error': '请输入invoice id'}, 0
+            
+            try:
+                invoice_id = int(invoice_id)
+            except (ValueError, TypeError):
+                return {'error': 'invoice id必须是数字'}, 0
+            
+            try:
+                main_invoice = Invoicev2.objects.get(id=invoice_id)
+            except Invoicev2.DoesNotExist:
+                return {'error': f'找不到id为{invoice_id}的invoice记录'}, 0
+            
+            if not main_invoice.container_number:
+                return {'error': '该invoice没有关联container'}, 0
+            
+            container = main_invoice.container_number
+            
+            result_info = {
+                'main_invoice_number': main_invoice.invoice_number,
+                'container_number': container.container_number if container else '',
+                'merged_invoices': [],
+                'moved_items_count': 0,
+                'deleted_status_count': 0
+            }
+            
+            try:
+                with transaction.atomic():
+                    # 找到同一个container下的其他invoicev2记录
+                    other_invoices = Invoicev2.objects.filter(
+                        container_number=container
+                    ).exclude(id=main_invoice.id)
+                    
+                    for other_invoice in other_invoices:
+                        result_info['merged_invoices'].append(other_invoice.invoice_number)
+                        
+                        # 将其他invoice的所有invoice_itemv2记录指向主invoice
+                        items = InvoiceItemv2.objects.filter(invoice_number=other_invoice)
+                        for item in items:
+                            item.invoice_number = main_invoice
+                            item.save()
+                            result_info['moved_items_count'] += 1
+                        
+                        # 删除关联的invoicestatusv2记录
+                        status_deleted = InvoiceStatusv2.objects.filter(
+                            invoice=other_invoice
+                        ).delete()
+                        result_info['deleted_status_count'] += status_deleted[0]
+                        
+                        # 删除其他invoicev2记录
+                        other_invoice.delete()
+                    
+                    # 调用函数计算主invoice的总值
+                    self._update_invoice_total(main_invoice, container, is_update_remain=True)
+                
+                return result_info, len(result_info['merged_invoices'])
+            
+            except Exception as e:
+                return {'error': str(e)}, 0
+        
+        result, merged_count = await sync_to_async(perform_sync)()
+        
+        context = {}
+        if 'error' in result:
+            context['merge_invoices_error'] = result['error']
+        else:
+            context['merge_invoices_result'] = result
+            context['merged_count'] = merged_count
+        
         return self.template_post_port_status, context
 
 
