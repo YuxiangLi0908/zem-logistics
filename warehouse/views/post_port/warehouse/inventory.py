@@ -599,7 +599,7 @@ class Inventory(View):
         return await sync_to_async(lambda: related_field)()
 
     async def handle_update_po_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")] if plt_ids else []
@@ -674,6 +674,7 @@ class Inventory(View):
         ref_id_new = request.POST.getlist("ref_id_new")
 
         seed = 0
+
         # 根据新板数 创建/删除 Pallet
         @sync_to_async
         def adjust_pallets():

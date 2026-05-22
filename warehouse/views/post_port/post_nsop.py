@@ -12105,7 +12105,7 @@ class PostNsop(View):
         order_selected = await sync_to_async(
             Order.objects.select_related(
                 "offload_id", "warehouse", "container_number"
-            ).get
+            ).prefetch_related("container_number__pallet_set").get
         )(pk=pk)
         offload = order_selected.offload_id
         container = order_selected.container_number
@@ -12212,6 +12212,15 @@ class PostNsop(View):
                             )
                             dw_end = re.sub(r"(\w{3})\.", r"\1", dw_end)
                             dw_end = datetime.strptime(dw_end, "%b %d, %Y").date()
+
+                    # ====================== 核心逻辑 ======================
+                    created_at = offload_time
+                    if d_m in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                        released_at = None
+                    else:
+                        released_at = created_at
+                    # ======================================================
+
                     palletization = Palletization()
                     pallet_data += await palletization._split_pallet(
                         order_selected,
@@ -12237,6 +12246,8 @@ class PostNsop(View):
                         dw_st,
                         dw_end,
                         slot,
+                        created_at=created_at,
+                        released_at=released_at,
                     )  # 循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append(
@@ -12335,6 +12346,15 @@ class PostNsop(View):
                             dw_end = None
                         else:
                             dw_end = datetime.strptime(dw_end, "%Y-%m-%d").date()
+
+                    # ====================== 核心逻辑 ======================
+                    created_at = offload_time
+                    if d_m in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                        released_at = None
+                    else:
+                        released_at = created_at
+                    # ======================================================
+
                     pallet_data += await palletization._split_pallet(
                         order_selected,
                         n,
@@ -12360,6 +12380,8 @@ class PostNsop(View):
                         dw_end,
                         slot,
                         seed=1,
+                        created_at=created_at,
+                        released_at=released_at,
                     )
 
                     # 记录异常拆柜
