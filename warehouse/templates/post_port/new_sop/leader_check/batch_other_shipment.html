@@ -450,6 +450,10 @@
                         <th>预约类型</th>
                         <th>柜号数量</th>
                         <th>状态</th>
+                        <th>预约批次号</th>
+                        <th>车次号</th>
+                        <th>是否已出库</th>
+                        <th>是否已送达</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -465,6 +469,22 @@
                             <span class="status-badge {% if result.status == '成功' %}status-success{% else %}status-error{% endif %}">
                                 {{ result.status }}
                             </span>
+                        </td>
+                        <td>{{ result.shipment_batch_number|default:'-' }}</td>
+                        <td>{{ result.fleet_number|default:'-' }}</td>
+                        <td>
+                            {% if result.is_shipped %}
+                            <span style="color: #28a745; font-weight: 600; font-size: 18px;">✓</span>
+                            {% else %}
+                            <span style="color: #999; font-weight: 600; font-size: 18px;">✗</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if result.is_arrived %}
+                            <span style="color: #28a745; font-weight: 600; font-size: 18px;">✓</span>
+                            {% else %}
+                            <span style="color: #999; font-weight: 600; font-size: 18px;">✗</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

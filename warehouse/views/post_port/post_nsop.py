@@ -1694,7 +1694,9 @@ class PostNsop(View):
                 'container_count': len(group.get('containers', [])),
                 'status': '成功',
                 'shipment_batch_number': batch_number,
-                'fleet_number': fleet.fleet_number if fleet else None
+                'fleet_number': fleet.fleet_number if fleet else None,
+                'is_shipped': bool(departure_time_dt),
+                'is_arrived': bool(arrival_time_dt)
             })
             
             group_index += 1
