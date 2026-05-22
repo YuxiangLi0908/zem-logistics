@@ -12404,7 +12404,7 @@ class ReceivableAccounting(View):
 
         if is_fix_page:
             # 要跳转回待核销固定费用的页面
-            self._fix_account_create_new_invoice_and_status(invoice, container)
+            self._fix_account_create_new_invoice_and_status(container, invoice)
             return self.handle_fix_account_entry_post(request, ctx)
         return self.handle_confirm_entry_post(request, ctx)
     
