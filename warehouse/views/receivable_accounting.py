@@ -2483,6 +2483,8 @@ class ReceivableAccounting(View):
             invoice_type='receivable'
         )
         status_obj.finance_status = "completed"
+        if status_obj.preport_status == "pending_review":
+            status_obj.preport_status = "completed"
         status_obj.save()
         #生成excel账单
         order = Order.objects.select_related("retrieval_id", "container_number").get(
@@ -2852,7 +2854,7 @@ class ReceivableAccounting(View):
             status_obj.delivery_public_reason = reject_reason
             reject_status = "私仓派送"
         elif category == "payout_fee":
-            status_obj.finance_status = "tobeconfirmed"
+            status_obj.finance_status = "unstarted"
             reject_status = "赔付费用"
         status_obj.save()
 
@@ -12399,6 +12401,8 @@ class ReceivableAccounting(View):
             invoice_type='receivable'
         )
         status_obj.finance_status = "completed"
+        if status_obj.preport_status == "pending_review":
+            status_obj.preport_status = "completed"
         status_obj.save()
         ctx = {'success_messages': '保存成功！'}
 

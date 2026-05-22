@@ -813,8 +813,12 @@ class ExceptionHandling(View):
                 delivery_type = None
                 
                 # 规则0：客户自提 → other
-                if '客户自提' in dest or 'client pickup' in dest.lower():
+                if '自提' in dest or 'client pickup' in dest.lower():
                     delivery_type = 'other'
+                elif '沃尔玛' in dest:
+                    delivery_type = 'public'
+                elif 'UPS-' in dest:
+                    delivery_type = 'public'
                 elif dest == 'UPS':
                     delivery_type = 'public'
                 # 规则1：包含五个数字 → other
