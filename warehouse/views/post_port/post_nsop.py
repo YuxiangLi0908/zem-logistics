@@ -2744,12 +2744,21 @@ class PostNsop(View):
         # 按换行符分割柜号
         container_number_list = [cn.strip() for cn in container_numbers_input.split('\n') if cn.strip()]
         
+        # 先对输入的柜号列表去重，保持输入顺序，不区分大小写
+        unique_container_list = []
+        seen_input_container_numbers = set()
+        for cn in container_number_list:
+            cn_lower = cn.lower()
+            if cn_lower not in seen_input_container_numbers:
+                seen_input_container_numbers.add(cn_lower)
+                unique_container_list.append(cn)
+        
         # 按柜号分组的数据结构，用列表，保持输入顺序
         container_results = []
         seen_container_numbers = set()
         
         # 查询pallet数据，delivery_type为other
-        for input_container_number in container_number_list:
+        for input_container_number in unique_container_list:
             # 查询当前柜号的pallet
             pallets = await sync_to_async(list)(
                 Pallet.objects.filter(
