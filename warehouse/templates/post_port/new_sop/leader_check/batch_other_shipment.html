@@ -522,6 +522,8 @@
         {% for container_data in container_results %}
         <div style="margin-bottom: 24px;">
             <h5 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #333;">柜号: {{ container_data.container_number }}</h5>
+            
+            {% if container_data.has_data %}
             <div class="table-responsive">
                 <table class="result-table" style="width: 100%;">
                     <thead>
@@ -560,6 +562,11 @@
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div style="padding: 16px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404;">
+                这个柜子没有私仓板子
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
