@@ -20,6 +20,8 @@ class Pallet(models.Model):
         on_delete=models.SET_NULL,
         related_name="pallet",
     )
+    created_at = models.DateTimeField(null=True, blank=True,verbose_name="拆柜时间")
+    released_at = models.DateTimeField(null=True, blank=True,verbose_name="记录卡板状态变成可派送的时间,解除暂扣时间")
     master_shipment_batch_number = models.ForeignKey(
         Shipment,
         null=True,
