@@ -12408,7 +12408,7 @@ class PostNsop(View):
             offload.offload_other_at = offload_time
             # 如果 public 不在 delivery_type 里，主拆柜时间 = 私仓拆柜时间
             # 所有项都 不是 public → 满足条件
-            all_not_public = all(item.get("delivery_type") != "public" for item in pallet_data)
+            all_not_public = all(item.get("delivery_type") == "other" for item in pallet_data)
 
             if all_not_public:
                 offload.offload_at = offload.offload_other_at
