@@ -4777,28 +4777,35 @@ class ReceivableAccounting(View):
         customer = request.POST.get("customer")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
+        container_number_filter = request.POST.get("container_number_filter", "").strip()
 
         # --- 1. 日期处理 ---
         current_date = datetime.now().date()
-        start_date = (
-            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        if container_number_filter:
+            start_date = None
+            end_date = None
+        else:
+            start_date = (
+                (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+                if not start_date
+                else start_date
+            )
+            end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         # --- 2. 构建查询条件 (按提柜时间) ---
-        criteria = (
-            Q(cancel_notification=False)
-            & Q(retrieval_id__actual_retrieval_timestamp__gte=start_date)
-            & Q(retrieval_id__actual_retrieval_timestamp__lte=end_date)
-            & Q(offload_id__offload_at__isnull=False)
-        )
-        
-        if warehouse and warehouse != 'None':
-            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
-        if customer:
-            criteria &= Q(customer_name__zem_name=customer)
+        if container_number_filter:
+            criteria = Q(container_number__container_number=container_number_filter)
+        else:
+            criteria = (
+                Q(cancel_notification=False)
+                & Q(retrieval_id__actual_retrieval_timestamp__gte=start_date)
+                & Q(retrieval_id__actual_retrieval_timestamp__lte=end_date)
+                & Q(offload_id__offload_at__isnull=False)
+            )
+            if warehouse and warehouse != 'None':
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+            if customer:
+                criteria &= Q(customer_name__zem_name=customer)
 
         # --- 3. 获取基础订单数据 ---
         base_orders = (
@@ -4962,6 +4969,7 @@ class ReceivableAccounting(View):
             "order_form": OrderForm(),
             "warehouse_options": WAREHOUSE_OPTIONS,
             "warehouse_filter": warehouse,
+            "container_number_filter": container_number_filter,
             "default_tab": default_tab, 
             "is_leader": is_leader,
         })
