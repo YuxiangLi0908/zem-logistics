@@ -261,7 +261,7 @@ class Home(View):
         ]
         
         # 从 PackingList 补数据
-        pl_data = []
+        packing_data = pallet_data
         if pl_criteria:
             if containers_need_pl:
                 # 有需要补数据的柜号，只查这些柜号
@@ -271,7 +271,7 @@ class Home(View):
             
                 supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
         
-        packing_data = pallet_data + supplement_data
+                packing_data += supplement_data
         
         status_summary = {
             'pending': 0,
