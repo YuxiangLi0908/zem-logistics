@@ -234,14 +234,13 @@ class Home(View):
         else:
             return 'pending'
     
-    async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
-        # 新逻辑：不再用 offload_at 区分，而是按 delivery_type 判断
-        # 1. 先查所有 Pallet 数据
+    async def _get_combined_packing_data(self, pl_criteria, plt_criteria) -> list[dict]:
+        # 先查 Pallet 数据，再根据 delivery_type 覆盖情况补查 PackingList
+        # 1. 先查所有满足 plt_criteria 的 Pallet
         # 2. 统计每个柜号下 Pallet 有哪些 delivery_type
         # 3. 对于缺少某种 delivery_type 的柜号，从 PackingList 补数据
-        # 4. 没有 Pallet 的柜号，只用 PackingList
+        # 4. 没有 Pallet 的柜号不需要处理（调用方自行决定是否查 PackingList）
         
-        # 先查所有满足条件的 Pallet
         pallet_data = await self._get_packing_list(None, plt_criteria)
         
         # 统计每个柜号下 Pallet 有哪些 delivery_type
@@ -260,18 +259,21 @@ class Home(View):
             if len(dt_set) < 2
         ]
         
-        # 从 PackingList 补数据
-        packing_data = pallet_data
-        if pl_criteria:
-            if containers_need_pl:
-                # 有需要补数据的柜号，只查这些柜号
-                pl_criteria_supplement = pl_criteria & models.Q(
-                    container_number__container_number__in=containers_need_pl
-                )
-            
-                supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
+        # 没有需要补数据的柜号，直接返回 Pallet 数据
+        if not containers_need_pl or not pl_criteria:
+            return pallet_data
         
-                packing_data += supplement_data
+        # 从 PackingList 补数据，只查缺少 delivery_type 的柜号
+        pl_criteria_supplement = pl_criteria & models.Q(
+            container_number__container_number__in=containers_need_pl
+        )
+        supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
+        
+        return pallet_data + supplement_data
+
+    async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
+        # 使用子函数获取合并后的数据
+        packing_data = await self._get_combined_packing_data(pl_criteria, plt_criteria)
         
         status_summary = {
             'pending': 0,

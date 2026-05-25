@@ -39,7 +39,7 @@ class PostportDash(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
-        print('GET STEP',step)
+        print('posport_dash GET STEP',step)
         if step == "summary_table":
             template, context = await self.handle_summary_table_get(request)
             return render(request, template, context)
@@ -51,7 +51,7 @@ class PostportDash(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('POST STEP',step)
+        print('posport_dash POST STEP',step)
         if step == "summary_warehouse":
             template, context = await self.handle_summary_warehouse_post(request)
             return render(request, template, context)
@@ -70,7 +70,7 @@ class PostportDash(View):
         mutable_post["pickupList"] = None
         area = mutable_post["area"]
 
-        for key, code in warehouse_options():
+        for key, code in self.area_options.values():
             if key in area:
                 mutable_post["warehouse"] = code
 
@@ -189,58 +189,27 @@ class PostportDash(View):
                 )
             elif destination:
                 pl_criteria = models.Q(destination=destination)
-                plt_criteria = models.Q(
-                    container_number__orders__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
-                    container_number__container_number="0",
-                )
+                plt_criteria = models.Q(container_number__container_number="0")
             elif act_destination:
-                pl_criteria = models.Q(
-                    destination=act_destination,
-                    container_number__orders__offload_id__offload_at__isnull=True,
-                )
-                plt_criteria = models.Q(
-                    destination=act_destination,
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                )
+                pl_criteria = models.Q(destination=act_destination)
+                plt_criteria = models.Q(destination=act_destination)
             elif shipping_marks:
-                pl_criteria = models.Q(
-                    shipping_mark__contains=shipping_marks,
-                    container_number__orders__offload_id__offload_at__isnull=True,
-                )
-                plt_criteria = models.Q(
-                    shipping_mark__contains=shipping_marks,
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                )
+                pl_criteria = models.Q(shipping_mark__contains=shipping_marks)
+                plt_criteria = models.Q(shipping_mark__contains=shipping_marks)
             elif fba_ids:
-                pl_criteria = models.Q(
-                    fba_id__contains=fba_ids,
-                    container_number__orders__offload_id__offload_at__isnull=True,
-                )
-                plt_criteria = models.Q(
-                    fba_id__contains=fba_ids,
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                )
+                pl_criteria = models.Q(fba_id__contains=fba_ids)
+                plt_criteria = models.Q(fba_id__contains=fba_ids)
             elif ref_ids:
-                pl_criteria = models.Q(
-                    ref_id__contains=ref_ids,
-                    container_number__orders__offload_id__offload_at__isnull=True,
-                )
-                plt_criteria = models.Q(
-                    ref_id__contains=ref_ids,
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                )
+                pl_criteria = models.Q(ref_id__contains=ref_ids)
+                plt_criteria = models.Q(ref_id__contains=ref_ids)
             elif pickup_number:
                 criteria &= models.Q(
                     shipment_batch_number__fleet_number__pickup_number=pickup_number
                 )
 
             if not destination and not shipping_marks and not fba_ids and not ref_ids and not act_destination:
-                pl_criteria = criteria & models.Q(
-                    container_number__orders__offload_id__offload_at__isnull=True,
-                )
-                plt_criteria = criteria & models.Q(
-                    container_number__orders__offload_id__offload_at__isnull=False,
-                )
+                pl_criteria = criteria
+                plt_criteria = criteria
             context = {
                 "area_options": self.area_options,
             }
@@ -248,13 +217,11 @@ class PostportDash(View):
             pl_criteria = criteria & models.Q(
                 container_number__orders__vessel_id__vessel_eta__gte=start_date,
                 container_number__orders__vessel_id__vessel_eta__lte=end_date,
-                container_number__orders__offload_id__offload_at__isnull=True,
                 container_number__orders__retrieval_id__retrieval_destination_area=area,
             )
             plt_criteria = criteria & models.Q(
                 container_number__orders__vessel_id__vessel_eta__gte=start_date,
                 container_number__orders__vessel_id__vessel_eta__lte=end_date,
-                container_number__orders__offload_id__offload_at__isnull=False,
                 location__startswith=area,
             )
             context = {
@@ -264,7 +231,7 @@ class PostportDash(View):
                 "end_date": end_date,
             }
 
-        packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
+        packing_list = await self._get_combined_packing_data(pl_criteria, plt_criteria)
         context["packing_list"] = packing_list
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list:
@@ -411,6 +378,43 @@ class PostportDash(View):
         else:
             return self.handle_summary_table_get(request)
 
+    async def _get_combined_packing_data(self, pl_criteria, plt_criteria) -> list[dict]:
+        # 先查 Pallet 数据，再根据 delivery_type 覆盖情况补查 PackingList
+        # 1. 先查所有满足 plt_criteria 的 Pallet
+        # 2. 统计每个柜号下 Pallet 有哪些 delivery_type
+        # 3. 对于缺少某种 delivery_type 的柜号，从 PackingList 补数据
+        # 4. 没有 Pallet 的柜号不需要处理（调用方自行决定是否查 PackingList）
+        
+        pallet_data = await self._get_packing_list(None, plt_criteria)
+        
+        # 统计每个柜号下 Pallet 有哪些 delivery_type
+        container_delivery_types = {}
+        for item in pallet_data:
+            cn = item.get('container_number__container_number')
+            dt = item.get('delivery_type')
+            if cn not in container_delivery_types:
+                container_delivery_types[cn] = set()
+            if dt:
+                container_delivery_types[cn].add(dt)
+        
+        # 收集 Pallet 缺少 public 或 other 的柜号
+        containers_need_pl = [
+            cn for cn, dt_set in container_delivery_types.items()
+            if len(dt_set) < 2
+        ]
+        
+        # 没有需要补数据的柜号，直接返回 Pallet 数据
+        if not containers_need_pl or not pl_criteria:
+            return pallet_data
+        
+        # 从 PackingList 补数据，只查缺少 delivery_type 的柜号
+        pl_criteria_supplement = pl_criteria & models.Q(
+            container_number__container_number__in=containers_need_pl
+        )
+        supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
+        
+        return pallet_data + supplement_data
+
     async def _get_packing_list(
         self,
         pl_criteria: models.Q | None = None,
@@ -451,6 +455,7 @@ class PostportDash(View):
                 "PO_ID",
                 "address",
                 "delivery_method",
+                "delivery_type",
                 "container_number__orders__offload_id__offload_at",
                 "container_number__orders__retrieval_id__target_retrieval_timestamp",
                 "container_number__orders__retrieval_id__actual_retrieval_timestamp",
@@ -579,6 +584,7 @@ class PostportDash(View):
                     "PO_ID",
                     "address",
                     "custom_delivery_method",
+                    "delivery_type",
                     "container_number__orders__offload_id__offload_at",
                     "container_number__orders__retrieval_id__target_retrieval_timestamp",
                     "container_number__orders__retrieval_id__actual_retrieval_timestamp",
