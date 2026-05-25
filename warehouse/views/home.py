@@ -269,7 +269,17 @@ class Home(View):
         )
         supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
         
-        return pallet_data + supplement_data
+        # 过滤补充数据：只保留 Pallet 缺失的 delivery_type
+        filtered_supplement = []
+        for item in supplement_data:
+            cn = item.get('container_number__container_number')
+            dt = item.get('delivery_type')
+            if cn not in container_delivery_types:
+                filtered_supplement.append(item)
+            elif dt and dt not in container_delivery_types[cn]:
+                filtered_supplement.append(item)
+        
+        return pallet_data + filtered_supplement
 
     async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
         # 使用子函数获取合并后的数据
@@ -325,18 +335,19 @@ class Home(View):
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
         data = []
-        pal_list = await sync_to_async(list)(
-            Pallet.objects.prefetch_related(
-                "container_number",
-                "container_number__orders",
-                "container_number__orders__warehouse",
-                "shipment_batch_number",
-                "container_number__orders__offload_id",
-                "container_number__orders__customer_name",
-                "container_number__orders__retrieval_id",
-                "container_number__orders__vessel_id",
-            )
-            .filter(plt_criteria)
+        if plt_criteria:
+            pal_list = await sync_to_async(list)(
+                Pallet.objects.prefetch_related(
+                    "container_number",
+                    "container_number__orders",
+                    "container_number__orders__warehouse",
+                    "shipment_batch_number",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
+                )
+                .filter(plt_criteria)
             .annotate(
                 str_id=Cast("id", CharField()),
             )
@@ -379,8 +390,8 @@ class Home(View):
                 label=Value("ACT"),
             )
             .order_by("container_number__orders__offload_id__offload_at")
-        )
-        data += pal_list
+            )
+            data += pal_list
         if pl_criteria:
             pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
