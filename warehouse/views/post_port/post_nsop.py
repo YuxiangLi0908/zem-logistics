@@ -12408,9 +12408,13 @@ class PostNsop(View):
             offload.offload_other_at = offload_time
             # 如果 public 不在 delivery_type 里，主拆柜时间 = 私仓拆柜时间
             # 所有项都 不是 public → 满足条件
-            all_not_public = all(item.get("delivery_type") == "other" for item in pallet_data)
+            # 检查是否存在 不是 other 的装箱单
+            has_public = await sync_to_async(
+                PackingList.objects.filter(container_number=container).exclude(delivery_type="other").exists
+            )()
 
-            if all_not_public:
+            # 如果 没有 public，全部是 other
+            if not has_public:
                 offload.offload_at = offload.offload_other_at
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
