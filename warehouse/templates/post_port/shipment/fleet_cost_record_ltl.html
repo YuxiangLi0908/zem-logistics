@@ -526,6 +526,7 @@
                                             <option value="大黄" {% if f.fleet_number.Supplier == "大黄" %}selected{% endif %}>大黄</option>
                                             <option value="new world" {% if f.fleet_number.Supplier == "new world" %}selected{% endif %}>new world</option>
                                             <option value="鹏峰" {% if f.fleet_number.Supplier == "鹏峰" %}selected{% endif %}>鹏峰</option>
+                                            <option value="JCR" {% if f.fleet_number.Supplier == "JCR" %}selected{% endif %}>JCR</option>
                                         </select>
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">
@@ -557,6 +558,7 @@
                                             <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ</option>
                                             <option value="client pickup" {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client pickup</option>
                                             <option value="大黄" {% if f.fleet_number.Supplier == "大黄" %}selected{% endif %}>大黄</option>
+                                            <option value="JCR" {% if f.fleet_number.Supplier == "JCR" %}selected{% endif %}>JCR</option>
                                         </select>
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">
