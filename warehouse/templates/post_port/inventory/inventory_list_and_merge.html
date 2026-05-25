@@ -106,6 +106,15 @@
         #inventory-summary-table tbody tr:hover {
             background-color: #e9ecef !important;
         }
+
+        /* 搜索框样式 */
+        .search-input {
+            padding: 6px 10px;
+            font-size: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            width: 180px;
+        }
     </style>
     <div style="display: flex;">
         <div style="margin-right: 10px;"><b>合板管理</b></div>
@@ -177,6 +186,13 @@
                 </form>
             </div>
 
+            <!-- ===================== 柜号搜索框 ===================== -->
+            <div style="margin-bottom:10px;">
+                <b>柜号搜索：</b>
+                <input type="text" id="containerSearch" class="search-input" placeholder="多个柜号空格隔开搜索..."
+                       onkeyup="searchByContainer()">
+            </div>
+
             <table class="table" id="inventory-summary-table"
                    style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
                 <thead>
@@ -206,7 +222,8 @@
                             data-note="{{ p.note|default_if_none:'' }}"
                             data-dws="{{ p.delivery_window_start|date:'Y-m-d'|default_if_none:'' }}"
                             data-dwe="{{ p.delivery_window_end|date:'Y-m-d'|default_if_none:'' }}"
-                            data-poid="{{ p.PO_ID|default_if_none:'' }}">
+                            data-poid="{{ p.PO_ID|default_if_none:'' }}"
+                            data-container="{{ p.container|default_if_none:'' }}">
 
                         <td class="td">
                             <input type="checkbox"
@@ -249,6 +266,32 @@
     </form>
 
     <script>
+        // ===================== 柜号搜索函数 =====================
+        // 支持空格分隔多个柜号搜索
+        function searchByContainer() {
+            let input = document.getElementById("containerSearch");
+            let keywordStr = input.value.trim().toUpperCase();
+            // 按空格切割，过滤空字符
+            let keywords = keywordStr.split(/\s+/).filter(k => k);
+            let table = document.getElementById("inventory-summary-table");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let td = tr[i].getElementsByTagName("td")[3];
+                if (!td) continue;
+                let txtValue = td.textContent.toUpperCase();
+                let match = false;
+                // 任一关键词匹配即显示
+                for (let word of keywords) {
+                    if (txtValue.includes(word)) {
+                        match = true;
+                        break;
+                    }
+                }
+                tr[i].style.display = match ? "" : "none";
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const tableRows = document.querySelectorAll('#inventory-summary-table tbody tr');
             const groupColors = ['group-bg-1', 'group-bg-2', 'group-bg-3', 'group-bg-4', 'group-bg-5', 'group-bg-6'];
