@@ -1422,6 +1422,39 @@
     </div>
     <!-- 主要内容 -->
     <main class="main-content">   
+        {% if previous_delivery_warehouses %}
+        <div class="transfer-section" style="margin-bottom: 16px;">
+            <div class="section-header">
+                <h3 style="margin: 0;">
+                    <i class="fas fa-warehouse me-2"></i>已录仓点
+                    <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
+                        共 {{ previous_delivery_warehouses|length }} 个仓点
+                    </span>
+                </h3>
+            </div>
+            <div class="table-container">
+                <table class="advanced-table">
+                    <thead>
+                        <tr>
+                            <th>仓点</th>
+                            <th>费用</th>
+                            <th>账单号</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for wh in previous_delivery_warehouses %}
+                        <tr>
+                            <td>{{ wh.warehouse_code }}</td>
+                            <td>{{ wh.amount }}</td>
+                            <td>{{ wh.invoice_number }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
         <form method="post" id="delivery-billing-form">
             {% csrf_token %}
             <input type="hidden" name="container_number" value="{{ container_number }}">

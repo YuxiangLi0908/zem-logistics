@@ -7981,6 +7981,7 @@ class ReceivableAccounting(View):
         ).exclude(id=invoice_id)
         
         previous_recorded_items = []
+        previous_delivery_warehouses = []
         if other_invoices.exists(): 
             previous_items = InvoiceItemv2.objects.filter(
                 container_number=order.container_number,  
@@ -7988,6 +7989,16 @@ class ReceivableAccounting(View):
                 invoice_type="receivable",
             ).exclude(item_category="hold")
             # 按PO_ID建立索引
+            
+            # 收集已录过的派送仓点
+            target_category = f"delivery_{delivery_type}"
+            for item in previous_items:
+                if item.item_category == target_category and item.warehouse_code:
+                    previous_delivery_warehouses.append({
+                        'warehouse_code': item.warehouse_code,
+                        'amount': item.amount or '',
+                        'invoice_number': item.invoice_number.invoice_number,
+                    })
             
             for item in previous_items:
                 if item.PO_ID:
@@ -8159,7 +8170,8 @@ class ReceivableAccounting(View):
             "end_date": request.GET.get("end_date"),
             "total_container_cbm": total_container_cbm,
             "receivable_is_locked": invoice.receivable_is_locked,
-            "previous_recorded_items": [],  # 之前账单已录过的项目
+            "previous_recorded_items": previous_recorded_items,
+            "previous_delivery_warehouses": previous_delivery_warehouses,
         })
         
         return template, context
