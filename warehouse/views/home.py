@@ -58,6 +58,7 @@ class Home(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print('GET STEP',step)
         if step == "download_template":
             return await self.handle_download_pl_template_post(request)
         else:
@@ -67,6 +68,7 @@ class Home(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('POST STEP',step)
         if step == "trajectory_query":
             template, context = await self.handle_trajectory_query_post(request)
             return render(request, template, context)
@@ -233,11 +235,43 @@ class Home(View):
             return 'pending'
     
     async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
-        #根据界面输入的条件，判断查pl和plt的查询条件
-        pl_criteria &= models.Q(container_number__orders__offload_id__offload_at__isnull=True)
-        plt_criteria &= models.Q(container_number__orders__offload_id__offload_at__isnull=False)
+        # 新逻辑：不再用 offload_at 区分，而是按 delivery_type 判断
+        # 1. 先查所有 Pallet 数据
+        # 2. 统计每个柜号下 Pallet 有哪些 delivery_type
+        # 3. 对于缺少某种 delivery_type 的柜号，从 PackingList 补数据
+        # 4. 没有 Pallet 的柜号，只用 PackingList
         
-        packing_data = await self._get_packing_list(pl_criteria, plt_criteria)
+        # 先查所有满足条件的 Pallet
+        pallet_data = await self._get_packing_list(None, plt_criteria)
+        
+        # 统计每个柜号下 Pallet 有哪些 delivery_type
+        container_delivery_types = {}
+        for item in pallet_data:
+            cn = item.get('container_number__container_number')
+            dt = item.get('delivery_type')
+            if cn not in container_delivery_types:
+                container_delivery_types[cn] = set()
+            if dt:
+                container_delivery_types[cn].add(dt)
+        
+        # 收集 Pallet 缺少 public 或 other 的柜号
+        containers_need_pl = [
+            cn for cn, dt_set in container_delivery_types.items()
+            if len(dt_set) < 2
+        ]
+        
+        # 从 PackingList 补数据
+        pl_data = []
+        if pl_criteria:
+            if containers_need_pl:
+                # 有需要补数据的柜号，只查这些柜号
+                pl_criteria_supplement = pl_criteria & models.Q(
+                    container_number__container_number__in=containers_need_pl
+                )
+            
+                supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
+        
+        packing_data = pallet_data + supplement_data
         
         status_summary = {
             'pending': 0,
@@ -311,6 +345,7 @@ class Home(View):
                 "destination",
                 "address",
                 "delivery_method",
+                "delivery_type",
                 "container_number__orders__offload_id__offload_at",
                 "container_number__orders__retrieval_id__target_retrieval_timestamp",
                 "container_number__orders__retrieval_id__actual_retrieval_timestamp",

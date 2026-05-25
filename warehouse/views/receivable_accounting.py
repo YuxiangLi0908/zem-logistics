@@ -6220,6 +6220,16 @@ class ReceivableAccounting(View):
         
         existing_customers = Customer.objects.all().order_by("zem_name")
         
+        # 过滤 order_data_list，只保留有 invoice_itemv2 记录的账单
+        if order_data_list:
+            invoice_ids = [item['invoice_id'] for item in order_data_list]
+            invoices_with_items = set(
+                InvoiceItemv2.objects.filter(invoice_number_id__in=invoice_ids)
+                .values_list('invoice_number_id', flat=True)
+                .distinct()
+            )
+            order_data_list = [item for item in order_data_list if item['invoice_id'] in invoices_with_items]
+        
         context.update({
             'start_date': start_date,
             'end_date': end_date,
