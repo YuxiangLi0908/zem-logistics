@@ -1720,6 +1720,7 @@ class ReceivableAccounting(View):
         return self.handle_confirm_entry_post(request,context)
     
     def handle_invoice_order_batch_export(self, request: HttpRequest) -> HttpResponse:
+        '''已开账单中的，导出功能'''
         raw = request.POST.get("selectedInvoiceIds", "[]")
         try:
             invoice_id_list = [int(i) for i in json.loads(raw)]
@@ -1757,10 +1758,9 @@ class ReceivableAccounting(View):
             order = order_map.get(container_id)
             if not order:
                 continue
-            context = self._parse_invoice_excel_data(
-                order=order,
-                invoice=invoice,
-            )
+
+            groups_without_fee = self._get_all_delivery_groups(invoice.container_number, invoice, order)
+            context = self._parse_invoice_excel_data(order, invoice, groups_without_fee)
             contexts.append(context)
 
             order_id = str(order.id)
@@ -9857,12 +9857,22 @@ class ReceivableAccounting(View):
                 reason_field = f"warehouse_{delivery_type}_reason"
                 setattr(invoice_status, reason_field, request.POST.get("reject_reason", ""))
             
+            # 从 packinglist 查询这个柜号下是否有 delivery_type 是 public 的值
+            has_public_packinglist = PackingList.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="public"
+            ).exists()
+            has_other_packinglist = PackingList.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="other"
+            ).exists()
+            
             # 根据柜子类型自动更新另一边的状态
-            if delivery_type == "public" and container_delivery_type == "public":
+            if delivery_type == "public" and not has_other_packinglist:
                 invoice_status.warehouse_other_status = "completed"
                 invoice_status.delivery_other_status = "completed"
 
-            elif delivery_type == "other" and container_delivery_type == "other":
+            elif delivery_type == "other" and not has_public_packinglist:
                 invoice_status.warehouse_public_status = "completed"
                 invoice_status.delivery_public_status = "completed"
 
