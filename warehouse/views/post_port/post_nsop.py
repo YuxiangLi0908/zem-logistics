@@ -12577,6 +12577,9 @@ class PostNsop(View):
                         shipment_batch_number=shipment_batch_number
                     )
                     shipment.shipping_order_link = "No Link"
+                    if shipment.shipment_type == "客户自提":
+                        shipment.pod_link="No Link"
+                        shipment.pod_uploaded_at = timezone.now()
                     await sync_to_async(shipment.save)()
                     count += 1
                 except Exception as e:
@@ -12591,6 +12594,9 @@ class PostNsop(View):
                     shipment_batch_number=shipment_batch_number
                 )
                 shipment.shipping_order_link = "No Link"
+                if shipment.shipment_type == "客户自提":
+                    shipment.pod_link="No Link"
+                    shipment.pod_uploaded_at = timezone.now()
                 await sync_to_async(shipment.save)()
             success_message = '已设置为不回传!'
             
