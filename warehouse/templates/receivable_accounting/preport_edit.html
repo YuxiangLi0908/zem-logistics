@@ -727,6 +727,7 @@
                             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                             <input type="hidden" name="start_date" value="{{ start_date }}">
                             <input type="hidden" name="end_date" value="{{ end_date }}">
+                            <input type="hidden" name="container_number_filter" value="{{ container_number_filter }}">
                             <!-- 是组合柜类型 -->
                             <strong>组合柜状态:</strong>
                             {% if is_combina %}
@@ -886,6 +887,7 @@
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+            <input type="hidden" name="container_number_filter" value="{{ container_number_filter }}">
 
             <!-- 操作按钮 -->
             {% if not receivable_is_locked %}

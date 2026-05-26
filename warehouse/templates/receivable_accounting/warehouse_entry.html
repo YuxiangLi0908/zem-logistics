@@ -744,14 +744,14 @@
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.has_invoice %}
-                                                <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}&container_number_filter={{ container_number_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                                 {% if item.invoice_created_at %}
                                                     <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                                 {% endif %}
                                             {% else %}
-                                                <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&container_number_filter={{ container_number_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                             {% endif %}
@@ -849,7 +849,7 @@
                                         {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}&container_number_filter={{ container_number_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
@@ -985,7 +985,7 @@
                                         data-status="{{ item.self_status|default:'unstarted' }}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}&container_number_filter={{ container_number_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
@@ -1097,7 +1097,7 @@
                                         {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}&container_number_filter={{ container_number_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
