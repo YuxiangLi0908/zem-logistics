@@ -6684,7 +6684,7 @@ class ReceivableAccounting(View):
 
         # --- 1. 日期处理优化 ---
         current_date = datetime.now().date()
-        if container_number_filter:
+        if container_number_filter and container_number_filter !='':
             start_date = None
             end_date = None
         else:
@@ -6700,7 +6700,7 @@ class ReceivableAccounting(View):
             )
 
         # --- 2. 构建基础查询条件 ---
-        if container_number_filter:
+        if container_number_filter and container_number_filter !='':
             criteria = Q(container_number__container_number=container_number_filter)
         else:
             criteria = (
@@ -7879,7 +7879,8 @@ class ReceivableAccounting(View):
                 'rate': item.rate or 0,
                 'surcharges': item.surcharges or 0,
                 'amount': item.amount or 0,
-                'note': item.note or ''
+                'note': item.note or '',
+                'warehouse_code': item.warehouse_code or '',
             })
         # 如果是第一次录入且没有费用记录，添加所有标准费用项目为默认
         if not existing_items.exists():
@@ -7899,6 +7900,7 @@ class ReceivableAccounting(View):
                         'surcharges': 0,
                         'amount': 0,
                         'note': '',
+                        'warehouse_code': '',
                     })
         
         # 获取已存在的费用描述列表，用于前端过滤
@@ -9830,6 +9832,7 @@ class ReceivableAccounting(View):
         qtys = request.POST.getlist("fee_qty")
         surcharges = request.POST.getlist("fee_surcharges")
         notes = request.POST.getlist("fee_note")
+        warehouse_codes = request.POST.getlist("fee_warehouse_code")
 
         total_amount = Decimal("0.00")
         with transaction.atomic():
@@ -9850,6 +9853,7 @@ class ReceivableAccounting(View):
                 rate = Decimal(rates[i] or 0)
                 qty = Decimal(qtys[i] or 0)
                 surcharge = Decimal(surcharges[i] or 0)
+                warehouse_code = warehouse_codes[i] if i < len(warehouse_codes) else ""
                 
                 # 计算总价：总价 = 单价 * 数量 + 附加费
                 amount = rate * qty + surcharge
@@ -9870,10 +9874,10 @@ class ReceivableAccounting(View):
                         item.surcharges = surcharge
                         item.amount = amount
                         item.note = note
+                        item.warehouse_code = warehouse_code
                         item.registered_user = username
                         item.save()
                     except InvoiceItemv2.DoesNotExist:
-                        # 防止前端传了错误 id，查不到就新增
                         InvoiceItemv2.objects.create(
                             container_number=order.container_number,
                             invoice_number=invoice,
@@ -9885,6 +9889,7 @@ class ReceivableAccounting(View):
                             surcharges=surcharge,
                             amount=amount,
                             note=note,
+                            warehouse_code=warehouse_code,
                             registered_user=username
                         )
                 else:  # 新增费用项
@@ -9899,6 +9904,7 @@ class ReceivableAccounting(View):
                         surcharges=surcharge,
                         amount=amount,
                         note=note,
+                        warehouse_code=warehouse_code,
                         registered_user=username
                     )
 

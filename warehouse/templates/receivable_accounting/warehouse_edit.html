@@ -134,7 +134,7 @@
 
     .table-header {
         display: grid;
-        grid-template-columns: 2.2fr 1.5fr 1.2fr 1.2fr 1.2fr 1.4fr 2fr 80px;
+        grid-template-columns: 2.2fr 1.5fr 1.2fr 1.2fr 1.2fr 1.2fr 1.4fr 2fr 80px;
         background: #f8fafc;
         font-size: 1.6rem;
     }
@@ -154,7 +154,7 @@
 
     .fee-row {
         display: grid;
-        grid-template-columns: 2.2fr 1.5fr 1.2fr 1.2fr 1.2fr 1.4fr 2fr 80px;
+        grid-template-columns: 2.2fr 1.5fr 1.2fr 1.2fr 1.2fr 1.2fr 1.4fr 2fr 80px;
         padding: 8px 0;
         border-bottom: 1px solid #e2e8f0;
         font-size: 1.3rem;
@@ -610,6 +610,7 @@
                     <div class="table-header">
                         <div class="table-header-cell">费用名称</div>
                         <div class="table-header-cell">参考单价</div>
+                        <div class="table-header-cell">仓点</div>
                         <div class="table-header-cell">实际单价</div>
                         <div class="table-header-cell">数量</div>
                         <div class="table-header-cell">附加费</div>
@@ -635,6 +636,11 @@
                                 <span class="reference-price">
                                     {{ FS|get_item:fee.description|default:"N/A" }}
                                 </span>
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <input type="text" class="input-field" name="fee_warehouse_code" 
+                                       value="{{ fee.warehouse_code }}" placeholder="仓点">
                             </div>
                             
                             <div class="fee-cell">
@@ -693,7 +699,7 @@
             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="text" name="container_number_filter" value="{{ container_number_filter }}">
+            <input type="hidden" name="container_number_filter" value="{{ container_number_filter }}">
             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
             <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
 
@@ -907,6 +913,11 @@
             
             <div class="fee-cell">
                 <span class="reference-price">${referencePrice}</span>
+            </div>
+            
+            <div class="fee-cell">
+                <input type="text" class="input-field" name="fee_warehouse_code" 
+                       value="" placeholder="仓点">
             </div>
             
             <div class="fee-cell">
