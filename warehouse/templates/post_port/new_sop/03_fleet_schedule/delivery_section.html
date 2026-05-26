@@ -1,0 +1,386 @@
+<!-- 待送达批次标签页 -->
+<div class="content-section" id="ready-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
+                <input type="checkbox" id="selectAllReady" onchange="toggleSelectAllReady(this)">
+                全选
+            </label>
+            <span id="selectedReadyCount" style="font-size: 0.85rem; color: #6c757d;">已选 0 项</span>
+        </div>
+        <button type="button" class="table-btn" onclick="batchConfirmDelivery()" style="background: var(--success-color); color: white; padding: 8px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-check-double"></i> 批量确认送达
+        </button>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;"></th>
+                    <th>出库批次</th>
+                    <th>预约批次</th>
+                    <th>预约号</th>
+                    <th>Carrier</th>
+                    <th>预约发车日期</th>
+                    <th>实际发车日期</th>
+                    <th>总重lbs</th>
+                    <th>总CBM</th>
+                    <th>总卡板数</th>
+                    <th>一提两卸</th>
+                    <th>备注</th>
+                    <th>车次成本</th>
+                    <th>实际送达时间</th>
+                    <th>车次异常</th>
+                </tr>
+                <tr class="search-row">
+                    <td></td>
+                    <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="2"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索Carrier" data-column="3"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="4"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索一提两卸" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索成本" data-column="11"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in delivery_shipments %}
+                <tr data-shipment="{{ s.shipment_batch_number }}" data-fleet="{{ s.fleet_number.fleet_number }}">
+                    <td>
+                        <input type="checkbox" class="ready-row-check" 
+                            data-shipment="{{ s.shipment_batch_number }}" 
+                            data-fleet="{{ s.fleet_number.fleet_number }}"
+                            onchange="updateReadySelection()">
+                    </td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.fleet_number }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
+                    <td>{{ s.fleet_number.carrier }}</td>
+                    <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
+                    <td>
+                        {% if s.fleet_number.arrival_status == "past_due" %}
+                        <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                        {% elif s.fleet_number.arrival_status == "need_attention" %}
+                        <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                        {% else %}
+                        {{ s.fleet_number.departured_at|date:"M-j H:i" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ s.total_weight|floatformat:2 }}</td>
+                    <td>{{ s.total_cbm|floatformat:2 }}</td>
+                    <td>{{ s.total_pallet|floatformat:0 }}</td>
+                    <td>
+                        {% if s.fleet_number.multipule_destination %}
+                        <i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1rem"></i>
+                        {% endif %}
+                    </td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">
+                        {% if s.fleet_number.fleet_cost %}
+                            {{ s.fleet_number.fleet_cost }}
+                        {% else %}
+                            <span style="color: #6c757d; font-style: italic;">未录入</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                            {% csrf_token %}
+                            <input type="datetime-local" name="arrived_at" class="table-input ready-arrived-input" data-shipment="{{ s.shipment_batch_number }}" style="font-size: 0.8rem;" required>
+                            <input type="hidden" name="step" value="confirm_delivery">
+                            <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                            <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <button type="submit" class="table-btn btn-success-small">确认送达</button>
+                        </form>
+                    </td>
+                    <td>
+                        <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form method="post" id="batchDeliveryForm" action="" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="confirm_delivery">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+</form>
+
+<script>
+function toggleSelectAllReady(checkbox) {
+    const checkboxes = document.querySelectorAll('#ready-section .ready-row-check');
+    checkboxes.forEach(cb => {
+        if (cb.closest('tr').style.display !== 'none') {
+            cb.checked = checkbox.checked;
+        }
+    });
+    updateReadySelection();
+}
+
+function updateReadySelection() {
+    const checkboxes = document.querySelectorAll('#ready-section .ready-row-check:checked');
+    document.getElementById('selectedReadyCount').textContent = `已选 ${checkboxes.length} 项`;
+}
+
+function batchConfirmDelivery() {
+    const checkboxes = document.querySelectorAll('#ready-section .ready-row-check:checked');
+    if (checkboxes.length === 0) {
+        alert('请至少选择一行！');
+        return;
+    }
+
+    const items = [];
+    let hasEmptyTime = false;
+
+    checkboxes.forEach(cb => {
+        const shipment = cb.dataset.shipment;
+        const arrivedInput = document.querySelector(`#ready-section .ready-arrived-input[data-shipment="${shipment}"]`);
+        const arrivedAt = arrivedInput ? arrivedInput.value : '';
+        if (!arrivedAt) {
+            hasEmptyTime = true;
+        }
+        items.push({ shipment, arrivedAt });
+    });
+
+    if (hasEmptyTime) {
+        alert('所选行中有未填写送达时间的项，请先填写实际送达时间！');
+        return;
+    }
+
+    if (!confirm(`确认批量送达 ${items.length} 个批次？`)) return;
+
+    const form = document.getElementById('batchDeliveryForm');
+    form.innerHTML = '';
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    form.appendChild(csrfInput);
+
+    const stepInput = document.createElement('input');
+    stepInput.type = 'hidden';
+    stepInput.name = 'step';
+    stepInput.value = 'confirm_delivery';
+    form.appendChild(stepInput);
+
+    const whInput = document.createElement('input');
+    whInput.type = 'hidden';
+    whInput.name = 'warehouse';
+    whInput.value = '{{ warehouse }}';
+    form.appendChild(whInput);
+
+    items.forEach(item => {
+        const shipInput = document.createElement('input');
+        shipInput.type = 'hidden';
+        shipInput.name = 'shipment_batch_number';
+        shipInput.value = item.shipment;
+        form.appendChild(shipInput);
+
+        const timeInput = document.createElement('input');
+        timeInput.type = 'hidden';
+        timeInput.name = 'arrived_at';
+        timeInput.value = item.arrivedAt;
+        form.appendChild(timeInput);
+    });
+
+    showLoadingBar();
+    form.submit();
+}
+
+// 待送达批次标记
+function markReadyRows() {
+    const rows = document.querySelectorAll('#ready-section .data-table tbody tr');
+    rows.forEach(row => {
+        const timeCell = row.cells[6];
+        const timeSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
+        const timeText = timeSpan ? timeSpan.textContent : timeCell.textContent.trim();
+        
+        if (timeText) {
+            const departureTime = parseDateTime(timeText);
+            if (departureTime) {
+                const diffDays = getDayDiff(departureTime, CURRENT_TIME);
+                
+                if (diffDays > 5) {
+                    row.style.backgroundColor = '#ffe6e6';
+                } else if (diffDays > 2) {
+                    row.style.backgroundColor = '#fff9e6';
+                }
+            }
+        }
+    });
+}
+
+// 搜索相关变量
+let readySearchTimer;
+let readySearchState = {};
+
+// 初始化待送达搜索
+function initReadySearch() {
+    const searchInputs = document.querySelectorAll('#ready-section .header-search');
+    
+    searchInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(readySearchTimer);
+            readySearchTimer = setTimeout(applyReadyMultiFilter, 250);
+        });
+
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(readySearchTimer);
+                applyReadyMultiFilter();
+            }
+        });
+    });
+}
+
+// 待送达多列搜索
+function applyReadyMultiFilter() {
+    clearReadyHighlights();
+    
+    const searchInputs = document.querySelectorAll('#ready-section .header-search');
+    const rows = document.querySelectorAll('#ready-section tbody tr');
+    
+    readySearchState = {};
+    searchInputs.forEach(input => {
+        const col = input.dataset.column;
+        const val = input.value.trim().toLowerCase();
+        if (val) readySearchState[col] = val;
+    });
+
+    const searchTerms = Object.values(readySearchState);
+
+    if (searchTerms.length === 0) {
+        rows.forEach(r => r.style.display = '');
+        markReadyRows();
+        return;
+    }
+
+    let firstRound = true;
+
+    for (let term of searchTerms) {
+        if (firstRound) {
+            handleReadySearch(rows, term);
+            firstRound = false;
+        } else {
+            handleReadySearchForVisible(rows, term);
+        }
+    }
+
+    applyReadyHighlights(searchTerms);
+    markReadyRows();
+}
+
+function handleReadySearch(rows, searchTerm) {
+    const matchedRows = new Set();
+    
+    rows.forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        let isMatch = false;
+        
+        for (let i = 1; i < cells.length - 2; i++) {
+            const cellText = cells[i].textContent.toLowerCase();
+            if (cellText.includes(searchTerm)) {
+                isMatch = true;
+                break;
+            }
+        }
+        
+        if (isMatch) {
+            matchedRows.add(tr);
+        }
+    });
+
+    rows.forEach(tr => {
+        tr.style.display = matchedRows.has(tr) ? '' : 'none';
+    });
+}
+
+function handleReadySearchForVisible(rows, searchTerm) {
+    const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
+    const matchedRows = new Set();
+    
+    visibleRows.forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        let isMatch = false;
+        
+        for (let i = 1; i < cells.length - 2; i++) {
+            const cellText = cells[i].textContent.toLowerCase();
+            if (cellText.includes(searchTerm)) {
+                isMatch = true;
+                break;
+            }
+        }
+        
+        if (isMatch) {
+            matchedRows.add(tr);
+        }
+    });
+
+    rows.forEach(tr => {
+        if (tr.style.display !== 'none') {
+            tr.style.display = matchedRows.has(tr) ? '' : 'none';
+        }
+    });
+}
+
+function clearReadyHighlights() {
+    document.querySelectorAll('#ready-section tbody tr td').forEach(td => {
+        const originalText = td.getAttribute('data-original-text');
+        if (originalText) {
+            td.textContent = originalText;
+            td.removeAttribute('data-original-text');
+        }
+    });
+}
+
+function applyReadyHighlights(searchTerms) {
+    if (searchTerms.length === 0) return;
+    
+    const rows = document.querySelectorAll('#ready-section tbody tr');
+    
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+        
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell, cellIndex) => {
+            if (cellIndex === 0 || cellIndex >= cells.length - 2) return;
+            
+            let cellText = cell.textContent;
+            
+            if (!cell.hasAttribute('data-original-text')) {
+                cell.setAttribute('data-original-text', cellText);
+            }
+            
+            let highlightedHtml = cellText;
+            
+            searchTerms.forEach((term, termIndex) => {
+                if (!term) return;
+                
+                const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
+                const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+                
+                highlightedHtml = highlightedHtml.replace(regex, `<span class="${colorClass}">$1</span>`);
+            });
+            
+            cell.innerHTML = highlightedHtml;
+        });
+    });
+}
+
+function clearReadySearch() {
+    const searchInputs = document.querySelectorAll('#ready-section .header-search');
+    searchInputs.forEach(input => input.value = '');
+    applyReadyMultiFilter();
+}
+</script>

@@ -668,96 +668,7 @@
         {% include 'post_port/new_sop/03_fleet_schedule/ready_section.html' %}
         
         <!-- 待送达批次标签页 -->
-        <div class="content-section" id="ready-section">
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>出库批次</th>
-                            <th>预约批次</th>
-                            <th>预约号</th>
-                            <th>Carrier</th>
-                            <th>预约发车日期</th>
-                            <th>实际发车日期</th>
-                            <th>总重lbs</th>
-                            <th>总CBM</th>
-                            <th>总卡板数</th>
-                            <th>一提两卸</th>
-                            <th>备注</th>
-                            <th>车次成本</th>
-                            <th>实际送达时间</th>
-                            <th>车次异常</th>
-                        </tr>
-                        <tr class="search-row">
-                            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="2"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索Carrier" data-column="3"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="4"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="5"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索总重" data-column="6"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索一提两卸" data-column="9"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索成本" data-column="11"></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for s in delivery_shipments %}
-                        <tr>
-                            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.fleet_number }}</td>
-                            <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
-                            <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
-                            <td>{{ s.fleet_number.carrier }}</td>
-                            <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
-                            <td>
-                                {% if s.fleet_number.arrival_status == "past_due" %}
-                                <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
-                                {% elif s.fleet_number.arrival_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
-                                {% else %}
-                                {{ s.fleet_number.departured_at|date:"M-j H:i" }}
-                                {% endif %}
-                            </td>
-                            <td>{{ s.total_weight|floatformat:2 }}</td>
-                            <td>{{ s.total_cbm|floatformat:2 }}</td>
-                            <td>{{ s.total_pallet|floatformat:0 }}</td>
-                            <td>
-                                {% if s.fleet_number.multipule_destination %}
-                                <i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1rem"></i>
-                                {% endif %}
-                            </td>
-                            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
-                            <td style="max-width: 120px; word-break: break-all;">
-                                {% if s.fleet_number.fleet_cost %}
-                                    {{ s.fleet_number.fleet_cost }}
-                                {% else %}
-                                    <span style="color: #6c757d; font-style: italic;">未录入</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
-                                    {% csrf_token %}
-                                    <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
-                                    <input type="hidden" name="step" value="confirm_delivery">
-                                    <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
-                                    <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <button type="submit" class="table-btn btn-success-small">确认送达</button>
-                                </form>
-                            </td>
-                            <td>
-                                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        {% include 'post_port/new_sop/03_fleet_schedule/delivery_section.html' %}
 
         {% include 'post_port/new_sop/03_fleet_schedule/modals/pod_section.html' %}
     </div>
@@ -797,29 +708,6 @@
         // 待传POD批次 - 按实际发车时间
         markPodRows();
     }
-    // 待送达批次标记
-    function markReadyRows() {
-        const rows = document.querySelectorAll('#ready-section .data-table tbody tr');
-        rows.forEach(row => {
-            const timeCell = row.cells[5]; // 实际发车时间在第6列
-            const timeSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
-            const timeText = timeSpan ? timeSpan.textContent : timeCell.textContent.trim();
-            
-            if (timeText) {
-                const departureTime = parseDateTime(timeText);
-                if (departureTime) {
-                    const diffDays = getDayDiff(departureTime, CURRENT_TIME);
-                    
-                    if (diffDays > 5) {
-                        row.style.backgroundColor = '#ffe6e6'; // 浅红色 - 大于5天
-                    } else if (diffDays > 2) {
-                        row.style.backgroundColor = '#fff9e6'; // 浅黄色 - 2-5天
-                    }
-                }
-            }
-        });
-    }
-
     // 待传POD批次标记
     function markPodRows() {
         const rows = document.querySelectorAll('#pod-section .data-table tbody tr');
@@ -959,29 +847,8 @@
     });
 
     // 搜索相关变量
-    let readySearchTimer;
-    let readySearchState = {};
     let podSearchTimer;
     let podSearchState = {};
-
-    // 初始化待送达搜索
-    function initReadySearch() {
-        const searchInputs = document.querySelectorAll('#ready-section .header-search');
-        
-        searchInputs.forEach(input => {
-            input.addEventListener('input', function() {
-                clearTimeout(readySearchTimer);
-                readySearchTimer = setTimeout(applyReadyMultiFilter, 250);
-            });
-
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    clearTimeout(readySearchTimer);
-                    applyReadyMultiFilter();
-                }
-            });
-        });
-    }
 
     // 初始化POD搜索
     function initPodSearch() {
@@ -1000,47 +867,6 @@
                 }
             });
         });
-    }
-
-    // 待送达多列搜索
-    function applyReadyMultiFilter() {
-        clearReadyHighlights();
-        
-        const searchInputs = document.querySelectorAll('#ready-section .header-search');
-        const rows = document.querySelectorAll('#ready-section tbody tr');
-        
-        // 收集搜索条件
-        readySearchState = {};
-        searchInputs.forEach(input => {
-            const col = input.dataset.column;
-            const val = input.value.trim().toLowerCase();
-            if (val) readySearchState[col] = val;
-        });
-
-        const searchTerms = Object.values(readySearchState);
-
-        // 没有搜索条件时显示所有行
-        if (searchTerms.length === 0) {
-            rows.forEach(r => r.style.display = '');
-            markReadyRows(); // 重新标记时间
-            return;
-        }
-
-        let firstRound = true;
-
-        // 应用AND搜索逻辑
-        for (let term of searchTerms) {
-            if (firstRound) {
-                handleReadySearch(rows, term);
-                firstRound = false;
-            } else {
-                handleReadySearchForVisible(rows, term);
-            }
-        }
-
-        // 应用高亮和重新标记时间
-        applyReadyHighlights(searchTerms);
-        markReadyRows();
     }
 
     // POD多列搜索
@@ -1082,61 +908,6 @@
         // 应用高亮和重新标记时间
         applyPodHighlights(searchTerms);
         markPodRows();
-    }
-
-    // 待送达搜索处理函数
-    function handleReadySearch(rows, searchTerm) {
-        const matchedRows = new Set();
-        
-        rows.forEach(tr => {
-            const cells = tr.querySelectorAll('td');
-            let isMatch = false;
-            
-            // 检查每个单元格（跳过最后2列操作列）
-            for (let i = 0; i < cells.length - 2; i++) {
-                const cellText = cells[i].textContent.toLowerCase();
-                if (cellText.includes(searchTerm)) {
-                    isMatch = true;
-                    break;
-                }
-            }
-            
-            if (isMatch) {
-                matchedRows.add(tr);
-            }
-        });
-
-        rows.forEach(tr => {
-            tr.style.display = matchedRows.has(tr) ? '' : 'none';
-        });
-    }
-
-    function handleReadySearchForVisible(rows, searchTerm) {
-        const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
-        const matchedRows = new Set();
-        
-        visibleRows.forEach(tr => {
-            const cells = tr.querySelectorAll('td');
-            let isMatch = false;
-            
-            for (let i = 0; i < cells.length - 2; i++) {
-                const cellText = cells[i].textContent.toLowerCase();
-                if (cellText.includes(searchTerm)) {
-                    isMatch = true;
-                    break;
-                }
-            }
-            
-            if (isMatch) {
-                matchedRows.add(tr);
-            }
-        });
-
-        rows.forEach(tr => {
-            if (tr.style.display !== 'none') {
-                tr.style.display = matchedRows.has(tr) ? '' : 'none';
-            }
-        });
     }
 
     // POD搜索处理函数
@@ -1195,51 +966,6 @@
     }
 
     // 高亮功能
-    function clearReadyHighlights() {
-        document.querySelectorAll('#ready-section tbody tr td').forEach(td => {
-            const originalText = td.getAttribute('data-original-text');
-            if (originalText) {
-                td.textContent = originalText;
-                td.removeAttribute('data-original-text');
-            }
-        });
-    }
-
-    function applyReadyHighlights(searchTerms) {
-        if (searchTerms.length === 0) return;
-        
-        const rows = document.querySelectorAll('#ready-section tbody tr');
-        
-        rows.forEach(row => {
-            if (row.style.display === 'none') return;
-            
-            const cells = row.querySelectorAll('td');
-            cells.forEach((cell, cellIndex) => {
-                // 跳过最后2列操作列
-                if (cellIndex >= cells.length - 2) return;
-                
-                let cellText = cell.textContent;
-                
-                if (!cell.hasAttribute('data-original-text')) {
-                    cell.setAttribute('data-original-text', cellText);
-                }
-                
-                let highlightedHtml = cellText;
-                
-                searchTerms.forEach((term, termIndex) => {
-                    if (!term) return;
-                    
-                    const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
-                    const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
-                    
-                    highlightedHtml = highlightedHtml.replace(regex, `<span class="${colorClass}">$1</span>`);
-                });
-                
-                cell.innerHTML = highlightedHtml;
-            });
-        });
-    }
-
     function clearPodHighlights() {
         document.querySelectorAll('#pod-section tbody tr td').forEach(td => {
             const originalText = td.getAttribute('data-original-text');
@@ -1291,12 +1017,6 @@
     }
 
     // 清除搜索
-    function clearReadySearch() {
-        const searchInputs = document.querySelectorAll('#ready-section .header-search');
-        searchInputs.forEach(input => input.value = '');
-        applyReadyMultiFilter();
-    }
-
     function clearPodSearch() {
         const searchInputs = document.querySelectorAll('#pod-section .header-search');
         searchInputs.forEach(input => input.value = '');
