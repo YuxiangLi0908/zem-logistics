@@ -356,6 +356,7 @@ class PostportDash(View):
                         "仓点": pl.get("destination"),
                         "派送方式": delivery_method,
                         "CBM": pl.get("total_cbm"),
+                        "FBA": pl.get("fba_ids"),
                         "卡板数": n_pallet,
                         "箱数": pl.get("total_pcs"),
                         "总重lbs": pl.get("total_weight_lbs"),
