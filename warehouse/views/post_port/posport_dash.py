@@ -380,15 +380,8 @@ class PostportDash(View):
             return self.handle_summary_table_get(request)
 
     async def _get_combined_packing_data(self, pl_criteria, plt_criteria) -> list[dict]:
-        # 先查 Pallet 数据，再根据 delivery_type 覆盖情况补查 PackingList
-        # 1. 先查所有满足 plt_criteria 的 Pallet
-        # 2. 统计每个柜号下 Pallet 有哪些 delivery_type
-        # 3. 对于缺少某种 delivery_type 的柜号，从 PackingList 补数据
-        # 4. 没有 Pallet 的柜号不需要处理（调用方自行决定是否查 PackingList）
-        
         pallet_data = await self._get_packing_list(None, plt_criteria)
         
-        # 统计每个柜号下 Pallet 有哪些 delivery_type
         container_delivery_types = {}
         for item in pallet_data:
             cn = item.get('container_number__container_number')
@@ -398,30 +391,32 @@ class PostportDash(View):
             if dt:
                 container_delivery_types[cn].add(dt)
         
-        # 收集 Pallet 缺少 public 或 other 的柜号
-        containers_need_pl = [
+        packinglist_data = await self._get_packing_list(pl_criteria, None)
+        
+        pallet_containers = set(container_delivery_types.keys())
+        packinglist_containers = set()
+        for item in packinglist_data:
+            cn = item.get('container_number__container_number')
+            if cn:
+                packinglist_containers.add(cn)
+        
+        containers_only_in_pl = packinglist_containers - pallet_containers
+        
+        containers_need_supplement = [
             cn for cn, dt_set in container_delivery_types.items()
             if len(dt_set) < 2
-        ]
+        ] + list(containers_only_in_pl)
         
-        # 没有需要补数据的柜号，直接返回 Pallet 数据
-        if not containers_need_pl or not pl_criteria:
+        if not containers_need_supplement:
             return pallet_data
         
-        # 从 PackingList 补数据，只查缺少 delivery_type 的柜号
-        pl_criteria_supplement = pl_criteria & models.Q(
-            container_number__container_number__in=containers_need_pl
-        )
-        supplement_data = await self._get_packing_list(pl_criteria_supplement, None)
-        
-        # 过滤补充数据：只保留 Pallet 缺失的 delivery_type
         filtered_supplement = []
-        for item in supplement_data:
+        for item in packinglist_data:
             cn = item.get('container_number__container_number')
             dt = item.get('delivery_type')
-            if cn not in container_delivery_types:
+            if cn in containers_only_in_pl:
                 filtered_supplement.append(item)
-            elif dt and dt not in container_delivery_types[cn]:
+            elif cn in container_delivery_types and dt and dt not in container_delivery_types[cn]:
                 filtered_supplement.append(item)
         
         return pallet_data + filtered_supplement
