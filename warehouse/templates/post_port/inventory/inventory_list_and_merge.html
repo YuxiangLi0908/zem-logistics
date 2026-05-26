@@ -299,23 +299,11 @@
             let currentGroupIndex = 0;
 
             tableRows.forEach(row => {
-                const dws = row.dataset.dws || '';
-                const dwe = row.dataset.dwe || '';
-
-                if (!dws || !dwe) {
-                    row.classList.add('time-empty');
-                    const checkbox = row.querySelector('input[name="selected_pallets"]');
-                    if (checkbox) {
-                        checkbox.disabled = true;
-                        checkbox.title = "配送时间为空，无法合板";
-                    }
-                    return;
-                }
 
                 const destination = row.dataset.destination || '';
                 const deliverymethod = row.dataset.deliverymethod || '';
                 const note = row.dataset.note || '';
-                const groupKey = `${destination}|||${deliverymethod}|||${note}|||${dws}|||${dwe}`;
+                const groupKey = `${destination}|||${deliverymethod}|||${note}`;
 
                 if (!groupMap.has(groupKey)) {
                     groupMap.set(groupKey, currentGroupIndex % groupColors.length);
