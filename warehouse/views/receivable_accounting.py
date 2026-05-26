@@ -5400,7 +5400,6 @@ class ReceivableAccounting(View):
             default_tab = 'self'
         else:
             default_tab = 'public'
-
         context.update({
             'start_date': start_date,
             'end_date': end_date,
@@ -7526,6 +7525,7 @@ class ReceivableAccounting(View):
             context = {}
         start_date = request.GET.get("start_date")
         end_date = request.GET.get("end_date")
+        container_number_filter = request.GET.get("container_number_filter")
 
         container_number = request.GET.get("container_number")
         invoice_id = request.GET.get("invoice_id")
@@ -7764,6 +7764,7 @@ class ReceivableAccounting(View):
             "combina_rules_text": rules_text,
             "is_combina":iscombina,
             "pickup_fee_already_recorded": pickup_fee_already_recorded,  # 提拆费是否已在其他账单中录过
+            "container_number_filter": container_number_filter,
         })
 
         return self.template_preport_edit, context
@@ -7773,6 +7774,7 @@ class ReceivableAccounting(View):
             context = {}
         start_date = request.GET.get("start_date")
         end_date = request.GET.get("end_date")
+        container_number_filter = request.GET.get("container_number_filter")
         container_number = request.GET.get("container_number")
         invoice_id = request.GET.get("invoice_id")
         delivery_type = request.GET.get("delivery_type")
@@ -7821,6 +7823,7 @@ class ReceivableAccounting(View):
             "delivery_type": delivery_type,
             "item_category": item_category,
             "receivable_is_locked": invoice.receivable_is_locked,     
+            "container_number_filter": container_number_filter,
         })
         # 获取报价表的相关信息
         quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
