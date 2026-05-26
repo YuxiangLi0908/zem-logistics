@@ -998,9 +998,9 @@
                     </td>
                     <td class="fleet-customer-col" data-column="3">{{ cargo.customer_name|default:"-" }}</td>
                     <td class="fleet-date-col" data-column="4">
-                        {% if cargo.offload_at %}
+                        {% if cargo.offload_other_at %}
                             <span class="fleet-month-day">
-                                {{ cargo.offload_at }}
+                                {{ cargo.offload_other_at }}
                                 {% if cargo.offload_tag == "实际提柜" %}
                                     <span style="color:#e53935">{{ cargo.offload_tag }}</span>
                                 {% elif cargo.offload_tag == "实际放行" %}
