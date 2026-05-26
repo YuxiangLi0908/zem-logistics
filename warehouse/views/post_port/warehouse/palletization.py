@@ -757,6 +757,7 @@ class Palletization(View):
     async def handle_container_palletization_get(
         self, request: HttpRequest, pk: int
     ) -> tuple[str, dict[str, Any]]:
+
         order_selected = await sync_to_async(
             Order.objects.select_related(
                 "container_number", "warehouse", "offload_id"
@@ -1341,6 +1342,7 @@ class Palletization(View):
                     )
             offload.total_pallet = total_pallet
             offload.offload_at = offload_time
+            offload.offload_other_at = offload_time
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
