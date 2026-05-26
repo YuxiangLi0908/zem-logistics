@@ -140,7 +140,7 @@
 
     <div style="display: flex;">
         <div style="width: 100%; font-size: 11px;">
-            <ul class="nav nav-tabs">
+            <ul class="nav-tabs">
                 <div style="margin-right: 10px;">
                     <b style="background-color: rgb(208, 208, 208); border-radius: 20px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
                         库存信息 - {{ warehouse }}
@@ -186,11 +186,18 @@
                 </form>
             </div>
 
-            <!-- ===================== 柜号搜索框 ===================== -->
-            <div style="margin-bottom:10px;">
-                <b>柜号搜索：</b>
-                <input type="text" id="containerSearch" class="search-input" placeholder="多个柜号空格隔开搜索..."
-                       onkeyup="searchByContainer()">
+            <!-- ===================== 搜索框 ===================== -->
+            <div style="margin-bottom:10px; display: flex; gap: 12px; align-items: center;">
+                <div>
+                    <b>柜号搜索：</b>
+                    <input type="text" id="containerSearch" class="search-input" placeholder="多个柜号空格隔开..."
+                           onkeyup="filterTable()">
+                </div>
+                <div>
+                    <b>仓点搜索：</b>
+                    <input type="text" id="destinationSearch" class="search-input" placeholder="多个仓点空格隔开..."
+                           onkeyup="filterTable()">
+                </div>
             </div>
 
             <table class="table" id="inventory-summary-table"
@@ -266,29 +273,29 @@
     </form>
 
     <script>
-        // ===================== 柜号搜索函数 =====================
-        // 支持空格分隔多个柜号搜索
-        function searchByContainer() {
-            let input = document.getElementById("containerSearch");
-            let keywordStr = input.value.trim().toUpperCase();
-            // 按空格切割，过滤空字符
-            let keywords = keywordStr.split(/\s+/).filter(k => k);
+        // ===================== 统一过滤函数（柜号 + 仓点） =====================
+        function filterTable() {
+            let containerInput = document.getElementById("containerSearch");
+            let destInput = document.getElementById("destinationSearch");
+
+            let containerKeywords = containerInput.value.trim().toUpperCase().split(/\s+/).filter(k => k);
+            let destKeywords = destInput.value.trim().toUpperCase().split(/\s+/).filter(k => k);
+
             let table = document.getElementById("inventory-summary-table");
             let tr = table.getElementsByTagName("tr");
 
             for (let i = 1; i < tr.length; i++) {
-                let td = tr[i].getElementsByTagName("td")[3];
-                if (!td) continue;
-                let txtValue = td.textContent.toUpperCase();
-                let match = false;
-                // 任一关键词匹配即显示
-                for (let word of keywords) {
-                    if (txtValue.includes(word)) {
-                        match = true;
-                        break;
-                    }
-                }
-                tr[i].style.display = match ? "" : "none";
+                let tdContainer = tr[i].getElementsByTagName("td")[3];
+                let tdDest = tr[i].getElementsByTagName("td")[4];
+                if (!tdContainer || !tdDest) continue;
+
+                let containerTxt = tdContainer.textContent.toUpperCase();
+                let destTxt = tdDest.textContent.toUpperCase();
+
+                let matchContainer = containerKeywords.length === 0 || containerKeywords.some(w => containerTxt.includes(w));
+                let matchDest = destKeywords.length === 0 || destKeywords.some(w => destTxt.includes(w));
+
+                tr[i].style.display = (matchContainer && matchDest) ? "" : "none";
             }
         }
 
@@ -299,7 +306,6 @@
             let currentGroupIndex = 0;
 
             tableRows.forEach(row => {
-
                 const destination = row.dataset.destination || '';
                 const deliverymethod = row.dataset.deliverymethod || '';
                 const note = row.dataset.note || '';
@@ -316,7 +322,7 @@
             });
 
             const enabledCheckboxes = document.querySelectorAll(
-                'input[name="selected_pallets"]:not(:disabled)'
+                'input[name="selected_pallets"]'
             );
             enabledCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', function () {
@@ -326,14 +332,13 @@
                     if (!currentGroupKey) return;
 
                     const sameGroupRows = document.querySelectorAll(
-                        `#inventory-summary-table tbody tr[data-group-key="${currentGroupKey}"]:not(.time-empty)`
+                        `#inventory-summary-table tbody tr[data-group-key="${currentGroupKey}"]`
                     );
 
                     sameGroupRows.forEach(row => {
                         const rowCheckbox = row.querySelector('input[name="selected_pallets"]');
-                        if (rowCheckbox && !rowCheckbox.disabled) {
+                        if (rowCheckbox) {
                             rowCheckbox.checked = isChecked;
-                            // 同步行的选中背景色（和原有逻辑一致）
                             isChecked ? row.classList.add('selected') : row.classList.remove('selected');
                         }
                     });
@@ -342,30 +347,27 @@
         });
 
         function prepareMergeForm() {
-            // 1. 获取核心元素
             const checkedBoxes = document.querySelectorAll('input[name="selected_pallets"]:checked');
             const mergeForm = document.getElementById('mergePalletForm');
             const newPoIdInput = document.getElementById('mergeNewPoId');
             const palletIdsInput = document.getElementById('mergePalletIds');
             const warehouseInput = document.querySelector('#mergePalletForm input[name="warehouse"]');
+
             if (!warehouseInput.value.trim()) {
                 alert('请先选择仓库并点击"确认"加载数据！');
                 return;
             }
 
-            // 2. 基础校验：至少选中2行
             if (checkedBoxes.length < 2) {
                 alert('请至少选择2行数据进行合板操作！');
                 return;
             }
 
-            // 3. 提取选中行的关键信息（用于校验和取值）
             const selectedRows = Array.from(checkedBoxes).map(checkbox => checkbox.closest('tr')).filter(tr => tr);
-            const palletIds = selectedRows.map(row => row.dataset.palletId).filter(id => id.trim()); // 过滤空pallet_id
+            const palletIds = selectedRows.map(row => row.dataset.palletId).filter(id => id.trim());
             const firstRow = selectedRows[0];
-            const targetPOId = firstRow.dataset.poid; // 目标PO_ID（第一行的PO_ID）
+            const targetPOId = firstRow.dataset.poid;
 
-            // 4. 校验：pallet_id有效且PO_ID非空
             if (palletIds.length < 2) {
                 alert('部分选中行缺少pallet_id，无法合板！');
                 return;
@@ -375,29 +377,22 @@
                 return;
             }
 
-            // 5. 校验：所有选中行的关键字段一致（目的地、派送方式等）
             const targetDest = firstRow.dataset.destination;
             const targetDm = firstRow.dataset.deliverymethod;
             const targetNote = firstRow.dataset.note;
-            const targetDws = firstRow.dataset.dws;
-            const targetDwe = firstRow.dataset.dwe;
             const isAllMatch = selectedRows.every(row =>
                 row.dataset.destination === targetDest &&
                 row.dataset.deliverymethod === targetDm &&
-                row.dataset.note === targetNote &&
-                row.dataset.dws === targetDws &&
-                row.dataset.dwe === targetDwe
+                row.dataset.note === targetNote
             );
+
             if (!isAllMatch) {
-                alert('选中的数据配送仓点、派送方式、备注、配送时间不一致，无法合板！');
+                alert('选中的数据配送仓点、派送方式、备注不一致，无法合板！');
                 return;
             }
 
-            // 6. 填充表单隐藏字段（将数据传递给后端）
-            newPoIdInput.value = targetPOId; // 目标PO_ID
-            palletIdsInput.value = palletIds.join(','); // pallet_id列表（用逗号分隔，后端可split解析）
-
-            // 7. 提交表单（触发后端处理）
+            newPoIdInput.value = targetPOId;
+            palletIdsInput.value = palletIds.join(',');
             mergeForm.submit();
         }
 
