@@ -2698,13 +2698,13 @@ class Palletization(View):
         await sync_to_async(
             Pallet.objects.filter(
                 container_number__container_number=container_number,
-                delivery_type="public", location=warehouse
+                delivery_type="other", location=warehouse
             ).delete
         )()
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number,
-                delivery_type="public"
+                delivery_type="other"
 
             ).delete
         )()
