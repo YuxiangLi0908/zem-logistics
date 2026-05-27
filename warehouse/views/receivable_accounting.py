@@ -5801,13 +5801,21 @@ class ReceivableAccounting(View):
 
         # --- 2. 构建查询条件 ---
         if container_number_filter:
-            criteria = Q(container_number__container_number=container_number_filter)
+            criteria = (
+                Q(container_number__container_number=container_number_filter)
+                & Q(cancel_notification=False)
+                & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+                & Q(offload_at__isnull=False)
+                & Q(offload_other_at__isnull=False)
+            )
         else:
             criteria = (
                 Q(cancel_notification=False)
                 & Q(vessel_id__vessel_etd__gte=start_date)
                 & Q(vessel_id__vessel_etd__lte=end_date)
                 & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+                & Q(offload_at__isnull=False)
+                & Q(offload_other_at__isnull=False)
             )
 
             if warehouse:
