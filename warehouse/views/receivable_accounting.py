@@ -2892,7 +2892,8 @@ class ReceivableAccounting(View):
         else:
             # 看下是不是补开的账单，如果是补开的按转运方式展示记录就行了，不用组合柜形式展示了
             other_invoices = Invoicev2.objects.filter(
-                container_number=order.container_number 
+                container_number=order.container_number,
+                is_master_bill=False
             ).exclude(id=invoice_id)
             
             if other_invoices.exists(): 
