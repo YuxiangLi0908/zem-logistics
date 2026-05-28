@@ -18,7 +18,13 @@
                 <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
-            <input type="hidden" name="step" value="warehouse">
+            <b style="margin-right: 5px;">类型:</b>
+            <select name="delivery_type">
+                <option value="" {% if delivery_type == '' %}selected{% endif %}>全部</option>
+                <option value="public" {% if delivery_type == 'public' %}selected{% endif %}>public</option>
+                <option value="other" {% if delivery_type == 'other' %}selected{% endif %}>other</option>
+            </select>
+            <input type="hidden" name="step" value="timeout_warehouse_select">
             <button type="submit">确认</button>
         </div>
     </form>

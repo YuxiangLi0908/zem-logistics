@@ -36,49 +36,60 @@ class TimeoutWarning(View):
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
-        # if not await self._validate_user_group(request.user):
-        #     return HttpResponseForbidden(
-        #         "You are not authenticated to access this page!"
-        #     )
+        if not await self._validate_user_group(request.user):
+            return HttpResponseForbidden(
+                "You are not authenticated to access this page!"
+            )
         context = {"warehouse_options": WAREHOUSE_OPTIONS,}
         return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
-        if not self._validate_user_group(request.user):
+        if not await self._validate_user_group(request.user):
             return HttpResponseForbidden(
                 "You are not authenticated to access this page!"
             )
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        if step == "warehouse":
+        if step == "timeout_warehouse_select":
             template, context = await self.handle_timeout_inventory_get(request)
             return render(request, template, context)
 
     async def handle_timeout_inventory_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''库存时效预警的界面筛选'''
         warehouse = request.POST.get("warehouse")
+        delivery_type = request.POST.get("delivery_type")
         # 拆柜入库3周，没有约的板子，只看2/1号之后的
-        pallets = await self._get_packing_list(warehouse)
+        pallets = await self._get_packing_list(warehouse, delivery_type)
+
         # 预约时间过期没有排车
         now = timezone.now() + timezone.timedelta(days=1)
-        shipments = await sync_to_async(list)(
-            Shipment.objects.filter(
-                shipment_appointment__lte=now,
-                shipment_type="FTL",
-                fleet_number__isnull=True,
-                origin=warehouse,
-                is_canceled=False,
-            ).order_by("shipment_appointment")
+        filter_conditions = (
+            Q(shipment_appointment__lte=now)
+            & Q(shipment_type="FTL")
+            & Q(fleet_number__isnull=True)
+            & Q(origin=warehouse)
+            & Q(is_canceled=False)
         )
+        if delivery_type:
+            filter_conditions &= (Q(delivery_type__isnull=True) | Q(delivery_type=""))
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(filter_conditions).order_by("shipment_appointment")
+        )
+
         # 提货时间已过期没有确认出库
+        fleet_filter_conditions = Q(
+            appointment_datetime__lte=now,
+            departured_at__isnull=True,
+            origin=warehouse
+        )
+        if delivery_type:
+            fleet_filter_conditions &= (Q(delivery_type__isnull=True) | Q(delivery_type=""))
+
         fleets = await sync_to_async(list)(
-            Fleet.objects.filter(
-                appointment_datetime__lte=now,
-                departured_at__isnull=True,
-                origin=warehouse,
-            )
+            Fleet.objects.filter(fleet_filter_conditions)
             .annotate(
                 shipment_batch_numbers=StringAgg(
                     "shipment__shipment_batch_number", delimiter=","
@@ -87,14 +98,18 @@ class TimeoutWarning(View):
             )
             .order_by("appointment_datetime")
         )
-        target_date = datetime(2025, 6, 1)
+        
         # 逾期未确认
+        target_date = datetime(2025, 6, 1)
+        un_confirmed_fleets_conditions = Q(
+            departured_at__isnull=False,
+            origin=warehouse,
+            arrived_at__isnull=True,
+        )
+        if delivery_type:
+            un_confirmed_fleets_conditions &= (Q(delivery_type__isnull=True) | Q(delivery_type=""))
         un_confirmed_fleets = await sync_to_async(list)(
-            Fleet.objects.filter(
-                departured_at__isnull=False,
-                origin=warehouse,
-                arrived_at__isnull=True,
-            )
+            Fleet.objects.filter(un_confirmed_fleets_conditions)
             .filter(
                 models.Q(shipment__shipment_appointment__lte=now - timedelta(days=3))
                 & models.Q(shipment__shipment_appointment__gte=target_date)
@@ -108,13 +123,19 @@ class TimeoutWarning(View):
             )
             .order_by("appointment_datetime")
         )
+
         # 逾期未上传POD
+        un_podlinks_conditions = Q(
+            departured_at__isnull=False,
+            origin=warehouse,
+            arrived_at__isnull=False,
+        )
+
+        # 如果 delivery_type 有值，添加 delivery_type 过滤条件
+        if delivery_type:
+            un_podlinks_conditions &= (Q(delivery_type__isnull=True) | Q(delivery_type=""))
         un_podlinks = await sync_to_async(list)(
-            Fleet.objects.filter(
-                departured_at__isnull=False,
-                origin=warehouse,
-                arrived_at__isnull=False,
-            )
+            Fleet.objects.filter(un_podlinks_conditions)
             .filter(
                 models.Q(shipment__pod_link__isnull=True)
                 & models.Q(shipment__shipment_appointment__isnull=False)
@@ -168,30 +189,38 @@ class TimeoutWarning(View):
     async def _get_packing_list(
         self,
         warehouse: str,
+        delivery_type = None,
     ) -> list[Any]:
         now = timezone.now() + timezone.timedelta(days=1)
         three_weeks_ago = now - timedelta(weeks=3)
+
+        # 构建基础 filter 条件
+        filter_conditions = (
+            models.Q(
+                container_number__orders__offload_id__offload_at__lte=three_weeks_ago
+            )
+            & models.Q(
+                container_number__orders__offload_id__offload_at__gte="2025-02-01"
+            )
+            & models.Q(shipment_batch_number__shipment_batch_number__isnull=True)
+            & ~Q(delivery_method="暂扣留仓(HOLD)")
+            & models.Q(location=warehouse)
+        )
+        if delivery_type:
+            filter_conditions &= models.Q(delivery_type=delivery_type)
+
         pallets = await sync_to_async(list)(
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__orders",
                 "container_number__orders__warehouse",
-                "shipment_batch_number" "container_number__orders__offload_id",
+                "shipment_batch_number",
+                "container_number__orders__offload_id",
                 "container_number__orders__customer_name",
                 "container_number__orders__retrieval_id",
                 "container_number__orders__vessel_id",
             )
-            .filter(
-                models.Q(
-                    container_number__orders__offload_id__offload_at__lte=three_weeks_ago
-                )
-                & models.Q(
-                    container_number__orders__offload_id__offload_at__gte="2025-02-01"
-                )
-                & models.Q(shipment_batch_number__shipment_batch_number__isnull=True)
-                & ~Q(delivery_method="暂扣留仓(HOLD)")
-                & models.Q(location=warehouse)
-            )
+            .filter(filter_conditions)
             .annotate(
                 schedule_status=Case(
                     When(
@@ -261,5 +290,5 @@ class TimeoutWarning(View):
         if is_staff:
             return True
         return await sync_to_async(
-            lambda: user.groups.filter(name="shipmnet_leader").exists()
+            lambda: user.groups.filter(name="shipment_leader").exists()
         )()
