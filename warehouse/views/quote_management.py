@@ -94,7 +94,8 @@ class QuoteManagement(View):
                 FeeDetail.objects.filter(quotation_id=quote).delete()
                 quote.delete()
             # 重定向回到报价表管理页面
-            return redirect("/quote/?step=quote_master")
+            template, context = self.handle_quote_master_get(request)
+            return render(request, template, context)
 
     def handle_payable_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
