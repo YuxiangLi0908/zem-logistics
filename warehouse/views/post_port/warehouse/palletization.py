@@ -3346,7 +3346,7 @@ class Palletization(View):
             cbm_actual = c * p_a / p_r
             weight_actual = w * p_a / p_r
         shipment = None
-        if shipment_batch_number != "None" and shipment_batch_number is not None and shipment_batch_number != ""::
+        if shipment_batch_number != "None" and shipment_batch_number is not None and shipment_batch_number != "":
             shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=shipment_batch_number
             )
