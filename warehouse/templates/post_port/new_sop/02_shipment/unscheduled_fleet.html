@@ -1,3 +1,4 @@
+<!--库存排约之未排车-->
 {% load custom_filters %}
 <style>
     .highlight1 {
@@ -71,31 +72,33 @@
         <div class="table-container">
             <table class="data-table">
                 <thead>
-                    <tr>
-                        <th style="min-width: 40px; text-align: center;"></th>
-                        <th>预约批次</th>
-                        <th>目的仓库</th>
-                        <th>预约号</th>
-                        <th>Scheduled Time</th>
-                        <th>Pickup Time</th>
-                        <th>总重lbs</th>
-                        <th>总CBM</th>
-                        <th>总卡板数</th>
-                        <th>备注</th>
-                    </tr>
-                    <tr class="search-row">
-                        <td></td>
-                        <td><input data-col="1" class="col-search-input" placeholder="搜索预约批次"></td>
-                        <td><input data-col="2" class="col-search-input" placeholder="搜索目的仓库"></td>
-                        <td><input data-col="3" class="col-search-input" placeholder="搜索预约号"></td>
-                        <td><input data-col="4" class="col-search-input" placeholder="搜索送仓时间"></td>
-                        <td><input data-col="5" class="col-search-input" placeholder="搜索提货时间"></td>
-                        <td><input data-col="6" class="col-search-input" placeholder="搜索重量"></td>
-                        <td><input data-col="7" class="col-search-input" placeholder="搜索CBM"></td>
-                        <td><input data-col="8" class="col-search-input" placeholder="搜索板数"></td>
-                        <td><input data-col="9" class="col-search-input" placeholder="搜索备注"></td>
-                    </tr>
-                </thead>
+            <tr>
+                <th style="min-width: 40px; text-align: center;"></th>
+                <th>预约批次</th>
+                <th>目的仓库</th>
+                <th>预约号</th>
+                <th>Scheduled Time</th>
+                <th>Pickup Time</th>
+                <th>总重lbs</th>
+                <th>总CBM</th>
+                <th>总卡板数</th>
+                <th>备注</th>
+                <th>操作</th>
+            </tr>
+            <tr class="search-row">
+                <td></td>
+                <td><input data-col="1" class="col-search-input" placeholder="搜索预约批次"></td>
+                <td><input data-col="2" class="col-search-input" placeholder="搜索目的仓库"></td>
+                <td><input data-col="3" class="col-search-input" placeholder="搜索预约号"></td>
+                <td><input data-col="4" class="col-search-input" placeholder="搜索送仓时间"></td>
+                <td><input data-col="5" class="col-search-input" placeholder="搜索提货时间"></td>
+                <td><input data-col="6" class="col-search-input" placeholder="搜索重量"></td>
+                <td><input data-col="7" class="col-search-input" placeholder="搜索CBM"></td>
+                <td><input data-col="8" class="col-search-input" placeholder="搜索板数"></td>
+                <td><input data-col="9" class="col-search-input" placeholder="搜索备注"></td>
+                <td></td>
+            </tr>
+        </thead>
                 <tbody>
                     {% for s in unschedule_fleet %}
                     <tr>
@@ -136,6 +139,9 @@
                         <td>{{ s.total_cbm|floatformat:2 }}</td>
                         <td>{{ s.total_pallet }}</td>
                         <td style="max-width: 150px; word-break: break-all;">{% if s.note %}{{ s.note }}{% endif %}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="cancelNotifiedCustomer('{{ s.id }}', '{{ warehouse }}')">取消通知客户</button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -568,4 +574,32 @@
     }
     // 全局变量
     const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
+    
+    // 取消通知客户函数
+    function cancelNotifiedCustomer(shipmentId, warehouse) {
+        if (confirm('确定要取消通知客户吗？')) {
+            document.getElementById('formStep').value = 'cancel_notified_customer';
+            // 我们需要动态添加 shipment_id 字段，因为 actionForm 中可能没有
+            const actionForm = document.getElementById('actionForm');
+            let shipmentIdInput = actionForm.querySelector('input[name="shipment_id"]');
+            if (!shipmentIdInput) {
+                shipmentIdInput = document.createElement('input');
+                shipmentIdInput.type = 'hidden';
+                shipmentIdInput.name = 'shipment_id';
+                actionForm.appendChild(shipmentIdInput);
+            }
+            shipmentIdInput.value = shipmentId;
+            // 设置 active_tab 为 unscheduled-fleet，这样刷新后会保持在正确的标签页
+            let activeTabInput = actionForm.querySelector('input[name="active_tab"]');
+            if (!activeTabInput) {
+                activeTabInput = document.createElement('input');
+                activeTabInput.type = 'hidden';
+                activeTabInput.name = 'active_tab';
+                actionForm.appendChild(activeTabInput);
+            }
+            activeTabInput.value = 'unscheduled-fleet';
+            showLoadingBar();
+            actionForm.submit();
+        }
+    }
 </script>

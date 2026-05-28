@@ -510,6 +510,9 @@ class PostNsop(View):
         elif step == "fl_notified_customer":
             template, context = await self.handle_fl_notified_customer_post(request)
             return render(request, template, context)
+        elif step == "cancel_notified_customer":
+            template, context = await self.handle_cancel_notified_customer_post(request)
+            return render(request, template, context)
         elif step == "search_addable_po":
             template, context = await self.handle_search_addable_po_post(request)
             return render(request, template, context)
@@ -5498,6 +5501,33 @@ class PostNsop(View):
             return await self.handle_unscheduled_pos_post(request,context)
         else:
             return await self.handle_td_shipment_post(request, context)
+    
+    async def handle_cancel_notified_customer_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        shipment_id = request.POST.get("shipment_id")
+        context = {}
+        if not bool(shipment_id) or not shipment_id or 'None' in shipment_id:
+            context.update({
+                'error_messages':'shipment_id为空！',
+            })
+            return await self.handle_td_shipment_post(request, context)
+        try:
+            shipment = await sync_to_async(Shipment.objects.get)(
+                id=shipment_id
+            )
+            shipment.is_notified_customer = False
+            await sync_to_async(shipment.save)()
+            context = {'success_messages': '取消通知客户成功！'}
+        except Shipment.DoesNotExist:
+            context.update({
+                'error_messages': f"找不到ID为 {shipment_id} 的shipment记录",
+            })
+        except Exception as e:
+            context.update({
+                'error_messages': f"取消通知客户失败: {str(e)}",
+            })
+        return await self.handle_td_shipment_post(request, context)
     
     async def handle_search_addable_po_post(
         self, request: HttpRequest

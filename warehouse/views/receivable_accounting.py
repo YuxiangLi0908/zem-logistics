@@ -12305,8 +12305,6 @@ class ReceivableAccounting(View):
         overweight_fee = float(request.POST.get("overweight_fee", 0))
         overpallet_fee_str = request.POST.get("overpallet_fee")
         is_fix_page = request.POST.get("is_fix_page")
-        print('is_fix_page',is_fix_page)
-        raise ValueError('is_fix_page')
 
         if overpallet_fee_str in (None, ''):
             overpallet_fee = 0.0
