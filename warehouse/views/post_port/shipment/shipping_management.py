@@ -2718,6 +2718,10 @@ class ShippingManagement(View):
                     shipment.shipped_at_utc = self._parse_ts(
                         shipment_appointment, tzinfo
                     )
+                    shipment.shipment_appointment = shipment_appointment
+                    shipment.shipment_appointment_utc = self._parse_ts(
+                        shipment_appointment, tzinfo
+                    )
                     shipment.is_arrived = True
                     shipment.arrived_at = shipment_appointment
                     shipment.arrived_at_utc = self._parse_ts(
