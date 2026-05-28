@@ -7894,7 +7894,7 @@ class Accounting(View):
 
         # ========== 核心配置：定义费用过滤的供应商列表 ==========
         # 1. 排除提柜其他费用的供应商（保留拆柜其他费用）
-        exclude_pickup_other_fees_carriers = ["BBR", "KNO", "JOHN", "unload"]
+        exclude_pickup_other_fees_carriers = ["BBR", "KNO", "JOHN", "unload", "edison", "JJ"]
         is_exclude_pickup_other = select_carrier in exclude_pickup_other_fees_carriers
 
         # 2. 排除拆柜其他费用的供应商（即：非上述供应商都排除拆柜其他费用）
@@ -7913,7 +7913,7 @@ class Accounting(View):
 
         # 3. 定义固定费用类型
         fixed_fee_types = []
-        if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
+        if select_carrier in ["BBR", "KNO", "JOHN", "unload", "edison", "JJ"]:
             fixed_fee_types = ["拆柜费用", "入库拆柜费", "总费用"]
         elif select_carrier in ["GM", "Kars"]:
             fixed_fee_types = [
@@ -8002,7 +8002,7 @@ class Accounting(View):
             carrier_match = False
 
             # 1. 这类供应商：从 invoice_items 里匹配 carrier
-            if select_carrier in ["BBR", "KNO", "JOHN", "unload", "Iris"]:
+            if select_carrier in ["BBR", "KNO", "JOHN", "unload", "edison", "JJ", "Iris"]:
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
 
             # 2. 特殊匹配：LA转运Eric / 客户自送
