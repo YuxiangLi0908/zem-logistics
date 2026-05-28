@@ -134,7 +134,6 @@ class ReceivableAccounting(View):
     template_completed_bills = "receivable_accounting/completed_bills.html"
     
     template_financial_statistics = "receivable_accounting/financial_statistics.html"
-    template_quotation_management = "receivable_accounting/quotation_management.html"
     template_pl_container_fee = "receivable_accounting/container_fee_caculate.html"
     
     allowed_group = "accounting"
@@ -183,10 +182,6 @@ class ReceivableAccounting(View):
         elif step == "supplementary": #补开账单
             context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm()}
             return render(request, self.template_supplementary_entry, context) 
-        elif step == "quotation_management": #报价表管理
-            quotes = QuotationMaster.objects.filter(quote_type="receivable")
-            context = {"order_form": OrderForm(), "quotes": quotes}
-            return render(request, self.template_quotation_management, context)  
         elif step == "pl_container_fee": #报价表管理
             quotes = QuotationMaster.objects.filter(quote_type="receivable")
             context = {"order_form": OrderForm(), "quotes": quotes}

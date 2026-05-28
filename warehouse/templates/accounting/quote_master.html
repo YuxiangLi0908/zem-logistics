@@ -4,7 +4,7 @@
 
 <div style="padding: 20px; background: #f8f9fa; position: relative; z-index: 1;">
     <form method="post" enctype="multipart/form-data" style="font-size:12px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        {% csrf_token %}     
+        {% csrf_token %}      
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="white-space: nowrap;">导入模版:</span>
@@ -19,7 +19,7 @@
                 <div style="margin: 5px 0; display: none;" id="user_selection">
                     <b style="margin-right: 5px;">客户:</b>
                     <input type="text" id="customerQuickSearch" placeholder="输入关键字筛选客户..." autocomplete="off"
-                           style="padding: 6px; border: 1px solid #ddd; font-size: 12px; border-radius: 4px; width: 220px; margin-right: 6px;">
+                    style="padding: 6px; border: 1px solid #ddd; font-size: 12px; border-radius: 4px; width: 220px; margin-right: 6px;">
                     {{ order_form.customer_name }}
                 </div>
             </div>
@@ -38,7 +38,7 @@
 </div>
 
 <div style="max-width: 1200px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">报价表版本管理</h3>
+    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">应收报价表版本管理</h3>
     <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;table-layout: fixed;">
         <thead style="background: #e9ecef;">
             <tr>
@@ -59,6 +59,7 @@
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">专属客户</th>
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">version</th>
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:150px;">操作</th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">删除</th>
             </tr>
             <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
                 <th class="th"><input type="text" style="width:110px;" id="filename-search-input" placeholder="搜索文件名..." oninput="filterTable()"></th>
@@ -72,6 +73,7 @@
                 <th class="th">
                     <input type="text" style="width:110px;" id="customer-search-input" placeholder="(空值输入#)..." oninput="filterTable()" title="搜索客户，输入#null查找空值">
                 </th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
             </tr>
@@ -93,6 +95,16 @@
                         <a href="?step=receivable_quote_detail&qid={{ q.id }}" class="btn btn-info" style="padding: 8px 16px; font-size: 13px; background: #28a745; border-color: #28a745; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; display: inline-block;">
                             查看详情
                         </a>
+                    </td>
+                    <td style="padding: 15px; text-align: center;">
+                        <form method="post" action="" onsubmit="return confirm('确定要删除这份报价表吗？');" style="margin: 0; display: inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="delete_quote">
+                            <input type="hidden" name="qid" value="{{ q.id }}">
+                            <button type="submit" class="btn btn-danger" style="padding: 8px 16px; font-size: 13px; background: #dc3545; border-color: #dc3545; color: white; border-radius: 4px; cursor: pointer;">
+                                删除
+                            </button>
+                        </form>
                     </td>
                 </tr>            
             </form>    
@@ -117,7 +129,7 @@
         grid-template-columns: repeat(4, minmax(120px, 1fr));
         gap: 10px;
         position: relative;  
-        z-index: 0;          
+        z-index: 0;            
     }
        
     .item {
@@ -251,10 +263,10 @@
     }
 
     function filterTable() {
-        const filenameInput = document.getElementById("filenameSearchInput");
-        const effectiveDateInput = document.getElementById("effectiveDateSearchInput");
-        const uploadDateInput = document.getElementById("uploadDateSearchInput");
-        const customerInput = document.getElementById("customerSearchInput");
+        const filenameInput = document.getElementById("filename-search-input");
+        const effectiveDateInput = document.getElementById("effective-date-search-input");
+        const uploadDateInput = document.getElementById("upload-date-search-input");
+        const customerInput = document.getElementById("customer-search-input");
 
         const filenameFilter = filenameInput.value.trim().toUpperCase();
         const effectiveDateFilter = effectiveDateInput.value;

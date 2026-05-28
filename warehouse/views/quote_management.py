@@ -86,6 +86,15 @@ class QuoteManagement(View):
         elif step == "upload_payable_quote_excel":
             template, context = self.handle_upload_payable_quote_post(request)
             return render(request, template, context)
+        elif step == "delete_quote":
+            qid = request.POST.get("qid")
+            if qid:
+                quote = QuotationMaster.objects.get(id=qid)
+                # 同时删除关联的费用明细
+                FeeDetail.objects.filter(quotation_id=quote).delete()
+                quote.delete()
+            # 重定向回到报价表管理页面
+            return redirect("/quote/?step=quote_master")
 
     def handle_payable_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
