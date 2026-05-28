@@ -61,6 +61,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 from warehouse.utils.constants import (
     DELIVERY_METHOD_CODE,
     DELIVERY_METHOD_OPTIONS,
@@ -1056,6 +1057,7 @@ class Palletization(View):
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
             pallet_data = []
+            log_infos = []
             for (
                 n,
                 p_a,
@@ -1128,7 +1130,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -1154,7 +1156,10 @@ class Palletization(View):
                         slot,
                         created_at=created_at,
                         released_at=released_at,
-                    )  # 循环遍历每个汇总的板数
+                    )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
                 if p_a != p_r:
                     abnormal_offloads.append(
                         {
@@ -1259,7 +1264,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -1287,6 +1292,9 @@ class Palletization(View):
                         created_at=created_at,
                         released_at=released_at,
                     )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
 
                     # 记录异常拆柜
                     abnormal_offloads.append(
@@ -1317,6 +1325,24 @@ class Palletization(View):
             await sync_to_async(bulk_create_with_history)(
                 abnormal_offload_instances, AbnormalOffloadStatus
             )
+            
+            # 记录 ShipmentBindingLog
+            if log_infos:          
+                for log_info in log_infos:
+                    if log_info['shipment_batch_number']:
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=request.user,
+                            po_type='pallet',
+                            po_id=log_info['po_id'],
+                            shipment_batch_number=log_info['shipment_batch_number'],
+                            operation_button='拆柜',
+                            shipment_type=log_info['shipment_type'],
+                            container_number=log_info['container_number'],
+                            destination=log_info['destination'],
+                            warehouse=log_info['location'],
+                            delivery_type=log_info['delivery_type'],
+                            skip_get_po_info=True,
+                        )
         # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
@@ -1393,6 +1419,7 @@ class Palletization(View):
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
             pallet_data = []
+            log_infos = []
             for (
                 n,
                 p_a,
@@ -1465,7 +1492,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -1492,6 +1519,9 @@ class Palletization(View):
                         created_at=created_at,
                         released_at=released_at,
                     )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
                 if p_a != p_r:
                     abnormal_offloads.append(
                         {
@@ -1598,7 +1628,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -1626,6 +1656,9 @@ class Palletization(View):
                         created_at=created_at,
                         released_at=released_at,
                     )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
 
                     # 记录异常拆柜
                     abnormal_offloads.append(
@@ -1661,6 +1694,24 @@ class Palletization(View):
             await sync_to_async(bulk_create_with_history)(
                 abnormal_offload_instances, AbnormalOffloadStatus
             )
+            
+            # 记录 ShipmentBindingLog
+            if log_infos:
+                for log_info in log_infos:
+                    if log_info['shipment_batch_number']:
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=request.user,
+                            po_type='pallet',
+                            po_id=log_info['po_id'],
+                            shipment_batch_number=log_info['shipment_batch_number'],
+                            operation_button='拆柜',
+                            shipment_type=log_info['shipment_type'],
+                            container_number=log_info['container_number'],
+                            destination=log_info['destination'],
+                            warehouse=log_info['location'],
+                            delivery_type=log_info['delivery_type'],
+                            skip_get_po_info=True,
+                        )
         # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
@@ -1737,6 +1788,7 @@ class Palletization(View):
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
             pallet_data = []
+            log_infos = []
             for (
                 n,
                 p_a,
@@ -1809,7 +1861,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -1835,7 +1887,10 @@ class Palletization(View):
                         slot,
                         created_at=created_at,
                         released_at=released_at,
-                    )  # 循环遍历每个汇总的板数
+                    )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
                 if p_a != p_r:
                     abnormal_offloads.append(
                         {
@@ -1942,7 +1997,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -1970,6 +2025,9 @@ class Palletization(View):
                         created_at=created_at,
                         released_at=released_at,
                     )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
 
                     # 记录异常拆柜
                     abnormal_offloads.append(
@@ -2005,6 +2063,24 @@ class Palletization(View):
             await sync_to_async(bulk_create_with_history)(
                 abnormal_offload_instances, AbnormalOffloadStatus
             )
+            
+            # 记录 ShipmentBindingLog
+            if log_infos:
+                for log_info in log_infos:
+                    if log_info['shipment_batch_number']:
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=request.user,
+                            po_type='pallet',
+                            po_id=log_info['po_id'],
+                            shipment_batch_number=log_info['shipment_batch_number'],
+                            operation_button='拆柜',
+                            shipment_type=log_info['shipment_type'],
+                            container_number=log_info['container_number'],
+                            destination=log_info['destination'],
+                            warehouse=log_info['location'],
+                            delivery_type=log_info['delivery_type'],
+                            skip_get_po_info=True,
+                        )
         # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
@@ -2082,6 +2158,7 @@ class Palletization(View):
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
             pallet_data = []
+            log_infos = []
             for (
                 n,
                 p_a,
@@ -2154,7 +2231,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -2180,7 +2257,10 @@ class Palletization(View):
                         slot,
                         created_at=created_at,
                         released_at=released_at,
-                    )  # 循环遍历每个汇总的板数
+                    )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
                 if p_a != p_r:
                     abnormal_offloads.append(
                         {
@@ -2287,7 +2367,7 @@ class Palletization(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await self._split_pallet(
+                    pd, log_info = await self._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -2315,6 +2395,9 @@ class Palletization(View):
                         created_at=created_at,
                         released_at=released_at,
                     )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
 
                     # 记录异常拆柜
                     abnormal_offloads.append(
@@ -2350,6 +2433,24 @@ class Palletization(View):
             await sync_to_async(bulk_create_with_history)(
                 abnormal_offload_instances, AbnormalOffloadStatus
             )
+            
+            # 记录 ShipmentBindingLog
+            if log_infos:
+                for log_info in log_infos:
+                    if log_info['shipment_batch_number']:
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=request.user,
+                            po_type='pallet',
+                            po_id=log_info['po_id'],
+                            shipment_batch_number=log_info['shipment_batch_number'],
+                            operation_button='拆柜',
+                            shipment_type=log_info['shipment_type'],
+                            container_number=log_info['container_number'],
+                            destination=log_info['destination'],
+                            warehouse=log_info['location'],
+                            delivery_type=log_info['delivery_type'],
+                            skip_get_po_info=True,
+                        )
         # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
@@ -3189,9 +3290,9 @@ class Palletization(View):
         seed: int = 0,
         created_at=None,
         released_at=None,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
         if n == 0 or n is None:
-            return []
+            return [], None
         pallet_ids = [
             str(
                 uuid.uuid3(
@@ -3206,20 +3307,18 @@ class Palletization(View):
         else:
             cbm_actual = c * p_a / p_r
             weight_actual = w * p_a / p_r
+        shipment = None
         if shipment_batch_number != "None":
             shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=shipment_batch_number
             )
             shipment.abnormal_palletization = p_a != p_r
             await sync_to_async(shipment.save)()
-        else:
-            shipment = None
+        master_shipment = None
         if master_shipment_batch_number and master_shipment_batch_number != "None":
             master_shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=master_shipment_batch_number
             )
-        else:
-            master_shipment = None
         pallet_data = []
         pallet_pcs = [p_a // n for _ in range(n)]
         for i in range(p_a % n):
@@ -3256,7 +3355,21 @@ class Palletization(View):
                     "released_at": released_at,
                 }
             )
-        return pallet_data
+        
+        # 返回 pallet 数据和用于记录日志的信息
+        log_info = None
+        if shipment or master_shipment:
+            log_info = {
+                'container_number': order.container_number.container_number,
+                'destination': destination,
+                'delivery_type': delivery_type,
+                'location': order.warehouse.name,
+                'po_id': po_id,
+                'shipment_batch_number': shipment_batch_number if shipment else None,
+                'master_shipment_batch_number': master_shipment_batch_number if master_shipment else None,
+                'shipment_type': 'all' if (shipment and master_shipment) else 'actual'
+            }
+        return pallet_data, log_info
 
     async def _update_shipment_stats(self, ids: list[Any]) -> None:
         ids = [int(j) for i in ids for j in i]
