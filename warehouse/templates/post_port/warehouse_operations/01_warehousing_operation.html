@@ -244,14 +244,14 @@
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
+                                            <input type="hidden" name="offload_id" value="{{ order.offload_id.id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
                                             <input type="hidden" name="unpacking_status"
                                                    value="{{ ret.unpacking_status }}">
                                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="first_time_download" class="first-time-input"
-                                                   value="">
+                                                   value="1">
                                             <input type="hidden" name="container_number"
                                                    value="{{ order.container_number|default:'' }}">
                                             <input type="hidden" name="action_type" value="export">
@@ -262,14 +262,14 @@
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
+                                            <input type="hidden" name="offload_id" value="{{ order.offload_id.id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
                                             <input type="hidden" name="unpacking_status"
                                                    value="{{ ret.unpacking_status }}">
                                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="first_time_download" class="first-time-input"
-                                                   value="">
+                                                   value="2">
                                             <input type="hidden" name="container_number"
                                                    value="{{ order.container_number|default:'' }}">
                                             <input type="hidden" name="action_type" value="new_export">
