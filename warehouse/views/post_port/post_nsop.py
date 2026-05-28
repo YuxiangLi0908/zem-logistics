@@ -53,6 +53,7 @@ from django.db.models import (
 
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.models.offload_status import AbnormalOffloadStatus
+from warehouse.models.shipment_bindlog import ShipmentBindingLog
 from warehouse.utils.config import app_config
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
 import asyncio
@@ -123,6 +124,7 @@ class PostNsop(View):
     template_pod_reupload = "post_port/new_sop/leader_check/pod_reupload.html"
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_easy_action_table = "post_port/new_sop/leader_check/easy_action_table.html"
+    template_sp_bind_history = "post_port/new_sop/leader_check/sp_bind_history.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -221,24 +223,26 @@ class PostNsop(View):
                 return HttpResponseForbidden("你没有私仓派送界面的访问权限!")
         
         if step == "appointment_management":
-            template, context = await self.handle_appointment_management_get(request)
-            return await sync_to_async(render)(request, template, context)
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
+            return await sync_to_async(render)(request, self.template_main_dash, context)
         elif step == "schedule_shipment":
-            template, context = await self.handle_td_shipment_get(request)
-            return render(request, template, context)
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
+            return render(request, self.template_td_shipment, context)
         elif step == "schedule_unshipment":
-            template, context = await self.handle_td_unshipment_get(request)
-            return render(request, template, context)
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
+            return render(request, self.template_td_unshipment, context)
         elif step == "fleet_management":
-            template, context = await self.handle_fleet_management_get(request)
-            return render(request, template, context)
+            context = {"warehouse_options": WAREHOUSE_OPTIONS}
+            return render(request, self.template_fleet_schedule, context)
         elif step == "fleet_leader_check":
             if not await self._validate_user_check_po_group(request.user):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
                 )
             template, context = await self.handle_fleet_leader_check_get(request)
-            return render(request, template, context)       
+            return render(request, template, context)     
+        elif step == "sp_bind_history":
+            return render(request, self.template_sp_bind_history, {})      
         elif step == "pod_reupload_check":
             if not await self._validate_user_check_po_group(request.user):
                 return HttpResponseForbidden(
@@ -670,6 +674,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "master_shipment_search":
             template, context = await self.handle_master_shipment_check_post(request)
+            return render(request, template, context)
+        elif step == "sp_bind_history_search":
+            template, context = await self.handle_sp_bind_history_post(request)
             return render(request, template, context)
         elif step == "client_exception_search":
             template, context = await self.handle_client_exception_search_post(request)
@@ -8461,25 +8468,6 @@ class PostNsop(View):
         new_request.POST['warehouse'] = warehouse
         new_request.user = request.user
         return await self.handle_unscheduled_pos_post(new_request)
-    
-    async def handle_appointment_management_get(
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS}
-        return self.template_main_dash, context
-
-    async def handle_td_unshipment_get(    
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS}
-        return self.template_td_unshipment, context
-
-    async def handle_td_shipment_get(
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS}
-        return self.template_td_shipment, context
-    
 
     async def handle_fleet_leader_check_get(
         self, request: HttpRequest
@@ -8608,12 +8596,6 @@ class PostNsop(View):
             messages.error(request, f'车次 {fleet_number} 不存在')
             template, context = await self.handle_fleet_leader_check_get(request)
             return template, context
-        
-    async def handle_fleet_management_get(
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS}
-        return self.template_fleet_schedule, context
     
     async def _update_shipment_totals(self, sp_base_q):
         """
@@ -9513,21 +9495,131 @@ class PostNsop(View):
         }) 
         return self.template_history_shipment, context
     
+    async def _checkAbnormalBindings(self, warehouse, delivery_type, user=None) -> None:
+        '''检查是不是存在，pl绑定了约但是plt没绑'''
+        import pytz
+        from datetime import datetime
+        cutoff_date = datetime(2026, 5, 28, tzinfo=pytz.utc)
+        shipment_criteria = Q(shipment_schduled_at__gte=cutoff_date) & Q(origin=warehouse) & (Q(delivery_type__isnull=True) | Q(delivery_type='') | Q(delivery_type=delivery_type))
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(shipment_criteria)
+        )
+
+        is_other = delivery_type == 'other'
+
+        for sp in shipments:
+            if is_other:
+                pallet_tuples = await sync_to_async(set)(
+                    Pallet.objects.filter(shipment_batch_number=sp).exclude(PO_ID__isnull=True).exclude(PO_ID='').values_list(
+                        'container_number__container_number', 'PO_ID', 'shipping_mark'
+                    )
+                )
+                packinglist_tuples = await sync_to_async(set)(
+                    PackingList.objects.filter(shipment_batch_number=sp).exclude(PO_ID__isnull=True).exclude(PO_ID='').values_list(
+                        'container_number__container_number', 'PO_ID', 'shipping_mark'
+                    )
+                )
+            else:
+                pallet_tuples = await sync_to_async(set)(
+                    Pallet.objects.filter(shipment_batch_number=sp).exclude(PO_ID__isnull=True).exclude(PO_ID='').values_list(
+                        'container_number__container_number', 'PO_ID'
+                    )
+                )
+                packinglist_tuples = await sync_to_async(set)(
+                    PackingList.objects.filter(shipment_batch_number=sp).exclude(PO_ID__isnull=True).exclude(PO_ID='').values_list(
+                        'container_number__container_number', 'PO_ID'
+                    )
+                )
+
+            extra_in_packinglist = packinglist_tuples - pallet_tuples
+            if not extra_in_packinglist:
+                continue
+
+            for extra in extra_in_packinglist:
+                if is_other:
+                    cn_val, po_id_val, mark_val = extra
+                    pallet_qs = Pallet.objects.select_related('container_number').filter(
+                        container_number__container_number=cn_val,
+                        PO_ID=po_id_val,
+                        shipping_mark=mark_val,
+                        shipment_batch_number__isnull=True
+                    )
+                else:
+                    cn_val, po_id_val = extra
+                    pallet_qs = Pallet.objects.select_related('container_number').filter(
+                        container_number__container_number=cn_val,
+                        PO_ID=po_id_val,
+                        shipment_batch_number__isnull=True
+                    )
+
+                pallet_records = await sync_to_async(list)(pallet_qs)
+                if not pallet_records:
+                    continue
+
+                pallets_to_update = []
+                pallets_master_to_update = []
+                log_groups = {}
+                for p in pallet_records:
+                    p.shipment_batch_number = sp
+                    pallets_to_update.append(p)
+
+                    is_master_updated = False
+                    if not p.master_shipment_batch_number:
+                        p.master_shipment_batch_number = sp
+                        pallets_master_to_update.append(p)
+                        is_master_updated = True
+
+                    cn_str = p.container_number.container_number if p.container_number else None
+                    log_key = (cn_str, p.PO_ID)
+                    if log_key not in log_groups:
+                        log_groups[log_key] = {
+                            'container_number': cn_str,
+                            'po_id': p.PO_ID,
+                            'destination': p.destination,
+                            'warehouse': p.location,
+                            'delivery_type': p.delivery_type,
+                            'shipment_type': 'all' if is_master_updated else 'actual',
+                        }
+
+                if pallets_to_update:
+                    await sync_to_async(bulk_update_with_history)(
+                        pallets_to_update, Pallet, ['shipment_batch_number']
+                    )
+                if pallets_master_to_update:
+                    await sync_to_async(bulk_update_with_history)(
+                        pallets_master_to_update, Pallet, ['master_shipment_batch_number']
+                    )
+
+                if user and log_groups:
+                    sp_batch_number = sp.shipment_batch_number
+                    for log_data in log_groups.values():
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=user,
+                            po_type='pallet',
+                            po_id=log_data['po_id'],
+                            shipment_batch_number=sp_batch_number,
+                            operation_button='排约界面初始化修补-PL有约PLT没约',
+                            shipment_type=log_data['shipment_type'],
+                            container_number=log_data['container_number'],
+                            destination=log_data['destination'],
+                            warehouse=log_data['warehouse'],
+                            delivery_type=log_data['delivery_type'],
+                            skip_get_po_info=True,
+                        )
+
     async def handle_td_shipment_post(
         self, request: HttpRequest, context: dict| None = None, matching_suggestions: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:
+        '''工作一览 库存排约管理'''
+        if not context:
+            context = {}
+
         warehouse = request.POST.get("warehouse")
         if not warehouse:
-            if context:
-                context.update({
-                    "error_messages": "未选择仓库!",
-                    'warehouse_options': WAREHOUSE_OPTIONS
-                })
-            else:
-                context = {
-                    "error_messages":"未选择仓库!",
-                    'warehouse_options': WAREHOUSE_OPTIONS,
-                }
+            context.update({
+                "error_messages": "未选择仓库!",
+                'warehouse_options': WAREHOUSE_OPTIONS
+            })
             return self.template_td_shipment, context
         st_type = request.POST.get("st_type", "pallet")
         # 生成匹配建议
@@ -9543,6 +9635,8 @@ class PostNsop(View):
         else:
             destination_list = []
         #已排约
+        # 先检查下有没有异常的绑定约情况
+        await self._checkAbnormalBindings(warehouse, 'public', request.user)
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
         #未排车+已排车
@@ -17358,3 +17452,166 @@ class PostNsop(View):
         response['Content-Disposition'] = f'attachment; filename="{safe_title}.pdf"'
         
         return response
+
+    async def handle_sp_bind_history_post(self, request: HttpRequest, context: dict | None = None) -> tuple[str, dict[str, Any]]:
+        """预约批次历史信息搜索"""
+        if not context:
+            context = {}
+
+        appointment_start = request.POST.get('appointment_start', '').strip()
+        appointment_end = request.POST.get('appointment_end', '').strip()
+        operation_start = request.POST.get('operation_start', '').strip()
+        operation_end = request.POST.get('operation_end', '').strip()
+        container_number = request.POST.get('container_number', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        delivery_type = request.POST.get('delivery_type', '').strip()
+        warehouse = request.POST.get('warehouse', '').strip()
+
+        context.update({
+            'appointment_start': appointment_start,
+            'appointment_end': appointment_end,
+            'operation_start': operation_start,
+            'operation_end': operation_end,
+            'container_number': container_number,
+            'destination': destination,
+            'delivery_type': delivery_type,
+            'warehouse': warehouse,
+        })
+
+        shipment_criteria = Q()
+
+        if appointment_start:
+            shipment_criteria &= Q(pickup_time__gte=appointment_start) | Q(shipment_appointment__gte=appointment_start)
+        if appointment_end:
+            shipment_criteria &= Q(pickup_time__lte=appointment_end) | Q(shipment_appointment__lte=appointment_end)
+        if operation_start:
+            shipment_criteria &= Q(shipment_schduled_at__gte=operation_start)
+        if operation_end:
+            shipment_criteria &= Q(shipment_schduled_at__lte=operation_end)
+        if destination:
+            shipment_criteria &= Q(destination__icontains=destination)
+        if delivery_type:
+            shipment_criteria &= Q(delivery_type=delivery_type) | Q(delivery_type__isnull=True) | Q(delivery_type='')
+        if warehouse:
+            shipment_criteria &= Q(origin__icontains=warehouse)
+
+        container_numbers_from_log = None
+        if container_number:
+            log_container_ids = await sync_to_async(set)(
+                ShipmentBindingLog.objects.filter(
+                    container_number__icontains=container_number
+                ).values_list('shipment_batch_number', flat=True)
+            )
+            shipment_criteria &= Q(shipment_batch_number__in=log_container_ids) | Q(shipment_batch_number__icontains=container_number)
+
+        if not any([appointment_start, appointment_end, operation_start, operation_end, container_number, destination, delivery_type, warehouse]):
+            today = datetime.now().date()
+            three_months_ago = today - timedelta(days=30)
+            shipment_criteria &= Q(pickup_time__gte=three_months_ago) | Q(shipment_appointment__gte=three_months_ago)
+            context['appointment_start'] = three_months_ago.strftime('%Y-%m-%d')
+            context['appointment_end'] = today.strftime('%Y-%m-%d')
+
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(shipment_criteria).order_by('-shipment_appointment')
+        )
+
+        results = []
+        for sp in shipments:
+            sp_batch = sp.shipment_batch_number
+            if not sp_batch:
+                continue
+
+            current_po_data = {}
+            pallet_keys = set()
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(shipment_batch_number=sp).values_list('container_number__container_number', 'PO_ID', 'destination')
+            )
+            for cn, po_id, dest in pallets:
+                if po_id:
+                    key = (cn, po_id)
+                    if key not in pallet_keys:
+                        pallet_keys.add(key)
+                        if po_id not in current_po_data:
+                            current_po_data[po_id] = {
+                                'container_numbers': set(),
+                                'destinations': set()
+                            }
+                        if cn:
+                            current_po_data[po_id]['container_numbers'].add(cn)
+                        if dest:
+                            current_po_data[po_id]['destinations'].add(dest)
+
+            packinglists = await sync_to_async(list)(
+                PackingList.objects.filter(shipment_batch_number=sp).values_list('container_number__container_number', 'PO_ID', 'destination')
+            )
+            for cn, po_id, dest in packinglists:
+                if po_id:
+                    key = (cn, po_id)
+                    if key not in pallet_keys:
+                        if po_id not in current_po_data:
+                            current_po_data[po_id] = {
+                                'container_numbers': set(),
+                                'destinations': set()
+                            }
+                        if cn:
+                            current_po_data[po_id]['container_numbers'].add(cn)
+                        if dest:
+                            current_po_data[po_id]['destinations'].add(dest)
+
+            unbind_logs = await sync_to_async(list)(
+                ShipmentBindingLog.objects.filter(
+                    shipment_batch_number=sp_batch,
+                    operation_type='unbind'
+                ).values_list('po_id', 'container_number', 'destination')
+            )
+            deleted_po_data = {}
+            for po_id, cn, dest in unbind_logs:
+                if po_id and po_id not in current_po_data:
+                    if po_id not in deleted_po_data:
+                        deleted_po_data[po_id] = {
+                            'container_numbers': set(),
+                            'destinations': set()
+                        }
+                    if cn:
+                        deleted_po_data[po_id]['container_numbers'].add(cn)
+                    if dest:
+                        deleted_po_data[po_id]['destinations'].add(dest)
+
+            current_po_list = []
+            for po_id in sorted(current_po_data.keys()):
+                data = current_po_data[po_id]
+                current_po_list.append({
+                    'po_id': po_id,
+                    'container_numbers': sorted(data['container_numbers']),
+                    'destinations': sorted(data['destinations'])
+                })
+
+            deleted_po_list = []
+            for po_id in sorted(deleted_po_data.keys()):
+                data = deleted_po_data[po_id]
+                deleted_po_list.append({
+                    'po_id': po_id,
+                    'container_numbers': sorted(data['container_numbers']),
+                    'destinations': sorted(data['destinations'])
+                })
+
+            results.append({
+                'shipment_batch_number': sp_batch,
+                'master_batch_number': sp.master_batch_number or '',
+                'appointment_id': sp.appointment_id or '',
+                'origin': sp.origin or '',
+                'destination': sp.destination or '',
+                'delivery_type': sp.delivery_type or '',
+                'pickup_time': sp.pickup_time.strftime('%Y-%m-%d %H:%M') if sp.pickup_time else '',
+                'shipment_appointment': sp.shipment_appointment.strftime('%Y-%m-%d %H:%M') if sp.shipment_appointment else '',
+                'shipment_schduled_at': sp.shipment_schduled_at.strftime('%Y-%m-%d %H:%M') if sp.shipment_schduled_at else '',
+                'shipped_at': sp.shipped_at.strftime('%Y-%m-%d %H:%M') if sp.shipped_at else '',
+                'arrived_at': sp.arrived_at.strftime('%Y-%m-%d %H:%M') if sp.arrived_at else '',
+                'current_po_list': current_po_list,
+                'deleted_po_list': deleted_po_list,
+                'current_po_count': len(current_po_list),
+                'deleted_po_count': len(deleted_po_list),
+            })
+
+        context['results'] = results
+        return self.template_sp_bind_history, context

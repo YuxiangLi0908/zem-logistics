@@ -86,6 +86,16 @@ class QuoteManagement(View):
         elif step == "upload_payable_quote_excel":
             template, context = self.handle_upload_payable_quote_post(request)
             return render(request, template, context)
+        elif step == "delete_quote":
+            qid = request.POST.get("qid")
+            if qid:
+                quote = QuotationMaster.objects.get(id=qid)
+                # 同时删除关联的费用明细
+                FeeDetail.objects.filter(quotation_id=quote).delete()
+                quote.delete()
+            # 重定向回到报价表管理页面
+            template, context = self.handle_quote_master_get(request)
+            return render(request, template, context)
 
     def handle_payable_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
@@ -326,9 +336,7 @@ class QuoteManagement(View):
             cell_value = str(row.iloc[5])
             if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:
                 niche_warehouse.add(row.iloc[1])
-            if pd.notna(row.iloc[3]) and pd.notna(
-                row.iloc[4]
-            ):  # 如果值不为空，说明是一个新的价格组
+            if pd.notna(row.iloc[3]):  # 如果第3列有值，说明是一个新的价格组
                 if group and current_region:
                     if current_region not in result:
                         result[current_region] = []
@@ -340,7 +348,11 @@ class QuoteManagement(View):
                     )
                     group = []
                 current_region = row.iloc[0]
-                current_prices = [row.iloc[3], row.iloc[4]]
+                # 如果第4列有值，就用第3和第4列，否则就用第3列的值填两个位置
+                if pd.notna(row.iloc[4]):
+                    current_prices = [row.iloc[3], row.iloc[4]]
+                else:
+                    current_prices = [row.iloc[3], row.iloc[3]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
             elif pd.notna(row.iloc[1]):  # 没有价格但是有仓库，就只记录仓库
@@ -563,9 +575,7 @@ class QuoteManagement(View):
             cell_value = str(row.iloc[5])
             if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:
                 niche_warehouse.add(row.iloc[1])
-            if pd.notna(row.iloc[3]) and pd.notna(
-                row.iloc[4]
-            ):  # 如果值不为空，说明是一个新的价格组
+            if pd.notna(row.iloc[3]):  # 如果第3列有值，说明是一个新的价格组
                 if group and current_region:
                     if current_region not in result:
                         result[current_region] = []
@@ -577,7 +587,11 @@ class QuoteManagement(View):
                     )
                     group = []
                 current_region = row.iloc[0]
-                current_prices = [row.iloc[3], row.iloc[4]]
+                # 如果第4列有值，就用第3和第4列，否则就用第3列的值填两个位置
+                if pd.notna(row.iloc[4]):
+                    current_prices = [row.iloc[3], row.iloc[4]]
+                else:
+                    current_prices = [row.iloc[3], row.iloc[3]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
             elif pd.notna(row.iloc[1]):  # 没有价格但是有仓库，就只记录仓库

@@ -102,8 +102,9 @@
                                         <a href="{% url 'post_nsop' %}?step=master_shipment_check" target="_blank">客户端的约核对</a>
                                         <a href="{% url 'post_nsop' %}?step=fleet_po_check" target="_blank">实际货物核对</a>
                                         <a href="{% url 'post_nsop' %}?step=fleet_leader_check" target="_blank">出库批次核对</a>
+                                        <a href="{% url 'post_nsop' %}?step=sp_bind_history" target="_blank">历史约修改记录核对</a>
                                         <a href="{% url 'post_nsop' %}?step=pod_reupload_check" target="_blank">POD修改</a>
-                                        <a href="{% url 'timeout_warning' %}" target="_blank">库存预警</a>
+                                        <a href="{% url 'timeout_warning' %}" target="_blank">库存时效预警</a>
                                     </div>
                                 </div>
                                 <div class="nested-dropdown">
@@ -256,11 +257,6 @@
                                         <a href="{% url 'accounting' %}?step=invoice_confirm_payable_delivery" target="_blank">派送账单</a>
                                     </div>
                                 </div>
-
-                                {% if user.is_authenticated and user.is_staff %}
-                                <!-- 报价管理 -->
-                                <a href="{% url 'receivable_accounting' %}?step=quotation_management" target="_blank">报价表管理</a>                               
-                                {% endif %}
                                 <a href="{% url 'receivable_accounting' %}?step=pl_container_fee" target="_blank">预报费用计算</a>
                             </div>
                         </div>
