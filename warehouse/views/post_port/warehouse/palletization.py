@@ -169,11 +169,8 @@ class Palletization(View):
         elif step == "cancel":
             template, context = await self.handle_cancel_post(request)
             return render(request, template, context)
-        elif step == "cancel_la_public":
-            template, context = await self.handle_cancel_la_public_post(request)
-            return render(request, template, context)
-        elif step == "cancel_sav_public":
-            template, context = await self.handle_cancel_sav_public_post(request)
+        elif step == "cancel_public":
+            template, context = await self.handle_cancel_public_post(request)
             return render(request, template, context)
         elif step == "cancel_sav_other":
             template, context = await self.handle_cancel_sav_other_post(request)
@@ -1687,6 +1684,19 @@ class Palletization(View):
             else:
                 offload.total_pallet += total_pallet
             offload.offload_at = offload_time
+            # 判断：所有托盘都是公仓 → 私仓拆柜时间 = 公仓拆柜时间
+            pallet_list = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number__container_number=container.container_number
+                )
+            )
+
+            # 核心判断：全部都是 public
+            all_public = all(p.delivery_type == "public" for p in pallet_list)
+
+            if all_public:
+                offload.offload_other_at = offload.offload_at
+
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
@@ -2031,6 +2041,18 @@ class Palletization(View):
             else:
                 offload.total_pallet += total_pallet
             offload.offload_at = offload_time
+            # 判断：所有托盘都是公仓 → 私仓拆柜时间 = 公仓拆柜时间
+            pallet_list = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number__container_number=container.container_number
+                )
+            )
+
+            # 核心判断：全部都是 public
+            all_public = all(p.delivery_type == "public" for p in pallet_list)
+
+            if all_public:
+                offload.offload_other_at = offload.offload_at
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
@@ -2376,6 +2398,18 @@ class Palletization(View):
             else:
                 offload.total_pallet += total_pallet
             offload.offload_other_at = offload_time
+            # 判断：所有托盘都是私仓 → 私仓拆柜时间 = 公仓拆柜时间
+            pallet_list = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number__container_number=container.container_number
+                )
+            )
+
+            # 核心判断：全部都是 other
+            all_public = all(p.delivery_type == "other" for p in pallet_list)
+
+            if all_public:
+                offload.offload_at = offload.offload_other_at
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
@@ -2566,7 +2600,7 @@ class Palletization(View):
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
 
-    async def handle_cancel_la_public_post(
+    async def handle_cancel_public_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """la public 撤销拆柜"""
@@ -2576,81 +2610,52 @@ class Palletization(View):
             Order.objects.select_related("offload_id", "warehouse").get
         )(container_number__container_number=container_number)
         offload = order.offload_id
-        offload.total_pallet -= offload.public_total_pallet
+
+        offload.total_pallet -= offload.public_total_pallet if offload.public_total_pallet else 0
         offload.public_total_pallet = None
         offload.offload_at = None
-        try:
-            offload.devanning_company = None
-            offload.devanning_fee = None
-        except:
-            pass
-        pallet = await sync_to_async(list)(
+        offload.devanning_company = None
+        offload.devanning_fee = None
+
+        # 3. 判断：所有托盘都是公仓 → 清空私仓拆柜时间
+        pallet_list_all = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number__container_number=container_number
+            )
+        )
+        all_public = all(p.delivery_type == "public" for p in pallet_list_all)
+        if all_public:
+            offload.offload_other_at = None
+
+        pallet_list = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
-                container_number__container_number=container_number, delivery_type="public", location=warehouse
+                container_number__container_number=container_number,
+                delivery_type="public",
+                location=warehouse
             )
         )
         shipment = set()
-        shipment.update([p.shipment_batch_number for p in pallet if p])
+        for pallet in pallet_list:
+            if pallet.shipment_batch_number:
+                shipment.add(pallet.shipment_batch_number)
+
+        # 6. 删除公仓托盘 + 异常记录
         await sync_to_async(
             Pallet.objects.filter(
                 container_number__container_number=container_number,
-                delivery_type="public", location=warehouse
+                delivery_type="public",
+                location=warehouse
             ).delete
         )()
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number,
                 delivery_type="public"
-
             ).delete
         )()
         await sync_to_async(offload.save)()
-        await self._update_shipment_abnormal_palletization(shipment)
-        mutable_post = request.POST.copy()
-        mutable_post["name"] = order.warehouse.name
-        request.POST = mutable_post
-        return await self.handle_warehouse_post(request)
-
-    async def handle_cancel_sav_public_post(
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        """sav public 撤销拆柜"""
-        container_number = request.POST.get("container_number")
-        warehouse = request.POST.get("warehouse")
-        order = await sync_to_async(
-            Order.objects.select_related("offload_id", "warehouse").get
-        )(container_number__container_number=container_number)
-        offload = order.offload_id
-        offload.total_pallet -= offload.public_total_pallet
-        offload.public_total_pallet = None
-        offload.offload_at = None
-        try:
-            offload.devanning_company = None
-            offload.devanning_fee = None
-        except:
-            pass
-        pallet = await sync_to_async(list)(
-            Pallet.objects.select_related("shipment_batch_number").filter(
-                container_number__container_number=container_number, delivery_type="public", location=warehouse
-            )
-        )
-        shipment = set()
-        shipment.update([p.shipment_batch_number for p in pallet if p])
-        await sync_to_async(
-            Pallet.objects.filter(
-                container_number__container_number=container_number,
-                delivery_type="public", location=warehouse
-            ).delete
-        )()
-        await sync_to_async(
-            AbnormalOffloadStatus.objects.filter(
-                container_number__container_number=container_number,
-                delivery_type="public"
-
-            ).delete
-        )()
-        await sync_to_async(offload.save)()
-        await self._update_shipment_abnormal_palletization(shipment)
+        if shipment:
+            await self._update_shipment_abnormal_palletization(shipment)
         mutable_post = request.POST.copy()
         mutable_post["name"] = order.warehouse.name
         request.POST = mutable_post
@@ -2666,53 +2671,61 @@ class Palletization(View):
             Order.objects.select_related("offload_id", "warehouse").get
         )(container_number__container_number=container_number)
         offload = order.offload_id
-        offload.total_pallet -= offload.other_total_pallet
+
+        # 重置私仓数据
+        offload.total_pallet -= offload.other_total_pallet if offload.other_total_pallet else 0
         offload.other_total_pallet = None
         offload.offload_other_at = None
 
-        # 先查询当前柜子是否还有 public 类型的板子
+        # 判断是否还有公仓托盘，没有则清空主拆柜时间
         has_public = await sync_to_async(
             Pallet.objects.filter(
                 container_number__container_number=container_number,
                 delivery_type="public"
             ).exists
         )()
-
-        # 如果没有 public → 清空拆柜时间
         if not has_public:
             offload.offload_at = None
 
+        # 清空拆柜公司/费用
+        offload.devanning_company = None
+        offload.devanning_fee = None
 
-        try:
-            offload.devanning_company = None
-            offload.devanning_fee = None
-        except:
-            pass
-        pallet = await sync_to_async(list)(
+        pallet_list = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
-                container_number__container_number=container_number, delivery_type="public", location=warehouse
+                container_number__container_number=container_number,
+                delivery_type="other",
+                location=warehouse
             )
         )
         shipment = set()
-        shipment.update([p.shipment_batch_number for p in pallet if p])
+        for pallet in pallet_list:
+            if pallet.shipment_batch_number:
+                shipment.add(pallet.shipment_batch_number)
+
         await sync_to_async(
             Pallet.objects.filter(
                 container_number__container_number=container_number,
-                delivery_type="other", location=warehouse
+                delivery_type="other",
+                location=warehouse
             ).delete
         )()
+
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number,
                 delivery_type="other"
-
             ).delete
         )()
+
         await sync_to_async(offload.save)()
-        await self._update_shipment_abnormal_palletization(shipment)
+
+        if shipment:
+            await self._update_shipment_abnormal_palletization(shipment)
         mutable_post = request.POST.copy()
         mutable_post["name"] = order.warehouse.name
         request.POST = mutable_post
+
         return await self.handle_warehouse_post(request)
 
 

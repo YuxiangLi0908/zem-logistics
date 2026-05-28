@@ -502,7 +502,7 @@
                                 {% if 'LA' in warehouse %}
                                     <form method="post" action="">
                                         {% csrf_token %}
-                                        <input type="hidden" name="step" value="cancel_la_public">
+                                        <input type="hidden" name="step" value="cancel_public">
                                         <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <input type="hidden" name="storehouse" value="{{ storehouse }}">
@@ -513,7 +513,7 @@
                                 {% elif 'SAV' in warehouse and storehouse == 'public' %}
                                     <form method="post" action="">
                                         {% csrf_token %}
-                                        <input type="hidden" name="step" value="cancel_sav_public">
+                                        <input type="hidden" name="step" value="cancel_public">
                                         <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <input type="hidden" name="storehouse" value="{{ storehouse }}">
