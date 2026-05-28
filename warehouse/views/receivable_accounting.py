@@ -2896,6 +2896,7 @@ class ReceivableAccounting(View):
             else:
                 # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
                 ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
+                ctx.update({'is_fix_page': True})
                 if ctx.get('error_messages'):
                     return self.template_invoice_combina_edit, ctx
         
@@ -2903,14 +2904,20 @@ class ReceivableAccounting(View):
         if order.order_type != "直送":
             quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
             if quotation_error:
-                context.update({"error_messages": quotation_error})
+                context.update({
+                    "error_messages": quotation_error,
+                    'is_fix_page': True
+                })
                 return self.template_fix_account_entry, context
         
         # 匹配柜型
         container = Container.objects.get(container_number=order.container_number)
         match = re.match(r"\d+", container.container_type)
         if not match:
-            context.update({"error_messages": "柜型格式错误，请修改！"})
+            context.update({
+                "error_messages": "柜型格式错误，请修改！",
+                'is_fix_page': True
+            })
             return self.template_fix_account_entry, context
 
         if order.order_type != "直送":
@@ -2937,7 +2944,10 @@ class ReceivableAccounting(View):
             request.GET = new_get
             setattr(request, "is_from_account_confirmation", True)
             ctx = self.handle_container_invoice_combina_get(request)
-            ctx.update({"is_fix_page": True, "groups_without_fee": groups_without_fee})
+            ctx.update({
+                "is_fix_page": True,
+                "groups_without_fee": groups_without_fee
+            })
             return self.template_invoice_combina_edit, ctx
         else:
             items = InvoiceItemv2.objects.filter(
@@ -3783,6 +3793,7 @@ class ReceivableAccounting(View):
                 'combina_extra': ctx.get('combina_extra_fee'),
                 'payout_fee': invoice.payout_total_amount or 0,
             }
+            ctx.update({"is_fix_page": False})
             return self.template_invoice_items_edit, ctx
         
         if order.order_type == "直送":
@@ -3798,6 +3809,7 @@ class ReceivableAccounting(View):
             else:
                 # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
                 ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
+                ctx.update({"is_fix_page": False})
                 if ctx.get('error_messages'):
                     return self.template_invoice_combina_edit, ctx
         
@@ -3813,6 +3825,7 @@ class ReceivableAccounting(View):
             request.GET = new_get
             setattr(request, "is_from_account_confirmation", True)
             ctx = self.handle_container_invoice_combina_get(request)
+            ctx.update({"is_fix_page": False})
             return self.template_invoice_combina_edit, ctx
         else:
             items = InvoiceItemv2.objects.filter(
@@ -12292,6 +12305,8 @@ class ReceivableAccounting(View):
         overweight_fee = float(request.POST.get("overweight_fee", 0))
         overpallet_fee_str = request.POST.get("overpallet_fee")
         is_fix_page = request.POST.get("is_fix_page")
+        print('is_fix_page',is_fix_page)
+        raise ValueError('is_fix_page')
 
         if overpallet_fee_str in (None, ''):
             overpallet_fee = 0.0
