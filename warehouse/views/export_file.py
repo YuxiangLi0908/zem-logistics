@@ -44,6 +44,7 @@ from django.views import View
 from openpyxl.worksheet.page import PageMargins
 from xhtml2pdf import pisa
 
+from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.vessel import Vessel
 from warehouse.models.packing_list import PackingList
@@ -108,13 +109,32 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
     container_number = request.POST.get("container_number")
-    warehouse_unpacking_time = request.POST.get("first_time_download")
+    first_time_download = request.POST.get("first_time_download")
+    offload_id = request.POST.get("offload_id")
 
-    try:
-        warehouse_unpacking_time = datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime(
-            "%d/%m/%Y")
-    except (ValueError, TypeError):
-        warehouse_unpacking_time = "未获取到时间"
+    warehouse_unpacking_time = None
+
+    if first_time_download == "2":
+        try:
+            now = datetime.now()
+            warehouse_unpacking_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        except:
+            pass
+
+    if warehouse_unpacking_time and offload_id:
+        try:
+            # 异步获取单条记录
+            offload = await sync_to_async(
+                Offload.objects.get, thread_sensitive=True
+            )(id=offload_id)
+
+            # 只有原来没有时间，才覆盖（避免重复更新）
+            if not offload.warehouse_unpacking_time:
+                offload.warehouse_unpacking_time = warehouse_unpacking_time
+                await sync_to_async(offload.save, thread_sensitive=True)()
+
+        except Offload.DoesNotExist:
+            pass
 
     TARGET_WAREHOUSES = {"GEU3", "GYR2", "GYR3", "LAX9", "LGB8", "SBD1"}
     UTC_TZ = pytz.UTC
@@ -395,6 +415,32 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
+    first_time_download = request.POST.get("first_time_download")
+    offload_id = request.POST.get("offload_id")
+
+    warehouse_unpacking_time = None
+
+    if first_time_download == "1":
+        try:
+            now = datetime.now()
+            warehouse_unpacking_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        except:
+            pass
+
+    if warehouse_unpacking_time and offload_id:
+        try:
+            # 异步获取单条记录
+            offload = await sync_to_async(
+                Offload.objects.get, thread_sensitive=True
+            )(id=offload_id)
+
+            # 只有原来没有时间，才覆盖（避免重复更新）
+            if not offload.warehouse_unpacking_time:
+                offload.warehouse_unpacking_time = warehouse_unpacking_time
+                await sync_to_async(offload.save, thread_sensitive=True)()
+
+        except Offload.DoesNotExist:
+            pass
     if status == "non_palletized":
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
