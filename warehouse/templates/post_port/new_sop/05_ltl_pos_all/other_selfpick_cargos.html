@@ -66,7 +66,7 @@
                                         {{ item.container_number.container_number|default:"-" }}
                                     </a>
                                 </td>
-                                <td>{{ item.container_number.customer_name.zem_name|default:"-" }}</td>
+                                <td>{{ item.customer_name.zem_name|default:"-" }}</td>
                                 <td>{{ item.container_number.container_type }}</td>
                                 <td>
                                     {% if item.retrieval_id.offload_status == "past_due" %}
@@ -299,7 +299,7 @@
                                         {{ item.container_number.container_number|default:"-" }}
                                     </a>
                                 </td>
-                                <td>{{ item.container_number.customer_name.zem_name|default:"-" }}</td>
+                                <td>{{ item.customer_name.zem_name|default:"-" }}</td>
                                 <td>{{ item.container_number.container_type }}</td>
                                 <td>{{ item.offload_id.offload_at|date:"M-j" }}</td>
                                 <td>{{ item.offload_id.other_total_pallet|default:"-" }}</td>

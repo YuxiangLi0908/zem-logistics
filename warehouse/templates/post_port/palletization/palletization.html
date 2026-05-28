@@ -6,6 +6,15 @@
     <div style="font-size: 18px; font-weight: 600; color: #2c3e50; margin-bottom: 16px;">
         拆柜入库
     </div>
+    {% if error_msg %}
+        {% for msg in error_msg %}
+            {% if "失败" in msg or "错误" in msg or "上传失败" in msg %}
+                <div style="color:red; margin:5px 0;">{{ msg }}</div>
+            {% else %}
+                <div style="color:green; margin:5px 0;">{{ msg }}</div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
 
     <form method="post" action="" onsubmit="showLoadingBar()" style="margin-bottom: 20px;">
         {% csrf_token %}
@@ -350,9 +359,17 @@
                             </td>
                             <td class="td">{{ c.customer_name }}</td>
                             <td class="td">{{ c.container_number.container_type }}</td>
-                            <td class="td">{{ c.offload_id.offload_at|date:"M-j" }}</td>
-                            {% if 'LA' in warehouse or 'SAV' in warehouse %}
+                            {% if 'SAV' in warehouse and storehouse == "other" %}
+                                <td class="td">{{ c.offload_id.offload_other_at|date:"M-j" }}</td>
+                            {% else %}
+                                <td class="td">{{ c.offload_id.offload_at|date:"M-j" }}</td>
+                            {% endif %}
+                            {% if 'LA' in warehouse %}
                                 <td class="td">{{ c.offload_id.public_total_pallet }}</td>
+                            {% elif 'SAV' in warehouse and storehouse == "public" %}
+                                <td class="td">{{ c.offload_id.public_total_pallet }}</td>
+                            {% elif 'SAV' in warehouse and storehouse == "other" %}
+                                <td class="td">{{ c.offload_id.other_total_pallet }}</td>
                             {% else %}
                                 <td class="td">{{ c.offload_id.total_pallet }}</td>
                             {% endif %}

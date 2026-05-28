@@ -131,7 +131,8 @@ class Palletization(View):
         elif step == "download_unpacking":
             return await self.handle_download_unpacking(request)
         elif step == "upload_unpacking":
-            return await self.handle_upload_unpacking(request)
+            template, context = await self.handle_upload_unpacking(request)
+            return render(request, template, context)
         elif step == "upload_warehouse":
             template, context = await self.handle_upload_warehouse_post(request)
             return render(request, template, context)
@@ -292,7 +293,7 @@ class Palletization(View):
         ws = wb.active
         ws.title = "拆柜入库模板"
 
-        headers = ["柜号", "唛头", "入库箱数", "打板数"]
+        headers = ["柜号", "目的仓库", "地址",	"派送方式", "po_id", "备注", "派送类型", "入库箱数", "打板数"]
         ws.append(headers)
 
         response = HttpResponse(
@@ -304,188 +305,216 @@ class Palletization(View):
         wb.save(response)
         return response
 
-
-
-
-    async def handle_upload_unpacking(self, request: HttpRequest) -> HttpResponse:
-        """私仓上传excel进行拆柜【终极版，直接入库】"""
-        logger = logging.getLogger(__name__)
+    async def handle_upload_unpacking(self, request):
+        """私仓上传excel进行拆柜【终极版 · 强事务：全部成功 or 全部失败】"""
+        error_msg = []
 
         if not request.FILES.get("excel_file"):
-            logger.warning("上传拆柜失败：未选择文件")
-            return redirect(request.META.get("HTTP_REFERER"))
+            error_msg.append("上传失败：未选择文件")
+            return await self.handle_all_get(request, error_msg=error_msg)
 
-        file = request.FILES["excel_file"]
+        file = request.FILES.get("excel_file")
         try:
-            wb = openpyxl.load_workbook(file)
+            wb = openpyxl.load_workbook(file, data_only=True)
             ws = wb.active
-        except:
-            logger.warning("上传拆柜失败：文件格式错误")
-            return redirect(request.META.get("HTTP_REFERER"))
+        except Exception as e:
+            error_msg.append("上传失败：文件格式错误，请上传正确的 Excel 文件")
+            return await self.handle_all_get(request, error_msg=error_msg)
 
         try:
-            header = [str(cell.value).strip() for cell in ws[1]]
+            header = [str(cell.value).strip() if cell.value is not None else "" for cell in ws[1]]
         except:
             header = []
 
-        required = ["柜号", "唛头", "入库箱数", "打板数"]
+        required = ["柜号", "目的仓库", "地址", "派送方式", "po_id", "备注", "派送类型", "入库箱数", "打板数"]
         if header != required:
-            logger.warning(f"上传拆柜失败：模板错误，需要 {required}")
-            return redirect(request.META.get("HTTP_REFERER"))
+            error_msg.append(f"模板错误！请使用标准模板")
+            return await self.handle_all_get(request, error_msg=error_msg)
 
         container_map = defaultdict(list)
         row_errors = []
 
         for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            container_number = str(row[0]).strip() if row[0] else ""
-            shipping_mark = str(row[1]).strip() if row[1] else ""
-            pcs = str(row[2]).strip() if row[2] else ""
-            n_pallet = str(row[3]).strip() if row[3] else ""
+            row = list(row) + [""] * (9 - len(row))
+            container_number = str(row[0]).strip() if row[0] is not None else ""
+            destination = str(row[1]).strip() if row[1] is not None else ""
+            address = str(row[2]).strip() if row[2] is not None else ""
+            delivery_method = str(row[3]).strip() if row[3] is not None else ""
+            po_id = str(row[4]).strip() if row[4] is not None else ""
+            note = str(row[5]).strip() if row[5] is not None else ""
+            delivery_type = str(row[6]).strip() if row[6] is not None else ""
+            pcs = str(row[7]).strip() if row[7] is not None else ""
+            n_pallet = str(row[8]).strip() if row[8] is not None else ""
 
-            if not all([container_number, shipping_mark, pcs, n_pallet]):
-                row_errors.append(f"第{row_num}行：有空值")
+            if not all([container_number, destination, address, delivery_method, po_id, delivery_type, pcs, n_pallet]):
+                row_errors.append(f"第{row_num}行：必填项不能为空")
                 continue
 
             try:
-                pcs = int(pcs)
-                n_pallet = int(n_pallet)
+                pcs_int = int(pcs)
+                n_pallet_int = int(n_pallet)
+                if pcs_int <= 0 or n_pallet_int <= 0:
+                    row_errors.append(f"第{row_num}行：箱数/板数必须大于0")
+                    continue
             except:
                 row_errors.append(f"第{row_num}行：箱数/板数必须是数字")
                 continue
 
             try:
                 packing = await sync_to_async(
-                    PackingList.objects.select_related("container_number").get
-                )(
-                    container_number__container_number=container_number,
-                    shipping_mark=shipping_mark,
-                )
-            except PackingList.DoesNotExist:
-                row_errors.append(f"第{row_num}行：未找到装箱单 {container_number} | {shipping_mark}")
-                continue
+                    PackingList.objects.select_related("container_number")
+                    .filter(
+                        container_number__container_number=container_number,
+                        destination=destination,
+                        address=address,
+                        delivery_method=delivery_method,
+                        PO_ID=po_id,
+                        note=note,
+                        delivery_type=delivery_type,
+                    ).first
+                )()
+
+                if not packing:
+                    row_errors.append(f"第{row_num}行：未找到匹配装箱单 | {container_number}")
+                    continue
+
+                # =========================
+                # ✅ 只改这里！加入 warehouse 关联查询
+                # =========================
+                order = await sync_to_async(
+                    Order.objects.select_related("offload_id", "retrieval_id", "container_number", "warehouse")
+                    .filter(container_number=packing.container_number)
+                    .first
+                )()
+
+                if not order:
+                    row_errors.append(f"第{row_num}行：未找到对应订单")
+                    continue
+
             except Exception as e:
                 row_errors.append(f"第{row_num}行：查询异常 {str(e)}")
-                continue
-
-            order = await sync_to_async(
-                Order.objects.select_related("offload_id", "retrieval_id", "container_number")
-                .filter(container_number=packing.container_number)
-                .first
-            )()
-
-            if not order:
-                row_errors.append(f"第{row_num}行：未找到订单")
                 continue
 
             container_map[container_number].append({
                 "packing": packing,
                 "order": order,
-                "pcs": pcs,
-                "n_pallet": n_pallet,
+                "pcs": pcs_int,
+                "n_pallet": n_pallet_int,
             })
 
         success = 0
         errors = []
 
-
-        # 直接执行拆柜逻辑
+        # ========================= 真正强事务：全部成功 或 全部失败 =========================
         for container_no, items in container_map.items():
             try:
-                order = items[0]["order"]
-                offload = order.offload_id
-                container = order.container_number
+                item = items[0]
+                order = item["order"]
 
-                if offload.offload_other_at:
-                    errors.append(f"{container_no} 已拆柜，跳过")
+                container = await sync_to_async(lambda: order.container_number)()
+                offload = await sync_to_async(lambda: order.offload_id)()
+
+                if not offload:
+                    errors.append(f"柜号 {container_no}：未找到拆柜单")
                     continue
 
-                # 设置拆柜时间（一定会写入数据库）
+                if await sync_to_async(lambda: offload.offload_other_at)():
+                    errors.append(f"柜号 {container_no}：已拆柜，跳过")
+                    continue
+
                 now = timezone.now()
-                offload.offload_other_at = now
                 total_pallet = sum(i["n_pallet"] for i in items)
-                offload.other_total_pallet = total_pallet
 
-                if offload.total_pallet is None:
-                    offload.total_pallet = total_pallet
-                else:
-                    offload.total_pallet += total_pallet
-
-                await sync_to_async(offload.save)()
-
-                # 生成托盘
+                # 生成托盘数据
                 pallet_data = []
-                for item in items:
-                    packing = item["packing"]
-                    pcs = item["pcs"]
-                    n_pallet = item["n_pallet"]
+                for i in items:
+                    packing = i["packing"]
+                    pcs = i["pcs"]
+                    n_pallet = i["n_pallet"]
 
-                    # ===================== 在这里加赋值 =====================
-                    created_at = now  # 拆柜时间
-                    d_m = packing.delivery_method or ""
+                    d_m = await sync_to_async(lambda: packing.delivery_method)() or ""
+                    released_at = None if d_m in ["暂扣留仓(HOLD)", "暂扣留仓"] else now
 
-                    if d_m in ["暂扣留仓(HOLD)", "暂扣留仓"]:
-                        released_at = None
-                    else:
-                        released_at = created_at
-                    # ========================================================
-
-                    pallet_data += await self._split_pallet(
+                    split_data = await self._split_pallet(
                         order,
                         n_pallet,
                         pcs,
-                        packing.pcs,
-                        float(packing.cbm or 0),
-                        float(packing.total_weight_lbs or 0),
-                        packing.destination or "",
-                        packing.delivery_method or "",
+                        await sync_to_async(lambda: packing.pcs)(),
+                        float(await sync_to_async(lambda: packing.cbm)() or 0),
+                        float(await sync_to_async(lambda: packing.total_weight_lbs)() or 0),
+                        await sync_to_async(lambda: packing.destination)() or "",
+                        await sync_to_async(lambda: packing.delivery_method)() or "",
                         "other",
-                        packing.note or "",
-                        packing.shipment_batch_number or "",
-                        packing.master_shipment_batch_number or "",
-                        packing.shipping_mark or "",
-                        packing.fba_id or "",
-                        packing.ref_id or "",
-                        packing.PO_ID or "",
-                        order.id,
-                        packing.address or "",
-                        packing.zipcode or "",
-                        packing.contact_name or "",
-                        None,
-                        None,
-                        "",
-                        created_at=created_at,
+                        await sync_to_async(lambda: packing.note)() or "",
+                        await sync_to_async(lambda: packing.shipment_batch_number)() or "",
+                        await sync_to_async(lambda: packing.master_shipment_batch_number)() or "",
+                        await sync_to_async(lambda: packing.shipping_mark)() or "",
+                        await sync_to_async(lambda: packing.fba_id)() or "",
+                        await sync_to_async(lambda: packing.ref_id)() or "",
+                        await sync_to_async(lambda: packing.PO_ID)() or "",
+                        await sync_to_async(lambda: order.id)(),
+                        await sync_to_async(lambda: packing.address)() or "",
+                        await sync_to_async(lambda: packing.zipcode)() or "",
+                        await sync_to_async(lambda: packing.contact_name)() or "",
+                        None, None, "",
+                        created_at=now,
                         released_at=released_at,
                     )
+                    pallet_data.extend(split_data)
 
-                # 保存托盘
-                instances = [Pallet(**d) for d in pallet_data]
-                await sync_to_async(bulk_create_with_history)(instances, Pallet)
+                # 提前查询
+                has_public = await sync_to_async(
+                    PackingList.objects.filter(container_number=container)
+                    .exclude(delivery_type="other")
+                    .exists
+                )()
 
-                # 更新柜子类型
-                pallets = await sync_to_async(list)(
-                    Pallet.objects.filter(container_number=container)
-                )
-                types = {p.delivery_type for p in pallets if p.delivery_type}
-                if types:
-                    container.delivery_type = types.pop() if len(types) == 1 else "mixed"
-                    await sync_to_async(container.save)()
+                tp = total_pallet
+                pd = pallet_data
+                hp = has_public
 
-                await self._ltl_parameter_transfer(container)
+                def atomic_task():
+                    nonlocal now, offload, tp, pd, container, hp
+                    with transaction.atomic():
+                        offload.offload_other_at = now
+                        offload.other_total_pallet = tp
+                        if offload.total_pallet is None:
+                            offload.total_pallet = tp
+                        else:
+                            offload.total_pallet += tp
+                        offload.save()
+
+                        instances = [Pallet(**d) for d in pd]
+                        Pallet.objects.bulk_create(instances)
+
+                        pallets = Pallet.objects.filter(container_number=container)
+                        types = {p.delivery_type for p in pallets if p.delivery_type}
+                        if types:
+                            container.delivery_type = types.pop() if len(types) == 1 else "mixed"
+                            container.save()
+
+                        self._ltl_parameter_transfer(container)
+
+                        if not hp:
+                            offload.offload_at = offload.offload_other_at
+                            offload.save()
+
+                await sync_to_async(atomic_task)()
                 success += 1
 
             except Exception as e:
                 errors.append(f"{container_no} 拆柜失败：{str(e)}")
-                logger.exception(f"拆柜异常：{container_no}")
 
-        # 最终日志记录
         if row_errors:
-            logger.warning(f"上传拆柜行错误：{row_errors}")
+            error_msg.append(f"表格共 {len(row_errors)} 处错误：")
+            error_msg.extend(row_errors[:10])
         if errors:
-            logger.warning(f"上传拆柜失败：{errors}")
+            error_msg.append(f"拆柜失败 {len(errors)} 个：")
+            error_msg.extend(errors[:10])
+        if success:
+            error_msg.append(f"拆柜完成！成功处理 {success} 个柜子")
 
-        logger.info(f"上传拆柜完成：成功={success}，失败={len(errors)}")
-
-        return redirect(request.META.get("HTTP_REFERER"))
+        return await self.handle_all_get(request, error_msg=error_msg)
 
     async def handle_daily_operation_get(
         self, warehouse: str = None, include_all: bool = False
@@ -594,7 +623,7 @@ class Palletization(View):
         }
         return self.template_pallet_daily_operation, context
 
-    async def handle_all_get(self, request, warehouse: str = None, storehouse: str = None) -> tuple[str, dict[str, Any]]:
+    async def handle_all_get(self, request, warehouse: str = None, storehouse: str = None, error_msg: str = []) -> tuple[str, dict[str, Any]]:
         @sync_to_async
         def check_perm():
             if not request.user.is_authenticated:
@@ -618,6 +647,7 @@ class Palletization(View):
                     "storehouse": storehouse,
                     "storehouse_form": {"public": "public", "other": "other"},
                     "unpacking_personnel": unpacking_personnel,
+                    "error_msg": error_msg,
                 }
             else:
                 order_not_palletized, order_palletized, order_with_shipment = (
@@ -658,10 +688,16 @@ class Palletization(View):
                     "storehouse": storehouse,
                     "warehouse": warehouse,
                     "unpacking_personnel": unpacking_personnel,
+                    "error_msg": error_msg,
                 }
         else:
             storehouse_form = {"public": "public", "other": "other"}
-            context = {"warehouse_form": ZemWarehouseForm(), "storehouse_form": storehouse_form, "unpacking_personnel": unpacking_personnel,}
+            context = {
+                "warehouse_form": ZemWarehouseForm(),
+                "storehouse_form": storehouse_form,
+                "unpacking_personnel": unpacking_personnel,
+                "error_msg": error_msg,
+            }
         return self.template_main, context
 
     async def handle_all_get_palletized(
@@ -722,6 +758,7 @@ class Palletization(View):
     async def handle_container_palletization_get(
         self, request: HttpRequest, pk: int
     ) -> tuple[str, dict[str, Any]]:
+
         order_selected = await sync_to_async(
             Order.objects.select_related(
                 "container_number", "warehouse", "offload_id"
@@ -1313,6 +1350,7 @@ class Palletization(View):
                     )
             offload.total_pallet = total_pallet
             offload.offload_at = offload_time
+            offload.offload_other_at = offload_time
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
@@ -2761,13 +2799,13 @@ class Palletization(View):
         await sync_to_async(
             Pallet.objects.filter(
                 container_number__container_number=container_number,
-                delivery_type="public", location=warehouse
+                delivery_type="other", location=warehouse
             ).delete
         )()
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
                 container_number__container_number=container_number,
-                delivery_type="public"
+                delivery_type="other"
 
             ).delete
         )()
@@ -3308,7 +3346,7 @@ class Palletization(View):
             cbm_actual = c * p_a / p_r
             weight_actual = w * p_a / p_r
         shipment = None
-        if shipment_batch_number != "None":
+        if shipment_batch_number != "None" and shipment_batch_number is not None and shipment_batch_number != ""::
             shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=shipment_batch_number
             )
