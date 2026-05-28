@@ -2,7 +2,7 @@
 {% load static custom_filters %}
 {% block content %}
 
-    <form method="post" style="width: 100%;" id="palletForm">  <!-- 表单ID -->
+    <form method="post" action="" style="width: 100%;" id="palletForm">  <!-- 表单ID -->
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
             <h4 class="mb-4">拆柜录入</h4>
@@ -192,7 +192,7 @@
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
                 {% else %}
                     {% if 'LA' in warehouse %}
-                        <input type="hidden" name="step" value="palletize_la_public">
+                        <input type="hidden" name="step" value="palletize_public">
                         <input type="datetime-local" name="offload_time" class="form-input"
                                style="height: 35px; padding: 0 8px;">
                         <input type="hidden" name="name" value="{{ warehouse }}">
@@ -201,7 +201,7 @@
                                 onclick="processForm()">确认
                         </button>
                     {% elif 'SAV' in warehouse and storehouse == 'public' %}
-                        <input type="hidden" name="step" value="palletize_sav_public">
+                        <input type="hidden" name="step" value="palletize_public">
                         <input type="datetime-local" name="offload_time" class="form-input"
                                style="height: 35px; padding: 0 8px;">
                         <input type="hidden" name="name" value="{{ warehouse }}">
