@@ -76,6 +76,15 @@ class WarehouseDashView(View):
             destination: str,
             is_shipment_batch_number: str,
     ):
+        today = now().date()
+
+        thirteen_weeks_ago = today - timedelta(weeks=13)
+
+        thirteen_weeks_ago_start = (
+                thirteen_weeks_ago
+                - timedelta(days=thirteen_weeks_ago.weekday())
+        )
+
         if is_shipment_batch_number == "True":
             criteria = models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=False
@@ -92,6 +101,9 @@ class WarehouseDashView(View):
                 location__startswith=warehouse,
                 delivery_type="public",
                 destination=destination,
+
+                # 跟总表统一口径
+                container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start,
             )
             .values(
                 "container_number__container_number",
@@ -101,7 +113,7 @@ class WarehouseDashView(View):
                 "shipment_batch_number__shipment_batch_number",
             )
             .annotate(
-                total_pallet=Count("id"),
+                total_pallet=Count("id", distinct=True),
                 total_cbm=Sum("cbm"),
             )
             .order_by(
