@@ -183,6 +183,7 @@ class TimeoutWarning(View):
             "fleets": fleets,  # 未出库
             "un_confirmed_fleets": un_confirmed_fleets,
             "un_podlinks": un_podlinks,
+            "delivery_type": delivery_type
         }
         return self.template_shipment, context
 
