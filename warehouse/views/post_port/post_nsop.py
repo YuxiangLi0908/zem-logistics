@@ -13343,7 +13343,7 @@ class PostNsop(View):
                     # ======================================================
 
                     palletization = Palletization()
-                    pallet_data += await palletization._split_pallet(
+                    pd, log_info = await palletization._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -13370,6 +13370,9 @@ class PostNsop(View):
                         created_at=created_at,
                         released_at=released_at,
                     )  # 循环遍历每个汇总的板数
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
                 if p_a != p_r:
                     abnormal_offloads.append(
                         {
@@ -13476,7 +13479,7 @@ class PostNsop(View):
                         released_at = created_at
                     # ======================================================
 
-                    pallet_data += await palletization._split_pallet(
+                    pd, log_info = await palletization._split_pallet(
                         order_selected,
                         n,
                         p_a,
@@ -13504,6 +13507,9 @@ class PostNsop(View):
                         created_at=created_at,
                         released_at=released_at,
                     )
+                    pallet_data.extend(pd)
+                    if log_info:
+                        log_infos.append(log_info)
 
                     # 记录异常拆柜
                     abnormal_offloads.append(
@@ -13539,13 +13545,8 @@ class PostNsop(View):
                 offload.offload_at = offload.offload_other_at
             await sync_to_async(offload.save)()
 
-            pallet_instances = []
-            for d in pallet_data:
-                if isinstance(d, dict):
-                    pallet_instances.append(Pallet(**d))
-
-            if pallet_instances:
-                await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+            pallet_instances = [Pallet(**d) for d in pallet_data]
+            await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
 
             await palletization._update_shipment_stats(ids)
 
