@@ -1122,6 +1122,8 @@ class PostNsop(View):
                 "Newworld",
                 "鹏峰",
                 "JCR",
+                "Jims",
+                "Huasong",
                 "client pickup"
             ]
             if supplier and supplier not in valid_suppliers:
