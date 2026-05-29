@@ -12,14 +12,24 @@
                 <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
+
             <b style="margin-right: 5px;">派送类型:</b>
             <select name="delivery_type">
                 {% for k, v in delivery_type_options.items %}
                 <option value="{{ v }}" {% if k == delivery_type %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
+
+            <b style="margin-right: 5px;">是否有约:</b>
+            <select name="is_shipment_batch_number">
+                {% for k, v in is_shipment_batch_numbers.items %}
+                <option value="{{ v }}" {% if k == is_shipment_batch_number %}selected{% endif %}>{{ k }}</option>
+                {% endfor %}
+            </select>
+
             <input type="hidden" name="step" value="warehouse">
             <button type="submit">确认</button>
+
         </div>
     </form>
 </div>
