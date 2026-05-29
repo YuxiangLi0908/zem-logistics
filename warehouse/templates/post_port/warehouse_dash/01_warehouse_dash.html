@@ -190,7 +190,7 @@
         <td colspan="8">
             <table class="w-full text-sm border-collapse">
                 <thead>
-                    <tr class="bg-gray-100">
+                    <tr style="background:#edf2f7;color:#475569;">
                         <th>柜号</th>
                         <th>派送方式</th>
                         <th>板数</th>
@@ -200,22 +200,29 @@
                 </thead>
 
                 <tbody>
-                    {% for row in metrics.detail %}
-                    <tr>
-                        <td>{{ row.container_number__container_number }}</td>
-                        <td>{{ row.delivery_method }}</td>
-                        <td>{{ row.total_pallet }}</td>
-                        <td>{{ row.total_cbm|floatformat:2 }}</td>
-                        <td>{{ row.shipment_batch_number__shipment_batch_number }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" style="text-align:center;padding:12px;color:#666;">
-                            暂无明细数据
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
+    {% for row in metrics.detail %}
+    <tr class="border-b border-gray-200 hover:bg-gray-50">
+        <td>{{ row.container_number__container_number }}</td>
+        <td>{{ row.delivery_method }}</td>
+        <td>{{ row.location }}</td>
+        <td>{{ row.total_pallet }}</td>
+        <td>{{ row.total_cbm|floatformat:2 }}</td>
+        <td>{{ row.shipment_batch_number__shipment_batch_number }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="6"
+            style="
+                text-align:center;
+                padding:12px;
+                color:#94a3b8;
+            "
+        >
+            暂无明细数据
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
             </table>
         </td>
     </tr>
