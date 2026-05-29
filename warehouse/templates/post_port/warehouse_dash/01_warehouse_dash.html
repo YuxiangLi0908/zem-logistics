@@ -143,6 +143,8 @@
             <thead>
                 <tr>
                     <th class="text-left font-bold text-sm">仓点</th>
+                    <th class="text-left font-bold text-sm">板数统计</th>
+                    <th class="text-left font-bold text-sm">cbm统计</th>
                     <th class="text-left font-bold text-sm">平均每周CBM</th>
                     <th class="text-left font-bold text-sm">CBM浮动区间</th>
                     <th class="text-left font-bold text-sm">过去3个月活跃周比例</th>
@@ -155,6 +157,8 @@
                 {% with destination=item.0 metrics=item.1 %}
                 <tr>
                     <td>{{ destination }}</td>
+                    <td>{{ metrics.n_pallet }}</td>
+                    <td>{{ metrics.cbm|floatformat:2 }}</td>
                     <td>{{ metrics.average_weekly_cbm|floatformat:2 }}</td>
                     <td>{{ metrics.confidence_interval.0|floatformat:2 }} - {{ metrics.confidence_interval.1|floatformat:2 }}</td>
                     <td>{{ metrics.active_week_ratio|floatformat:2 }}%</td>
