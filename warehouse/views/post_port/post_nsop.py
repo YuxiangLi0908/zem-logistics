@@ -13308,6 +13308,7 @@ class PostNsop(View):
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
             pallet_data = []
+            log_infos = []
             for (
                     n,
                     p_a,
