@@ -7862,6 +7862,9 @@ class PostNsop(View):
             if shipment_type != '外配':
                 shipment_data['shipment_appointment'] = request.POST.get('shipment_appointment')
                 request.POST['shipment_appointment'] = request.POST.get('shipment_appointment')
+            else:  # 外配的不能缺预约时间，因为客户端展示都是用的预约时间
+                shipment_data['shipment_appointment'] = request.POST.get('pickup_time')
+                request.POST['shipment_appointment'] = request.POST.get('pickup_time')
             
             request.POST['shipment_data'] = str(shipment_data)
             request.POST['batch_number'] = shipment_batch_number   

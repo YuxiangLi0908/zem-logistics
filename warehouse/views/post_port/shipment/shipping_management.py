@@ -1439,11 +1439,10 @@ class ShippingManagement(View):
                         "shipment_account", ""
                     ).strip()
                     shipmentappointment = request.POST.get("shipment_appointment", None)
-                    if shipment.shipment_type != '外配':
-                        shipment.shipment_appointment = shipmentappointment
-                        shipment.shipment_appointment_utc = self._parse_ts(
-                            shipmentappointment, tzinfo
-                        )
+                    shipment.shipment_appointment = shipmentappointment
+                    shipment.shipment_appointment_utc = self._parse_ts(
+                        shipmentappointment, tzinfo
+                    )
                     # LTL的需要存ARM-BOL和ARM-PRO
                     shipment.ARM_BOL = (
                         request.POST.get("arm_bol")
@@ -1551,11 +1550,10 @@ class ShippingManagement(View):
                 shipment_data["shipment_account"] = request.POST.get(
                     "shipment_account", ""
                 ).strip()
-                if shipment_type != "外配":
-                    shipment_data["shipment_appointment"] = (
-                        shipmentappointment  # FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
-                    )
-                    shipment_data["shipment_appointment_utc"] = shipmentappointment_utc
+                shipment_data["shipment_appointment"] = (
+                    shipmentappointment  # FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
+                )
+                shipment_data["shipment_appointment_utc"] = shipmentappointment_utc
                 if is_print_label:
                     shipment_data["is_print_label"] = (is_print_label == "是")
                 shipment_data["in_use"] = True
