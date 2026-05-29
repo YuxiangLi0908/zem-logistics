@@ -9669,7 +9669,7 @@ class PostNsop(View):
             destination_list = []
         #已排约
         # 先检查下有没有异常的绑定约情况
-        await self._checkAbnormalBindings(warehouse, 'public', request.user)
+        #await self._checkAbnormalBindings(warehouse, 'public', request.user)
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
         #未排车+已排车
@@ -10354,6 +10354,7 @@ class PostNsop(View):
                     continue
                 address = await self.get_address(shipment.destination)
                 grouped_data[batch_number] = {
+                    'shipment_id': shipment.id,
                     'appointment_id': shipment.appointment_id,
                     'shipment_cargo_id': shipment.shipment_cargo_id,
                     'shipment_batch_number': shipment.shipment_batch_number,
@@ -10413,6 +10414,7 @@ class PostNsop(View):
             if batch_number not in grouped_data:
                 address = await self.get_address(shipment.destination)
                 grouped_data[batch_number] = {
+                    'shipment_id': shipment.id,
                     'appointment_id': shipment.appointment_id,
                     'shipment_cargo_id': shipment.shipment_cargo_id,
                     'shipment_batch_number': shipment.shipment_batch_number,
