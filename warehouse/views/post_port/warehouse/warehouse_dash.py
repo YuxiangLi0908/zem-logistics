@@ -96,10 +96,12 @@ class WarehouseDashView(View):
             .values(
                 "container_number__container_number",
                 "delivery_method",
+                "location",
+                "destination",
                 "shipment_batch_number__shipment_batch_number",
             )
             .annotate(
-                total_pallet=Count("id", distinct=True),
+                total_pallet=Count("id"),
                 total_cbm=Sum("cbm"),
             )
             .order_by(
