@@ -653,16 +653,20 @@
                     </div>
 
                     {% if items %}
-                        {% if key == "delivery_public" or key == "delivery_other" %}
-                            <!-- 派送类表格 - 显示所有列 -->
+                        {% if key == "delivery_public" or key == "delivery_other" or key == "warehouse_public" or key == "warehouse_other" %}
+                            <!-- 派送类和仓库内费用表格 - 显示所有列 -->
                             <table class="advanced-table delivery-table">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
                                         <th>费用名称</th>
                                         <th>目的地</th>
-                                        <th>CBM</th>
-                                        <th>板数</th>
+                                        {% if key == "delivery_public" or key == "delivery_other" %}
+                                            <th>CBM</th>
+                                            <th>板数</th>
+                                        {% else %}
+                                            <th>数量</th>
+                                        {% endif %}
                                         <th>单价(USD)</th>
                                         <th>附加费(USD)</th>
                                         <th>金额(USD)</th>
@@ -692,21 +696,32 @@
                                                        class="input-control"
                                                        placeholder="目的地">
                                             </td>
-                                            <td class="cell-cbm">
-                                                <input type="number" 
-                                                       name="cbm" 
-                                                       value="{{ it.cbm|default:'' }}" 
-                                                       class="input-control"
-                                                       placeholder="cbm">
-                                            </td>
-                                            <td class="cell-stats">
-                                                <input type="number" 
-                                                       step="0.01"
-                                                       name="qty" 
-                                                       value="{{ it.qty|default:0 }}" 
-                                                       class="input-control input-qty"
-                                                       onchange="calculateItemAmount(this)">
-                                            </td>
+                                            {% if key == "delivery_public" or key == "delivery_other" %}
+                                                <td class="cell-cbm">
+                                                    <input type="number" 
+                                                           name="cbm" 
+                                                           value="{{ it.cbm|default:'' }}" 
+                                                           class="input-control"
+                                                           placeholder="cbm">
+                                                </td>
+                                                <td class="cell-stats">
+                                                    <input type="number" 
+                                                           step="0.01"
+                                                           name="qty" 
+                                                           value="{{ it.qty|default:0 }}" 
+                                                           class="input-control input-qty"
+                                                           onchange="calculateItemAmount(this)">
+                                                </td>
+                                            {% else %}
+                                                <td class="cell-stats">
+                                                    <input type="number" 
+                                                           step="0.01"
+                                                           name="qty" 
+                                                           value="{{ it.qty|default:0 }}" 
+                                                           class="input-control input-qty"
+                                                           onchange="calculateItemAmount(this)">
+                                                </td>
+                                            {% endif %}
                                             <td class="cell-stats">
                                                 <input type="number" 
                                                        step="0.01"
@@ -730,7 +745,7 @@
                                                        value="{{ it.amount|floatformat:2|default:'0.00' }}" 
                                                        class="input-control input-amount amount-input"
                                                        data-category="{{ key }}"
-                                                       readonly>
+                                                       {% if key == "delivery_public" or key == "delivery_other" %}readonly{% endif %}>
                                             </td>
                                             <td>
                                                 <input type="text" 
@@ -751,7 +766,7 @@
                                 </tbody>
                             </table>
                         {% else %}
-                            <!-- 非派送类表格 - 隐藏目的地和PO列，板数改为数量 -->
+                            <!-- 其他非派送类表格 - 隐藏目的地和PO列 -->
                             <table class="advanced-table non-delivery-table">
                                 <thead>
                                     <tr>
