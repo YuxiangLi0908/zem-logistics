@@ -1,7 +1,7 @@
 from django.views import View
 from django.shortcuts import render, redirect
 from django.http import HttpRequest, HttpResponse
-from django.db.models import Sum, F, Func
+from django.db.models import Sum, F, Func, Count
 from django.db import models
 from django.utils.timezone import now
 from collections import defaultdict
@@ -81,7 +81,8 @@ class WarehouseDashView(View):
                 "week",
                 "destination"
             ).annotate(
-                total_cbm=Sum("cbm")
+                total_cbm=Sum("cbm"),
+                total_pallet=Count("id", distinct=True),
             ).order_by("week")
         return list(data)
     
@@ -133,27 +134,54 @@ class WarehouseDashView(View):
         today = now().date()
         current_week = today.isocalendar()[1]
         metrics = defaultdict(lambda: {
+            "cbm": 0,
+            "n_pallet": 0,
             "average_weekly_cbm": 0,
             "cv": 0,
             "active_week_ratio": 0,
             "stability_score": 0,
             "confidence_interval": (0, 0),
+            "next_week_cbm": 0,
         })
 
         # Group data by destination
         grouped_data = defaultdict(list)
+
         for entry in historical_inventory:
-            if entry["week"] < current_week:  # Only consider weeks before the current week
-                grouped_data[entry["destination"]].append(entry["total_cbm"])
+            if entry["week"] < current_week:
+                grouped_data[entry["destination"]].append(entry)
+
+                metrics[entry["destination"]]["cbm"] += (
+                        entry["total_cbm"] or 0
+                )
+
+                metrics[entry["destination"]]["n_pallet"] += (
+                        entry["total_pallet"] or 0
+                )
 
         # Calculate metrics per destination
         all_avg_cbms = []
         all_cvs = []
-        for destination, weekly_cbms in grouped_data.items():
+        for destination, destination_entries in grouped_data.items():
+
+            weekly_cbms = [
+                item["total_cbm"]
+                for item in destination_entries
+            ]
+
             total_weeks = len(weekly_cbms)
-            active_weeks = sum(1 for cbm in weekly_cbms if cbm > 0)
+
+            active_weeks = sum(
+                1 for cbm in weekly_cbms if cbm > 0
+            )
+
             avg_cbm = mean(weekly_cbms) if weekly_cbms else 0
-            stddev_cbm = stdev(weekly_cbms) if len(weekly_cbms) > 1 else 0
+
+            stddev_cbm = (
+                stdev(weekly_cbms)
+                if len(weekly_cbms) > 1
+                else 0
+            )
 
             # Calculate 99% confidence interval without scipy
             if total_weeks > 1:
