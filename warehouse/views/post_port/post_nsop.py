@@ -13597,6 +13597,24 @@ class PostNsop(View):
                 await sync_to_async(bulk_create_with_history)(
                     abnormal_offload_instances, AbnormalOffloadStatus
                 )
+
+            # 记录 ShipmentBindingLog
+            if log_infos:
+                for log_info in log_infos:
+                    if log_info['shipment_batch_number']:
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=request.user,
+                            po_type='pallet',
+                            po_id=log_info['po_id'],
+                            shipment_batch_number=log_info['shipment_batch_number'],
+                            operation_button='拆柜',
+                            shipment_type=log_info['shipment_type'],
+                            container_number=log_info['container_number'],
+                            destination=log_info['destination'],
+                            warehouse=log_info['location'],
+                            delivery_type=log_info['delivery_type'],
+                            skip_get_po_info=True,
+                        )
         # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
