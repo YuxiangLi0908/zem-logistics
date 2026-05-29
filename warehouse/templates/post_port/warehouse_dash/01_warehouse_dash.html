@@ -153,23 +153,97 @@
                 </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-gray-200">
-                {% for item in inventory_metrics.items %}
-                {% with destination=item.0 metrics=item.1 %}
-                <tr>
-                    <td>{{ destination }}</td>
-                    <td>{{ metrics.n_pallet }}</td>
-                    <td>{{ metrics.cbm|floatformat:2 }}</td>
-                    <td>{{ metrics.average_weekly_cbm|floatformat:2 }}</td>
-                    <td>{{ metrics.confidence_interval.0|floatformat:2 }} - {{ metrics.confidence_interval.1|floatformat:2 }}</td>
-                    <td>{{ metrics.active_week_ratio|floatformat:2 }}%</td>
-                    <td>{{ metrics.stability_score|floatformat:2 }}</td>
-                    <td>{{ metrics.next_week_cbm|floatformat:2 }}</td>
-                </tr>
-                {% endwith %}
-                {% endfor %}
-            </tbody>
+    {% for item in inventory_metrics.items %}
+    {% with destination=item.0 metrics=item.1 %}
+
+    <tr
+        onclick="toggleDetail('{{ forloop.counter }}')"
+        class="cursor-pointer hover:bg-blue-50"
+    >
+        <td
+                style="
+                        color:#2563eb;
+                        cursor:pointer;
+                        text-decoration:underline;
+                    "
+                        >
+            {{ destination }}
+        </td>
+
+        <td>{{ metrics.n_pallet }}</td>
+        <td>{{ metrics.cbm|floatformat:2 }}</td>
+        <td>{{ metrics.average_weekly_cbm|floatformat:2 }}</td>
+        <td>
+            {{ metrics.confidence_interval.0|floatformat:2 }}
+            -
+            {{ metrics.confidence_interval.1|floatformat:2 }}
+        </td>
+        <td>{{ metrics.active_week_ratio|floatformat:2 }}%</td>
+        <td>{{ metrics.stability_score|floatformat:2 }}</td>
+        <td>{{ metrics.next_week_cbm|floatformat:2 }}</td>
+    </tr>
+
+    <tr
+        id="detail-{{ forloop.counter }}"
+        style="display:none;background:#f8fafc;"
+    >
+        <td colspan="8">
+            <table class="w-full text-sm border-collapse">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th>柜号</th>
+                        <th>派送方式</th>
+                        <th>板数</th>
+                        <th>CBM</th>
+                        <th>预约号</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in metrics.detail %}
+                    <tr>
+                        <td>{{ row.container_number__container_number }}</td>
+                        <td>{{ row.delivery_method }}</td>
+                        <td>{{ row.total_pallet }}</td>
+                        <td>{{ row.total_cbm|floatformat:2 }}</td>
+                        <td>{{ row.shipment_batch_number__shipment_batch_number }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align:center;padding:12px;color:#666;">
+                            暂无明细数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </td>
+    </tr>
+
+    {% endwith %}
+    {% endfor %}
+</tbody>
         </table>
     </div>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    function toggleDetail(id) {
+        const row = document.getElementById(`detail-${id}`);
+
+        if (!row) {
+            console.log("detail row not found:", id);
+            return;
+        }
+
+        if (
+            row.style.display === "none" ||
+            row.style.display === ""
+        ) {
+            row.style.display = "table-row";
+        } else {
+            row.style.display = "none";
+        }
+    }
+</script>
 {% endblock %}

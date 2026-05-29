@@ -33,13 +33,19 @@ class WarehouseDashView(View):
         if not self._user_authenticate(request):
             return redirect("login")
         return render(request, self.warehouse_dash_template, context={"area": self.area, "is_shipment_batch_numbers": self.is_shipment_batch_numbers})
-    
+
     def post(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not self._user_authenticate(request):
             return redirect("login")
 
         context = self.get_warehouse_dash_context(request)
-        return render(request, self.warehouse_dash_template, context)
+
+        return render(
+            request,
+            self.warehouse_dash_template,
+            context,
+        )
+
     
     def get_warehouse_dash_context(self, request: HttpRequest) -> dict:
         warehouse = request.POST.get("warehouse_filter", None)
@@ -47,7 +53,13 @@ class WarehouseDashView(View):
         historical_inventory = self._get_historical_inventory(warehouse, is_shipment_batch_number)
         next_week_inventory = self._get_next_week_inventory(warehouse, is_shipment_batch_number)
         inventory_metrics = self._calculate_historical_metrics(historical_inventory)
-        inventory_metrics = self._merge_inventory(inventory_metrics, next_week_inventory)
+        for destination, metrics in inventory_metrics.items():
+            metrics["detail"] = self._get_destination_container_detail(
+                warehouse,
+                destination,
+                is_shipment_batch_number,
+            )
+
 
         context = {
             "inventory_metrics": inventory_metrics,
@@ -57,6 +69,45 @@ class WarehouseDashView(View):
             "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
         }
         return context
+
+    def _get_destination_container_detail(
+            self,
+            warehouse: str,
+            destination: str,
+            is_shipment_batch_number: str,
+    ):
+        if is_shipment_batch_number == "True":
+            criteria = models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=False
+            )
+        else:
+            criteria = models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=True
+            )
+
+        data = (
+            Pallet.objects
+            .filter(
+                criteria,
+                location__startswith=warehouse,
+                delivery_type="public",
+                destination=destination,
+            )
+            .values(
+                "container_number__container_number",
+                "delivery_method",
+                "shipment_batch_number__shipment_batch_number",
+            )
+            .annotate(
+                total_pallet=Count("id", distinct=True),
+                total_cbm=Sum("cbm"),
+            )
+            .order_by(
+                "container_number__container_number"
+            )
+        )
+
+        return list(data)
     
     def _get_historical_inventory(self, warehouse: str, is_shipment_batch_number: str) -> dict:
         today = now().date()
