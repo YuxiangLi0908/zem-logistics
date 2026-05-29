@@ -24,11 +24,15 @@ class Week(Func):
 class WarehouseDashView(View):
     warehouse_dash_template = 'post_port/warehouse_dash/01_warehouse_dash.html'
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
+    is_shipment_batch_numbers = {
+        "是": True,
+        "否": False
+    }
 
     def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not self._user_authenticate(request):
             return redirect("login")
-        return render(request, self.warehouse_dash_template, context={"area": self.area})
+        return render(request, self.warehouse_dash_template, context={"area": self.area, "is_shipment_batch_numbers": self.is_shipment_batch_numbers})
     
     def post(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not self._user_authenticate(request):
@@ -39,8 +43,9 @@ class WarehouseDashView(View):
     
     def get_warehouse_dash_context(self, request: HttpRequest) -> dict:
         warehouse = request.POST.get("warehouse_filter", None)
-        historical_inventory = self._get_historical_inventory(warehouse)
-        next_week_inventory = self._get_next_week_inventory(warehouse)
+        is_shipment_batch_number = request.POST.get("is_shipment_batch_number", None)
+        historical_inventory = self._get_historical_inventory(warehouse, is_shipment_batch_number)
+        next_week_inventory = self._get_next_week_inventory(warehouse, is_shipment_batch_number)
         inventory_metrics = self._calculate_historical_metrics(historical_inventory)
         inventory_metrics = self._merge_inventory(inventory_metrics, next_week_inventory)
 
@@ -48,18 +53,25 @@ class WarehouseDashView(View):
             "inventory_metrics": inventory_metrics,
             "warehouse": warehouse,
             "area": self.area,
+            "is_shipment_batch_number": is_shipment_batch_number,
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
         }
         return context
     
-    def _get_historical_inventory(self, warehouse: str) -> dict:
+    def _get_historical_inventory(self, warehouse: str, is_shipment_batch_number: str) -> dict:
         today = now().date()
         thirteen_weeks_ago = today - timedelta(weeks=13)
         thirteen_weeks_ago_start = thirteen_weeks_ago - timedelta(days=thirteen_weeks_ago.weekday())
+        if is_shipment_batch_number == "True":
+            criteria = models.Q(shipment_batch_number__shipment_batch_number__isnull = False)
+        else:
+            criteria = models.Q(shipment_batch_number__shipment_batch_number__isnull = True)
         data = Pallet.objects.prefetch_related(
                 "container_number",
                 "shipment_batch_number",
                 "container_number__orders__offload_id",
             ).filter(
+                criteria,
                 location__startswith=warehouse,
                 delivery_type="public",
                 container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start
@@ -73,7 +85,7 @@ class WarehouseDashView(View):
             ).order_by("week")
         return list(data)
     
-    def _get_next_week_inventory(self, warehouse: str) -> dict:
+    def _get_next_week_inventory(self, warehouse: str, is_shipment_batch_number: str) -> dict:
         today = now().date()
         next_week_start = today + timedelta(days=1)
         next_week_end = next_week_start + timedelta(days=6)
@@ -89,12 +101,17 @@ class WarehouseDashView(View):
             container_number__orders__offload_id__offload_at__isnull=True,
             container_number__orders__offload_id__offload_required=True,
         )
+        if is_shipment_batch_number == "True":
+            criteria &= models.Q(shipment_batch_number__shipment_batch_number__isnull = False)
+        else:
+            criteria &= models.Q(shipment_batch_number__shipment_batch_number__isnull = True)
         data = PackingList.objects.prefetch_related(
                 "container_number__orders__vessel_id",
                 "container_number__orders__retrieval_id",
                 "container_number__orders__offload_id",
                 "container_number__orders__warehouse",
                 "container_number__orders",
+                "packinglist"
             ).filter(
                 criteria
             ).values(
