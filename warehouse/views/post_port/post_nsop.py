@@ -9535,7 +9535,7 @@ class PostNsop(View):
         '''检查是不是存在，pl绑定了约但是plt没绑'''
         import pytz
         from datetime import datetime
-        cutoff_date = datetime(2026, 5, 28, tzinfo=pytz.utc)
+        cutoff_date = datetime(2026, 5, 10, tzinfo=pytz.utc)
         shipment_criteria = Q(shipment_schduled_at__gte=cutoff_date) & Q(origin=warehouse) & (Q(delivery_type__isnull=True) | Q(delivery_type='') | Q(delivery_type=delivery_type))
         shipments = await sync_to_async(list)(
             Shipment.objects.filter(shipment_criteria)
