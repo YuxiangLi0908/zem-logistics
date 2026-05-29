@@ -35,6 +35,7 @@ from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 
 
 class Inventory(View):
@@ -437,7 +438,16 @@ class Inventory(View):
         """分拣操作"""
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
-        old_pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        old_pallet = await sync_to_async(list)(Pallet.objects.select_related("shipment_batch_number", "master_shipment_batch_number").filter(id__in=plt_ids))
+        
+        # 预先在同步上下文中获取 shipment 字段
+        @sync_to_async
+        def get_shipment_fields():
+            p = old_pallet[0]
+            return p.shipment_batch_number, p.master_shipment_batch_number
+        
+        old_shipment, old_master_shipment = await get_shipment_fields()
+        
         container_number = request.POST.get("container")
         container = await sync_to_async(Container.objects.get)(
             container_number=container_number
@@ -472,10 +482,19 @@ class Inventory(View):
         old_created_at = old_pallet[0].created_at
         old_released_at = old_pallet[0].released_at
         old_packinglist = await sync_to_async(list)(
-            PackingList.objects.filter(PO_ID=old_po_id)
+            PackingList.objects.select_related("shipment_batch_number", "master_shipment_batch_number").filter(PO_ID=old_po_id)
         )
         # 提取原装箱单的基础模板字段（如无则赋默认值，避免空值）
         pl_template = old_packinglist[0] if old_packinglist else None
+        
+        # 预先在同步上下文中获取 packing list 的 shipment 字段
+        @sync_to_async
+        def get_pl_shipment_fields():
+            if pl_template:
+                return pl_template.shipment_batch_number, pl_template.master_shipment_batch_number
+            return None, None
+        
+        pl_shipment, pl_master_shipment = await get_pl_shipment_fields()
 
         seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
@@ -544,6 +563,9 @@ class Inventory(View):
                     "delivery_type": delivery_type,
                     "created_at": old_created_at,
                     "released_at": old_released_at,
+                    # 保留原有预约信息
+                    "shipment_batch_number": old_shipment,
+                    "master_shipment_batch_number": old_master_shipment,
                 }
                 for i in range(n)
             ]
@@ -567,6 +589,9 @@ class Inventory(View):
                 "total_weight_lbs": round(total_weight * (p / total_pcs), 2),
                 "total_weight_kg": round(total_weight * (p / total_pcs) * 0.453592, 2),
                 "container_number": container,
+                # 保留原有预约信息
+                "shipment_batch_number": pl_shipment,
+                "master_shipment_batch_number": pl_master_shipment,
             }
             new_packing_lists.append(PackingList(**new_pl_data))
             # ======================================================================================================
@@ -581,6 +606,48 @@ class Inventory(View):
         # 批量创建新装箱单
         if new_packing_lists:
             await sync_to_async(PackingList.objects.bulk_create)(new_packing_lists)
+
+        # 记录 ShipmentBindingLog（如果原 pallet 有预约信息）
+        if old_shipment or old_master_shipment:
+            # 获取新创建的 pallet 对象用于记录日志
+            @sync_to_async
+            def get_new_pallets():
+                return list(Pallet.objects.filter(PO_ID__startswith=f"{old_po_id}_"))
+            
+            new_pallet_objs = await get_new_pallets()
+            
+            # 在同步上下文中获取 shipment 批次号字符串
+            @sync_to_async
+            def get_shipment_batch_numbers():
+                shipment_num = old_shipment.shipment_batch_number if old_shipment else None
+                master_shipment_num = old_master_shipment.shipment_batch_number if old_master_shipment else None
+                return shipment_num, master_shipment_num
+            
+            shipment_num, master_shipment_num = await get_shipment_batch_numbers()
+            
+            # 记录实际约
+            if shipment_num:
+                await ShipmentBindingLogger.log_shipment_operation_by_objects(
+                    operator=request.user,
+                    pallets=new_pallet_objs,
+                    packing_lists=new_packing_lists,
+                    shipment_batch_number=shipment_num,
+                    operation_button='分拣时原板约传递',
+                    operation_type='bind',
+                    shipment_type='actual'
+                )
+            
+            # 记录主约
+            if master_shipment_num:
+                await ShipmentBindingLogger.log_shipment_operation_by_objects(
+                    operator=request.user,
+                    pallets=new_pallet_objs,
+                    packing_lists=new_packing_lists,
+                    shipment_batch_number=master_shipment_num,
+                    operation_button='分拣时原板约传递',
+                    operation_type='bind',
+                    shipment_type='master'
+                )
 
         # 删除原托盘 + 原装箱单（同步清理，避免冗余）
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
@@ -757,6 +824,9 @@ class Inventory(View):
                         pcs=0,
                         cbm=0,
                         weight_lbs=0,
+                        # 保留原有预约信息
+                        shipment_batch_number=template.shipment_batch_number,
+                        master_shipment_batch_number=template.master_shipment_batch_number,
                     )
                     new_pallets.append(plt)
 
