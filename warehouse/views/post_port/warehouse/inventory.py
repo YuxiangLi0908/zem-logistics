@@ -59,6 +59,11 @@ class Inventory(View):
         "public": "public",
     }
 
+    is_shipment_batch_numbers = {
+        "无论是否有约": True,
+        "否": False
+    }
+
     @staticmethod
     def _is_hold_delivery_method(delivery_method: str | None) -> bool:
         return "暂扣留仓(HOLD)" in str(delivery_method)
@@ -120,15 +125,15 @@ class Inventory(View):
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options, "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
         return self.template_counting_main, context
 
     async def handle_inventory_management_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options, "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
         return self.template_inventory_management_main, context
 
     async def handle_pallet_merge_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options}
+        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options, "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
         return self.template_inventory_list_and_merge, context
 
     async def handle_export_inventory(self, request: HttpRequest) -> HttpResponse:
@@ -203,6 +208,7 @@ class Inventory(View):
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         delivery_type = request.POST.get("delivery_type")
+        is_shipment_batch_number = request.POST.get("is_shipment_batch_number")
         pallet = await self._get_inventory_pallet_merge(warehouse)
         pallet_json = {
             p.get("plt_ids"): {
@@ -231,6 +237,8 @@ class Inventory(View):
             "warehouse": warehouse,
             "delivery_type": delivery_type,
             "delivery_type_options": self.delivery_type_options,
+            "is_shipment_batch_number": is_shipment_batch_number,
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
             "warehouse_options": WAREHOUSE_OPTIONS,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
@@ -252,7 +260,7 @@ class Inventory(View):
             ]
             warehouse = request.POST.get("warehouse", "")
             delivery_type = request.POST.get("delivery_type", "")
-
+            is_shipment_batch_number = request.POST.get("is_shipment_batch_number")
             if not new_po_id:
                 context = {
                     "warehouse": warehouse,
@@ -297,6 +305,8 @@ class Inventory(View):
                 "warehouse_options": WAREHOUSE_OPTIONS,
                 "warehouse": warehouse,
                 "delivery_type_options": self.delivery_type_options,
+                "is_shipment_batch_number": is_shipment_batch_number,
+                "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
                 "delivery_type": delivery_type,
                 "pallet": await self._get_inventory_pallet_merge(warehouse),
                 "merge_status": "success",
@@ -323,10 +333,17 @@ class Inventory(View):
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         delivery_type = request.POST.get("delivery_type")
+        is_shipment_batch_number = request.POST.get("is_shipment_batch_number")
         if delivery_type != "":
-            pallet = await self._get_inventory_pallet(warehouse, models.Q(delivery_type=delivery_type))
+            if is_shipment_batch_number == "True":
+                pallet = await self._get_inventory_pallet(warehouse, models.Q(delivery_type=delivery_type))
+            else:
+                pallet = await self._get_inventory_pallet_not_shipment(warehouse, models.Q(delivery_type=delivery_type))
         else:
-            pallet = await self._get_inventory_pallet(warehouse)
+            if is_shipment_batch_number == "True":
+                pallet = await self._get_inventory_pallet(warehouse)
+            else:
+                pallet = await self._get_inventory_pallet_not_shipment(warehouse)
         pallet_json = {}
         pallet_json = {
             p.get("plt_ids"): {
@@ -352,6 +369,8 @@ class Inventory(View):
             "delivery_type": delivery_type,
             "warehouse_options": WAREHOUSE_OPTIONS,
             "delivery_type_options": self.delivery_type_options,
+            "is_shipment_batch_number": is_shipment_batch_number,
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
             "total_cbm": round(total_cbm, 2),
@@ -1023,6 +1042,74 @@ class Inventory(View):
             models.Q(shipment_batch_number__isnull=True) |
             models.Q(shipment_batch_number__is_shipped=False)
         )
+
+        # 重点：先合并你传入的筛选条件 + 基础条件
+        if criteria:
+            criteria &= base_q
+        else:
+            criteria = base_q
+
+        # 最后再加上仓库条件（不会覆盖你的筛选）
+        criteria &= models.Q(location=warehouse)
+        return await sync_to_async(list)(
+            Pallet.objects.prefetch_related(
+                "container_number",
+                "shipment_batch_number",
+                "container_number__orders__customer_name",
+                "container_number__orders__offload_id",
+                "container_number__orders__retrieval_id__retrieval_destination_precise",
+            )
+            .filter(criteria)
+            .annotate(str_id=Cast("id", CharField()))
+
+            # 格式化时间为 年月日
+            .annotate(
+                offload_date=Cast(
+                    F("container_number__orders__offload_id__offload_at"),
+                    output_field=models.DateField()
+                )
+            )
+
+            .values(
+                "destination",
+                "delivery_method",
+                "delivery_type",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+                "note",
+                "PO_ID",
+                "address",
+                "zipcode",
+                "location",
+                customer_name=F("container_number__orders__customer_name__zem_name"),
+                container=F("container_number__container_number"),
+                shipment=F("shipment_batch_number__shipment_batch_number"),
+                appointment_id=F("shipment_batch_number__appointment_id"),
+                offload_at=F("offload_date"),
+                retrieval_destination_precise=F(
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"),
+            )
+            .annotate(
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                weight=Sum("weight_lbs", output_field=FloatField()),
+                n_pallet=Count("id", distinct=True),
+            )
+            .order_by("-n_pallet")
+        )
+
+    async def _get_inventory_pallet_not_shipment(
+        self, warehouse: str, criteria: models.Q | None = None
+    ) -> list[Pallet]:
+        """
+        未排约的库存汇总
+        """
+        # 固定基础条件：未发货 / 未装箱
+        base_q = models.Q(shipment_batch_number__isnull=True)
 
         # 重点：先合并你传入的筛选条件 + 基础条件
         if criteria:
