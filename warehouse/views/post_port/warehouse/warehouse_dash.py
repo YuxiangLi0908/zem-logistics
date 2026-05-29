@@ -25,8 +25,8 @@ class WarehouseDashView(View):
     warehouse_dash_template = 'post_port/warehouse_dash/01_warehouse_dash.html'
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
     is_shipment_batch_numbers = {
-        "是": True,
-        "否": False
+        "是": "True",
+        "否": "False"
     }
 
     def get(self, request: HttpRequest, **kwargs) -> HttpResponse:

@@ -23,7 +23,7 @@
             <b style="margin-right: 5px;">是否有约:</b>
             <select name="is_shipment_batch_number">
                 {% for k, v in is_shipment_batch_numbers.items %}
-                <option value="{{ v }}" {% if k == is_shipment_batch_number %}selected{% endif %}>{{ k }}</option>
+                    <option value="{{ v }}" {% if v == is_shipment_batch_number %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
 

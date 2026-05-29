@@ -60,8 +60,8 @@ class Inventory(View):
     }
 
     is_shipment_batch_numbers = {
-        "无论是否有约": True,
-        "否": False
+        "无论是否有约": "True",
+        "否": "False"
     }
 
     @staticmethod
