@@ -2310,12 +2310,13 @@ class ReceivableAccounting(View):
     def handle_confirm_save_all(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        '''转运账单财务确认'''
+        '''转运账单财务确认'''    
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         items_data_json = request.POST.get('items_data')    
-        is_fix_page = request.POST.get('is_fix_page')  
+        is_fix_page_bool = request.POST.get('is_fix_page')  
+        is_fix_page = is_fix_page_bool.lower() == 'true'
         
         #有错误时，要重新加载页面而准备的数据
         get_params = QueryDict(mutable=True)
