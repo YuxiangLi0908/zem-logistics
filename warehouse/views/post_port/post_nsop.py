@@ -13538,17 +13538,26 @@ class PostNsop(View):
             if not has_public:
                 offload.offload_at = offload.offload_other_at
             await sync_to_async(offload.save)()
-            pallet_instances = [Pallet(**d) for d in pallet_data]
-            await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+
+            pallet_instances = []
+            for d in pallet_data:
+                if isinstance(d, dict):
+                    pallet_instances.append(Pallet(**d))
+
+            if pallet_instances:
+                await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
 
             await palletization._update_shipment_stats(ids)
 
-            abnormal_offload_instances = [
-                AbnormalOffloadStatus(**d) for d in abnormal_offloads
-            ]
-            await sync_to_async(bulk_create_with_history)(
-                abnormal_offload_instances, AbnormalOffloadStatus
-            )
+            abnormal_offload_instances = []
+            for ao in abnormal_offloads:
+                if isinstance(ao, dict):
+                    abnormal_offload_instances.append(AbnormalOffloadStatus(**ao))
+
+            if abnormal_offload_instances:
+                await sync_to_async(bulk_create_with_history)(
+                    abnormal_offload_instances, AbnormalOffloadStatus
+                )
         # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
