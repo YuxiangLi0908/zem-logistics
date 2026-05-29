@@ -80,6 +80,7 @@
                     <thead>
                         <tr>
                             <th class="th">发货仓库</th>
+                            <th class="th">Pickup Time</th>
                             <th class="th">装车类型</th>
                             <th class="th">备注</th>
                         </tr>
@@ -93,6 +94,7 @@
                                     {% endfor %}
                                 </select>
                             </td>
+                            <td class="td"><input type="datetime-local" name="pickup_time" value="{{ shipment.pickup_time|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
                             <td class="td">
                                 <select name="load_type" id="load-type-select" style="font-size: 13px;">
                                     {% for k, v in load_type_options %}
@@ -124,6 +126,7 @@
                     <thead>
                         <tr>
                             <th class="th">发货仓库</th>
+                            <th class="th">Pickup Time</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
@@ -136,6 +139,7 @@
                                     {% endfor %}
                                 </select>
                             </td>
+                            <td class="td"><input type="datetime-local" name="pickup_time" value="{{ shipment.pickup_time|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="text" name="note" value="{{ shipment.note }}" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
@@ -265,6 +269,7 @@
                     <thead>
                         <tr>
                             <th class="th">发货仓库</th>
+                            <th class="th">Pickup Time</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
@@ -277,6 +282,7 @@
                                     {% endfor %}
                                 </select>
                             </td>
+                            <td class="td"><input type="datetime-local" name="pickup_time" value="{{ shipment.pickup_time|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>

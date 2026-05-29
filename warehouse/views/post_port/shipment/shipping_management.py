@@ -2527,6 +2527,9 @@ class ShippingManagement(View):
         shipment_appointment = request.POST.get("shipment_appointment")
         if not shipment_appointment:
             shipment_appointment = None
+        pickup_time = request.POST.get("pickup_time")
+        if not pickup_time:
+            pickup_time = None
         # 如果这个ISA备约已经登记过了，就把原记录删除
         appointment_id = request.POST.get("appointment_id", "").strip()
         shipment_cargo_id = request.POST.get("shipment_cargo_id")
@@ -2568,6 +2571,7 @@ class ShippingManagement(View):
                     if not shipment_appointment
                     else None
                 )
+                shipment.pickup_time = pickup_time
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -2584,6 +2588,7 @@ class ShippingManagement(View):
                     if not shipment_appointment
                     else None
                 )
+                shipment.pickup_time = pickup_time
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -2647,6 +2652,7 @@ class ShippingManagement(View):
                 shipment.shipment_appointment_utc = self._parse_ts(
                     shipment_appointment, tzinfo
                 )
+                shipment.pickup_time = pickup_time
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -2666,6 +2672,7 @@ class ShippingManagement(View):
                 shipment.shipment_appointment_utc = self._parse_ts(
                     shipment_appointment, tzinfo
                 )
+                shipment.pickup_time = pickup_time
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
