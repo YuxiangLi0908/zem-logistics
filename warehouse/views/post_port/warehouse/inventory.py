@@ -544,6 +544,9 @@ class Inventory(View):
                     "delivery_type": delivery_type,
                     "created_at": old_created_at,
                     "released_at": old_released_at,
+                    # 保留原有预约信息
+                    "shipment_batch_number": old_pallet[0].shipment_batch_number,
+                    "master_shipment_batch_number": old_pallet[0].master_shipment_batch_number,
                 }
                 for i in range(n)
             ]
@@ -757,6 +760,9 @@ class Inventory(View):
                         pcs=0,
                         cbm=0,
                         weight_lbs=0,
+                        # 保留原有预约信息
+                        shipment_batch_number=template.shipment_batch_number,
+                        master_shipment_batch_number=template.master_shipment_batch_number,
                     )
                     new_pallets.append(plt)
 
