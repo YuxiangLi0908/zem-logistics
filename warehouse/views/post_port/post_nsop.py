@@ -9672,7 +9672,7 @@ class PostNsop(View):
             destination_list = []
         #已排约
         # 先检查下有没有异常的绑定约情况
-        #await self._checkAbnormalBindings(warehouse, 'public', request.user)
+        await self._checkAbnormalBindings(warehouse, 'public', request.user)
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
         #未排车+已排车

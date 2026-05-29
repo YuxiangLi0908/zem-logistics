@@ -36,6 +36,7 @@
     <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px;">
         <label><b>所属仓:</b></label>
         <select name="area" style="width: 120px;">
+            <option value="">请选择</option>
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
