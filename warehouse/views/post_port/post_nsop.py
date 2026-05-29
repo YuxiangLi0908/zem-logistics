@@ -8507,6 +8507,7 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:
         """获取需要核对的车队信息"""
         # 获取筛选参数
+        warehouse = request.POST.get("warehouse")
         start_date = request.POST.get('start_date') or request.GET.get('start_date')
         end_date = request.POST.get('end_date') or request.GET.get('end_date')
         destination = request.POST.get('destination') or request.GET.get('destination')
@@ -8521,7 +8522,8 @@ class PostNsop(View):
         # 构建查询条件
         query_conditions = models.Q(
             check_by_leader=False,
-            fleet_type__in=['FTL','外配','快递']
+            fleet_type__in=['FTL','外配','快递'],
+            origin=warehouse
         )
         
         # 添加时间筛选条件
@@ -8604,7 +8606,8 @@ class PostNsop(View):
             'warehouse_options': WAREHOUSE_OPTIONS,
             'start_date': start_date,
             'end_date': end_date,
-            'destination': destination
+            'destination': destination,
+            'warehouse': warehouse
         }
         return self.template_fleet_check, context
     
@@ -9571,7 +9574,7 @@ class PostNsop(View):
             for extra in extra_in_packinglist:
                 if is_other:
                     cn_val, po_id_val, mark_val = extra
-                    pallet_qs = Pallet.objects.select_related('container_number').filter(
+                    pallet_qs = Pallet.objects.select_related('container_number', 'master_shipment_batch_number').filter(
                         container_number__container_number=cn_val,
                         PO_ID=po_id_val,
                         shipping_mark=mark_val,
@@ -9579,7 +9582,7 @@ class PostNsop(View):
                     )
                 else:
                     cn_val, po_id_val = extra
-                    pallet_qs = Pallet.objects.select_related('container_number').filter(
+                    pallet_qs = Pallet.objects.select_related('container_number', 'master_shipment_batch_number').filter(
                         container_number__container_number=cn_val,
                         PO_ID=po_id_val,
                         shipment_batch_number__isnull=True
@@ -9597,7 +9600,7 @@ class PostNsop(View):
                     pallets_to_update.append(p)
 
                     is_master_updated = False
-                    if not p.master_shipment_batch_number:
+                    if not p.master_shipment_batch_number_id:
                         p.master_shipment_batch_number = sp
                         pallets_master_to_update.append(p)
                         is_master_updated = True
