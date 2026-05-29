@@ -153,83 +153,83 @@
                 </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-gray-200">
-    {% for item in inventory_metrics.items %}
-    {% with destination=item.0 metrics=item.1 %}
+            {% for item in inventory_metrics.items %}
+                {% with destination=item.0 metrics=item.1 %}
 
-    <tr
-        onclick="toggleDetail('{{ forloop.counter }}')"
-        class="cursor-pointer hover:bg-blue-50"
-    >
-        <td
-                style="
+                    <tr
+                            onclick="toggleDetail('{{ forloop.counter }}')"
+                            class="cursor-pointer hover:bg-blue-50"
+                    >
+                        <td
+                                style="
                         color:#2563eb;
                         cursor:pointer;
                         text-decoration:underline;
                     "
                         >
-            {{ destination }}
-        </td>
+                            {{ destination }}
+                        </td>
 
-        <td>{{ metrics.n_pallet }}</td>
-        <td>{{ metrics.cbm|floatformat:2 }}</td>
-        <td>{{ metrics.average_weekly_cbm|floatformat:2 }}</td>
-        <td>
-            {{ metrics.confidence_interval.0|floatformat:2 }}
-            -
-            {{ metrics.confidence_interval.1|floatformat:2 }}
-        </td>
-        <td>{{ metrics.active_week_ratio|floatformat:2 }}%</td>
-        <td>{{ metrics.stability_score|floatformat:2 }}</td>
-        <td>{{ metrics.next_week_cbm|floatformat:2 }}</td>
-    </tr>
-
-    <tr
-        id="detail-{{ forloop.counter }}"
-        style="display:none;background:#f8fafc;"
-    >
-        <td colspan="8">
-            <table class="w-full text-sm border-collapse">
-                <thead>
-                    <tr style="background:#edf2f7;color:#475569;">
-                        <th>柜号</th>
-                        <th>派送方式</th>
-                        <th>板数</th>
-                        <th>CBM</th>
-                        <th>预约号</th>
+                        <td>{{ metrics.n_pallet }}</td>
+                        <td>{{ metrics.cbm|floatformat:2 }}</td>
+                        <td>{{ metrics.average_weekly_cbm|floatformat:2 }}</td>
+                        <td>
+                            {{ metrics.confidence_interval.0|floatformat:2 }}
+                            -
+                            {{ metrics.confidence_interval.1|floatformat:2 }}
+                        </td>
+                        <td>{{ metrics.active_week_ratio|floatformat:2 }}%</td>
+                        <td>{{ metrics.stability_score|floatformat:2 }}</td>
+                        <td>{{ metrics.next_week_cbm|floatformat:2 }}</td>
                     </tr>
-                </thead>
 
-                <tbody>
-    {% for row in metrics.detail %}
-    <tr class="border-b border-gray-200 hover:bg-gray-50">
-        <td>{{ row.container_number__container_number }}</td>
-        <td>{{ row.delivery_method }}</td>
-        <td>{{ row.location }}</td>
-        <td>{{ row.total_pallet }}</td>
-        <td>{{ row.total_cbm|floatformat:2 }}</td>
-        <td>{{ row.shipment_batch_number__shipment_batch_number }}</td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="6"
-            style="
+                    <tr
+                            id="detail-{{ forloop.counter }}"
+                            style="display:none;background:#f8fafc;"
+                    >
+                        <td colspan="8">
+                            <table class="w-full text-sm border-collapse">
+                                <thead>
+                                <tr style="background:#edf2f7;color:#475569;">
+                                    <th>柜号</th>
+                                    <th>派送方式</th>
+                                    <th>板数</th>
+                                    <th>CBM</th>
+                                    <th>预约号</th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                {% for row in metrics.detail %}
+                                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                        <td>{{ row.container_number__container_number }}</td>
+                                        <td>{{ row.delivery_method }}</td>
+                                        <td>{{ row.location }}</td>
+                                        <td>{{ row.total_pallet }}</td>
+                                        <td>{{ row.total_cbm|floatformat:2 }}</td>
+                                        <td>{{ row.shipment_batch_number__shipment_batch_number }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="6"
+                                            style="
                 text-align:center;
                 padding:12px;
                 color:#94a3b8;
             "
-        >
-            暂无明细数据
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
-            </table>
-        </td>
-    </tr>
+                                        >
+                                            暂无明细数据
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
 
-    {% endwith %}
-    {% endfor %}
-</tbody>
+                {% endwith %}
+            {% endfor %}
+            </tbody>
         </table>
     </div>
 
