@@ -526,6 +526,9 @@ CARRIER_FLEET = {
     "FWT": "FWT",
     "大森林": "大森林",
     "Sunzong": "Sunzong",
+    "华送": "华送",
+    "高总": "高总",
+    "得美": "得美",
 }
 
 PORT_TO_WAREHOUSE_AREA = {
