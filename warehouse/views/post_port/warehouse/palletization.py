@@ -1713,22 +1713,19 @@ class Palletization(View):
             else:
                 offload.total_pallet += total_pallet
             offload.offload_at = offload_time
-            # 判断：所有托盘都是公仓 → 私仓拆柜时间 = 公仓拆柜时间
-            pallet_list = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    container_number__container_number=container.container_number
-                )
-            )
 
-            # 核心判断：全部都是 public
-            all_public = all(p.delivery_type == "public" for p in pallet_list)
-
-            if all_public:
-                offload.offload_other_at = offload.offload_at
-
-            await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+
+            # 判断该柜是否存在 private/other 货
+            has_other = await sync_to_async(
+                PackingList.objects.filter(container_number=container,delivery_type="other",
+                ).exists
+            )()
+
+            # 如果没有 other，则整柜都是 public
+            if not has_other:
+                offload.offload_other_at = offload.offload_at
 
             await self._update_shipment_stats(ids)
 
@@ -2096,21 +2093,19 @@ class Palletization(View):
             else:
                 offload.total_pallet += total_pallet
             offload.offload_other_at = offload_time
-            # 判断：所有托盘都是私仓 → 私仓拆柜时间 = 公仓拆柜时间
-            pallet_list = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    container_number__container_number=container.container_number
-                )
-            )
 
-            # 核心判断：全部都是 other
-            all_public = all(p.delivery_type == "other" for p in pallet_list)
-
-            if all_public:
-                offload.offload_at = offload.offload_other_at
-            await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+
+            # 判断该柜是否存在 public 货
+            has_public = await sync_to_async(
+                PackingList.objects.filter(container_number=container,delivery_type="public",).exists
+            )()
+
+            # 如果没有 public，则说明整柜都是 other
+            if not has_public:
+                offload.offload_at = offload.offload_other_at
+            await sync_to_async(offload.save)()
 
             await self._update_shipment_stats(ids)
 
