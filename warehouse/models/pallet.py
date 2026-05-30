@@ -41,12 +41,12 @@ class Pallet(models.Model):
     delivery_window_end = models.DateField(null=True, blank=True)
     is_dropped_pallet = models.BooleanField(default=False, null=True, blank=True) #是否甩板
     address = models.CharField(max_length=2000, null=True, blank=True)
-    zipcode = models.CharField(max_length=20, null=True, blank=True)
+    zipcode = models.CharField(max_length=200, null=True, blank=True)
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
     delivery_type = models.CharField(max_length=255, null=True, blank=True)
     pallet_id = models.CharField(max_length=255, null=True, blank=True)
-    PO_ID = models.CharField(max_length=20, null=True, blank=True)
-    slot = models.CharField(max_length=20, null=True, blank=True)  # 槽位，例如NJ-3
+    PO_ID = models.CharField(max_length=200, null=True, blank=True)
+    slot = models.CharField(max_length=200, null=True, blank=True)  # 槽位，例如NJ-3
     shipping_mark = models.CharField(max_length=99999, null=True, blank=True)
     fba_id = models.CharField(max_length=99999, null=True, blank=True)
     ref_id = models.CharField(max_length=99999, null=True, blank=True)
@@ -62,7 +62,7 @@ class Pallet(models.Model):
 
     note = models.CharField(max_length=8000, null=True, blank=True)
     note_sp = models.CharField(max_length=2000, null=True, blank=True)
-    priority = models.CharField(max_length=20, null=True, blank=True)
+    priority = models.CharField(max_length=200, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
     contact_name = models.CharField(max_length=255, null=True, blank=True)
     invoice_delivery = models.ForeignKey(
