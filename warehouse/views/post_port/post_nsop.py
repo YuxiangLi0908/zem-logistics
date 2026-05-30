@@ -177,6 +177,9 @@ class PostNsop(View):
         "pengfeng": "pengfeng",
         "fortune": "fortune",
         "Allways": "Allways",
+        "华送": "华送",
+        "高总": "高总",
+        "得美": "得美",
     }
     shipment_type_options = {
         "FTL": "FTL",

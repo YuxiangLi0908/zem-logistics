@@ -141,6 +141,9 @@ class FleetManagement(View):
         "LiFeng": "LiFeng",
         "FWT": "FWT",
         "SunZong": "SunZong",
+        "华送": "华送",
+        "高总": "高总",
+        "得美": "得美",
     }
 
     async def _get_delivery_type_filter(self, user):
