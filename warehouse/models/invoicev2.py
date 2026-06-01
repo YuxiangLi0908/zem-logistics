@@ -69,7 +69,8 @@ class InvoiceStatusv2(models.Model):
         default="unstarted",  # 未开始
         choices=[
             ("unstarted", "未录入"),
-            ("in_progress", "录入中"), 
+            ("in_progress", "录入中"),
+            ("save", "暂存"),
             ("pending_review", "待组长审核"),
             ("completed", "已完成"),
             ("rejected", "已驳回"),

@@ -1010,13 +1010,34 @@
                         <i class="bi bi-arrow-left-circle"></i> 返回
                     </button>
                 {% elif not is_save_invoice %}
-                    <!-- 未保存 -->
+                    <!-- 未保存 暂时保存-->
+                    {% if 'SAV' in warehouse_filter %}
+                        <button
+                                type="submit"
+                                class="action-btn btn-outline-secondary"
+                                onclick="modifyStatus('save_temporarily')"
+                        >
+                            <i class="bi bi-save me-1"></i>暂时保存
+                        </button>
+                    {% endif %}
+
                     <button type="submit" class="btn btn-success" onclick="modifyStatus('complete')">
                         <i class="bi bi-check-circle"></i> 确认账单
                     </button>
                 {% elif is_save_invoice and is_rejected%}
                     <!-- 已保存但是驳回 -->
                     <div style="display: flex; align-items: center;">
+
+                        {% if 'SAV' in warehouse_filter %}
+                            <button
+                                    type="submit"
+                                    class="action-btn btn-outline-secondary"
+                                    onclick="modifyStatus('save_temporarily')"
+                            >
+                                <i class="bi bi-save me-1"></i>暂时保存
+                            </button>
+                        {% endif %}
+
                         <button type="submit" class="btn btn-success" onclick="modifyStatus('complete')">
                             <i class="bi bi-check-circle"></i> 确认账单
                         </button>

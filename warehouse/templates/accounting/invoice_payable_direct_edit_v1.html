@@ -383,20 +383,51 @@
                     <i class="bi bi-arrow-left-circle me-1"></i>返回
                 </button>
             {% elif not is_save_invoice %}
-                <!-- 未保存账单 -->
-                <div class="d-flex align-items-center">
-                    <button type="submit" class="action-btn btn-success me-2" onclick="modifyStatus('complete_direct')">
+                <!-- 未保存账单（仅 SAV 显示暂存） -->
+                <div class="invoice-action-group">
+                    {% if 'SAV' in warehouse_filter %}
+                        <button
+                                type="submit"
+                                class="action-btn btn-outline-secondary"
+                                onclick="modifyStatus('save_temporarily')"
+                        >
+                            <i class="bi bi-save me-1"></i>暂时保存
+                        </button>
+                    {% endif %}
+
+                    <button
+                            type="submit"
+                            class="action-btn btn-success"
+                            onclick="modifyStatus('complete_direct')"
+                    >
                         <i class="bi bi-check-circle me-1"></i>确认账单
                     </button>
                 </div>
-            {% elif is_save_invoice and is_rejected%}
-                <!--客服看到的已保存但驳回-跟未保存账单是一样的-->
-                <button type="submit" class="action-btn btn-success" onclick="modifyStatus('complete_direct')">
-                    <i class="bi bi-check-circle me-1"></i>确认账单
-                </button>
+
+            {% elif is_save_invoice and is_rejected %}
+                <!-- SAV 已暂存 + 被驳回 -->
+                <div class="invoice-action-group">
+                    {% if 'SAV' in warehouse_filter %}
+                        <button
+                                type="submit"
+                                class="action-btn btn-outline-secondary"
+                                onclick="modifyStatus('save_temporarily')"
+                        >
+                            <i class="bi bi-save me-1"></i>暂时保存
+                        </button>
+                    {% endif %}
+
+                    <button
+                            type="submit"
+                            class="action-btn btn-success"
+                            onclick="modifyStatus('complete_direct')"
+                    >
+                        <i class="bi bi-check-circle me-1"></i>确认账单
+                    </button>
+                </div>
 
                 {% if reject_reason %}
-                    <div class="alert alert-warning">
+                    <div class="alert alert-warning reject-reason-box mt-3">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
                         <div>
                             <strong>驳回原因：</strong>

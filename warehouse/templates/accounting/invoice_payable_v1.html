@@ -659,7 +659,7 @@
         </div>
     </form>
 
-    <!-- 导出区域 -->
+    <!-- 导出区域 导出的是已审核内容-->
     <form method="post" action="" class="warehouse-selector">
         {% csrf_token %}
         <div class="filter-controls export-controls">
@@ -1095,9 +1095,11 @@
                                 {% if c.container_number %}
                                     {% with order=c.container_number.orders.first %}
                                         {% if order %}
-                                            <tr {% if c.preport_status == "rejected" or c.warehouse_public_status == "rejected" or c.warehouse_other_status == "rejected" or c.delivery_public_status == "rejected" or c.delivery_other_status == "rejected" %}
+                                            <tr {% if c.preport_status == "rejected" %}
                                                         class="table-warning"
-                                                    {% endif %}
+                                                 {% elif c.preport_status == "save" %}
+                                                        class="table-info"
+                                                 {% endif %}
                                                         data-container="{{ c.container_number.container_number|lower }}"
                                                         data-retrieval="{% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}{{ order.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
                                                 <td class="td">{{ order.customer_name.zem_name|default:"无" }}</td>
