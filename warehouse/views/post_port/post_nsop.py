@@ -88,6 +88,7 @@ from warehouse.models.invoicev2 import (
 )
 from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
+from warehouse.models.system_parameter import SystemParameter
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.warehouse.palletization import Palletization
@@ -125,6 +126,7 @@ class PostNsop(View):
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_easy_action_table = "post_port/new_sop/leader_check/easy_action_table.html"
     template_sp_bind_history = "post_port/new_sop/leader_check/sp_bind_history.html"
+    template_system_parameter_add = "post_port/new_sop/leader_check/system_parameter_add.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -296,7 +298,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "easy_action":
             return render(request, self.template_easy_action_table, {})
-
+        elif step == "system_parameter_add":
+            context = await self._get_system_parameter_context()
+            return render(request, self.template_system_parameter_add, context)
         else:
             raise ValueError('输入错误')
 
@@ -747,6 +751,16 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "generate_table_pdf":
             return await self.handle_generate_table_pdf(request)
+        elif step == "system_parameter_add_category":
+            return await self._handle_system_parameter_add_category(request)
+        elif step == "system_parameter_add_item":
+            return await self._handle_system_parameter_add_item(request)
+        elif step == "system_parameter_toggle":
+            return await self._handle_system_parameter_toggle(request)
+        elif step == "system_parameter_delete":
+            return await self._handle_system_parameter_delete(request)
+        elif step == "system_parameter_select_category":
+            return await self._handle_system_parameter_select_category(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -17688,3 +17702,96 @@ class PostNsop(View):
 
         context['results'] = results
         return self.template_sp_bind_history, context
+
+    async def _get_system_parameter_context(self, current_category=None):
+        categories = await sync_to_async(list)(
+            SystemParameter.objects.values("category")
+            .annotate(count=models.Count("id"))
+            .order_by("category")
+        )
+        context = {
+            "categories": categories,
+            "current_category": current_category,
+        }
+        if current_category:
+            context["parameters"] = await sync_to_async(list)(
+                SystemParameter.objects.filter(
+                    category=current_category
+                ).order_by("sort_order", "id")
+            )
+        return context
+
+    async def _handle_system_parameter_add_category(self, request: HttpRequest):
+        category_name = request.POST.get("category_name", "").strip()
+        if not category_name:
+            messages.error(request, "分类名称不能为空")
+        else:
+            exists = await sync_to_async(
+                lambda: SystemParameter.objects.filter(category=category_name).exists()
+            )()
+            if exists:
+                messages.warning(request, f"分类 '{category_name}' 已存在")
+            else:
+                messages.success(request, f"分类 '{category_name}' 已创建，请添加参数")
+        context = await self._get_system_parameter_context(current_category=category_name if category_name else None)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_add_item(self, request: HttpRequest):
+        category = request.POST.get("category", "").strip()
+        param_value = request.POST.get("param_value", "").strip()
+        username = await sync_to_async(lambda: request.user.username)()
+
+        if not param_value:
+            messages.error(request, "参数值不能为空")
+        else:
+            exists = await sync_to_async(
+                lambda: SystemParameter.objects.filter(category=category, key=param_value).exists()
+            )()
+            if exists:
+                messages.error(request, f"分类 '{category}' 下已存在参数 '{param_value}'")
+            else:
+                await sync_to_async(SystemParameter.objects.create)(
+                    category=category,
+                    key=param_value,
+                    value=param_value,
+                    created_by=username,
+                )
+                messages.success(request, f"已添加参数: {param_value}")
+        context = await self._get_system_parameter_context(current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_toggle(self, request: HttpRequest):
+        param_id = request.POST.get("param_id")
+        category = request.POST.get("category", "").strip()
+        param = await sync_to_async(
+            lambda: SystemParameter.objects.filter(id=param_id).first()
+        )()
+        if param:
+            param.is_active = not param.is_active
+            await sync_to_async(param.save)()
+            status_text = "启用" if param.is_active else "停用"
+            messages.success(request, f"已{status_text}参数: {param.key}")
+        else:
+            messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_delete(self, request: HttpRequest):
+        param_id = request.POST.get("param_id")
+        category = request.POST.get("category", "").strip()
+        param = await sync_to_async(
+            lambda: SystemParameter.objects.filter(id=param_id).first()
+        )()
+        if param:
+            key = param.key
+            await sync_to_async(param.delete)()
+            messages.success(request, f"已删除参数: {key}")
+        else:
+            messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_select_category(self, request: HttpRequest):
+        category = request.POST.get("category", "").strip()
+        context = await self._get_system_parameter_context(current_category=category)
+        return render(request, self.template_system_parameter_add, context)
