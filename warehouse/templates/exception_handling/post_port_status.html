@@ -388,6 +388,7 @@
             <th>预约类型</th>
             <th>当前状态</th>
             <th>目的地</th>
+            <th>装载类型</th>
             <th>绑定车次</th>
             <th>供应商</th>
             <th>picktime</th>
@@ -442,6 +443,20 @@
                 </span>
             </td>
             <td>{{ shipment.destination|default:"-" }}</td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_shipment_load_type">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="load_type" class="load-type-select" onchange="this.form.submit()">
+                        {% for key, value in load_type_options %}
+                        <option value="{{ value }}" {% if shipment.load_type == value %}selected{% endif %}>{{ key }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </td>
             <td>{{ shipment.fleet_number}}</td>
             <td>{{ shipment.carrier|default:"-" }}</td>
             <td>{{ shipment.pickup_time|default:"-" }}</td>
