@@ -1728,6 +1728,7 @@ class Palletization(View):
                 offload.offload_other_at = offload.offload_at
 
             await self._update_shipment_stats(ids)
+            await sync_to_async(offload.save)()
 
             abnormal_offload_instances = [
                 AbnormalOffloadStatus(**d) for d in abnormal_offloads
