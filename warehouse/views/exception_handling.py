@@ -58,7 +58,7 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from django.db import transaction
 from asgiref.sync import sync_to_async
 
-from warehouse.utils.constants import WAREHOUSE_OPTIONS
+from warehouse.utils.constants import WAREHOUSE_OPTIONS, LOAD_TYPE_OPTIONS
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 import logging
@@ -197,6 +197,9 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "update_shipment_is_canceled":
             template, context = await self.handle_update_shipment_is_canceled(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_load_type":
+            template, context = await self.handle_update_shipment_load_type(request)
             return await sync_to_async(render)(request, template, context)
         #修改主约和实际约
         elif step == "search_container":
@@ -4561,6 +4564,7 @@ class ExceptionHandling(View):
         context = {
             "warehouse_options": WAREHOUSE_OPTIONS,
             'shipment_type_options': self.shipment_type_options,
+            'load_type_options': LOAD_TYPE_OPTIONS,
         }
         
         search_value = request.POST.get('search_value', '').strip()
@@ -4676,6 +4680,23 @@ class ExceptionHandling(View):
             messages.success(request, f"成功更新预约批次 {shipment.shipment_batch_number} 的类型为: {shipment_type}")
         else:
             messages.error(request, f"未找到 ID 为 {shipment_id} 的车次")
+        return await self.handle_search_shipment(request)
+    
+    async def handle_update_shipment_load_type(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        load_type = request.POST.get('load_type')
+        
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.filter(id=shipment_id).first()
+        )()
+        
+        if shipment:
+            shipment.load_type = load_type
+            await sync_to_async(shipment.save)()
+            
+            messages.success(request, f"成功更新预约批次 {shipment.shipment_batch_number} 的装载类型为: {load_type}")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的预约")
         return await self.handle_search_shipment(request)
     
     async def handle_update_fleet_type(self, request: HttpRequest):
