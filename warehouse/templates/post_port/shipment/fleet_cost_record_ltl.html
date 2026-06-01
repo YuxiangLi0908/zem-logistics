@@ -506,30 +506,9 @@
                                         {% csrf_token %}
                                         <select name="supplier" style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
                                             <option value="">-- 请选择供应商 --</option>
-                                            <option value="ARM" {% if f.fleet_number.Supplier == "ARM" %}selected{% endif %}>ARM</option>
-                                            <option value="ASH" {% if f.fleet_number.Supplier == "ASH" %}selected{% endif %}>ASH</option>
-                                            <option value="Lifeng" {% if f.fleet_number.Supplier == "Lifeng" %}selected{% endif %}>Lifeng</option>
-                                            <option value="ZEM" {% if f.fleet_number.Supplier == "ZEM" %}selected{% endif %}>ZEM</option>
-                                            <option value="ALLWAYS" {% if f.fleet_number.Supplier == "ALLWAYS" %}selected{% endif %}>ALLWAYS</option>
-                                            <option value="TRANSITO INC" {% if f.fleet_number.Supplier == "TRANSITO INC" %}selected{% endif %}>TRANSITO INC</option>
-                                            <option value="ISSY TRUCKING" {% if f.fleet_number.Supplier == "ISSY TRUCKING" %}selected{% endif %}>ISSY TRUCKING</option>
-                                            <option value="LLT Freight Inc" {% if f.fleet_number.Supplier == "LLT Freight Inc" %}selected{% endif %}>LLT Freight Inc</option>
-                                            <option value="AMF" {% if f.fleet_number.Supplier == "AMF" %}selected{% endif %}>AMF</option>
-                                            <option value="FWT" {% if f.fleet_number.Supplier == "FWT" %}selected{% endif %}>FWT</option>
-                                            <option value="Fastline" {% if f.fleet_number.Supplier == "Fastline" %}selected{% endif %}>Fastline</option>
-                                            <option value="fortune" {% if f.fleet_number.Supplier == "fortune" %}selected{% endif %}>fortune</option>
-                                            <option value="FOREST SHIPPING USA INC" {% if f.fleet_number.Supplier == "FOREST SHIPPING USA INC" %}selected{% endif %}>FOREST SHIPPING USA INC</option>
-                                            <option value="Forest Shipping New York INC" {% if f.fleet_number.Supplier == "Forest Shipping New York INC" %}selected{% endif %}>Forest Shipping New York INC</option>
-                                            <option value="FUTURE" {% if f.fleet_number.Supplier == "FUTURE" %}selected{% endif %}>FUTURE</option>
-                                            <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ</option>
-                                            <option value="client pickup" {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client pickup</option>
-                                            <option value="大黄" {% if f.fleet_number.Supplier == "大黄" %}selected{% endif %}>大黄</option>
-                                            <option value="new world" {% if f.fleet_number.Supplier == "new world" %}selected{% endif %}>new world</option>
-                                            <option value="鹏峰" {% if f.fleet_number.Supplier == "鹏峰" %}selected{% endif %}>鹏峰</option>
-                                            <option value="JCR" {% if f.fleet_number.Supplier == "JCR" %}selected{% endif %}>JCR</option>
-                                            <option value="Jims" {% if f.fleet_number.Supplier == "Jims" %}selected{% endif %}>Jims</option>
-                                            <option value="Huasong" {% if f.fleet_number.Supplier == "Huasong" %}selected{% endif %}>Huasong</option>
-                                            <option value="Steven" {% if f.fleet_number.Supplier == "Steven" %}selected{% endif %}>Steven</option>
+                                            {% for supplier in supplier_list %}
+                                                <option value="{{ supplier }}" {% if f.fleet_number.Supplier == supplier %}selected{% endif %}>{{ supplier }}</option>
+                                            {% endfor %}
                                         </select>
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">
@@ -543,30 +522,9 @@
                                         {% csrf_token %}
                                         <select name="supplier" style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
                                             <option value="">-- 请选择供应商 --</option>
-                                            <option value="ARM" {% if f.fleet_number.Supplier == "ARM" %}selected{% endif %}>ARM</option>
-                                            <option value="ASH" {% if f.fleet_number.Supplier == "ASH" %}selected{% endif %}>ASH</option>
-                                            <option value="Lifeng" {% if f.fleet_number.Supplier == "Lifeng" %}selected{% endif %}>Lifeng</option>
-                                            <option value="ZEM" {% if f.fleet_number.Supplier == "ZEM" %}selected{% endif %}>ZEM</option>
-                                            <option value="ALLWAYS" {% if f.fleet_number.Supplier == "ALLWAYS" %}selected{% endif %}>ALLWAYS</option>
-                                            <option value="TRANSITO INC" {% if f.fleet_number.Supplier == "TRANSITO INC" %}selected{% endif %}>TRANSITO INC</option>
-                                            <option value="ISSY TRUCKING" {% if f.fleet_number.Supplier == "ISSY TRUCKING" %}selected{% endif %}>ISSY TRUCKING</option>
-                                            <option value="LLT Freight Inc" {% if f.fleet_number.Supplier == "LLT Freight Inc" %}selected{% endif %}>LLT Freight Inc</option>
-                                            <option value="AMF" {% if f.fleet_number.Supplier == "AMF" %}selected{% endif %}>AMF</option>
-                                            <option value="FWT" {% if f.fleet_number.Supplier == "FWT" %}selected{% endif %}>FWT</option>
-                                            <option value="Fastline" {% if f.fleet_number.Supplier == "Fastline" %}selected{% endif %}>Fastline</option>
-                                            <option value="fortune" {% if f.fleet_number.Supplier == "fortune" %}selected{% endif %}>fortune</option>
-                                            <option value="FOREST SHIPPING USA INC" {% if f.fleet_number.Supplier == "FOREST SHIPPING USA INC" %}selected{% endif %}>FOREST SHIPPING USA INC</option>
-                                            <option value="Forest Shipping New York INC" {% if f.fleet_number.Supplier == "Forest Shipping New York INC" %}selected{% endif %}>Forest Shipping New York INC</option>
-                                            <option value="FUTURE" {% if f.fleet_number.Supplier == "FUTURE" %}selected{% endif %}>FUTURE</option>
-                                            <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ</option>
-                                            <option value="client pickup" {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client pickup</option>
-                                            <option value="大黄" {% if f.fleet_number.Supplier == "大黄" %}selected{% endif %}>大黄</option>
-                                            <option value="new world" {% if f.fleet_number.Supplier == "new world" %}selected{% endif %}>new world</option>
-                                            <option value="鹏峰" {% if f.fleet_number.Supplier == "鹏峰" %}selected{% endif %}>鹏峰</option>
-                                            <option value="JCR" {% if f.fleet_number.Supplier == "JCR" %}selected{% endif %}>JCR</option>
-                                            <option value="Jims" {% if f.fleet_number.Supplier == "Jims" %}selected{% endif %}>Jims</option>
-                                            <option value="Huasong" {% if f.fleet_number.Supplier == "Huasong" %}selected{% endif %}>Huasong</option>
-                                            <option value="Steven" {% if f.fleet_number.Supplier == "Steven" %}selected{% endif %}>Steven</option>
+                                            {% for supplier in supplier_list %}
+                                                <option value="{{ supplier }}" {% if f.fleet_number.Supplier == supplier %}selected{% endif %}>{{ supplier }}</option>
+                                            {% endfor %}
                                         </select>
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">

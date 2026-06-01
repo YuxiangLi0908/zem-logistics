@@ -70,6 +70,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
+from warehouse.models.system_parameter import SystemParameter
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import (
     APP_ENV,
@@ -3060,6 +3061,7 @@ class FleetManagement(View):
         shipment = await process_shipment_data(shipment)
 
         # 构建上下文
+        supplier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
         context = {
             "shipment_type": shipment_type,
             "start_time": start_time,
@@ -3072,6 +3074,7 @@ class FleetManagement(View):
             # 新增：传递一提多卸分组数据到前端
             "multi_unload_map": multi_unload_map,
             "fleet_to_group_map": fleet_to_group_map,  # 新增：车次号→分组映射
+            "supplier_list": supplier_list,
         }
         return self.template_fleet_cost_record_ltl, context
 

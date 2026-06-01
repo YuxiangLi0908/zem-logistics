@@ -267,12 +267,12 @@ class PostNsop(View):
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
-        elif step == "LTL_pallets":
+        elif step == "LTL_pallets":       
             context = {
                 "warehouse_options": WAREHOUSE_OPTIONS
             }
             return render(request, self.template_ltl_pos_all, context)
-        elif step == "LTL_history_po":
+        elif step == "LTL_history_po":        
             context = {
                 "warehouse_options": WAREHOUSE_OPTIONS
             }
@@ -284,7 +284,11 @@ class PostNsop(View):
             context = {"warehouse_options": WAREHOUSE_OPTIONS}
             return render(request, self.template_batch_shipment, context)      
         elif step == "batch_shipment_other":
-            context = {"warehouse_options": WAREHOUSE_OPTIONS}
+            supplier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
+            context = {
+                "warehouse_options": WAREHOUSE_OPTIONS,
+                "supplier_list": supplier_list
+            }
             return render(request, self.template_batch_other_shipment, context)
         elif step == "download_batch_shipment_template":
             return await self.handle_download_batch_shipment_template(request)
@@ -1119,31 +1123,7 @@ class PostNsop(View):
             
             # 验证供应商
             supplier = group.get('supplier')
-            valid_suppliers = [
-                "ARM",
-                "ASH",
-                "Lifeng",
-                "ZEM",
-                "TRANSITO INC",
-                "ALLWAYS",
-                "ISSY TRUCKING",
-                "LLT Freight Inc",
-                "AMF",
-                "FWT",
-                "Fastline",
-                "fortune",
-                "FOREST SHIPPING USA INC",
-                "Forest Shipping New York INC",
-                "FUTURE",
-                "EAZ",
-                "Newworld",
-                "鹏峰",
-                "JCR",
-                "Jims",
-                "Huasong",
-                "Steven",
-                "client pickup"
-            ]
+            valid_suppliers = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
             if supplier and supplier not in valid_suppliers:
                 validation_errors.append(f'供应商必须是以下之一: {", ".join(valid_suppliers)}')
                 field_errors['supplier'] = True
@@ -12597,6 +12577,8 @@ class PostNsop(View):
         }
         if not context:
             context = {}
+
+        supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
         context.update({
             'warehouse': warehouse,
             'warehouse_options': WAREHOUSE_OPTIONS,
@@ -12612,6 +12594,7 @@ class PostNsop(View):
             "warehouse_name": warehouse_name,
             "start_date": start_date,
             "end_date": end_date,
+            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping))
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
@@ -12817,6 +12800,8 @@ class PostNsop(View):
         }
         if not context:
             context = {}
+        supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
+        
         context.update({
             'warehouse': warehouse,
             'warehouse_options': WAREHOUSE_OPTIONS,
@@ -12835,6 +12820,7 @@ class PostNsop(View):
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
+            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping))
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
@@ -16280,7 +16266,6 @@ class PostNsop(View):
 
     async def search_by_batch_mode(self, start_date, end_date, batch_number, delivery_type):
         """批次号模式查询 - 以 shipment 表为主体，按异常类型和原因合并显示"""
-        import json
         from django.apps import apps
         Shipment = apps.get_model('warehouse', 'Shipment')
         Pallet = apps.get_model('warehouse', 'Pallet')
