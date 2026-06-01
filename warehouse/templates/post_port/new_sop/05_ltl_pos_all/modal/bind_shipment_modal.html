@@ -214,11 +214,24 @@
             text-align: center;
         }
         
-        /* 供应商列 - 更窄 */
+        /* 供应商/预约类型列 */
         .modal-table th:nth-child(4),
         .modal-table td:nth-child(4) {
-            width: 90px;
-            max-width: 90px;
+            min-width: 140px;
+        }
+        
+        /* 承运公司/Label列 */
+        .modal-table th:nth-child(3),
+        .modal-table td:nth-child(3) {
+            width: 60px;
+            max-width: 60px;
+        }
+        
+        /* 车次成本/备注列 */
+        .modal-table th:nth-child(6),
+        .modal-table td:nth-child(6) {
+            width: 150px;
+            max-width: 150px;
         }
     
     /* 滚动容器 */
@@ -234,7 +247,7 @@
 <div id="bindShipmentModal" class="modal">
     <div class="modal-content" style="width: 100%; max-width: 1200px; max-height: 700px;">
         <div class="modal-header">
-            <h3><i class="fas fa-link"></i> 预约出库</h3>
+            <h3><i class="fas fa-link"></i> 私仓预约出库</h3>
             <span class="close">&times;</span>
         </div>
         <div class="modal-body" style="padding: 20px;">
@@ -309,13 +322,13 @@
                                     <input type="text" name="arm_pro" id="arm_pro" class="form-input">
                                     <div class="field-hint">自动从选中记录合并</div>
                                 </td>
-                                <td style="width: 80px;">
+                                <td>
                                     <select name="is_print_label" id="is-print-label" class="form-select">
                                         <option value="false">否</option>
                                         <option value="true">是</option>
                                     </select>
                                 </td>
-                                <td style="width: 100px;">
+                                <td>
                                     <select name="shipment_type" id="ltl-shipment-type-select" class="form-select">
                                         <option value="LTL">LTL</option>
                                         <option value="客户自提">客户自提</option>
@@ -550,7 +563,7 @@
         const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
         const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
         
-        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 预约出库';
+        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 私仓预约出库';
         if (submitButton) submitButton.innerHTML = '<i class="fas fa-check"></i> 确认预约出库';
         if (cargoSelectionTitle) cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择的货物';
         
