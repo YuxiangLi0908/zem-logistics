@@ -283,7 +283,7 @@ class Accounting(View):
                 request, False, False, True
             )
             return render(request, template, context)
-        # 待录入
+        # 待录入/暂时保存
         elif step == "container_payable_to_be_entered":
             template, context = self.handle_container_invoice_payable_get_v1(
                 request, False, False, False
@@ -6515,8 +6515,8 @@ class Accounting(View):
             invoice_status.save()
             return self.handle_invoice_payable_get_v1(
                 request,
-                data.get("start_date_confirm"),
-                data.get("end_date_confirm"),
+                start_date_confirm,
+                end_date_confirm,
                 data.get("customer"),
                 data.get("warehouse_filter"),
             )
@@ -6987,6 +6987,9 @@ class Accounting(View):
             invoice_status.preport_status = "completed"  # 直送账单
             invoice_status.finance_status = "tobeconfirmed"  # 待财务审核
             invoice_status.preport_reason = ""
+
+        if save_type == "save_temporarily":
+            invoice_status.preport_status = "save"  # 暂存
 
         #财务编辑账单
         if save_type == "complete_finance":
@@ -9093,10 +9096,6 @@ class Accounting(View):
                 # 保留原有的 reject_priority 注解（待审核订单排序用）
                 reject_priority=Case(
                     When(preport_status="rejected", then=Value(1)),
-                    When(warehouse_public_status="rejected", then=Value(1)),
-                    When(warehouse_other_status="rejected", then=Value(1)),
-                    When(delivery_public_status="rejected", then=Value(1)),
-                    When(delivery_other_status="rejected", then=Value(1)),
                     default=Value(2),
                     output_field=IntegerField(),
                 )
@@ -9360,25 +9359,13 @@ class Accounting(View):
                 # 合并状态条件：待录入 OR 已录入（互斥）
                 Q(
                     # 待录入的状态条件（严格匹配原逻辑：所有状态都在待录入范围）
-                    preport_status__in=["unstarted", "in_progress", "rejected"],
-                    warehouse_public_status__in=["unstarted", "in_progress", "rejected"],
-                    warehouse_other_status__in=["unstarted", "in_progress", "rejected"],
-                    delivery_public_status__in=["unstarted", "in_progress", "rejected"],
-                    delivery_other_status__in=["unstarted", "in_progress", "rejected"],
+                    preport_status__in=["unstarted", "in_progress", "save", "rejected"],
                 ) | Q(
                     # 已录入的状态条件（严格匹配原逻辑：任意一个状态完成/待审核）
                     Q(preport_status__in=["pending_review", "completed"]) |
-                    Q(warehouse_public_status="completed") |
-                    Q(warehouse_other_status="completed") |
-                    Q(delivery_public_status="completed") |
-                    Q(delivery_other_status="completed"),
                     # 关键：排除待录入的状态（避免条件重叠）
                     ~Q(
-                        preport_status__in=["unstarted", "in_progress", "rejected"],
-                        warehouse_public_status__in=["unstarted", "in_progress", "rejected"],
-                        warehouse_other_status__in=["unstarted", "in_progress", "rejected"],
-                        delivery_public_status__in=["unstarted", "in_progress", "rejected"],
-                        delivery_other_status__in=["unstarted", "in_progress", "rejected"],
+                        preport_status__in=["unstarted", "in_progress", "save", "rejected"],
                     )
                 )
             )
@@ -9388,20 +9375,12 @@ class Accounting(View):
                 record_type=Case(
                     When(
                         # 待录入的判定条件（和原filter完全一致）
-                        preport_status__in=["unstarted", "in_progress", "rejected"],
-                        warehouse_public_status__in=["unstarted", "in_progress", "rejected"],
-                        warehouse_other_status__in=["unstarted", "in_progress", "rejected"],
-                        delivery_public_status__in=["unstarted", "in_progress", "rejected"],
-                        delivery_other_status__in=["unstarted", "in_progress", "rejected"],
+                        preport_status__in=["unstarted", "in_progress", "save", "rejected"],
                         then=Value(0)
                     ),
                     When(
                         # 已录入的判定条件（和原filter完全一致）
-                        Q(preport_status__in=["pending_review", "completed"]) |
-                        Q(warehouse_public_status="completed") |
-                        Q(warehouse_other_status="completed") |
-                        Q(delivery_public_status="completed") |
-                        Q(delivery_other_status="completed"),
+                        Q(preport_status__in=["pending_review", "completed"]),
                         then=Value(1)
                     ),
                     default=Value(-1),  # 异常标记，便于排查
@@ -9410,10 +9389,6 @@ class Accounting(View):
                 # 保留原待录入订单的reject_priority注解（原逻辑不变）
                 reject_priority=Case(
                     When(preport_status="rejected", then=Value(1)),
-                    When(warehouse_public_status="rejected", then=Value(1)),
-                    When(warehouse_other_status="rejected", then=Value(1)),
-                    When(delivery_public_status="rejected", then=Value(1)),
-                    When(delivery_other_status="rejected", then=Value(1)),
                     default=Value(2),
                     output_field=IntegerField(),
                 )
@@ -11790,15 +11765,8 @@ class Accounting(View):
         # 未存储过，或者存储了被驳回，或者是组长权限其未被财务确认
         is_editable = (
             invoice_status.preport_status == "unstarted"
-            or invoice_status.warehouse_public_status == "unstarted"
-            or invoice_status.warehouse_other_status == "unstarted"
-            or invoice_status.delivery_public_status == "unstarted"
-            or invoice_status.delivery_other_status == "unstarted"
             or invoice_status.preport_status == "rejected"
-            or invoice_status.warehouse_public_status == "rejected"
-            or invoice_status.warehouse_other_status == "rejected"
-            or invoice_status.delivery_public_status == "rejected"
-            or invoice_status.delivery_other_status == "rejected"
+            or invoice_status.preport_status == "save"
             or (payable_check and invoice_status.finance_status == "tobeconfirmed")
         )
         # 是否为财务审核状态
@@ -11815,18 +11783,6 @@ class Accounting(View):
         if invoice_status.preport_status == "rejected":
             is_rejected = True
             reject_reason = invoice_status.preport_reason
-        elif invoice_status.warehouse_public_status == "rejected":
-            is_rejected = True
-            reject_reason = invoice_status.warehouse_public_reason
-        elif invoice_status.warehouse_other_status == "rejected":
-            is_rejected = True
-            reject_reason = invoice_status.warehouse_self_reason
-        elif invoice_status.delivery_public_status == "rejected":
-            is_rejected = True
-            reject_reason = invoice_status.delivery_public_reason
-        elif invoice_status.delivery_other_status == "rejected":
-            is_rejected = True
-            reject_reason = invoice_status.delivery_other_reason
 
         # 构建基础上下文
         context = {
@@ -11881,7 +11837,7 @@ class Accounting(View):
         customer = context["customer"]
         customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
         # 如果已保存且不是驳回状态，从数据库读取
-        if context["is_save_invoice"] and not context["is_rejected"]:
+        if context["is_save_invoice"] and not context["is_rejected"] or context["invoice_status"].preport_status == 'save':
             invoice_items = InvoiceItemv2.objects.filter(
                 invoice_number=context["invoice"], invoice_type="payable_direct"
             ).all()
@@ -12283,8 +12239,14 @@ class Accounting(View):
             # 只有供应商存在才读取报价表
             need_read_quotation = need_read_quotation and supplier_valid
 
-        # 最终判断
-        if need_read_quotation:
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            invoice_type='payable'
+        )
+
+        # 需要读报价表 或者没有暂存
+        if need_read_quotation and not existing_items.exists():
             fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
 
             # 计算提拆费
@@ -12434,12 +12396,6 @@ class Accounting(View):
             # 无-则返回原名称（去空格）
             return description.strip()
 
-        # ========== 原有代码修改部分 ==========
-        # 获取现有的费用项目
-        existing_items = InvoiceItemv2.objects.filter(
-            invoice_number=invoice,
-            invoice_type='payable'
-        )
         # 获取已存在的费用描述列表（先分割再存储）
         existing_descriptions = [split_fee_name(item.description) for item in existing_items]
 
@@ -12466,7 +12422,7 @@ class Accounting(View):
             })
 
         # 如果是第一次录入且没有费用记录，添加费用默认值
-        if not existing_items.exists() and (invoice_status.preport_status == 'unstarted' or invoice_status.preport_status == 'rejected'):
+        if not existing_items.exists() and (invoice_status.preport_status == 'unstarted' or invoice_status.preport_status == 'rejected' or invoice_status.preport_status == 'save'):
             # Eric订单：仅添加入库费，其他费用不添加
             if is_eric_la_transfer:
                 pass
@@ -12482,7 +12438,6 @@ class Accounting(View):
                     'amount': 0,
                     'note': '',
                 })
-            # ============================================================================
             else:
                 # 正常订单逻辑
                 if pickup_fee > 0:
