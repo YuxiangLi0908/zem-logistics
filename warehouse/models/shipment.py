@@ -7,6 +7,7 @@ from warehouse.models.fleet import Fleet
 
 
 class Shipment(models.Model):
+    LOAD_TYPE_CHOICES = [("卡板", "卡板"), ("地板", "地板")]
     shipment_batch_number = models.CharField(max_length=255, null=True, blank=True)
     master_batch_number = models.CharField(max_length=255, null=True, blank=True)
     batch = models.IntegerField(null=True, default=0)
@@ -31,7 +32,10 @@ class Shipment(models.Model):
     is_arrived = models.BooleanField(default=False, null=True, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
     arrived_at_utc = models.DateTimeField(null=True, blank=True)
-    load_type = models.CharField(max_length=255, null=True, blank=True)
+    load_type = models.CharField(
+        max_length=255, null=True, blank=True, 
+        choices=LOAD_TYPE_CHOICES
+    )
     shipment_account = models.CharField(max_length=255, null=True, blank=True)
     shipment_type = models.CharField(max_length=255, null=True, blank=True)
     total_weight = models.FloatField(null=True, default=0)
