@@ -514,23 +514,6 @@ WEST_COAST_REGION1 = [
     "LGB4", "LGB6", "SBD2", "SNA4", "XLX7", "PSP3"
 ]
 
-CARRIER_FLEET = {
-    "": "",
-    "Arm-AMF": "Arm-AMF",
-    "Zem-AMF": "Zem-AMF",
-    "ASH": "ASH",
-    "Arm": "Arm",
-    "ZEM": "ZEM",
-    "LiFeng": "LiFeng",
-    "LLC": "LLC",
-    "FWT": "FWT",
-    "大森林": "大森林",
-    "Sunzong": "Sunzong",
-    "华送": "华送",
-    "高总": "高总",
-    "得美": "得美",
-}
-
 PORT_TO_WAREHOUSE_AREA = {
     "LBCT Pier E": "LA",
     "TRAPAC": "LA",

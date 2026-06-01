@@ -80,18 +80,6 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
     WEST_COAST_REGION1,
-    APP_ENV,
-    CARRIER_FLEET,
-    CONTAINER_PICKUP_CARRIER,
-    SP_DOC_LIB,
-    SP_CLIENT_ID,
-    SP_DOC_LIB,
-    SP_PRIVATE_KEY,
-    SP_SCOPE,
-    SP_TENANT,
-    SP_THUMBPRINT,
-    SP_URL,
-    SYSTEM_FOLDER,
     DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 )
 from warehouse.views.export_file import export_invoice

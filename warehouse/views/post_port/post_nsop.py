@@ -164,25 +164,6 @@ class PostNsop(View):
         "未送达": "未送达",
         "其它": "其它",
     }
-    carrier_options = {
-        "": "",
-        "Arm-AMF": "Arm-AMF",
-        "Zem-AMF": "Zem-AMF",
-        "ASH": "ASH",
-        "Arm": "Arm",
-        "ZEM": "ZEM",
-        "LiFeng": "LiFeng",
-        "LLC": "LLC",
-        "FWT": "FWT",
-        "大森林": "大森林",
-        "Sunzong": "Sunzong",
-        "pengfeng": "pengfeng",
-        "fortune": "fortune",
-        "Allways": "Allways",
-        "华送": "华送",
-        "高总": "高总",
-        "得美": "得美",
-    }
     shipment_type_options = {
         "FTL": "FTL",
         "外配": "外配",
@@ -197,6 +178,14 @@ class PostNsop(View):
         r"^[A-Z]{2}\d{2}$"            # 2字母 + 2数字
     )
     PUBLIC_KEYWORDS = {"WALMART", "沃尔玛", "AMAZON", "亚马逊"}
+    
+    async def get_carrier_options(self):
+        """获取公仓供应商选项（带空选项）"""
+        carrier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("公仓供应商")
+        carrier_dict = {"": ""}
+        for carrier in carrier_list:
+            carrier_dict[carrier] = carrier
+        return carrier_dict
     
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -9152,7 +9141,7 @@ class PostNsop(View):
             'warehouse_options': WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "warehouse": warehouse,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "exception_shipments": exception_sp["exception_shipments"],
             "shipment_data": exception_sp["shipment_data"],
@@ -9211,7 +9200,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             'active_tab': request.POST.get('active_tab')
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
@@ -9523,7 +9512,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             'active_tab': request.POST.get('active_tab'),
             'summary': summary,
             'start_date': start_date,
@@ -9713,7 +9702,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             'active_tab': request.POST.get('active_tab')
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
@@ -12589,7 +12578,7 @@ class PostNsop(View):
             "fleet_cargos": fleet_cargos,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             "start_date": start_date,
@@ -12816,7 +12805,7 @@ class PostNsop(View):
             "pod_data": pod_data,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
@@ -14655,7 +14644,7 @@ class PostNsop(View):
             "delivery_shipments": delivery_data,
             "pod_shipments": pod_data,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
         })
         active_tab = request.POST.get('active_tab')

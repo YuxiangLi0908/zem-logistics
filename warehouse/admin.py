@@ -44,6 +44,7 @@ from warehouse.models.vessel import Vessel
 from warehouse.models.maersk_price_rate import MaerskPriceRate
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.shipment_bindlog import ShipmentBindingLog
+from warehouse.models.system_parameter import SystemParameter
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)
@@ -82,6 +83,7 @@ admin.site.register(Invoicev2, SimpleHistoryAdmin)
 admin.site.register(InvoiceItemv2, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatusv2, SimpleHistoryAdmin)
 admin.site.register(MaerskPriceRate, SimpleHistoryAdmin)
+admin.site.register(SystemParameter, SimpleHistoryAdmin)
 
 
 class ShipmentBindingLogAdmin(SimpleHistoryAdmin):

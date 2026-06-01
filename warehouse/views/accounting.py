@@ -97,6 +97,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.system_parameter import SystemParameter
 from warehouse.models.transaction import Transaction
 from warehouse.utils.constants import (
     ACCT_ACH_ROUTING_NUMBER,
@@ -106,7 +107,6 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
     APP_ENV,
-    CARRIER_FLEET,
     CONTAINER_PICKUP_CARRIER,
     SP_DOC_LIB,
     SP_CLIENT_ID,
@@ -151,6 +151,22 @@ class Accounting(View):
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
     template_invoice_combina = "accounting/invoice_combina.html"
     template_invoice_combina_edit = "accounting/invoice_combina_edit.html"
+
+    async def get_carrier_fleet(self):
+        """获取公仓供应商字典，带空选项（异步版本）"""
+        carrier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("公仓供应商")
+        carrier_dict = {"": ""}
+        for carrier in carrier_list:
+            carrier_dict[carrier] = carrier
+        return carrier_dict
+
+    def get_carrier_fleet_sync(self):
+        """获取公仓供应商字典，带空选项（同步版本）"""
+        carrier_list = SystemParameter.get_active_list_by_category("公仓供应商")
+        carrier_dict = {"": ""}
+        for carrier in carrier_list:
+            carrier_dict[carrier] = carrier
+        return carrier_dict
     template_invoice_search = "accounting/invoice_search.html"
     template_invoice_payable = "accounting/invoice_payable.html"
     template_invoice_payable_v1 = "accounting/invoice_payable_v1.html"
@@ -2711,7 +2727,7 @@ class Accounting(View):
                 "start_date_export": start_date_export,
                 "end_date_export": end_date_export,
                 "invoice_type_filter": "payable",
-                "CARRIER_FLEET": CARRIER_FLEET,
+                "CARRIER_FLEET": self.get_carrier_fleet_sync(),
                 "warehouse_filter": request.POST.get("warehouse_filter"),
             }
             return self.template_invoice_payable_confirm, context
@@ -3129,7 +3145,7 @@ class Accounting(View):
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
-            "CARRIER_FLEET": CARRIER_FLEET,
+            "CARRIER_FLEET": self.get_carrier_fleet_sync(),
             "finance_confirmed_t_waited": finance_confirmed_t_waited,
             "finance_confirmed_x_waited": finance_confirmed_x_waited,
             "finance_confirmed_t_completed": finance_confirmed_t_completed,
@@ -3606,7 +3622,7 @@ class Accounting(View):
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
-            "CARRIER_FLEET": CARRIER_FLEET,
+            "CARRIER_FLEET": self.get_carrier_fleet_sync(),
             "warehouse_filter": request.POST.get("warehouse_filter"),
         }
 
@@ -3932,7 +3948,7 @@ class Accounting(View):
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
-            "CARRIER_FLEET": CARRIER_FLEET,
+            "CARRIER_FLEET": self.get_carrier_fleet_sync(),
             "warehouse_filter": request.POST.get("warehouse_filter"),
         }
         return self.template_invoice_payable_confirm_payable, context
@@ -4329,7 +4345,7 @@ class Accounting(View):
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
-            "CARRIER_FLEET": CARRIER_FLEET,
+            "CARRIER_FLEET": self.get_carrier_fleet_sync(),
             "warehouse_filter": request.POST.get("warehouse_filter"),
         }
         return self.template_invoice_payable_confirm, context
@@ -5437,7 +5453,7 @@ class Accounting(View):
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
-            "CARRIER_FLEET": CARRIER_FLEET,
+            "CARRIER_FLEET": self.get_carrier_fleet_sync(),
             "warehouse_filter": request.POST.get("warehouse_filter"),
         }
 
@@ -5987,7 +6003,8 @@ class Accounting(View):
             start_date = request.POST.get('start_date_export')
             end_date = request.POST.get('end_date_export')
             carrier_key = request.POST.get('select_carrier')
-            carrier_name = CARRIER_FLEET.get(carrier_key, '')
+            carrier_fleet = self.get_carrier_fleet_sync()
+            carrier_name = carrier_fleet.get(carrier_key, '')
             # 新增：获取选中的 fleet id（处理空值，避免分割出空字符串）
             selected_fleet_ids = request.POST.get('selected_fleet_ids', '')
             selected_fleet_ids = [fid.strip() for fid in selected_fleet_ids.split(',') if fid.strip()]
@@ -6017,7 +6034,7 @@ class Accounting(View):
 
             # 筛选供应商（兼容Carrier_key为空的场景，即"全部供应商"）
             if carrier_key:
-                carrier_name_filter = CARRIER_FLEET.get(carrier_key, '')
+                carrier_name_filter = carrier_fleet.get(carrier_key, '')
                 fleet_shipment_criteria &= models.Q(fleet_number__carrier=carrier_name_filter)
 
             delivery_pending_orders = FleetShipmentPallet.objects.select_related(

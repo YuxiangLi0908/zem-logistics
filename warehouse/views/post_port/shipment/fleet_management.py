@@ -147,6 +147,14 @@ class FleetManagement(View):
         "得美": "得美",
     }
 
+    async def get_carrier_options(self):
+        """获取公仓供应商选项（带空选项）"""
+        carrier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("公仓供应商")
+        carrier_dict = {"": ""}
+        for carrier in carrier_list:
+            carrier_dict[carrier] = carrier
+        return carrier_dict
+
     async def _get_delivery_type_filter(self, user):
         """根据用户权限获取delivery_type过滤条件"""
         if user.is_superuser:
@@ -426,7 +434,7 @@ class FleetManagement(View):
             {
                 "fleet": fleet,
                 "shipment": shipment,
-                "carrier_options": self.carrier_options,
+                "carrier_options": await self.get_carrier_options(),
             }
         )
         return self.template_fleet_schedule_info, context
@@ -4507,7 +4515,7 @@ class FleetManagement(View):
                     "fleet_number": fleet_number,
                     "shipment_selected": shipment_selected,
                     "fleet_data": fleet_data,
-                    "carrier_options": self.carrier_options,
+                    "carrier_options": await self.get_carrier_options(),
                 }
             )
             return self.template_fleet_schedule, context
