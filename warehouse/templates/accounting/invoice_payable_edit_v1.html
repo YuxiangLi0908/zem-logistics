@@ -1011,7 +1011,7 @@
                     </button>
                 {% elif not is_save_invoice %}
                     <!-- 未保存 暂时保存-->
-                    {% if 'SAV' in warehouse_filter %}
+                    {% if 'SAV' == warehouse %}
                         <button
                                 type="submit"
                                 class="action-btn btn-outline-secondary"
@@ -1028,7 +1028,7 @@
                     <!-- 已保存但是驳回 -->
                     <div style="display: flex; align-items: center;">
 
-                        {% if 'SAV' in warehouse_filter %}
+                        {% if 'SAV' == warehouse %}
                             <button
                                     type="submit"
                                     class="action-btn btn-outline-secondary"
