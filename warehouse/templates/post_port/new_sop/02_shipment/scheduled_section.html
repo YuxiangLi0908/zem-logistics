@@ -380,7 +380,7 @@
                             <th>装车类型</th>
                             <td>
                                 <select name="load_type" id="editModalLoadType" class="form-select">
-                                    {% for k, v in load_type_options %}
+                                    {% for k, v in load_type_options.items %}
                                     <option value="{{ v }}">{{ k }}</option>
                                     {% endfor %}
                                 </select>
