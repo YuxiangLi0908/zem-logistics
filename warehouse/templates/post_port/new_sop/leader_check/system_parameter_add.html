@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+:root {
+    --primary-color: #1677ff;
+    --success-color: #52c41a;
+    --danger-color: #ff4d4f;
+    --warning-color: #faad14;
+    --bg-color: #f5f7fa;
+    --border-color: #e5e6eb;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+.page-container {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.main-layout {
+    display: flex;
+    gap: 24px;
+}
+
+.left-panel {
+    width: 300px;
+    min-width: 280px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--panel-shadow);
+    align-self: flex-start;
+}
+
+.right-panel {
+    flex: 1;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--panel-shadow);
+}
+
+.panel-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
+}
+
+.btn {
+    padding: 7px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+.btn-primary:hover {
+    background: #0958d9;
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: #fff;
+    padding: 3px 10px;
+    font-size: 12px;
+}
+.btn-danger:hover {
+    background: #d9363e;
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: #fff;
+}
+.btn-success:hover {
+    background: #389e0d;
+}
+
+.btn-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.category-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.category-item:hover {
+    background: #f0f5ff;
+}
+
+.category-item.active {
+    background: #e6f4ff;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.category-item .count-badge {
+    background: var(--border-color);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
+.param-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.param-table th {
+    background: #fafafa;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.param-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.param-table tr:hover td {
+    background: #fafafa;
+}
+
+.param-table .inactive-row td {
+    color: #bbb;
+    text-decoration: line-through;
+}
+
+.status-tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.status-active {
+    background: #f6ffed;
+    color: var(--success-color);
+    border: 1px solid #b7eb8f;
+}
+
+.status-inactive {
+    background: #fff2f0;
+    color: var(--danger-color);
+    border: 1px solid #ffccc7;
+}
+
+.empty-tip {
+    text-align: center;
+    color: #bbb;
+    padding: 40px 0;
+    font-size: 14px;
+}
+
+.message-bar {
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 13px;
+}
+.message-bar.success {
+    background: #f6ffed;
+    color: #389e0d;
+    border: 1px solid #b7eb8f;
+}
+.message-bar.error {
+    background: #fff2f0;
+    color: #cf1322;
+    border: 1px solid #ffccc7;
+}
+</style>
+
+<div class="page-container">
+    <h2 class="page-title">系统参数管理</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="message-bar {% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="main-layout">
+        <!-- 左侧：分类列表 + 添加分类 -->
+        <div class="left-panel">
+            <div class="panel-title">参数分类</div>
+            <form method="post" style="margin-bottom: 14px;">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="system_parameter_add_category">
+                <div class="form-group">
+                    <label>新增分类名称</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" name="category_name" placeholder="输入分类名称" required style="flex:1;">
+                        <button type="submit" class="btn btn-success">添加</button>
+                    </div>
+                </div>
+            </form>
+            <ul class="category-list">
+                {% for cat in categories %}
+                <li class="category-item {% if current_category == cat.category %}active{% endif %}"
+                    onclick="selectCategory('{{ cat.category }}')">
+                    <span>{{ cat.category }}</span>
+                    <span class="count-badge">{{ cat.count }}</span>
+                </li>
+                {% endfor %}
+                {% if not categories %}
+                <li style="color: #bbb; font-size: 13px; padding: 10px; text-align: center;">暂无分类</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- 右侧：参数列表 + 添加参数 -->
+        <div class="right-panel">
+            <div class="panel-title">
+                {% if current_category %}
+                    {{ current_category }} - 参数列表
+                {% else %}
+                    请选择左侧分类
+                {% endif %}
+            </div>
+
+            {% if current_category %}
+            <!-- 添加参数表单 -->
+            <form method="post" style="margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-end;">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="system_parameter_add_item">
+                <input type="hidden" name="category" value="{{ current_category }}">
+                <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                    <label>参数值</label>
+                    <input type="text" name="param_value" placeholder="输入参数值" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="height: 33px;">添加参数</button>
+            </form>
+
+            <!-- 参数表格 -->
+            {% if parameters %}
+            <table class="param-table">
+                <thead>
+                    <tr>
+                        <th>参数值</th>
+                        <th style="width: 80px;">状态</th>
+                        <th style="width: 160px;">创建时间</th>
+                        <th style="width: 90px;">登记人</th>
+                        <th style="width: 100px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for param in parameters %}
+                    <tr class="{% if not param.is_active %}inactive-row{% endif %}">
+                        <td>{{ param.value }}</td>
+                        <td>
+                            {% if param.is_active %}
+                            <span class="status-tag status-active">启用</span>
+                            {% else %}
+                            <span class="status-tag status-inactive">停用</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ param.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ param.created_by|default:"-" }}</td>
+                        <td>
+                            {% if param.is_active %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="system_parameter_toggle">
+                                <input type="hidden" name="param_id" value="{{ param.id }}">
+                                <input type="hidden" name="category" value="{{ current_category }}">
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('确定要停用该参数吗？')">停用</button>
+                            </form>
+                            {% else %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="system_parameter_toggle">
+                                <input type="hidden" name="param_id" value="{{ param.id }}">
+                                <input type="hidden" name="category" value="{{ current_category }}">
+                                <button type="submit" class="btn btn-success" style="padding: 3px 10px; font-size: 12px;">启用</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-tip">该分类下暂无参数</div>
+            {% endif %}
+            {% else %}
+            <div class="empty-tip">请在左侧选择一个分类查看参数</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function selectCategory(category) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.innerHTML = `
+        {% csrf_token %}
+        <input type="hidden" name="step" value="system_parameter_select_category">
+        <input type="hidden" name="category" value="${category}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+{% endblock %}
