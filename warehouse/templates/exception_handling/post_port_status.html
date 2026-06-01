@@ -451,8 +451,11 @@
                     <input type="hidden" name="search_value" value="{{ search_value }}">
                     <input type="hidden" name="search_type" value="{{ search_type }}">
                     <select name="load_type" class="load-type-select" onchange="this.form.submit()">
+                        {% if not shipment.is_load_type_valid %}
+                        <option value="" disabled selected style="color: red;">当前值: {{ shipment.load_type|default:'空' }} (请选择)</option>
+                        {% endif %}
                         {% for key, value in load_type_options %}
-                        <option value="{{ value }}" {% if shipment.load_type == value %}selected{% endif %}>{{ key }}</option>
+                        <option value="{{ value }}" {% if shipment.is_load_type_valid and shipment.load_type == value %}selected{% endif %}>{{ key }}</option>
                         {% endfor %}
                     </select>
                 </form>
