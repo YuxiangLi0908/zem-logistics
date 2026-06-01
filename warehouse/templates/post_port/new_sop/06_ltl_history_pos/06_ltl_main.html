@@ -444,6 +444,9 @@
 {% include 'post_port/new_sop/06_ltl_history_pos/modal/add_po_modal.html' %}
 {% include 'post_port/new_sop/06_ltl_history_pos/modal/departure_modal.html' %}
 <script>
+    // 供应商映射
+    const SUPPLIER_MAPPING = {{ supplier_mapping_json }};
+    
     {% if show_add_po_modal %}
         setTimeout(function () {
             const modal = document.getElementById('addPOModal');

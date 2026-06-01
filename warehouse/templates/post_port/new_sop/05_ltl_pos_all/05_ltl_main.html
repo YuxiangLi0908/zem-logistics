@@ -483,6 +483,9 @@
 {% include 'post_port/new_sop/05_ltl_pos_all/modal/cost_modal.html' %}
 
 <script>
+    // 供应商映射
+    const SUPPLIER_MAPPING = {{ supplier_mapping_json }};
+    
     {% if show_add_po_modal %}
         setTimeout(function () {
             const modal = document.getElementById('addPOModal');

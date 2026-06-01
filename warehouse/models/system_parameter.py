@@ -26,3 +26,19 @@ class SystemParameter(models.Model):
 
     def __str__(self):
         return f"[{self.category}] {self.key}: {self.value}"
+
+    @staticmethod
+    def get_active_by_category(category_name):
+        """
+        获取某个分类下的所有启用参数，返回 {key: value} 字典
+        """
+        params = SystemParameter.objects.filter(category=category_name, is_active=True).order_by("sort_order", "id")
+        return {param.key: param.value for param in params}
+
+    @staticmethod
+    def get_active_list_by_category(category_name):
+        """
+        获取某个分类下的所有启用参数，返回 [value] 列表
+        """
+        params = SystemParameter.objects.filter(category=category_name, is_active=True).order_by("sort_order", "id")
+        return [param.value for param in params]
