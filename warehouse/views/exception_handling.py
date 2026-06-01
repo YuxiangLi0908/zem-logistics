@@ -4635,6 +4635,10 @@ class ExceptionHandling(View):
                 shipment.status_display = await self.get_status_display_name(shipment.current_status)
                 shipment.available_operations = await self.get_available_operations(shipment.current_status)
                 
+                # 验证 load_type 是否有效
+                valid_load_type_values = [v for k, v in LOAD_TYPE_OPTIONS]
+                shipment.is_load_type_valid = shipment.load_type in valid_load_type_values
+                
         except MultipleObjectsReturned:
             messages.error(request, f"找到多个匹配的记录，请核实查询条件：{search_value}")
         except ObjectDoesNotExist:
