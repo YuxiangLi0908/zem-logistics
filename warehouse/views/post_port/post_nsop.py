@@ -292,7 +292,7 @@ class PostNsop(View):
         elif step == "easy_action":
             return render(request, self.template_easy_action_table, {})
         elif step == "system_parameter_add":
-            context = await self._get_system_parameter_context()
+            context = await self._get_system_parameter_context(request)
             return render(request, self.template_system_parameter_add, context)
         else:
             raise ValueError('输入错误')
@@ -17677,9 +17677,21 @@ class PostNsop(View):
         context['results'] = results
         return self.template_sp_bind_history, context
 
-    async def _get_system_parameter_context(self, current_category=None):
+    async def _get_system_parameter_context(self, request, current_category=None):
+        # 权限判断
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        
+        # 构建可见的分类列表
+        visible_categories = []
+        if has_public:
+            visible_categories.append("公仓供应商")
+        if has_other:
+            visible_categories.append("私仓供应商")
+        
         categories = await sync_to_async(list)(
-            SystemParameter.objects.values("category")
+            SystemParameter.objects.filter(category__in=visible_categories)
+            .values("category")
             .annotate(count=models.Count("id"))
             .order_by("category")
         )
@@ -17688,11 +17700,15 @@ class PostNsop(View):
             "current_category": current_category,
         }
         if current_category:
-            context["parameters"] = await sync_to_async(list)(
-                SystemParameter.objects.filter(
-                    category=current_category
-                ).order_by("sort_order", "id")
-            )
+            # 确保只能访问可见的分类
+            if current_category in visible_categories:
+                context["parameters"] = await sync_to_async(list)(
+                    SystemParameter.objects.filter(
+                        category=current_category
+                    ).order_by("sort_order", "id")
+                )
+            else:
+                context["parameters"] = []
         return context
 
     async def _handle_system_parameter_add_category(self, request: HttpRequest):
@@ -17700,22 +17716,47 @@ class PostNsop(View):
         if not category_name:
             messages.error(request, "分类名称不能为空")
         else:
-            exists = await sync_to_async(
-                lambda: SystemParameter.objects.filter(category=category_name).exists()
-            )()
-            if exists:
-                messages.warning(request, f"分类 '{category_name}' 已存在")
+            # 权限检查：只能创建公仓或私仓供应商分类，且必须有对应权限
+            has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+            has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+            
+            allowed_categories = []
+            if has_public:
+                allowed_categories.append("公仓供应商")
+            if has_other:
+                allowed_categories.append("私仓供应商")
+            
+            if category_name not in allowed_categories:
+                messages.error(request, "您无权创建该分类")
             else:
-                messages.success(request, f"分类 '{category_name}' 已创建，请添加参数")
-        context = await self._get_system_parameter_context(current_category=category_name if category_name else None)
+                exists = await sync_to_async(
+                    lambda: SystemParameter.objects.filter(category=category_name).exists()
+                )()
+                if exists:
+                    messages.warning(request, f"分类 '{category_name}' 已存在")
+                else:
+                    messages.success(request, f"分类 '{category_name}' 已创建，请添加参数")
+        context = await self._get_system_parameter_context(request, current_category=category_name if category_name else None)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_add_item(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
         param_value = request.POST.get("param_value", "").strip()
         username = await sync_to_async(lambda: request.user.username)()
-
-        if not param_value:
+        
+        # 权限检查
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        
+        allowed_categories = []
+        if has_public:
+            allowed_categories.append("公仓供应商")
+        if has_other:
+            allowed_categories.append("私仓供应商")
+        
+        if category not in allowed_categories:
+            messages.error(request, "您无权操作该分类")
+        elif not param_value:
             messages.error(request, "参数值不能为空")
         else:
             exists = await sync_to_async(
@@ -17731,41 +17772,69 @@ class PostNsop(View):
                     created_by=username,
                 )
                 messages.success(request, f"已添加参数: {param_value}")
-        context = await self._get_system_parameter_context(current_category=category)
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_toggle(self, request: HttpRequest):
         param_id = request.POST.get("param_id")
         category = request.POST.get("category", "").strip()
-        param = await sync_to_async(
-            lambda: SystemParameter.objects.filter(id=param_id).first()
-        )()
-        if param:
-            param.is_active = not param.is_active
-            await sync_to_async(param.save)()
-            status_text = "启用" if param.is_active else "停用"
-            messages.success(request, f"已{status_text}参数: {param.key}")
+        
+        # 权限检查
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        
+        allowed_categories = []
+        if has_public:
+            allowed_categories.append("公仓供应商")
+        if has_other:
+            allowed_categories.append("私仓供应商")
+        
+        if category not in allowed_categories:
+            messages.error(request, "您无权操作该分类")
         else:
-            messages.error(request, "未找到该参数")
-        context = await self._get_system_parameter_context(current_category=category)
+            param = await sync_to_async(
+                lambda: SystemParameter.objects.filter(id=param_id).first()
+            )()
+            if param:
+                param.is_active = not param.is_active
+                await sync_to_async(param.save)()
+                status_text = "启用" if param.is_active else "停用"
+                messages.success(request, f"已{status_text}参数: {param.key}")
+            else:
+                messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_delete(self, request: HttpRequest):
         param_id = request.POST.get("param_id")
         category = request.POST.get("category", "").strip()
-        param = await sync_to_async(
-            lambda: SystemParameter.objects.filter(id=param_id).first()
-        )()
-        if param:
-            key = param.key
-            await sync_to_async(param.delete)()
-            messages.success(request, f"已删除参数: {key}")
+        
+        # 权限检查
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        
+        allowed_categories = []
+        if has_public:
+            allowed_categories.append("公仓供应商")
+        if has_other:
+            allowed_categories.append("私仓供应商")
+        
+        if category not in allowed_categories:
+            messages.error(request, "您无权操作该分类")
         else:
-            messages.error(request, "未找到该参数")
-        context = await self._get_system_parameter_context(current_category=category)
+            param = await sync_to_async(
+                lambda: SystemParameter.objects.filter(id=param_id).first()
+            )()
+            if param:
+                key = param.key
+                await sync_to_async(param.delete)()
+                messages.success(request, f"已删除参数: {key}")
+            else:
+                messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_select_category(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
-        context = await self._get_system_parameter_context(current_category=category)
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
