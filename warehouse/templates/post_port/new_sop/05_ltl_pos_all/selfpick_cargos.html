@@ -903,7 +903,7 @@
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
                     data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
-                    data-offload-date="{{ cargo.offload_at|date:'Y-m-d'|default:'' }}"
+                    data-offload-date="{{ cargo.offload_other_at|date:'Y-m-d'|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}"
                     data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
@@ -943,9 +943,9 @@
                     </td>
                     <td class="customer-col" data-column="3">{{ cargo.customer_name|default:"-" }}</td>
                     <td class="date-col" data-column="4">
-                        {% if cargo.offload_at %}
+                        {% if cargo.offload_other_at %}
                             <span class="fleet-month-day">
-                                {{ cargo.offload_at }}
+                                {{ cargo.offload_other_at }}
                                 {% if cargo.offload_tag == "实际" %}
                                     <span style="color:#e53935">{{ cargo.offload_tag }}</span>
                                 {% elif cargo.offload_tag == "预计" %}
