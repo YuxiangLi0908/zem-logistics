@@ -6,7 +6,7 @@ from simple_history.models import HistoricalRecords
 class SystemParameter(models.Model):
     category = models.CharField(max_length=100, verbose_name="参数分类")
     key = models.CharField(max_length=200, verbose_name="参数键")
-    value = models.CharField(max_length=200, verbose_name="参数值")
+    value = models.TextField(verbose_name="参数值")
     sort_order = models.IntegerField(default=0, verbose_name="排序顺序")
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
     created_by = models.CharField(max_length=150, null=True, blank=True, verbose_name="登记人")
@@ -19,7 +19,7 @@ class SystemParameter(models.Model):
         verbose_name = "系统参数"
         verbose_name_plural = "系统参数"
         ordering = ["category", "sort_order", "id"]
-        unique_together = [["category", "key"]]
+        unique_together = [["category", "key", "value"]]
         indexes = [
             models.Index(fields=["category"]),
         ]
@@ -42,3 +42,17 @@ class SystemParameter(models.Model):
         """
         params = SystemParameter.objects.filter(category=category_name, is_active=True).order_by("sort_order", "id")
         return [param.value for param in params]
+
+    @staticmethod
+    def get_warehouse_destinations():
+        """
+        获取州仓点映射，返回 {州代码: [仓点列表]} 字典
+        每个仓点是一条独立记录，key 为州代码，value 为仓点名称
+        """
+        params = SystemParameter.objects.filter(category="州仓点", is_active=True).order_by("sort_order", "id")
+        result = {}
+        for param in params:
+            if param.key not in result:
+                result[param.key] = []
+            result[param.key].append(param.value)
+        return result

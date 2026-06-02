@@ -98,7 +98,6 @@ from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
-    NJ_DES, SAV_DES, LA_DES,
     DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE, WAREHOUSE_OPTIONS
 )
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
@@ -9209,31 +9208,31 @@ class PostNsop(View):
     
     async def _history_scheduled_data(self, warehouse: str, user, start_date, end_date) -> list:
         """获取已排约数据 - 按shipment_batch_number分组"""
-        # 获取有shipment_batch_number但fleet_number为空的货物
+        warehouse_dests = await sync_to_async(SystemParameter.get_warehouse_destinations)()
+        nj_des = warehouse_dests.get("NJ", [])
+        sav_des = warehouse_dests.get("SAV", [])
+        la_des = warehouse_dests.get("LA", [])
+        
         base_q = models.Q(
             shipment_appointment__gte=start_date,
             shipment_appointment__lte=end_date,
         )
         if "LA" in warehouse:
-            # LA仓库：目的地要在LA_DES内，或者不在NJ_DES和SAV_DES内
             base_q &= (
-                models.Q(destination__in=LA_DES) |
-                ~models.Q(destination__in=NJ_DES + SAV_DES)
+                models.Q(destination__in=la_des) |
+                ~models.Q(destination__in=nj_des + sav_des)
             )
         elif "NJ" in warehouse:
-            # NJ仓库：目的地要在NJ_DES内，或者不在LA_DES和SAV_DES内
             base_q &= (
-                models.Q(destination__in=NJ_DES) |
-                ~models.Q(destination__in=LA_DES + SAV_DES)
+                models.Q(destination__in=nj_des) |
+                ~models.Q(destination__in=la_des + sav_des)
             )
         elif "SAV" in warehouse:
-            # SAV仓库：目的地要在SAV_DES内，或者不在LA_DES和NJ_DES内
             base_q &= (
-                models.Q(destination__in=SAV_DES) |
-                ~models.Q(destination__in=LA_DES + NJ_DES)
+                models.Q(destination__in=sav_des) |
+                ~models.Q(destination__in=la_des + nj_des)
             )
         else:
-            # 其他仓库：使用默认逻辑，或者根据具体需求调整
             pass
         shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(base_q)
@@ -17678,16 +17677,17 @@ class PostNsop(View):
         return self.template_sp_bind_history, context
 
     async def _get_system_parameter_context(self, request, current_category=None):
-        # 权限判断
         has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
         has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
         
-        # 构建可见的分类列表
         visible_categories = []
         if has_public:
             visible_categories.append("公仓供应商")
         if has_other:
             visible_categories.append("私仓供应商")
+        if is_superuser:
+            visible_categories.append("州仓点")
         
         categories = await sync_to_async(list)(
             SystemParameter.objects.filter(category__in=visible_categories)
@@ -17700,7 +17700,6 @@ class PostNsop(View):
             "current_category": current_category,
         }
         if current_category:
-            # 确保只能访问可见的分类
             if current_category in visible_categories:
                 context["parameters"] = await sync_to_async(list)(
                     SystemParameter.objects.filter(
@@ -17716,15 +17715,17 @@ class PostNsop(View):
         if not category_name:
             messages.error(request, "分类名称不能为空")
         else:
-            # 权限检查：只能创建公仓或私仓供应商分类，且必须有对应权限
             has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
             has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+            is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
             
             allowed_categories = []
             if has_public:
                 allowed_categories.append("公仓供应商")
             if has_other:
                 allowed_categories.append("私仓供应商")
+            if is_superuser:
+                allowed_categories.append("州仓点")
             
             if category_name not in allowed_categories:
                 messages.error(request, "您无权创建该分类")
@@ -17742,36 +17743,67 @@ class PostNsop(View):
     async def _handle_system_parameter_add_item(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
         param_value = request.POST.get("param_value", "").strip()
+        param_key = request.POST.get("param_key", "").strip()
         username = await sync_to_async(lambda: request.user.username)()
         
-        # 权限检查
         has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
         has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
         
         allowed_categories = []
         if has_public:
             allowed_categories.append("公仓供应商")
         if has_other:
             allowed_categories.append("私仓供应商")
+        if is_superuser:
+            allowed_categories.append("州仓点")
         
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
         elif not param_value:
             messages.error(request, "参数值不能为空")
+        elif category == "州仓点":
+            key = param_key if param_key else "NJ"
+            values = [v.strip().strip('"').strip("'") for v in param_value.split(",")]
+            values = [v for v in values if v]
+            if not values:
+                messages.error(request, "未解析到有效的仓点代码")
+            else:
+                added = []
+                skipped = []
+                for val in values:
+                    exists = await sync_to_async(
+                        lambda v=val: SystemParameter.objects.filter(category=category, key=key, value=v).exists()
+                    )()
+                    if exists:
+                        skipped.append(val)
+                    else:
+                        await sync_to_async(SystemParameter.objects.create)(
+                            category=category,
+                            key=key,
+                            value=val,
+                            created_by=username,
+                        )
+                        added.append(val)
+                if added:
+                    messages.success(request, f"已添加 {len(added)} 个仓点: {', '.join(added)}")
+                if skipped:
+                    messages.warning(request, f"已跳过 {len(skipped)} 个重复仓点: {', '.join(skipped)}")
         else:
+            key = param_key if param_key else param_value
             exists = await sync_to_async(
-                lambda: SystemParameter.objects.filter(category=category, key=param_value).exists()
+                lambda: SystemParameter.objects.filter(category=category, key=key, value=param_value).exists()
             )()
             if exists:
                 messages.error(request, f"分类 '{category}' 下已存在参数 '{param_value}'")
             else:
                 await sync_to_async(SystemParameter.objects.create)(
                     category=category,
-                    key=param_value,
+                    key=key,
                     value=param_value,
                     created_by=username,
                 )
-                messages.success(request, f"已添加参数: {param_value}")
+                messages.success(request, f"已添加参数: {key} - {param_value}")
         context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
@@ -17779,15 +17811,17 @@ class PostNsop(View):
         param_id = request.POST.get("param_id")
         category = request.POST.get("category", "").strip()
         
-        # 权限检查
         has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
         has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
         
         allowed_categories = []
         if has_public:
             allowed_categories.append("公仓供应商")
         if has_other:
             allowed_categories.append("私仓供应商")
+        if is_superuser:
+            allowed_categories.append("州仓点")
         
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
@@ -17809,15 +17843,17 @@ class PostNsop(View):
         param_id = request.POST.get("param_id")
         category = request.POST.get("category", "").strip()
         
-        # 权限检查
         has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
         has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
         
         allowed_categories = []
         if has_public:
             allowed_categories.append("公仓供应商")
         if has_other:
             allowed_categories.append("私仓供应商")
+        if is_superuser:
+            allowed_categories.append("州仓点")
         
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")

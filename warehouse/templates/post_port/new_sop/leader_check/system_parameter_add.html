@@ -304,10 +304,25 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="system_parameter_add_item">
                 <input type="hidden" name="category" value="{{ current_category }}">
+                {% if current_category == "州仓点" %}
+                <div class="form-group" style="margin-bottom: 0; width: 120px;">
+                    <label>州代码</label>
+                    <select name="param_key" required style="width: 100%;">
+                        <option value="NJ">NJ</option>
+                        <option value="SAV">SAV</option>
+                        <option value="LA">LA</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                    <label>仓点</label>
+                    <input type="text" name="param_value" placeholder="输入仓点代码，多个用逗号分隔，如 ABE3, ABE4, ABE8" required>
+                </div>
+                {% else %}
                 <div class="form-group" style="margin-bottom: 0; flex: 1;">
                     <label>参数值</label>
                     <input type="text" name="param_value" placeholder="输入参数值" required>
                 </div>
+                {% endif %}
                 <button type="submit" class="btn btn-primary" style="height: 33px;">添加参数</button>
             </form>
 
@@ -316,7 +331,12 @@
             <table class="param-table">
                 <thead>
                     <tr>
+                        {% if current_category == "州仓点" %}
+                        <th style="width: 80px;">州代码</th>
+                        <th>仓点</th>
+                        {% else %}
                         <th>参数值</th>
+                        {% endif %}
                         <th style="width: 80px;">状态</th>
                         <th style="width: 160px;">创建时间</th>
                         <th style="width: 90px;">登记人</th>
@@ -326,12 +346,17 @@
                 <tbody>
                     {% for param in parameters %}
                     <tr class="{% if not param.is_active %}inactive-row{% endif %}">
+                        {% if current_category == "州仓点" %}
+                        <td><strong>{{ param.key }}</strong></td>
                         <td>{{ param.value }}</td>
+                        {% else %}
+                        <td>{{ param.value }}</td>
+                        {% endif %}
                         <td>
                             {% if param.is_active %}
-                            <span class="status-tag status-active">启用</span>
+                            <span style="color:#52c41a; font-weight:bold;">✓</span>
                             {% else %}
-                            <span class="status-tag status-inactive">停用</span>
+                            <span style="color:#999; font-weight:bold;">✗</span>
                             {% endif %}
                         </td>
                         <td>{{ param.created_at|date:"Y-m-d H:i:s" }}</td>
