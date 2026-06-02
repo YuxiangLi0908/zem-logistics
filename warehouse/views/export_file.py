@@ -142,12 +142,19 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
     if status == "non_palletized":
         vessel_prefetch_queryset = Vessel.objects.all()
+        retrieval_prefetch_queryset = Retrieval.objects.all()
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet", "shipment_batch_number")
             .prefetch_related(
                 Prefetch(
                     "container_number__orders__vessel_id",
                     queryset=vessel_prefetch_queryset
+                )
+            )
+            .prefetch_related(
+                Prefetch(
+                    "container_number__orders__retrieval_id",
+                    queryset=retrieval_prefetch_queryset
                 )
             )
             .filter(container_number__container_number=container_number)
@@ -186,6 +193,9 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField()),
                 vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
+                retrieval_destination_area=F(
+                    "container_number__orders__retrieval_id__retrieval_destination_area"
+                ),
             )
             .values(
                 "container_number__container_number",
@@ -200,6 +210,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 "delivery_type",
                 "shipment_batch_number__load_type",
                 "vessel_eta",
+                "retrieval_destination_area",
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -293,8 +304,23 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
         df["original_note_from_remark"] = df["拆柜备注"].apply(extract_original_note)
 
-        mask_tecao = df["original_note_from_remark"].apply(lambda x: "特操" in x if x else False)
-        mask_clear_pcs = mask_base & (~mask_tecao)
+        mask_tecao = df["original_note_from_remark"].apply(
+            lambda x: "特操" in x if x else False
+        )
+
+        mask_not_la = (
+            df["retrieval_destination_area"]
+            .fillna("")
+            .str.upper()
+            .ne("LA")
+        )
+
+        mask_clear_pcs = (
+                mask_base
+                & (~mask_tecao)
+                & mask_not_la
+        )
+
         df.loc[mask_clear_pcs, "pcs"] = ""
 
         mask_note_empty = (df["original_note_from_remark"] == "")
