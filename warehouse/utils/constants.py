@@ -51,7 +51,8 @@ CONTAINER_PICKUP_CARRIER = [
     ("Janice", "Janice"),
     ("辉煌", "辉煌"),
     ("new world", "new world"),
-    ("JCR", "JCR")
+    ("JCR", "JCR"),
+    ("allways", "allways"),
 ]
 
 CLEARANCE_OPTIONS = [
