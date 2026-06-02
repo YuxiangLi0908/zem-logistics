@@ -47,6 +47,7 @@ from xhtml2pdf import pisa
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.vessel import Vessel
+from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.po_check_eta import PoCheckEtaSeven
