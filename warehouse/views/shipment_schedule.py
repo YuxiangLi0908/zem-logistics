@@ -32,7 +32,7 @@ from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
-from warehouse.utils.constants import amazon_fba_locations
+from warehouse.models.system_parameter import SystemParameter
 from warehouse.utils.shipment_binding_utils import ShipmentBindingPermission
 from django.http import HttpResponseForbidden
 from warehouse.views.bol import BOL
@@ -174,6 +174,7 @@ class ScheduleShipment(View):
             return self.template_td, context
 
     def handle_selection_post(self, request: HttpRequest) -> tuple[Any]:
+        amazon_fba_locations = SystemParameter.get_fba_locations()
         warehouse = request.POST.get("warehouse")
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
         selections = request.POST.getlist("is_shipment_schduled")

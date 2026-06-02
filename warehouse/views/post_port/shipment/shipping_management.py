@@ -56,8 +56,9 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    amazon_fba_locations, WAREHOUSE_OPTIONS,
+    WAREHOUSE_OPTIONS,
 )
+from warehouse.models.system_parameter import SystemParameter
 from warehouse.utils.shipment_binding_utils import (
     ShipmentBindingLogger,
     ShipmentBindingPermission,
@@ -695,6 +696,7 @@ class ShippingManagement(View):
         isa_list: list[str],
         fleet_list: list[str],
     ) -> tuple[list[Any]]:
+        amazon_fba_locations = await sync_to_async(SystemParameter.get_fba_locations)()
         db_shipment = await sync_to_async(list)(
             Shipment.objects.filter(appointment_id__in=isa_list)
         )
@@ -998,6 +1000,7 @@ class ShippingManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''旧版预约出库的预约管理页面初始化'''
+        
         if request.POST.get("area"):
             area = request.POST.get("area")
         elif request.POST.get("warehouse"):
@@ -1163,6 +1166,7 @@ class ShippingManagement(View):
     async def handle_selection_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        amazon_fba_locations = await sync_to_async(SystemParameter.get_fba_locations)()
         selections = request.POST.getlist("is_shipment_schduled")
         ids = request.POST.getlist("pl_ids")
         ids = [id for s, id in zip(selections, ids) if s == "on"]
