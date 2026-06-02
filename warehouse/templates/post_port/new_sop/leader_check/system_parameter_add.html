@@ -351,6 +351,28 @@
         margin-bottom: 8px;
         opacity: 0.3;
     }
+
+    .fba-import-form {
+        margin-bottom: 14px;
+    }
+
+    .fba-yaml-input {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-family: "Consolas", "Courier New", monospace;
+        color: var(--title);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        resize: vertical;
+        transition: border-color 0.2s;
+        line-height: 1.5;
+    }
+    .fba-yaml-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(37,112,217,0.1);
+    }
 </style>
 
 <div class="page-container">
@@ -402,6 +424,16 @@
             </div>
 
             {% if current_category %}
+            <!-- FBA仓点：YAML导入 -->
+            {% if current_category == "FBA仓点" %}
+            <form method="post" class="fba-import-form">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="system_parameter_import_fba">
+                <input type="hidden" name="category" value="FBA仓点">
+                <textarea name="fba_yaml_content" class="fba-yaml-input" placeholder="将 fba_fulfillment_center.yaml 文件内容粘贴到此处，系统会自动解析并导入所有FBA仓点数据" rows="6" required></textarea>
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">批量导入</button>
+            </form>
+            {% else %}
             <!-- 添加参数 -->
             <form method="post" class="add-param-row">
                 {% csrf_token %}
@@ -419,6 +451,7 @@
                 {% endif %}
                 <button type="submit" class="btn btn-primary">添加参数</button>
             </form>
+            {% endif %}
 
             <!-- 筛选栏 -->
             {% if parameters %}
@@ -431,6 +464,8 @@
                     <option value="LA">LA</option>
                 </select>
                 <input type="text" id="search-value" class="filter-value" placeholder="搜索仓点...">
+                {% elif current_category == "FBA仓点" %}
+                <input type="text" id="search-value" class="filter-value" placeholder="搜索仓点代码..." style="max-width:250px;">
                 {% else %}
                 <input type="text" id="search-value" class="filter-value" placeholder="搜索参数值...">
                 {% endif %}
@@ -450,6 +485,12 @@
                         {% if current_category == "州仓点" %}
                         <th style="width: 80px;">州代码</th>
                         <th>仓点</th>
+                        {% elif current_category == "FBA仓点" %}
+                        <th style="width: 100px;">仓点代码</th>
+                        <th>地址</th>
+                        <th style="width: 100px;">城市</th>
+                        <th style="width: 60px;">州</th>
+                        <th style="width: 90px;">邮编</th>
                         {% else %}
                         <th>参数值</th>
                         {% endif %}
@@ -468,6 +509,12 @@
                         {% if current_category == "州仓点" %}
                         <td><strong>{{ param.key }}</strong></td>
                         <td><span class="val-text">{{ param.value }}</span></td>
+                        {% elif current_category == "FBA仓点" %}
+                        <td><strong>{{ param.key }}</strong></td>
+                        <td><span class="val-text">{{ param.fba_location|default:"-" }}</span></td>
+                        <td>{{ param.fba_city|default:"-" }}</td>
+                        <td>{{ param.fba_state|default:"-" }}</td>
+                        <td>{{ param.fba_zipcode|default:"-" }}</td>
                         {% else %}
                         <td><span class="val-text">{{ param.value }}</span></td>
                         {% endif %}
@@ -537,6 +584,7 @@ function filterTable() {
     var keyVal = searchKey ? searchKey.value.toLowerCase() : '';
     var valueVal = searchValue ? searchValue.value.toLowerCase() : '';
     var statusVal = searchStatus ? searchStatus.value : '';
+    var isFba = document.querySelector('.fba-import-form') !== null;
     var rows = document.querySelectorAll('#param-table tbody tr');
     rows.forEach(function(row) {
         var rowKey = (row.getAttribute('data-key') || '').toLowerCase();
@@ -544,7 +592,13 @@ function filterTable() {
         var rowActive = row.getAttribute('data-active') || '';
         var show = true;
         if (keyVal && rowKey !== keyVal) show = false;
-        if (valueVal && !rowValue.includes(valueVal)) show = false;
+        if (valueVal) {
+            if (isFba) {
+                if (!rowKey.includes(valueVal) && !rowValue.includes(valueVal)) show = false;
+            } else {
+                if (!rowValue.includes(valueVal)) show = false;
+            }
+        }
         if (statusVal && rowActive !== statusVal) show = false;
         row.style.display = show ? '' : 'none';
     });
