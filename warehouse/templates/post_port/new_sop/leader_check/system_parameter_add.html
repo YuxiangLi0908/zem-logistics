@@ -218,12 +218,30 @@
         min-width: 0;
     }
 
-    /* 添加参数区 */
+    /* 添加参数卡片 */
+    .add-card {
+        background: #f0f3f8;
+        border: 1px solid #d8dde6;
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .add-card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--title);
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #dfe3ea;
+        letter-spacing: 0.3px;
+    }
+
     .add-param-row {
         display: flex;
         gap: 8px;
         align-items: center;
-        margin-bottom: 14px;
     }
 
     .add-param-row select,
@@ -236,14 +254,15 @@
         outline: none;
         transition: border-color 0.2s;
         font-family: inherit;
+        background: #fff;
     }
     .add-param-row select:focus,
     .add-param-row input:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 2px rgba(37,112,217,0.1);
     }
-    .add-param-row .key-select { width: 110px; }
-    .add-param-row .value-input { flex: 1; }
+    .add-param-row .key-select { width: 90px; }
+    .add-param-row .value-input { width: 220px; flex: none; }
 
     /* 筛选栏 */
     .filter-bar {
@@ -353,7 +372,7 @@
     }
 
     .fba-add-form {
-        margin-bottom: 14px;
+        margin-bottom: 0;
     }
 
     .fba-fields {
@@ -363,20 +382,30 @@
     }
 
     .fba-field {
-        flex: 1;
-        min-width: 120px;
-        padding: 8px 10px;
+        padding: 7px 10px;
         font-size: 13px;
         color: var(--title);
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         outline: none;
         transition: border-color 0.2s;
+        background: #fff;
+    }
+
+    .fba-field-code {
+        width: 110px;
+    }
+
+    .fba-field-addr {
+        width: 200px;
+    }
+
+    .fba-field-city {
+        width: 100px;
     }
 
     .fba-field-sm {
-        min-width: 80px;
-        max-width: 100px;
+        width: 70px;
     }
 
     .fba-field:focus {
@@ -436,37 +465,43 @@
             {% if current_category %}
             <!-- FBA仓点：单条录入 -->
             {% if current_category == "FBA仓点" %}
-            <form method="post" class="fba-add-form">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="system_parameter_add_fba">
-                <input type="hidden" name="category" value="FBA仓点">
-                <div class="fba-fields">
-                    <input type="text" name="fba_code" class="fba-field" placeholder="仓点代码" required>
-                    <input type="text" name="fba_location" class="fba-field" placeholder="地址" required>
-                    <input type="text" name="fba_city" class="fba-field" placeholder="城市" required>
-                    <input type="text" name="fba_state" class="fba-field fba-field-sm" placeholder="州" required>
-                    <input type="text" name="fba_zipcode" class="fba-field fba-field-sm" placeholder="邮编" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="margin-top:8px;">添加</button>
-            </form>
+            <div class="add-card">
+                <div class="add-card-title">添加FBA仓点</div>
+                <form method="post" class="fba-add-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="system_parameter_add_fba">
+                    <input type="hidden" name="category" value="FBA仓点">
+                    <div class="fba-fields">
+                        <input type="text" name="fba_code" class="fba-field fba-field-code" placeholder="仓点代码" required>
+                        <input type="text" name="fba_location" class="fba-field fba-field-addr" placeholder="地址" required>
+                        <input type="text" name="fba_city" class="fba-field fba-field-city" placeholder="城市" required>
+                        <input type="text" name="fba_state" class="fba-field fba-field-sm" placeholder="州" required>
+                        <input type="text" name="fba_zipcode" class="fba-field fba-field-sm" placeholder="邮编" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top:10px;">添加</button>
+                </form>
+            </div>
             {% else %}
             <!-- 添加参数 -->
-            <form method="post" class="add-param-row">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="system_parameter_add_item">
-                <input type="hidden" name="category" value="{{ current_category }}">
-                {% if current_category == "州仓点" %}
-                <select name="param_key" class="key-select" required>
-                    <option value="NJ">NJ</option>
-                    <option value="SAV">SAV</option>
-                    <option value="LA">LA</option>
-                </select>
-                <input type="text" name="param_value" class="value-input" placeholder="输入仓点代码，多个用逗号分隔，如 ABE3, ABE4" required>
-                {% else %}
-                <input type="text" name="param_value" class="value-input" placeholder="输入参数值" required>
-                {% endif %}
-                <button type="submit" class="btn btn-primary">添加参数</button>
-            </form>
+            <div class="add-card">
+                <div class="add-card-title">添加参数</div>
+                <form method="post" class="add-param-row">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="system_parameter_add_item">
+                    <input type="hidden" name="category" value="{{ current_category }}">
+                    {% if current_category == "州仓点" %}
+                    <select name="param_key" class="key-select" required>
+                        <option value="NJ">NJ</option>
+                        <option value="SAV">SAV</option>
+                        <option value="LA">LA</option>
+                    </select>
+                    <input type="text" name="param_value" class="value-input" placeholder="仓点代码，多个逗号分隔" required>
+                    {% else %}
+                    <input type="text" name="param_value" class="value-input" placeholder="输入参数值" required>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </form>
+            </div>
             {% endif %}
 
             <!-- 筛选栏 -->
