@@ -1,0 +1,868 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #166534;
+        --secondary-color: #0f3e1e;
+        --success-color: #15803d;
+        --warning-color: #ea580c;
+        --danger-color: #b91c1c;
+        --light-bg: #f1f5f9;
+        --text-dark: #0f172a;
+        --radius: 14px;
+        --shadow-strong: 0 10px 40px rgba(0,0,0,0.12);
+        --shadow-soft: 0 4px 18px rgba(0,0,0,0.06);
+
+        --page-padding: 40px;
+        --content-max-width: 1800px;
+        --font-large: 1.1rem;
+        --font-xl: 1.4rem;
+         --scale-factor: 0.8;
+    }
+    
+    body {
+        background: #eef2f7;
+        padding: var(--page-padding);
+        font-size: var(--font-large);
+    }
+    
+    .invoice-container {
+        zoom: 0.8; 
+        width: 100%;
+        max-width: var(--content-max-width);
+        margin: auto;
+        background: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-strong);
+        overflow: hidden;
+    }
+
+    .invoice-header {
+        background: linear-gradient(135deg, #0f3e1e, #166534);
+        padding: 40px 50px;
+        color: white;
+    }
+
+    .header-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .header-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .header-badges {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .badge {
+        display: flex; 
+        padding: 8px 18px;
+        font-size: 1rem;
+        background: rgba(255,255,255,0.18);
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+        align-items: center;
+    }
+    
+    .delivery-type-badge {
+        background: linear-gradient(to right, #d4380d, #ff7a45);
+        display: flex; 
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 1rem;
+        align-items: center;
+    }
+
+    .invoice-content {
+        padding: 40px 50px;
+    }
+
+    .fee-section {
+        margin-bottom: 30px;
+    }
+    
+    .amount-zero {
+        color: #94a3b8 !important;
+        font-style: italic;
+        opacity: 0.7;
+        font-weight: 400;
+    }
+
+    .amount-zero-row .fee-cell:not(:first-child):not(:last-child) {
+        opacity: 0.8;
+    }
+    
+    .section-title {
+        font-size: 1.8rem;
+        margin: 0;
+        color: var(--text-dark);
+        font-weight: 700;
+        border-left: 6px solid var(--primary-color);
+        padding-left: 14px;
+    }
+    
+    .fee-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    
+    .fee-table {
+        width: 100%;
+        background: white;
+        overflow: hidden;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-soft);
+        margin-top: 20px;
+    }
+
+    .table-header {
+        display: grid;
+        grid-template-columns: minmax(240px, 1fr) 220px 90px;
+        background: #f8fafc;
+        font-size: 1.6rem;
+    }
+
+    .table-header-cell {
+        padding: 22px 10px;
+        font-weight: 700;
+        text-align: center;
+        color: #000000;
+        font-size: 1.3rem;
+        border-right: 1px solid #e2e8f0;
+    }
+
+    .table-header-cell:last-child {
+        border-right: none;
+    }
+
+    .fee-row {
+        display: grid;
+        grid-template-columns: minmax(240px, 1fr) 220px 90px;
+        padding: 8px 0;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 1.3rem;
+        transition: background 0.15s;
+    }
+    
+    .fee-row:hover {
+        background: #f9fafb;
+    }
+
+    .fee-cell {
+        padding: 14px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: inherit;
+    }
+
+    .fee-name {
+        font-weight: 500;
+        color: var(--secondary-color);
+    }
+
+    
+
+
+    .input-field {
+        padding: 12px 10px;
+        font-size: 1.2rem;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        width: 100%;
+    }
+
+    .input-field:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+    }
+
+
+
+    .remove-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1.4rem;
+        border-radius: 8px;
+        background: #dc2626;
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .remove-btn:hover {
+        background: #b91c1c;
+        transform: scale(1.05);
+    }
+
+    .action-buttons {
+        margin-top: 40px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 14px 30px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        box-shadow: var(--shadow-soft);
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1d4ed8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #047857;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        background: #b45309;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #b91c1c;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+    }
+
+    .total-section {
+        margin-top: 40px;
+        padding: 25px;
+        border-radius: var(--radius);
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+    }
+
+    .total-amount {
+        font-size: 2.4rem;
+        font-weight: 800;
+        color: var(--secondary-color);
+    }
+
+    .add-fee-btn {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 10px;
+        padding: 12px 26px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        border: none;
+        box-shadow: var(--shadow-soft);
+        transition: 0.25s;
+        margin: 0;
+        cursor: pointer;
+    }
+    
+    .add-fee-btn:hover {
+        background: #1d4ed8;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-strong);
+    }
+    
+    .info-cards-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .quotation-card {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 1px solid #bae6fd;
+        border-radius: var(--radius);
+        padding: 20px 25px;
+        box-shadow: var(--shadow-soft);
+        height: fit-content;
+    }
+    
+    .quotation-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .quotation-details {
+        font-size: 1rem;
+        color: var(--text-dark);
+        line-height: 1.5;
+    }
+
+    .quotation-highlight {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .status-card {
+        background: linear-gradient(135deg, #f8fff8, #f0f9f0);
+        border: 1px solid #d1fae5;
+        border-radius: var(--radius);
+        padding: 20px 25px;
+        box-shadow: var(--shadow-soft);
+        height: fit-content;
+    }
+    
+    .status-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--success-color);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .status-badge {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-block;
+    }
+    
+    .status-completed {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        color: #065f46;
+    }
+    
+    .status-in_progress {
+        background: linear-gradient(135deg, #fed7aa, #fdba74);
+        color: #92400e;
+    }
+    
+    .status-unstarted {
+        background: linear-gradient(135deg, #fecaca, #fca5a5);
+        color: #991b1b;
+    }
+    
+    .status-confirmed {
+        background: linear-gradient(135deg, #bfdbfe, #93c5fd);
+        color: #1e40af;
+    }
+    
+    @media (max-width: 1200px) {
+        .info-cards-container {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* 妯℃€佹鏍峰紡 */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: var(--radius);
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: var(--secondary-color);
+    }
+
+    .fee-option {
+        padding: 12px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .fee-option:hover {
+        border-color: var(--primary-color);
+        background: #f0f9ff;
+    }
+
+    .fee-option-name {
+        font-weight: 500;
+        color: var(--secondary-color);
+    }
+
+    .fee-option-price {
+        color: #718096;
+        font-size: 0.9rem;
+    }
+
+    .custom-fee-input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1rem;
+        margin-top: 15px;
+    }
+    
+    .system-calculated {
+        background: #f0f9ff;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .system-calculated .fee-cell:first-child {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+
+</style>
+
+<div class="invoice-container public-warehouse">
+    <!-- 澶撮儴淇℃伅 -->
+    <div class="invoice-header">
+        <div class="header-main">
+            <h1 class="header-title">浠撳簱璐﹀崟缂栬緫 - {{ container_number }} - {{ invoice_number }}</h1>
+            <div class="header-badges">
+                <span class="badge">浠撳簱: {{ warehouse }}</span>
+                <span class="delivery-type-badge">
+                    {% if delivery_type == 'public' %}
+                        <i class="fas fa-warehouse"></i> 鍏粨
+                    {% else %}
+                        <i class="fas fa-building"></i> 绉佷粨
+                    {% endif %}
+                </span>
+                <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                           border: 1px solid rgba(255,255,255,0.3);
+                           color: white;
+                           padding: 10px 20px;
+                           border-radius: 8px;
+                           cursor: pointer;
+                           display: flex;
+                           align-items: center;
+                           gap: 8px;
+                           transition: all 0.2s ease;">
+                    <i class="fas fa-arrow-left"></i>
+                    杩斿洖
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="invoice-content">
+        <!-- 淇℃伅鍗＄墖瀹瑰櫒 -->
+        <div class="info-cards-container">
+            <!-- 鎶ヤ环琛ㄤ俊鎭崱鐗?-->
+            <div class="quotation-card">
+                <div class="quotation-title">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    鍙傝€冩姤浠疯〃
+                </div>
+                <div class="quotation-details">
+                    <strong>鏂囦欢:</strong> <span class="quotation-highlight">{{ quotation_info.filename }}</span> 
+                    | <strong>鐗堟湰:</strong> {{ quotation_info.version }}
+                    | <strong>鐢熸晥鏃ユ湡:</strong> {{ quotation_info.effective_date }}
+                    {% if quotation_info.is_user_exclusive %}
+                    | <strong style="color: #dc2626;">涓撳睘鐢ㄦ埛:</strong> {{ quotation_info.exclusive_user }}
+                    {% else %}
+                    | <strong style="color: #16a34a;">閫氱敤鎶ヤ环</strong>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 鐘舵€佷俊鎭崱鐗?-->
+            <div class="status-card">
+                <div class="status-title">
+                    <i class="fas fa-info-circle"></i>
+                    璐﹀崟鐘舵€?
+                </div>
+                <div class="quotation-details">
+                    <strong>褰撳墠鐘舵€?</strong> 
+                    <span class="status-badge 
+                        {% if warehouse_status == 'completed' %}status-completed
+                        {% elif warehouse_status == 'in_progress' %}status-in_progress
+                        {% elif warehouse_status == 'confirmed' %}status-confirmed
+                        {% else %}status-unstarted{% endif %}">
+                        {% if warehouse_status == 'completed' %}<i class="fas fa-check-circle"></i> 宸插畬鎴?
+                        {% elif warehouse_status == 'in_progress' %}<i class="fas fa-spinner"></i> 褰曞叆涓?
+                        {% elif warehouse_status == 'confirmed' %}<i class="fas fa-lock"></i> 宸茬‘璁?
+                        {% else %}<i class="fas fa-clock"></i> 鏈紑濮媨% endif %}
+                    </span>
+                    {% if warehouse_status == 'confirmed' %}
+                    <div style="margin-top: 10px; color: #64748b; font-size: 0.9rem;">
+                        <i class="fas fa-lock"></i> 璐﹀崟宸茬‘璁わ紝涓嶅彲缂栬緫
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if payable_is_locked %}
+        <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; border: 1px solid #ffcdd2;">
+            <i class="fas fa-lock"></i> 璐﹀崟宸茬‘璁わ紝涓嶅彲缂栬緫
+        </div>
+        {% endif %}
+
+        <form method="post" action="" id="invoice-form">
+            {% csrf_token %}
+            <!-- 璐圭敤椤圭洰鍖哄煙 -->
+            <div class="fee-section">
+                <div class="fee-section-header">
+                    <h3 class="section-title">浠撳簱璐圭敤鏄庣粏</h3>
+                    <button type="button" class="add-fee-btn" onclick="showAddFeeModal()">
+                        <i class="fas fa-plus-circle"></i>
+                        娣诲姞璐圭敤椤圭洰
+                    </button>
+                </div>
+                
+                <div class="fee-table">
+                    <!-- 琛ㄥご -->
+                    <div class="table-header">
+                        <div class="table-header-cell">费用名称</div>
+                        <div class="table-header-cell">价格</div>
+                        <div class="table-header-cell">操作</div>
+                    </div>
+
+                    <!-- 璐圭敤琛?-->
+                    <div id="fee-items-container">
+                        {% for fee in fee_data %}
+                        <div class="fee-row {% if fee.description == '鎻愭媶/鎵撴墭缂犺啘' and not fee.id %}system-calculated{% endif %}
+                            {% if fee.amount == 0 %}amount-zero-row{% endif %}" 
+                            data-fee-id="{{ fee.id }}">
+                            <input type="hidden" name="fee_id" value="{{ fee.id|default_if_none:'' }}">
+                            <input type="hidden" name="fee_description" value="{{ fee.description }}">
+                            
+                            <div class="fee-cell fee-name-cell">
+                                <span class="fee-name">{{ fee.description }}</span>
+                            </div>
+                            
+                            <div class="fee-cell fee-price-cell">
+                                <input type="number" class="input-field amount-input" name="fee_amount"
+                                       value="{{ fee.amount }}" step="0.01" min="0"
+                                       oninput="calculateTotalAmount()">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <button type="button" class="remove-btn" onclick="removeFeeItem(this)">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 鎬婚噾棰?-->
+            <div class="total-section">
+                <h3 class="total-amount">
+                    <i class="fas fa-dollar-sign"></i>
+                    鎬婚噾棰? $<span id="total-amount">0.00</span>
+                </h3>
+                <input type="hidden" name="total_amount" id="total-amount-input" value="0">
+            </div>
+
+            <!-- 闅愯棌瀛楁 -->
+            <input type="hidden" name="step" value="warehouse_save_payable">
+            <input type="hidden" name="save_type" id="save_type" value="">
+            <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="container_number_filter" value="{{ container_number_filter }}">
+            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+            <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
+            <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+
+            <!-- 鎿嶄綔鎸夐挳 -->
+            {% if not payable_is_locked %}
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-success" onclick="setSaveType('completed')">
+                        <i class="fas fa-check-circle"></i>
+                        淇濆瓨瀹屾垚
+                    </button>
+                </div>
+            {% else %}
+                璐﹀崟宸茬粡璐㈠姟纭锛屼笉鍙慨鏀?
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- 娣诲姞璐圭敤妯℃€佹 -->
+<div id="addFeeModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 class="modal-title">閫夋嫨璐圭敤椤圭洰</h3>
+        
+        <div id="standard-fee-list" style="max-height: 300px; overflow-y: auto;">
+            {% for fee_item in available_standard_items %}
+            <div class="fee-option" data-fee-name="{{ fee_item }}"
+                onclick="selectStandardFee('{{ fee_item }}', '{{ FS|get_item:fee_item }}')">
+                <span class="fee-option-name">{{ fee_item }}</span>
+                <span class="fee-option-price">鍙傝€? {{ FS|get_item:fee_item }}</span>
+            </div>
+            {% empty %}
+            <div style="text-align: center; color: #666; padding: 20px;">
+                鎵€鏈夋爣鍑嗚垂鐢ㄩ」鐩凡娣诲姞
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <h4 style="margin-bottom: 10px; color: var(--secondary-color);">鑷畾涔夎垂鐢?/h4>
+            <input type="text" id="custom-fee-name" placeholder="杈撳叆鑷畾涔夎垂鐢ㄥ悕绉? 
+                   class="custom-fee-input">
+            <button type="button" class="btn btn-primary" onclick="addCustomFee()" 
+                    style="width: 100%; margin-top: 10px;">
+                <i class="fas fa-plus-circle"></i>
+                娣诲姞鑷畾涔夎垂鐢?
+            </button>
+        </div>
+        
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="button" class="btn" onclick="closeAddFeeModal()" 
+                    style="background: #78909c; color: white;">
+                <i class="fas fa-times"></i>
+                鍙栨秷
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 璁＄畻鍗曚釜璐圭敤椤圭洰鐨勬€讳环
+    
+    // 璁＄畻鎬婚噾棰?
+    function calculateTotalAmount() {
+        let total = 0;
+        document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        
+        const formattedTotal = Math.round(total * 100) / 100;
+        document.getElementById('total-amount').textContent = formattedTotal.toFixed(2);
+        document.getElementById('total-amount-input').value = formattedTotal;
+    }
+
+
+    
+    // 绉婚櫎璐圭敤椤圭洰
+    function removeFeeItem(button) {
+        if (confirm('纭畾瑕佸垹闄よ繖涓垂鐢ㄩ」鐩悧锛?)) {
+            button.closest('.fee-row').remove();
+            calculateTotalAmount();
+        }
+    }
+    
+    // 鑾峰彇鎵€鏈夊凡瀛樺湪鐨勮垂鐢ㄥ悕绉?
+    function getExistingFeeNames() {
+        const existingNames = new Set();
+        document.querySelectorAll('input[name="fee_description"]').forEach(input => {
+            existingNames.add(input.value.trim());
+        });
+        return existingNames;
+    }
+    
+    // 妫€鏌ヨ垂鐢ㄦ槸鍚﹀凡瀛樺湪
+    function isFeeAlreadyAdded(feeName) {
+        return getExistingFeeNames().has(feeName.trim());
+    }
+
+    // 閫夋嫨鏍囧噯璐圭敤
+    function selectStandardFee(feeName, referencePrice) {
+        if (isFeeAlreadyAdded(feeName)) {
+            alert('该费用项目已存在，无法重复添加');
+            return;
+        }
+        addFeeItem(feeName, referencePrice);
+        closeAddFeeModal();
+    }
+
+    // 鎵撳紑寮规鏃跺埛鏂板彲閫夎垂鐢ㄥ垪琛?
+    function refreshFeeOptions() {
+        const existingItems = Array.from(document.querySelectorAll('input[name="fee_description"]')).map(i => i.value.trim());
+        document.querySelectorAll('.fee-option').forEach(option => {
+            const feeName = option.dataset.feeName.trim();
+            option.style.display = existingItems.includes(feeName) ? 'none' : 'flex';
+        });
+    }
+
+    // 鏄剧ず娣诲姞璐圭敤妯℃€佹
+    function showAddFeeModal() {
+        document.getElementById('addFeeModal').style.display = 'block';
+        refreshFeeOptions();
+    }
+
+    // 鍏抽棴娣诲姞璐圭敤妯℃€佹
+    function closeAddFeeModal() {
+        document.getElementById('addFeeModal').style.display = 'none';
+        document.getElementById('custom-fee-name').value = '';
+        refreshFeeOptions();
+    }
+    
+    // 娣诲姞鑷畾涔夎垂鐢?
+    function addCustomFee() {
+        const customFeeName = document.getElementById('custom-fee-name').value.trim();
+        if (!customFeeName) {
+            alert('请输入费用名称');
+            return;
+        }
+        
+        if (isFeeAlreadyAdded(customFeeName)) {
+            alert('该费用项目已存在，无法重复添加');
+            return;
+        }
+        
+        addFeeItem(customFeeName, 'N/A');
+        closeAddFeeModal();
+    }
+    // 娣诲姞璐圭敤椤圭洰鍒板垪琛?
+    // 鍒锋柊鍙敤鐨勮垂鐢ㄩ€夐」
+    function refreshAvailableFeeOptions() {
+        const existingNames = getExistingFeeNames();
+        const allFeeOptions = document.querySelectorAll('.fee-option');
+        let hasVisibleOptions = false;
+        
+        allFeeOptions.forEach(option => {
+            const feeName = option.dataset.feeName.trim();
+            if (existingNames.has(feeName)) {
+                option.style.display = 'none';
+            } else {
+                option.style.display = 'flex';
+                hasVisibleOptions = true;
+            }
+        });
+        
+        // 濡傛灉娌℃湁鍙敤鐨勬爣鍑嗚垂鐢ㄩ€夐」锛屾樉绀烘彁绀?
+        const standardFeeList = document.getElementById('standard-fee-list');
+        const noItemsMsg = standardFeeList.querySelector('.no-items-msg');
+        
+        if (!hasVisibleOptions && !noItemsMsg) {
+            const msg = document.createElement('div');
+            msg.className = 'no-items-msg';
+            msg.style.textAlign = 'center';
+            msg.style.color = '#666';
+            msg.style.padding = '20px';
+            msg.textContent = '鎵€鏈夋爣鍑嗚垂鐢ㄩ」鐩凡娣诲姞';
+            standardFeeList.appendChild(msg);
+        } else if (hasVisibleOptions && noItemsMsg) {
+            noItemsMsg.remove();
+        }
+    }
+    // 璁剧疆淇濆瓨绫诲瀷
+    function setSaveType(type) {
+        document.getElementById('save_type').value = type;
+    }
+
+    function addFeeItem(feeName, referencePrice) {
+        if (isFeeAlreadyAdded(feeName)) {
+            alert('该费用项目已存在');
+            return;
+        }
+
+        const container = document.getElementById('fee-items-container');
+        const newRow = document.createElement('div');
+        newRow.className = 'fee-row';
+        newRow.innerHTML = `
+            <input type="hidden" name="fee_id" value="">
+            <input type="hidden" name="fee_description" value="${feeName}">
+
+            <div class="fee-cell fee-name-cell">
+                <span class="fee-name">${feeName}</span>
+            </div>
+
+            <div class="fee-cell fee-price-cell">
+                <input type="number" class="input-field amount-input" name="fee_amount"
+                       value="0" step="0.01" min="0"
+                       oninput="calculateTotalAmount()">
+            </div>
+
+            <div class="fee-cell">
+                <button type="button" class="remove-btn" onclick="removeFeeItem(this)">
+                    ×
+                </button>
+            </div>
+        `;
+        container.appendChild(newRow);
+        calculateTotalAmount();
+        refreshAvailableFeeOptions();
+    }
+    
+    // 鍒濆鍖栬绠楁€婚噾棰?
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateTotalAmount();
+        
+        // 涓烘墍鏈夌幇鏈夌殑杈撳叆妗嗘坊鍔犱簨浠剁洃鍚?
+        const container = document.getElementById('fee-items-container');
+    });
+</script>
+{% endblock %}
