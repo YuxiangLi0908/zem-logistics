@@ -3,276 +3,379 @@
 
 {% block content %}
 <style>
-:root {
-    --primary-color: #1677ff;
-    --success-color: #52c41a;
-    --danger-color: #ff4d4f;
-    --warning-color: #faad14;
-    --bg-color: #f5f7fa;
-    --border-color: #e5e6eb;
-    --text-primary: #333333;
-    --text-secondary: #666666;
-    --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
+    :root {
+        --primary: #2570d9;
+        --primary-hover: #1d5ab8;
+        --primary-light: #e8f0fe;
+        --success: #39c268;
+        --success-hover: #2da858;
+        --danger: #e5534b;
+        --danger-hover: #c9392f;
+        --bg: #f5f7fa;
+        --card-bg: #ffffff;
+        --border: #e5e8ed;
+        --title: #333333;
+        --text: #666666;
+        --text-light: #999999;
+        --shadow: 0 1px 4px rgba(0,0,0,0.06);
+        --shadow-hover: 0 2px 8px rgba(0,0,0,0.1);
+        --radius: 6px;
+        --radius-sm: 4px;
+    }
 
-* { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-.page-container {
-    padding: 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
+    body { font-family: "Microsoft YaHei", "Inter", -apple-system, sans-serif; }
 
-.page-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 24px;
-    text-align: center;
-}
+    .page-container {
+        padding: 24px;
+        min-height: 100vh;
+        background: var(--bg);
+    }
 
-.main-layout {
-    display: flex;
-    gap: 24px;
-}
+    .page-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
 
-.left-panel {
-    width: 300px;
-    min-width: 280px;
-    background: #fff;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: var(--panel-shadow);
-    align-self: flex-start;
-}
+    .page-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #1f2937;
+        margin: 16px 0 24px;
+        letter-spacing: 0.3px;
+        text-align: center;
+    }
 
-.right-panel {
-    flex: 1;
-    background: #fff;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: var(--panel-shadow);
-}
+    .msg-bar {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin: 0 4px;
+    }
+    .msg-bar.success {
+        background: #edf9f0;
+        color: #2da858;
+        border: 1px solid #b7eb8f;
+    }
+    .msg-bar.error {
+        background: #fef1f1;
+        color: #c9392f;
+        border: 1px solid #f5b3b0;
+    }
+    .msg-bar.warning {
+        background: #fff8e6;
+        color: #d48806;
+        border: 1px solid #ffe58f;
+    }
 
-.panel-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 16px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--primary-color);
-}
+    .main-layout {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+    }
 
-.form-group {
-    margin-bottom: 14px;
-}
+    /* ========== 左侧面板 ========== */
+    .left-panel {
+        width: 28%;
+        min-width: 240px;
+        max-width: 320px;
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow);
+    }
 
-.form-group label {
-    display: block;
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-    font-weight: 500;
-}
+    .panel-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--title);
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--primary);
+    }
 
-.form-group input,
-.form-group select {
-    width: 100%;
-    padding: 7px 10px;
-    font-size: 13px;
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    transition: border-color 0.2s;
-}
+    .add-category-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
 
-.form-group input:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
-}
+    .add-category-row input {
+        flex: 1;
+        padding: 7px 12px;
+        font-size: 13px;
+        color: var(--title);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        transition: border-color 0.2s;
+        font-family: inherit;
+    }
+    .add-category-row input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(37,112,217,0.1);
+    }
 
-.btn {
-    padding: 7px 16px;
-    border: none;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 16px;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+        white-space: nowrap;
+    }
 
-.btn-primary {
-    background: var(--primary-color);
-    color: #fff;
-}
-.btn-primary:hover {
-    background: #0958d9;
-}
+    .btn-add-green {
+        background: var(--success);
+        color: #fff;
+        padding: 7px 14px;
+    }
+    .btn-add-green:hover { background: var(--success-hover); }
 
-.btn-danger {
-    background: var(--danger-color);
-    color: #fff;
-    padding: 3px 10px;
-    font-size: 12px;
-}
-.btn-danger:hover {
-    background: #d9363e;
-}
+    .btn-primary {
+        background: var(--primary);
+        color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
 
-.btn-success {
-    background: var(--success-color);
-    color: #fff;
-}
-.btn-success:hover {
-    background: #389e0d;
-}
+    .btn-danger-sm {
+        background: var(--danger);
+        color: #fff;
+        padding: 4px 12px;
+        font-size: 12px;
+        border-radius: var(--radius);
+    }
+    .btn-danger-sm:hover { background: var(--danger-hover); }
 
-.btn-group {
-    display: flex;
-    gap: 8px;
-    margin-top: 16px;
-}
+    .btn-success-sm {
+        background: var(--success);
+        color: #fff;
+        padding: 4px 12px;
+        font-size: 12px;
+        border-radius: var(--radius);
+    }
+    .btn-success-sm:hover { background: var(--success-hover); }
 
-.category-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
+    .category-list {
+        list-style: none;
+    }
 
-.category-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s;
-    font-size: 13px;
-    color: var(--text-primary);
-}
+    .category-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 9px 12px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 14px;
+        color: var(--text);
+        margin-bottom: 2px;
+    }
 
-.category-item:hover {
-    background: #f0f5ff;
-}
+    .category-item:hover {
+        background: #f5f6f8;
+    }
 
-.category-item.active {
-    background: #e6f4ff;
-    color: var(--primary-color);
-    font-weight: 600;
-}
+    .category-item.active {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 600;
+    }
 
-.category-item .count-badge {
-    background: var(--border-color);
-    color: var(--text-secondary);
-    font-size: 11px;
-    padding: 1px 6px;
-    border-radius: 10px;
-}
+    .count-badge {
+        background: #f0f1f3;
+        color: var(--text-light);
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 400;
+    }
 
-.param-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+    .category-item.active .count-badge {
+        background: rgba(37,112,217,0.12);
+        color: var(--primary);
+    }
 
-.param-table th {
-    background: #fafafa;
-    padding: 10px 12px;
-    text-align: left;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    border-bottom: 2px solid var(--border-color);
-}
+    /* ========== 右侧面板 ========== */
+    .right-panel {
+        flex: 1;
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow);
+        min-width: 0;
+    }
 
-.param-table td {
-    padding: 8px 12px;
-    font-size: 13px;
-    color: var(--text-primary);
-    border-bottom: 1px solid #f0f0f0;
-    vertical-align: middle;
-}
+    /* 添加参数区 */
+    .add-param-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 14px;
+    }
 
-.param-table tr:hover td {
-    background: #fafafa;
-}
+    .add-param-row select,
+    .add-param-row input {
+        padding: 7px 12px;
+        font-size: 13px;
+        color: var(--title);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        transition: border-color 0.2s;
+        font-family: inherit;
+    }
+    .add-param-row select:focus,
+    .add-param-row input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(37,112,217,0.1);
+    }
+    .add-param-row .key-select { width: 110px; }
+    .add-param-row .value-input { flex: 1; }
 
-.param-table .inactive-row td {
-    color: #bbb;
-    text-decoration: line-through;
-}
+    /* 筛选栏 */
+    .filter-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+    }
 
-.status-tag {
-    display: inline-block;
-    padding: 1px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 500;
-}
+    .filter-bar select,
+    .filter-bar input {
+        padding: 6px 10px;
+        font-size: 12px;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        background: #fafbfc;
+        transition: border-color 0.2s;
+        font-family: inherit;
+    }
+    .filter-bar select:focus,
+    .filter-bar input:focus {
+        border-color: var(--primary);
+        background: #fff;
+    }
+    .filter-bar .filter-key { width: 90px; }
+    .filter-bar .filter-value { flex: 1; max-width: 200px; }
+    .filter-bar .filter-status { width: 90px; }
 
-.status-active {
-    background: #f6ffed;
-    color: var(--success-color);
-    border: 1px solid #b7eb8f;
-}
+    /* 表格 */
+    .param-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
 
-.status-inactive {
-    background: #fff2f0;
-    color: var(--danger-color);
-    border: 1px solid #ffccc7;
-}
+    .param-table th {
+        background: #f7f8fa;
+        padding: 10px 14px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-light);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
 
-.empty-tip {
-    text-align: center;
-    color: #bbb;
-    padding: 40px 0;
-    font-size: 14px;
-}
+    .param-table td {
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--text);
+        border-bottom: 1px solid #f2f3f5;
+        vertical-align: middle;
+        text-align: center;
+    }
 
-.message-bar {
-    padding: 10px 16px;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    font-size: 13px;
-}
-.message-bar.success {
-    background: #f6ffed;
-    color: #389e0d;
-    border: 1px solid #b7eb8f;
-}
-.message-bar.error {
-    background: #fff2f0;
-    color: #cf1322;
-    border: 1px solid #ffccc7;
-}
+    .param-table tbody tr:nth-child(even) td {
+        background: #fafbfc;
+    }
+
+    .param-table tbody tr:hover td {
+        background: var(--primary-light);
+    }
+
+    .param-table .inactive-row td {
+        color: #c0c0c0;
+    }
+
+    .param-table .inactive-row td .val-text {
+        text-decoration: line-through;
+    }
+
+    .status-dot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .status-dot.active {
+        background: #edf9f0;
+        color: var(--success);
+    }
+    .status-dot.inactive {
+        background: #f5f5f5;
+        color: #c0c0c0;
+    }
+
+    .empty-tip {
+        text-align: center;
+        color: var(--text-light);
+        padding: 48px 0;
+        font-size: 14px;
+    }
+
+    .empty-icon {
+        font-size: 36px;
+        margin-bottom: 8px;
+        opacity: 0.3;
+    }
 </style>
 
 <div class="page-container">
-    <h2 class="page-title">系统参数管理</h2>
-
-    {% if messages %}
-        {% for message in messages %}
-        <div class="message-bar {% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% endif %}">
-            {{ message }}
-        </div>
-        {% endfor %}
-    {% endif %}
+    <div class="page-header">
+        <div class="page-title">系统参数管理</div>
+        {% if messages %}
+            <div style="margin-top: 8px;">
+                {% for message in messages %}
+                <span class="msg-bar {% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% endif %}">
+                    {{ message }}
+                </span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
 
     <div class="main-layout">
-        <!-- 左侧：分类列表 + 添加分类 -->
+        <!-- 左侧：参数分类 -->
         <div class="left-panel">
             <div class="panel-title">参数分类</div>
-            <form method="post" style="margin-bottom: 14px;">
+            <form method="post" class="add-category-row">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="system_parameter_add_category">
-                <div class="form-group">
-                    <label>新增分类名称</label>
-                    <div style="display: flex; gap: 6px;">
-                        <input type="text" name="category_name" placeholder="输入分类名称" required style="flex:1;">
-                        <button type="submit" class="btn btn-success">添加</button>
-                    </div>
-                </div>
+                <input type="text" name="category_name" placeholder="输入分类名称" required>
+                <button type="submit" class="btn btn-add-green">添加</button>
             </form>
             <ul class="category-list">
                 {% for cat in categories %}
@@ -283,12 +386,12 @@
                 </li>
                 {% endfor %}
                 {% if not categories %}
-                <li style="color: #bbb; font-size: 13px; padding: 10px; text-align: center;">暂无分类</li>
+                <li style="color: var(--text-light); font-size: 13px; padding: 16px; text-align: center;">暂无分类</li>
                 {% endif %}
             </ul>
         </div>
 
-        <!-- 右侧：参数列表 + 添加参数 -->
+        <!-- 右侧：参数列表 -->
         <div class="right-panel">
             <div class="panel-title">
                 {% if current_category %}
@@ -299,59 +402,100 @@
             </div>
 
             {% if current_category %}
-            <!-- 添加参数表单 -->
-            <form method="post" style="margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-end;">
+            <!-- 添加参数 -->
+            <form method="post" class="add-param-row">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="system_parameter_add_item">
                 <input type="hidden" name="category" value="{{ current_category }}">
-                <div class="form-group" style="margin-bottom: 0; flex: 1;">
-                    <label>参数值</label>
-                    <input type="text" name="param_value" placeholder="输入参数值" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="height: 33px;">添加参数</button>
+                {% if current_category == "州仓点" %}
+                <select name="param_key" class="key-select" required>
+                    <option value="NJ">NJ</option>
+                    <option value="SAV">SAV</option>
+                    <option value="LA">LA</option>
+                </select>
+                <input type="text" name="param_value" class="value-input" placeholder="输入仓点代码，多个用逗号分隔，如 ABE3, ABE4" required>
+                {% else %}
+                <input type="text" name="param_value" class="value-input" placeholder="输入参数值" required>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">添加参数</button>
             </form>
+
+            <!-- 筛选栏 -->
+            {% if parameters %}
+            <div class="filter-bar">
+                {% if current_category == "州仓点" %}
+                <select id="search-key" class="filter-key">
+                    <option value="">全部州</option>
+                    <option value="NJ">NJ</option>
+                    <option value="SAV">SAV</option>
+                    <option value="LA">LA</option>
+                </select>
+                <input type="text" id="search-value" class="filter-value" placeholder="搜索仓点...">
+                {% else %}
+                <input type="text" id="search-value" class="filter-value" placeholder="搜索参数值...">
+                {% endif %}
+                <select id="search-status" class="filter-status">
+                    <option value="">全部状态</option>
+                    <option value="1">启用</option>
+                    <option value="0">停用</option>
+                </select>
+            </div>
+            {% endif %}
 
             <!-- 参数表格 -->
             {% if parameters %}
-            <table class="param-table">
+            <table class="param-table" id="param-table">
                 <thead>
                     <tr>
+                        {% if current_category == "州仓点" %}
+                        <th style="width: 80px;">州代码</th>
+                        <th>仓点</th>
+                        {% else %}
                         <th>参数值</th>
-                        <th style="width: 80px;">状态</th>
-                        <th style="width: 160px;">创建时间</th>
-                        <th style="width: 90px;">登记人</th>
-                        <th style="width: 100px;">操作</th>
+                        {% endif %}
+                        <th style="width: 70px;">状态</th>
+                        <th style="width: 150px;">创建时间</th>
+                        <th style="width: 80px;">登记人</th>
+                        <th style="width: 80px;">操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for param in parameters %}
-                    <tr class="{% if not param.is_active %}inactive-row{% endif %}">
-                        <td>{{ param.value }}</td>
+                    <tr class="{% if not param.is_active %}inactive-row{% endif %}"
+                        data-key="{{ param.key }}"
+                        data-value="{{ param.value }}"
+                        data-active="{{ param.is_active|yesno:'1,0' }}">
+                        {% if current_category == "州仓点" %}
+                        <td><strong>{{ param.key }}</strong></td>
+                        <td><span class="val-text">{{ param.value }}</span></td>
+                        {% else %}
+                        <td><span class="val-text">{{ param.value }}</span></td>
+                        {% endif %}
                         <td>
                             {% if param.is_active %}
-                            <span class="status-tag status-active">启用</span>
+                            <span class="status-dot active">✓</span>
                             {% else %}
-                            <span class="status-tag status-inactive">停用</span>
+                            <span class="status-dot inactive">✗</span>
                             {% endif %}
                         </td>
-                        <td>{{ param.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ param.created_at|date:"Y-m-d H:i" }}</td>
                         <td>{{ param.created_by|default:"-" }}</td>
                         <td>
                             {% if param.is_active %}
-                            <form method="post">
+                            <form method="post" style="display:inline;">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="system_parameter_toggle">
                                 <input type="hidden" name="param_id" value="{{ param.id }}">
                                 <input type="hidden" name="category" value="{{ current_category }}">
-                                <button type="submit" class="btn btn-danger" onclick="return confirm('确定要停用该参数吗？')">停用</button>
+                                <button type="submit" class="btn btn-danger-sm" onclick="return confirm('确定要停用该参数吗？')">停用</button>
                             </form>
                             {% else %}
-                            <form method="post">
+                            <form method="post" style="display:inline;">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="system_parameter_toggle">
                                 <input type="hidden" name="param_id" value="{{ param.id }}">
                                 <input type="hidden" name="category" value="{{ current_category }}">
-                                <button type="submit" class="btn btn-success" style="padding: 3px 10px; font-size: 12px;">启用</button>
+                                <button type="submit" class="btn btn-success-sm">启用</button>
                             </form>
                             {% endif %}
                         </td>
@@ -360,10 +504,16 @@
                 </tbody>
             </table>
             {% else %}
-            <div class="empty-tip">该分类下暂无参数</div>
+            <div class="empty-tip">
+                <div class="empty-icon">📋</div>
+                该分类下暂无参数
+            </div>
             {% endif %}
             {% else %}
-            <div class="empty-tip">请在左侧选择一个分类查看参数</div>
+            <div class="empty-tip">
+                <div class="empty-icon">👈</div>
+                请在左侧选择一个分类查看参数
+            </div>
             {% endif %}
         </div>
     </div>
@@ -371,15 +521,47 @@
 
 <script>
 function selectCategory(category) {
-    const form = document.createElement('form');
+    var form = document.createElement('form');
     form.method = 'post';
-    form.innerHTML = `
-        {% csrf_token %}
-        <input type="hidden" name="step" value="system_parameter_select_category">
-        <input type="hidden" name="category" value="${category}">
-    `;
+    form.innerHTML = '{% csrf_token %}' +
+        '<input type="hidden" name="step" value="system_parameter_select_category">' +
+        '<input type="hidden" name="category" value="' + category + '">';
     document.body.appendChild(form);
     form.submit();
 }
+
+function filterTable() {
+    var searchKey = document.getElementById('search-key');
+    var searchValue = document.getElementById('search-value');
+    var searchStatus = document.getElementById('search-status');
+    var keyVal = searchKey ? searchKey.value.toLowerCase() : '';
+    var valueVal = searchValue ? searchValue.value.toLowerCase() : '';
+    var statusVal = searchStatus ? searchStatus.value : '';
+    var rows = document.querySelectorAll('#param-table tbody tr');
+    rows.forEach(function(row) {
+        var rowKey = (row.getAttribute('data-key') || '').toLowerCase();
+        var rowValue = (row.getAttribute('data-value') || '').toLowerCase();
+        var rowActive = row.getAttribute('data-active') || '';
+        var show = true;
+        if (keyVal && rowKey !== keyVal) show = false;
+        if (valueVal && !rowValue.includes(valueVal)) show = false;
+        if (statusVal && rowActive !== statusVal) show = false;
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var searchKey = document.getElementById('search-key');
+    var searchValue = document.getElementById('search-value');
+    var searchStatus = document.getElementById('search-status');
+    if (searchKey) searchKey.addEventListener('change', filterTable);
+    if (searchValue) {
+        searchValue.addEventListener('input', filterTable);
+        searchValue.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') e.preventDefault();
+        });
+    }
+    if (searchStatus) searchStatus.addEventListener('change', filterTable);
+});
 </script>
 {% endblock %}
