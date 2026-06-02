@@ -753,6 +753,8 @@ class PostNsop(View):
             return await self._handle_system_parameter_delete(request)
         elif step == "system_parameter_select_category":
             return await self._handle_system_parameter_select_category(request)
+        elif step == "system_parameter_import_fba":
+            return await self._handle_system_parameter_import_fba(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -17688,24 +17690,44 @@ class PostNsop(View):
             visible_categories.append("私仓供应商")
         if is_superuser:
             visible_categories.append("州仓点")
+            visible_categories.append("FBA仓点")
         
-        categories = await sync_to_async(list)(
+        categories_from_db = await sync_to_async(list)(
             SystemParameter.objects.filter(category__in=visible_categories)
             .values("category")
             .annotate(count=models.Count("id"))
             .order_by("category")
         )
+        categories_map = {c["category"]: c["count"] for c in categories_from_db}
+        categories = []
+        for cat_name in visible_categories:
+            categories.append({"category": cat_name, "count": categories_map.get(cat_name, 0)})
         context = {
             "categories": categories,
             "current_category": current_category,
         }
         if current_category:
             if current_category in visible_categories:
-                context["parameters"] = await sync_to_async(list)(
+                params = await sync_to_async(list)(
                     SystemParameter.objects.filter(
                         category=current_category
                     ).order_by("sort_order", "id")
                 )
+                if current_category == "FBA仓点":
+                    import json
+                    for p in params:
+                        try:
+                            fba_data = json.loads(p.value)
+                            p.fba_location = fba_data.get("location", "")
+                            p.fba_city = fba_data.get("city", "")
+                            p.fba_state = fba_data.get("state", "")
+                            p.fba_zipcode = fba_data.get("zipcode", "")
+                        except (json.JSONDecodeError, TypeError):
+                            p.fba_location = ""
+                            p.fba_city = ""
+                            p.fba_state = ""
+                            p.fba_zipcode = ""
+                context["parameters"] = params
             else:
                 context["parameters"] = []
         return context
@@ -17726,6 +17748,7 @@ class PostNsop(View):
                 allowed_categories.append("私仓供应商")
             if is_superuser:
                 allowed_categories.append("州仓点")
+                allowed_categories.append("FBA仓点")
             
             if category_name not in allowed_categories:
                 messages.error(request, "您无权创建该分类")
@@ -17757,6 +17780,7 @@ class PostNsop(View):
             allowed_categories.append("私仓供应商")
         if is_superuser:
             allowed_categories.append("州仓点")
+            allowed_categories.append("FBA仓点")
         
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
@@ -17822,6 +17846,7 @@ class PostNsop(View):
             allowed_categories.append("私仓供应商")
         if is_superuser:
             allowed_categories.append("州仓点")
+            allowed_categories.append("FBA仓点")
         
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
@@ -17854,6 +17879,7 @@ class PostNsop(View):
             allowed_categories.append("私仓供应商")
         if is_superuser:
             allowed_categories.append("州仓点")
+            allowed_categories.append("FBA仓点")
         
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
@@ -17873,4 +17899,71 @@ class PostNsop(View):
     async def _handle_system_parameter_select_category(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
         context = await self._get_system_parameter_context(request, current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_import_fba(self, request: HttpRequest):
+        import yaml as yaml_lib
+        import json
+
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+        if not is_superuser:
+            messages.error(request, "仅管理员可导入FBA仓点")
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            return render(request, self.template_system_parameter_add, context)
+
+        yaml_content = request.POST.get("fba_yaml_content", "").strip()
+        username = await sync_to_async(lambda: request.user.username)()
+
+        if not yaml_content:
+            messages.error(request, "请粘贴YAML内容")
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            return render(request, self.template_system_parameter_add, context)
+
+        try:
+            parsed = yaml_lib.safe_load(yaml_content)
+        except Exception as e:
+            messages.error(request, f"YAML解析失败: {str(e)}")
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            return render(request, self.template_system_parameter_add, context)
+
+        if not isinstance(parsed, dict):
+            messages.error(request, "YAML格式不正确，应为键值对结构")
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            return render(request, self.template_system_parameter_add, context)
+
+        added = []
+        skipped = []
+        for code, info in parsed.items():
+            if not isinstance(info, dict):
+                continue
+            value_json = json.dumps({
+                "city": info.get("city", ""),
+                "location": info.get("location", ""),
+                "state": info.get("state", ""),
+                "zipcode": str(info.get("zipcode", "")),
+            }, ensure_ascii=False)
+            exists = await sync_to_async(
+                lambda c=code, v=value_json: SystemParameter.objects.filter(
+                    category="FBA仓点", key=c, value=v
+                ).exists()
+            )()
+            if exists:
+                skipped.append(code)
+            else:
+                await sync_to_async(SystemParameter.objects.create)(
+                    category="FBA仓点",
+                    key=code,
+                    value=value_json,
+                    created_by=username,
+                )
+                added.append(code)
+
+        if added:
+            messages.success(request, f"已导入 {len(added)} 个FBA仓点: {', '.join(added[:20])}{'...' if len(added) > 20 else ''}")
+        if skipped:
+            messages.warning(request, f"已跳过 {len(skipped)} 个重复仓点: {', '.join(skipped[:20])}{'...' if len(skipped) > 20 else ''}")
+        if not added and not skipped:
+            messages.error(request, "未解析到有效的FBA仓点数据")
+
+        context = await self._get_system_parameter_context(request, current_category="FBA仓点")
         return render(request, self.template_system_parameter_add, context)

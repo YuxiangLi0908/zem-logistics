@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from simple_history.models import HistoricalRecords
+import json
 
 
 class SystemParameter(models.Model):
@@ -55,4 +56,15 @@ class SystemParameter(models.Model):
             if param.key not in result:
                 result[param.key] = []
             result[param.key].append(param.value)
+        return result
+
+    @staticmethod
+    def get_fba_locations():
+        params = SystemParameter.objects.filter(category="FBA仓点", is_active=True).order_by("sort_order", "id")
+        result = {}
+        for param in params:
+            try:
+                result[param.key] = json.loads(param.value)
+            except (json.JSONDecodeError, TypeError):
+                pass
         return result
