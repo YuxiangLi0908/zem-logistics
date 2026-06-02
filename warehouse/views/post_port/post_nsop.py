@@ -97,7 +97,6 @@ from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
-    amazon_fba_locations,
     DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE, WAREHOUSE_OPTIONS
 )
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
@@ -753,8 +752,8 @@ class PostNsop(View):
             return await self._handle_system_parameter_delete(request)
         elif step == "system_parameter_select_category":
             return await self._handle_system_parameter_select_category(request)
-        elif step == "system_parameter_import_fba":
-            return await self._handle_system_parameter_import_fba(request)
+        elif step == "system_parameter_add_fba":
+            return await self._handle_system_parameter_add_fba(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -3172,6 +3171,7 @@ class PostNsop(View):
 
     async def handle_get_maersk_quote(self, request: HttpRequest) -> JsonResponse:
         """调用Maersk API获取报价"""
+        amazon_fba_locations = await sync_to_async(SystemParameter.get_fba_locations)()
         try:
             origin_zip = request.POST.get('origin_zip')
             dest_zip = request.POST.get('dest_zip')
@@ -10250,6 +10250,7 @@ class PostNsop(View):
         return group_dest_clean == shipment_dest_clean
 
     async def get_address(self,destination):
+        amazon_fba_locations = await sync_to_async(SystemParameter.get_fba_locations)()
         if destination in amazon_fba_locations:
             fba = amazon_fba_locations[destination]
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
@@ -17901,69 +17902,48 @@ class PostNsop(View):
         context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
-    async def _handle_system_parameter_import_fba(self, request: HttpRequest):
-        import yaml as yaml_lib
+    async def _handle_system_parameter_add_fba(self, request: HttpRequest):
         import json
 
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
         if not is_superuser:
-            messages.error(request, "仅管理员可导入FBA仓点")
+            messages.error(request, "仅管理员可添加FBA仓点")
             context = await self._get_system_parameter_context(request, current_category="FBA仓点")
             return render(request, self.template_system_parameter_add, context)
 
-        yaml_content = request.POST.get("fba_yaml_content", "").strip()
+        code = request.POST.get("fba_code", "").strip()
+        location = request.POST.get("fba_location", "").strip()
+        city = request.POST.get("fba_city", "").strip()
+        state = request.POST.get("fba_state", "").strip()
+        zipcode = request.POST.get("fba_zipcode", "").strip()
         username = await sync_to_async(lambda: request.user.username)()
 
-        if not yaml_content:
-            messages.error(request, "请粘贴YAML内容")
+        if not code:
+            messages.error(request, "仓点代码不能为空")
             context = await self._get_system_parameter_context(request, current_category="FBA仓点")
             return render(request, self.template_system_parameter_add, context)
 
-        try:
-            parsed = yaml_lib.safe_load(yaml_content)
-        except Exception as e:
-            messages.error(request, f"YAML解析失败: {str(e)}")
+        value_json = json.dumps({
+            "city": city,
+            "location": location,
+            "state": state,
+            "zipcode": zipcode,
+        }, ensure_ascii=False)
+
+        exists = await sync_to_async(
+            lambda: SystemParameter.objects.filter(category="FBA仓点", key=code).exists()
+        )()
+        if exists:
+            messages.warning(request, f"仓点 {code} 已存在")
             context = await self._get_system_parameter_context(request, current_category="FBA仓点")
             return render(request, self.template_system_parameter_add, context)
 
-        if not isinstance(parsed, dict):
-            messages.error(request, "YAML格式不正确，应为键值对结构")
-            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
-            return render(request, self.template_system_parameter_add, context)
-
-        added = []
-        skipped = []
-        for code, info in parsed.items():
-            if not isinstance(info, dict):
-                continue
-            value_json = json.dumps({
-                "city": info.get("city", ""),
-                "location": info.get("location", ""),
-                "state": info.get("state", ""),
-                "zipcode": str(info.get("zipcode", "")),
-            }, ensure_ascii=False)
-            exists = await sync_to_async(
-                lambda c=code, v=value_json: SystemParameter.objects.filter(
-                    category="FBA仓点", key=c, value=v
-                ).exists()
-            )()
-            if exists:
-                skipped.append(code)
-            else:
-                await sync_to_async(SystemParameter.objects.create)(
-                    category="FBA仓点",
-                    key=code,
-                    value=value_json,
-                    created_by=username,
-                )
-                added.append(code)
-
-        if added:
-            messages.success(request, f"已导入 {len(added)} 个FBA仓点: {', '.join(added[:20])}{'...' if len(added) > 20 else ''}")
-        if skipped:
-            messages.warning(request, f"已跳过 {len(skipped)} 个重复仓点: {', '.join(skipped[:20])}{'...' if len(skipped) > 20 else ''}")
-        if not added and not skipped:
-            messages.error(request, "未解析到有效的FBA仓点数据")
-
+        await sync_to_async(SystemParameter.objects.create)(
+            category="FBA仓点",
+            key=code,
+            value=value_json,
+            created_by=username,
+        )
+        messages.success(request, f"已添加FBA仓点: {code}")
         context = await self._get_system_parameter_context(request, current_category="FBA仓点")
         return render(request, self.template_system_parameter_add, context)

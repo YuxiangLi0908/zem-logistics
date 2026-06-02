@@ -352,24 +352,34 @@
         opacity: 0.3;
     }
 
-    .fba-import-form {
+    .fba-add-form {
         margin-bottom: 14px;
     }
 
-    .fba-yaml-input {
-        width: 100%;
-        padding: 10px 12px;
-        font-size: 12px;
-        font-family: "Consolas", "Courier New", monospace;
+    .fba-fields {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .fba-field {
+        flex: 1;
+        min-width: 120px;
+        padding: 8px 10px;
+        font-size: 13px;
         color: var(--title);
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         outline: none;
-        resize: vertical;
         transition: border-color 0.2s;
-        line-height: 1.5;
     }
-    .fba-yaml-input:focus {
+
+    .fba-field-sm {
+        min-width: 80px;
+        max-width: 100px;
+    }
+
+    .fba-field:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 2px rgba(37,112,217,0.1);
     }
@@ -424,14 +434,20 @@
             </div>
 
             {% if current_category %}
-            <!-- FBA仓点：YAML导入 -->
+            <!-- FBA仓点：单条录入 -->
             {% if current_category == "FBA仓点" %}
-            <form method="post" class="fba-import-form">
+            <form method="post" class="fba-add-form">
                 {% csrf_token %}
-                <input type="hidden" name="step" value="system_parameter_import_fba">
+                <input type="hidden" name="step" value="system_parameter_add_fba">
                 <input type="hidden" name="category" value="FBA仓点">
-                <textarea name="fba_yaml_content" class="fba-yaml-input" placeholder="将 fba_fulfillment_center.yaml 文件内容粘贴到此处，系统会自动解析并导入所有FBA仓点数据" rows="6" required></textarea>
-                <button type="submit" class="btn btn-primary" style="margin-top:8px;">批量导入</button>
+                <div class="fba-fields">
+                    <input type="text" name="fba_code" class="fba-field" placeholder="仓点代码" required>
+                    <input type="text" name="fba_location" class="fba-field" placeholder="地址" required>
+                    <input type="text" name="fba_city" class="fba-field" placeholder="城市" required>
+                    <input type="text" name="fba_state" class="fba-field fba-field-sm" placeholder="州" required>
+                    <input type="text" name="fba_zipcode" class="fba-field fba-field-sm" placeholder="邮编" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">添加</button>
             </form>
             {% else %}
             <!-- 添加参数 -->
@@ -584,7 +600,7 @@ function filterTable() {
     var keyVal = searchKey ? searchKey.value.toLowerCase() : '';
     var valueVal = searchValue ? searchValue.value.toLowerCase() : '';
     var statusVal = searchStatus ? searchStatus.value : '';
-    var isFba = document.querySelector('.fba-import-form') !== null;
+    var isFba = document.querySelector('.fba-add-form') !== null;
     var rows = document.querySelectorAll('#param-table tbody tr');
     rows.forEach(function(row) {
         var rowKey = (row.getAttribute('data-key') || '').toLowerCase();
