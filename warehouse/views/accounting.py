@@ -7939,40 +7939,20 @@ class Accounting(View):
         kept_item_ids = []
 
         with transaction.atomic():
-            # 1. 先算当前类型旧费用
-            old_warehouse_amount_raw = (
-                    InvoiceItemv2.objects.filter(
-                        invoice_number=invoice,
-                        invoice_type=invoice_type,
-                        item_category=item_category,
-                    ).aggregate(total=Sum("amount"))["total"]
-                    or 0
-            )
+            # 1. 取当前类型旧费用
+            if delivery_type == "public":
+                old_type_amount = Decimal(str(invoice.payable_wh_public_amount or 0))
+            else:
+                old_type_amount = Decimal(str(invoice.payable_wh_other_amount or 0))
 
-            old_warehouse_amount = Decimal(str(old_warehouse_amount_raw))
-
-            # 2. 从 invoicev2 里减掉旧费用
-            invoice.payable_warehouse_amount = (
-                    Decimal(str(invoice.payable_warehouse_amount or 0)) - old_warehouse_amount
-            )
-            invoice.payable_total_amount = (
-                    Decimal(str(invoice.payable_total_amount or 0)) - old_warehouse_amount
-            )
-
-            # 防止出现负数
-            if invoice.payable_warehouse_amount < 0:
-                invoice.payable_warehouse_amount = Decimal("0.00")
-            if invoice.payable_total_amount < 0:
-                invoice.payable_total_amount = Decimal("0.00")
-
-            # 3. 删除当前类型旧 InvoiceItemv2
+            # 2. 先删除当前类型旧明细
             InvoiceItemv2.objects.filter(
                 invoice_number=invoice,
                 invoice_type=invoice_type,
                 item_category=item_category,
             ).delete()
 
-            # 4. 保存当前页面新费用
+            # 3. 保存当前页面新费用
             total_amount = Decimal("0.00")
 
             for index, description in enumerate(descriptions):
@@ -7981,7 +7961,7 @@ class Accounting(View):
                     continue
 
                 try:
-                    amount = Decimal(amounts[index] or "0") if index < len(amounts) else Decimal("0")
+                    amount = Decimal(str(amounts[index] or "0")) if index < len(amounts) else Decimal("0")
                 except Exception:
                     amount = Decimal("0")
 
@@ -8000,20 +7980,39 @@ class Accounting(View):
                     registered_user=username,
                 )
 
-            # 5. 把当前页面新费用加回 invoicev2
-            invoice.payable_warehouse_amount = (
-                    Decimal(str(invoice.payable_warehouse_amount or 0)) + total_amount
+            # 4. 覆盖当前类型金额
+            if delivery_type == "public":
+                invoice.payable_wh_public_amount = float(total_amount)
+            else:
+                invoice.payable_wh_other_amount = float(total_amount)
+
+            # 5. 库内总费用：先减旧，再加新
+            invoice.payable_warehouse_amount = float(
+                Decimal(str(invoice.payable_warehouse_amount or 0))
+                - old_type_amount
+                + total_amount
             )
-            invoice.payable_total_amount = (
-                    Decimal(str(invoice.payable_total_amount or 0)) + total_amount
+
+            # 6. 应付总费用：也先减旧，再加新
+            invoice.payable_total_amount = float(
+                Decimal(str(invoice.payable_total_amount or 0))
+                - old_type_amount
+                + total_amount
             )
+
+            if invoice.payable_warehouse_amount < 0:
+                invoice.payable_warehouse_amount = 0
+
+            if invoice.payable_total_amount < 0:
+                invoice.payable_total_amount = 0
 
             invoice.save()
 
             status_field = f"warehouse_{delivery_type}_status"
             normalized_status = "completed" if save_type in ["completed", "complete"] else save_type
             setattr(invoice_status, status_field, normalized_status)
-            if delivery_type == 'public':
+
+            if delivery_type == "public":
                 invoice_status.warehouse_public_status = "completed"
             else:
                 invoice_status.warehouse_other_status = "completed"
