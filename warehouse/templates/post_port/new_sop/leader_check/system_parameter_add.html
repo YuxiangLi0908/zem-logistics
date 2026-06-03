@@ -615,8 +615,8 @@
                                      ondragover="event.preventDefault();this.classList.add('drag-over')"
                                      ondragleave="this.classList.remove('drag-over')"
                                      ondrop="event.preventDefault();this.classList.remove('drag-over');var f=event.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){var fi=this.closest('td').querySelector('input[type=file]');var dt=new DataTransfer();dt.items.add(f);fi.files=dt.files;fi.parentElement.submit();}">
-                                    {% if param.image %}
-                                    <img src="{{ param.image.url }}" style="max-height:60px;max-width:120px;object-fit:contain;border-radius:3px;" alt="{{ param.key }}">
+                                    {% if param.image_base64 %}
+                                    <img src="data:image/jpeg;base64,{{ param.image_base64 }}" style="max-height:60px;max-width:120px;object-fit:contain;border-radius:3px;" alt="{{ param.key }}">
                                     {% else %}
                                     <span style="color:#bbb;font-size:11px;">拖拽或点击</span>
                                     {% endif %}

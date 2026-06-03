@@ -4065,15 +4065,11 @@ class PostNsop(View):
         # 从数据库预加载私仓供应商图片映射 {carrier_key: base64_string}
         carrier_image_map = {}
         carrier_params = await sync_to_async(list)(
-            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image="")
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image_base64="")
         )
         for cp in carrier_params:
-            if cp.image:
-                try:
-                    img_data = await sync_to_async(lambda: cp.image.read())()
-                    carrier_image_map[cp.key] = base64.b64encode(img_data).decode("utf-8")
-                except Exception:
-                    pass
+            if cp.image_base64:
+                carrier_image_map[cp.key] = cp.image_base64
 
         def safe_int(value, default: int = 0) -> int:
             if value is None:
@@ -5105,15 +5101,11 @@ class PostNsop(View):
         # 从数据库加载私仓供应商图片
         carrier_image_map = {}
         carrier_params = await sync_to_async(list)(
-            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image="")
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image_base64="")
         )
         for cp in carrier_params:
-            if cp.image:
-                try:
-                    img_data = await sync_to_async(lambda: cp.image.read())()
-                    carrier_image_map[cp.key] = base64.b64encode(img_data).decode("utf-8")
-                except Exception:
-                    pass
+            if cp.image_base64:
+                carrier_image_map[cp.key] = cp.image_base64
 
         data = [
             {
@@ -18022,7 +18014,10 @@ class PostNsop(View):
                 lambda: SystemParameter.objects.filter(id=param_id).first()
             )()
             if param:
-                param.image = carrier_image
+                # 读取图片文件转base64存入数据库
+                img_bytes = await sync_to_async(carrier_image.read)()
+                img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+                param.image_base64 = img_base64
                 await sync_to_async(param.save)()
                 messages.success(request, f"已上传供应商图片: {param.key}")
             else:
