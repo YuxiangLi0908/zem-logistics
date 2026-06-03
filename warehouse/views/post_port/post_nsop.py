@@ -97,8 +97,6 @@ from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
-    amazon_fba_locations,
-    NJ_DES, SAV_DES, LA_DES,
     DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE, WAREHOUSE_OPTIONS
 )
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
@@ -164,25 +162,6 @@ class PostNsop(View):
         "未送达": "未送达",
         "其它": "其它",
     }
-    carrier_options = {
-        "": "",
-        "Arm-AMF": "Arm-AMF",
-        "Zem-AMF": "Zem-AMF",
-        "ASH": "ASH",
-        "Arm": "Arm",
-        "ZEM": "ZEM",
-        "LiFeng": "LiFeng",
-        "LLC": "LLC",
-        "FWT": "FWT",
-        "大森林": "大森林",
-        "Sunzong": "Sunzong",
-        "pengfeng": "pengfeng",
-        "fortune": "fortune",
-        "Allways": "Allways",
-        "华送": "华送",
-        "高总": "高总",
-        "得美": "得美",
-    }
     shipment_type_options = {
         "FTL": "FTL",
         "外配": "外配",
@@ -197,6 +176,14 @@ class PostNsop(View):
         r"^[A-Z]{2}\d{2}$"            # 2字母 + 2数字
     )
     PUBLIC_KEYWORDS = {"WALMART", "沃尔玛", "AMAZON", "亚马逊"}
+    
+    async def get_carrier_options(self):
+        """获取公仓供应商选项（带空选项）"""
+        carrier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("公仓供应商")
+        carrier_dict = {"": ""}
+        for carrier in carrier_list:
+            carrier_dict[carrier] = carrier
+        return carrier_dict
     
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -267,12 +254,12 @@ class PostNsop(View):
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
-        elif step == "LTL_pallets":
+        elif step == "LTL_pallets":       
             context = {
                 "warehouse_options": WAREHOUSE_OPTIONS
             }
             return render(request, self.template_ltl_pos_all, context)
-        elif step == "LTL_history_po":
+        elif step == "LTL_history_po":        
             context = {
                 "warehouse_options": WAREHOUSE_OPTIONS
             }
@@ -284,7 +271,11 @@ class PostNsop(View):
             context = {"warehouse_options": WAREHOUSE_OPTIONS}
             return render(request, self.template_batch_shipment, context)      
         elif step == "batch_shipment_other":
-            context = {"warehouse_options": WAREHOUSE_OPTIONS}
+            supplier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
+            context = {
+                "warehouse_options": WAREHOUSE_OPTIONS,
+                "supplier_list": supplier_list
+            }
             return render(request, self.template_batch_other_shipment, context)
         elif step == "download_batch_shipment_template":
             return await self.handle_download_batch_shipment_template(request)
@@ -299,7 +290,7 @@ class PostNsop(View):
         elif step == "easy_action":
             return render(request, self.template_easy_action_table, {})
         elif step == "system_parameter_add":
-            context = await self._get_system_parameter_context()
+            context = await self._get_system_parameter_context(request)
             return render(request, self.template_system_parameter_add, context)
         else:
             raise ValueError('输入错误')
@@ -761,6 +752,10 @@ class PostNsop(View):
             return await self._handle_system_parameter_delete(request)
         elif step == "system_parameter_select_category":
             return await self._handle_system_parameter_select_category(request)
+        elif step == "system_parameter_add_fba":
+            return await self._handle_system_parameter_add_fba(request)
+        elif step == "system_parameter_upload_image":
+            return await self._handle_system_parameter_upload_image(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -1119,31 +1114,7 @@ class PostNsop(View):
             
             # 验证供应商
             supplier = group.get('supplier')
-            valid_suppliers = [
-                "ARM",
-                "ASH",
-                "Lifeng",
-                "ZEM",
-                "TRANSITO INC",
-                "ALLWAYS",
-                "ISSY TRUCKING",
-                "LLT Freight Inc",
-                "AMF",
-                "FWT",
-                "Fastline",
-                "fortune",
-                "FOREST SHIPPING USA INC",
-                "Forest Shipping New York INC",
-                "FUTURE",
-                "EAZ",
-                "Newworld",
-                "鹏峰",
-                "JCR",
-                "Jims",
-                "Huasong",
-                "Steven",
-                "client pickup"
-            ]
+            valid_suppliers = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
             if supplier and supplier not in valid_suppliers:
                 validation_errors.append(f'供应商必须是以下之一: {", ".join(valid_suppliers)}')
                 field_errors['supplier'] = True
@@ -3202,6 +3173,7 @@ class PostNsop(View):
 
     async def handle_get_maersk_quote(self, request: HttpRequest) -> JsonResponse:
         """调用Maersk API获取报价"""
+        amazon_fba_locations = await sync_to_async(SystemParameter.get_fba_locations)()
         try:
             origin_zip = request.POST.get('origin_zip')
             dest_zip = request.POST.get('dest_zip')
@@ -4090,6 +4062,19 @@ class PostNsop(View):
         has_special_operation = False
         appointment_info_details = []
 
+        # 从数据库预加载私仓供应商图片映射 {carrier_key: base64_string}
+        carrier_image_map = {}
+        carrier_params = await sync_to_async(list)(
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image="")
+        )
+        for cp in carrier_params:
+            if cp.image:
+                try:
+                    img_data = await sync_to_async(lambda: cp.image.read())()
+                    carrier_image_map[cp.key] = base64.b64encode(img_data).decode("utf-8")
+                except Exception:
+                    pass
+
         def safe_int(value, default: int = 0) -> int:
             if value is None:
                 return default
@@ -4561,6 +4546,7 @@ class PostNsop(View):
                         "contact": group.get("contact", {}),
                         "contact_flag": group.get("contact_flag", False),
                         "pickup_time": pickup_time,
+                        "carrier_image_base64": carrier_image_map.get(group_carrier, ""),
                     }
                 )
 
@@ -4593,6 +4579,7 @@ class PostNsop(View):
                 "warehouse": warehouse,
                 "arm_pro": arm_pro,
                 "carrier": carrier,
+                "carrier_image_base64": carrier_image_map.get(carrier, ""),
                 "pallet": pallet,
                 "pcs": pcs,
                 "container_number": group_container_number,
@@ -5114,12 +5101,27 @@ class PostNsop(View):
         cropped_image.save(new_buffer, format="PNG")
 
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+
+        # 从数据库加载私仓供应商图片
+        carrier_image_map = {}
+        carrier_params = await sync_to_async(list)(
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image="")
+        )
+        for cp in carrier_params:
+            if cp.image:
+                try:
+                    img_data = await sync_to_async(lambda: cp.image.read())()
+                    carrier_image_map[cp.key] = base64.b64encode(img_data).decode("utf-8")
+                except Exception:
+                    pass
+
         data = [
             {
                 "warehouse": request.POST.get("warehouse"),
                 "arm_pro": arm_pro,
                 "barcode": barcode_base64,
                 "carrier": carrier,
+                "carrier_image_base64": carrier_image_map.get(carrier, ""),
                 "contact": contact,
                 "contact_flag": contact_flag,
                 "fraction": f"{i + 1}/{pallets}",
@@ -5706,6 +5708,10 @@ class PostNsop(View):
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
     ) ->  HttpResponse:
+        def _alert_response(msg):
+            """返回JSON错误信息，前端用message modal展示"""
+            return JsonResponse({"error": msg}, status=400)
+
         cargo_ids_str = request.POST.get("cargo_ids", "").strip()
         pl_ids = [
             int(i.strip()) for i in cargo_ids_str.split(",") if i.strip().isdigit()
@@ -5716,11 +5722,37 @@ class PostNsop(View):
             int(i.strip()) for i in plt_ids_str.split(",") if i.strip().isdigit()
         ]
         if not pl_ids and not plt_ids:
-            raise ValueError("没有获取到任何 ID")
+            return _alert_response("没有获取到任何ID，请重新选择")
         
         all_data = []
+        dropped_alert_msg = ""
 
         if plt_ids:
+            # 检查甩板情况：先查甩板记录数量
+            dropped_count = await sync_to_async(
+                lambda: Pallet.objects.filter(id__in=plt_ids, is_dropped_pallet=True).count()
+            )()
+
+            if dropped_count == len(plt_ids):
+                # 全部都是甩板
+                return _alert_response("当前选中的板子全部是甩板，无法导出PO")
+
+            if dropped_count > 0:
+                # 部分是甩板，查询甩板的柜号和仓点用于提示
+                dropped_info_list = await sync_to_async(
+                    lambda: list(
+                        Pallet.objects.select_related("container_number")
+                        .filter(id__in=plt_ids, is_dropped_pallet=True)
+                        .values("container_number__container_number", "destination")
+                        .distinct()
+                    )
+                )()
+                dropped_info = "、".join(
+                    f"{p['container_number__container_number']}({p['destination']})"
+                    for p in dropped_info_list
+                )
+                dropped_alert_msg = f"以下柜号/仓点为甩板，已跳过：{dropped_info}，其余正常导出"
+
             pallet_data = await sync_to_async(
                 lambda: list(
                     Pallet.objects.select_related("container_number")
@@ -5860,8 +5892,8 @@ class PostNsop(View):
         # 导出 CSV
 
         if len(df) == 0:
-            raise ValueError('没有数据',len(df))
-        # 如果只有一个 Destination，保持原来返回单 CSV
+            return _alert_response("没有可导出的数据，请检查选择的内容")
+
         grouped_by_dest = {}
         for _, row in df.iterrows():
             dest = row["Destination"]
@@ -5869,7 +5901,48 @@ class PostNsop(View):
                 grouped_by_dest[dest] = []
             grouped_by_dest[dest].append(row.to_dict())
         
-        # 如果只有一个 Destination，返回单 CSV
+        # 构建文件响应的辅助函数
+        def _build_file_response():
+            if len(grouped_by_dest) == 1:
+                dest_name = list(grouped_by_dest.keys())[0]
+                df_single = pd.DataFrame(grouped_by_dest[dest_name])
+                csv_buffer = io.BytesIO()
+                df_single.to_csv(csv_buffer, index=False)
+                csv_buffer.seek(0)
+                return {
+                    "file_data": base64.b64encode(csv_buffer.getvalue()).decode(),
+                    "filename": f"PO_{dest_name}.csv",
+                    "content_type": "text/csv",
+                }
+            else:
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    for dest, rows in grouped_by_dest.items():
+                        df_dest = pd.DataFrame.from_records(rows)
+                        csv_buf = io.BytesIO()
+                        df_dest.to_csv(csv_buf, index=False, encoding='utf-8-sig')
+                        csv_buf.seek(0)
+                        safe_dest = "".join(c for c in dest if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                        filename = f"{safe_dest}.csv" if safe_dest else f"destination_{hash(dest)}.csv"
+                        zf.writestr(filename, csv_buf.getvalue())
+                zip_buffer.seek(0)
+                return {
+                    "file_data": base64.b64encode(zip_buffer.getvalue()).decode(),
+                    "filename": "PO_virtual_fleet.zip",
+                    "content_type": "application/zip",
+                }
+
+        # 如果有甩板提示，返回JSON（包含警告+文件数据）
+        if dropped_alert_msg:
+            file_info = _build_file_response()
+            return JsonResponse({
+                "warning": dropped_alert_msg,
+                "file_data": file_info["file_data"],
+                "filename": file_info["filename"],
+                "content_type": file_info["content_type"],
+            })
+
+        # 无甩板，直接返回文件
         if len(grouped_by_dest) == 1:
             dest_name = list(grouped_by_dest.keys())[0]
             df_single = pd.DataFrame(grouped_by_dest[dest_name])
@@ -6490,7 +6563,7 @@ class PostNsop(View):
                         'total_pallets': po['total_pallets'], 
                         'rate': None, 
                         'amount': None,
-                        'type': '未找到',
+                        'type': '未找到报价',
                         'region': None,
                         'warehouse': warehouse, 
                         'is_niche_warehouse': None,  
@@ -9172,7 +9245,7 @@ class PostNsop(View):
             'warehouse_options': WAREHOUSE_OPTIONS,
             "account_options": self.account_options,
             "warehouse": warehouse,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "exception_shipments": exception_sp["exception_shipments"],
             "shipment_data": exception_sp["shipment_data"],
@@ -9231,7 +9304,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             'active_tab': request.POST.get('active_tab')
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
@@ -9240,31 +9313,31 @@ class PostNsop(View):
     
     async def _history_scheduled_data(self, warehouse: str, user, start_date, end_date) -> list:
         """获取已排约数据 - 按shipment_batch_number分组"""
-        # 获取有shipment_batch_number但fleet_number为空的货物
+        warehouse_dests = await sync_to_async(SystemParameter.get_warehouse_destinations)()
+        nj_des = warehouse_dests.get("NJ", [])
+        sav_des = warehouse_dests.get("SAV", [])
+        la_des = warehouse_dests.get("LA", [])
+        
         base_q = models.Q(
             shipment_appointment__gte=start_date,
             shipment_appointment__lte=end_date,
         )
         if "LA" in warehouse:
-            # LA仓库：目的地要在LA_DES内，或者不在NJ_DES和SAV_DES内
             base_q &= (
-                models.Q(destination__in=LA_DES) |
-                ~models.Q(destination__in=NJ_DES + SAV_DES)
+                models.Q(destination__in=la_des) |
+                ~models.Q(destination__in=nj_des + sav_des)
             )
         elif "NJ" in warehouse:
-            # NJ仓库：目的地要在NJ_DES内，或者不在LA_DES和SAV_DES内
             base_q &= (
-                models.Q(destination__in=NJ_DES) |
-                ~models.Q(destination__in=LA_DES + SAV_DES)
+                models.Q(destination__in=nj_des) |
+                ~models.Q(destination__in=la_des + sav_des)
             )
         elif "SAV" in warehouse:
-            # SAV仓库：目的地要在SAV_DES内，或者不在LA_DES和NJ_DES内
             base_q &= (
-                models.Q(destination__in=SAV_DES) |
-                ~models.Q(destination__in=LA_DES + NJ_DES)
+                models.Q(destination__in=sav_des) |
+                ~models.Q(destination__in=la_des + nj_des)
             )
         else:
-            # 其他仓库：使用默认逻辑，或者根据具体需求调整
             pass
         shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(base_q)
@@ -9543,7 +9616,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             'active_tab': request.POST.get('active_tab'),
             'summary': summary,
             'start_date': start_date,
@@ -9733,7 +9806,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             'active_tab': request.POST.get('active_tab')
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
@@ -10280,6 +10353,7 @@ class PostNsop(View):
         return group_dest_clean == shipment_dest_clean
 
     async def get_address(self,destination):
+        amazon_fba_locations = await sync_to_async(SystemParameter.get_fba_locations)()
         if destination in amazon_fba_locations:
             fba = amazon_fba_locations[destination]
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
@@ -12597,6 +12671,8 @@ class PostNsop(View):
         }
         if not context:
             context = {}
+
+        supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
         context.update({
             'warehouse': warehouse,
             'warehouse_options': WAREHOUSE_OPTIONS,
@@ -12607,11 +12683,12 @@ class PostNsop(View):
             "fleet_cargos": fleet_cargos,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             "start_date": start_date,
             "end_date": end_date,
+            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping))
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
@@ -12817,6 +12894,8 @@ class PostNsop(View):
         }
         if not context:
             context = {}
+        supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
+        
         context.update({
             'warehouse': warehouse,
             'warehouse_options': WAREHOUSE_OPTIONS,
@@ -12831,10 +12910,11 @@ class PostNsop(View):
             "pod_data": pod_data,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
+            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping))
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
@@ -14669,7 +14749,7 @@ class PostNsop(View):
             "delivery_shipments": delivery_data,
             "pod_shipments": pod_data,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": self.carrier_options,
+            "carrier_options": await self.get_carrier_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
         })
         active_tab = request.POST.get('active_tab')
@@ -16280,7 +16360,6 @@ class PostNsop(View):
 
     async def search_by_batch_mode(self, start_date, end_date, batch_number, delivery_type):
         """批次号模式查询 - 以 shipment 表为主体，按异常类型和原因合并显示"""
-        import json
         from django.apps import apps
         Shipment = apps.get_model('warehouse', 'Shipment')
         Pallet = apps.get_model('warehouse', 'Pallet')
@@ -17703,22 +17782,58 @@ class PostNsop(View):
         context['results'] = results
         return self.template_sp_bind_history, context
 
-    async def _get_system_parameter_context(self, current_category=None):
-        categories = await sync_to_async(list)(
-            SystemParameter.objects.values("category")
+    async def _get_system_parameter_context(self, request, current_category=None):
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+        
+        visible_categories = []
+        if has_public:
+            visible_categories.append("公仓供应商")
+        if has_other:
+            visible_categories.append("私仓供应商")
+        if is_superuser:
+            visible_categories.append("州仓点")
+            visible_categories.append("FBA仓点")
+        
+        categories_from_db = await sync_to_async(list)(
+            SystemParameter.objects.filter(category__in=visible_categories)
+            .values("category")
             .annotate(count=models.Count("id"))
             .order_by("category")
         )
+        categories_map = {c["category"]: c["count"] for c in categories_from_db}
+        categories = []
+        for cat_name in visible_categories:
+            categories.append({"category": cat_name, "count": categories_map.get(cat_name, 0)})
         context = {
             "categories": categories,
             "current_category": current_category,
         }
         if current_category:
-            context["parameters"] = await sync_to_async(list)(
-                SystemParameter.objects.filter(
-                    category=current_category
-                ).order_by("sort_order", "id")
-            )
+            if current_category in visible_categories:
+                params = await sync_to_async(list)(
+                    SystemParameter.objects.filter(
+                        category=current_category
+                    ).order_by("sort_order", "id")
+                )
+                if current_category == "FBA仓点":
+                    import json
+                    for p in params:
+                        try:
+                            fba_data = json.loads(p.value)
+                            p.fba_location = fba_data.get("location", "")
+                            p.fba_city = fba_data.get("city", "")
+                            p.fba_state = fba_data.get("state", "")
+                            p.fba_zipcode = fba_data.get("zipcode", "")
+                        except (json.JSONDecodeError, TypeError):
+                            p.fba_location = ""
+                            p.fba_city = ""
+                            p.fba_state = ""
+                            p.fba_zipcode = ""
+                context["parameters"] = params
+            else:
+                context["parameters"] = []
         return context
 
     async def _handle_system_parameter_add_category(self, request: HttpRequest):
@@ -17726,72 +17841,237 @@ class PostNsop(View):
         if not category_name:
             messages.error(request, "分类名称不能为空")
         else:
-            exists = await sync_to_async(
-                lambda: SystemParameter.objects.filter(category=category_name).exists()
-            )()
-            if exists:
-                messages.warning(request, f"分类 '{category_name}' 已存在")
+            has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+            has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+            is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+            
+            allowed_categories = []
+            if has_public:
+                allowed_categories.append("公仓供应商")
+            if has_other:
+                allowed_categories.append("私仓供应商")
+            if is_superuser:
+                allowed_categories.append("州仓点")
+                allowed_categories.append("FBA仓点")
+            
+            if category_name not in allowed_categories:
+                messages.error(request, "您无权创建该分类")
             else:
-                messages.success(request, f"分类 '{category_name}' 已创建，请添加参数")
-        context = await self._get_system_parameter_context(current_category=category_name if category_name else None)
+                exists = await sync_to_async(
+                    lambda: SystemParameter.objects.filter(category=category_name).exists()
+                )()
+                if exists:
+                    messages.warning(request, f"分类 '{category_name}' 已存在")
+                else:
+                    messages.success(request, f"分类 '{category_name}' 已创建，请添加参数")
+        context = await self._get_system_parameter_context(request, current_category=category_name if category_name else None)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_add_item(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
         param_value = request.POST.get("param_value", "").strip()
+        param_key = request.POST.get("param_key", "").strip()
         username = await sync_to_async(lambda: request.user.username)()
-
-        if not param_value:
+        
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+        
+        allowed_categories = []
+        if has_public:
+            allowed_categories.append("公仓供应商")
+        if has_other:
+            allowed_categories.append("私仓供应商")
+        if is_superuser:
+            allowed_categories.append("州仓点")
+            allowed_categories.append("FBA仓点")
+        
+        if category not in allowed_categories:
+            messages.error(request, "您无权操作该分类")
+        elif not param_value:
             messages.error(request, "参数值不能为空")
+        elif category == "州仓点":
+            key = param_key if param_key else "NJ"
+            values = [v.strip().strip('"').strip("'") for v in param_value.split(",")]
+            values = [v for v in values if v]
+            if not values:
+                messages.error(request, "未解析到有效的仓点代码")
+            else:
+                added = []
+                skipped = []
+                for val in values:
+                    exists = await sync_to_async(
+                        lambda v=val: SystemParameter.objects.filter(category=category, key=key, value=v).exists()
+                    )()
+                    if exists:
+                        skipped.append(val)
+                    else:
+                        await sync_to_async(SystemParameter.objects.create)(
+                            category=category,
+                            key=key,
+                            value=val,
+                            created_by=username,
+                        )
+                        added.append(val)
+                if added:
+                    messages.success(request, f"已添加 {len(added)} 个仓点: {', '.join(added)}")
+                if skipped:
+                    messages.warning(request, f"已跳过 {len(skipped)} 个重复仓点: {', '.join(skipped)}")
         else:
+            key = param_key if param_key else param_value
             exists = await sync_to_async(
-                lambda: SystemParameter.objects.filter(category=category, key=param_value).exists()
+                lambda: SystemParameter.objects.filter(category=category, key=key, value=param_value).exists()
             )()
             if exists:
                 messages.error(request, f"分类 '{category}' 下已存在参数 '{param_value}'")
             else:
                 await sync_to_async(SystemParameter.objects.create)(
                     category=category,
-                    key=param_value,
+                    key=key,
                     value=param_value,
                     created_by=username,
                 )
-                messages.success(request, f"已添加参数: {param_value}")
-        context = await self._get_system_parameter_context(current_category=category)
+                messages.success(request, f"已添加参数: {key} - {param_value}")
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_toggle(self, request: HttpRequest):
         param_id = request.POST.get("param_id")
         category = request.POST.get("category", "").strip()
-        param = await sync_to_async(
-            lambda: SystemParameter.objects.filter(id=param_id).first()
-        )()
-        if param:
-            param.is_active = not param.is_active
-            await sync_to_async(param.save)()
-            status_text = "启用" if param.is_active else "停用"
-            messages.success(request, f"已{status_text}参数: {param.key}")
+        
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+        
+        allowed_categories = []
+        if has_public:
+            allowed_categories.append("公仓供应商")
+        if has_other:
+            allowed_categories.append("私仓供应商")
+        if is_superuser:
+            allowed_categories.append("州仓点")
+            allowed_categories.append("FBA仓点")
+        
+        if category not in allowed_categories:
+            messages.error(request, "您无权操作该分类")
         else:
-            messages.error(request, "未找到该参数")
-        context = await self._get_system_parameter_context(current_category=category)
+            param = await sync_to_async(
+                lambda: SystemParameter.objects.filter(id=param_id).first()
+            )()
+            if param:
+                param.is_active = not param.is_active
+                await sync_to_async(param.save)()
+                status_text = "启用" if param.is_active else "停用"
+                messages.success(request, f"已{status_text}参数: {param.key}")
+            else:
+                messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_delete(self, request: HttpRequest):
         param_id = request.POST.get("param_id")
         category = request.POST.get("category", "").strip()
-        param = await sync_to_async(
-            lambda: SystemParameter.objects.filter(id=param_id).first()
-        )()
-        if param:
-            key = param.key
-            await sync_to_async(param.delete)()
-            messages.success(request, f"已删除参数: {key}")
+        
+        has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+        
+        allowed_categories = []
+        if has_public:
+            allowed_categories.append("公仓供应商")
+        if has_other:
+            allowed_categories.append("私仓供应商")
+        if is_superuser:
+            allowed_categories.append("州仓点")
+            allowed_categories.append("FBA仓点")
+        
+        if category not in allowed_categories:
+            messages.error(request, "您无权操作该分类")
         else:
-            messages.error(request, "未找到该参数")
-        context = await self._get_system_parameter_context(current_category=category)
+            param = await sync_to_async(
+                lambda: SystemParameter.objects.filter(id=param_id).first()
+            )()
+            if param:
+                key = param.key
+                await sync_to_async(param.delete)()
+                messages.success(request, f"已删除参数: {key}")
+            else:
+                messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
     async def _handle_system_parameter_select_category(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
-        context = await self._get_system_parameter_context(current_category=category)
+        context = await self._get_system_parameter_context(request, current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_upload_image(self, request: HttpRequest):
+        param_id = request.POST.get("param_id")
+        category = request.POST.get("category", "").strip()
+        carrier_image = request.FILES.get("carrier_image")
+
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        if not has_other:
+            messages.error(request, "您无权上传供应商图片")
+        elif not carrier_image:
+            messages.error(request, "请选择图片文件")
+        elif category != "私仓供应商":
+            messages.error(request, "仅私仓供应商支持上传图片")
+        else:
+            param = await sync_to_async(
+                lambda: SystemParameter.objects.filter(id=param_id).first()
+            )()
+            if param:
+                param.image = carrier_image
+                await sync_to_async(param.save)()
+                messages.success(request, f"已上传供应商图片: {param.key}")
+            else:
+                messages.error(request, "未找到该参数")
+        context = await self._get_system_parameter_context(request, current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_add_fba(self, request: HttpRequest):
+        import json
+
+        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
+        if not is_superuser:
+            messages.error(request, "仅管理员可添加FBA仓点")
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            return render(request, self.template_system_parameter_add, context)
+
+        code = request.POST.get("fba_code", "").strip()
+        location = request.POST.get("fba_location", "").strip()
+        city = request.POST.get("fba_city", "").strip()
+        state = request.POST.get("fba_state", "").strip()
+        zipcode = request.POST.get("fba_zipcode", "").strip()
+        username = await sync_to_async(lambda: request.user.username)()
+
+        if not code:
+            messages.error(request, "仓点代码不能为空")
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            return render(request, self.template_system_parameter_add, context)
+
+        value_json = json.dumps({
+            "city": city,
+            "location": location,
+            "state": state,
+            "zipcode": zipcode,
+        }, ensure_ascii=False)
+
+        exists = await sync_to_async(
+            lambda: SystemParameter.objects.filter(category="FBA仓点", key=code).exists()
+        )()
+        if exists:
+            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            context["fba_duplicate_alert"] = f"仓点 {code} 已存在，如需修改请先删除已有记录再重新添加"
+            return render(request, self.template_system_parameter_add, context)
+
+        await sync_to_async(SystemParameter.objects.create)(
+            category="FBA仓点",
+            key=code,
+            value=value_json,
+            created_by=username,
+        )
+        messages.success(request, f"已添加FBA仓点: {code}")
+        context = await self._get_system_parameter_context(request, current_category="FBA仓点")
         return render(request, self.template_system_parameter_add, context)

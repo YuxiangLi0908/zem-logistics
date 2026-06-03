@@ -80,18 +80,6 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
     WEST_COAST_REGION1,
-    APP_ENV,
-    CARRIER_FLEET,
-    CONTAINER_PICKUP_CARRIER,
-    SP_DOC_LIB,
-    SP_CLIENT_ID,
-    SP_DOC_LIB,
-    SP_PRIVATE_KEY,
-    SP_SCOPE,
-    SP_TENANT,
-    SP_THUMBPRINT,
-    SP_URL,
-    SYSTEM_FOLDER,
     DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 )
 from warehouse.views.export_file import export_invoice
@@ -8146,6 +8134,13 @@ class ReceivableAccounting(View):
                 "combina_groups": [],
                 "combina_info": {}
             }
+        if not unbilled_groups and existing_items:
+            # 所有仓点都已录入，更新状态为已完成
+            status_field = "delivery_public_status" if delivery_type == "public" else "delivery_other_status"
+            setattr(invoice_status, status_field, "completed")
+            invoice_status.save()
+            context["success_messages"] = "所有仓点已录入完毕，状态已更新为已完成"
+            return self.handle_delivery_entry_post(request, context)
         if unbilled_groups:
             has_previous_items = bool(previous_item_dict)  # 判断是否有过账单
             # 有未录入的PO，需要进一步处理

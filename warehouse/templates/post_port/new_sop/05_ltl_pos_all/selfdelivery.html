@@ -946,7 +946,7 @@
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
                     data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
-                    data-offload-date="{{ cargo.offload_at|date:'Y-m-d'|default:'' }}"
+                    data-offload-date="{{ cargo.offload_other_at|date:'Y-m-d'|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}"
                     data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
