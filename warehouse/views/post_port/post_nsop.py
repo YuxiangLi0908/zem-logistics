@@ -754,6 +754,8 @@ class PostNsop(View):
             return await self._handle_system_parameter_select_category(request)
         elif step == "system_parameter_add_fba":
             return await self._handle_system_parameter_add_fba(request)
+        elif step == "system_parameter_upload_image":
+            return await self._handle_system_parameter_upload_image(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -4060,6 +4062,19 @@ class PostNsop(View):
         has_special_operation = False
         appointment_info_details = []
 
+        # 从数据库预加载私仓供应商图片映射 {carrier_key: base64_string}
+        carrier_image_map = {}
+        carrier_params = await sync_to_async(list)(
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image="")
+        )
+        for cp in carrier_params:
+            if cp.image:
+                try:
+                    img_data = await sync_to_async(lambda: cp.image.read())()
+                    carrier_image_map[cp.key] = base64.b64encode(img_data).decode("utf-8")
+                except Exception:
+                    pass
+
         def safe_int(value, default: int = 0) -> int:
             if value is None:
                 return default
@@ -4531,6 +4546,7 @@ class PostNsop(View):
                         "contact": group.get("contact", {}),
                         "contact_flag": group.get("contact_flag", False),
                         "pickup_time": pickup_time,
+                        "carrier_image_base64": carrier_image_map.get(group_carrier, ""),
                     }
                 )
 
@@ -4563,6 +4579,7 @@ class PostNsop(View):
                 "warehouse": warehouse,
                 "arm_pro": arm_pro,
                 "carrier": carrier,
+                "carrier_image_base64": carrier_image_map.get(carrier, ""),
                 "pallet": pallet,
                 "pcs": pcs,
                 "container_number": group_container_number,
@@ -5084,12 +5101,27 @@ class PostNsop(View):
         cropped_image.save(new_buffer, format="PNG")
 
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+
+        # 从数据库加载私仓供应商图片
+        carrier_image_map = {}
+        carrier_params = await sync_to_async(list)(
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image="")
+        )
+        for cp in carrier_params:
+            if cp.image:
+                try:
+                    img_data = await sync_to_async(lambda: cp.image.read())()
+                    carrier_image_map[cp.key] = base64.b64encode(img_data).decode("utf-8")
+                except Exception:
+                    pass
+
         data = [
             {
                 "warehouse": request.POST.get("warehouse"),
                 "arm_pro": arm_pro,
                 "barcode": barcode_base64,
                 "carrier": carrier,
+                "carrier_image_base64": carrier_image_map.get(carrier, ""),
                 "contact": contact,
                 "contact_flag": contact_flag,
                 "fraction": f"{i + 1}/{pallets}",
@@ -17970,6 +18002,31 @@ class PostNsop(View):
 
     async def _handle_system_parameter_select_category(self, request: HttpRequest):
         category = request.POST.get("category", "").strip()
+        context = await self._get_system_parameter_context(request, current_category=category)
+        return render(request, self.template_system_parameter_add, context)
+
+    async def _handle_system_parameter_upload_image(self, request: HttpRequest):
+        param_id = request.POST.get("param_id")
+        category = request.POST.get("category", "").strip()
+        carrier_image = request.FILES.get("carrier_image")
+
+        has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
+        if not has_other:
+            messages.error(request, "您无权上传供应商图片")
+        elif not carrier_image:
+            messages.error(request, "请选择图片文件")
+        elif category != "私仓供应商":
+            messages.error(request, "仅私仓供应商支持上传图片")
+        else:
+            param = await sync_to_async(
+                lambda: SystemParameter.objects.filter(id=param_id).first()
+            )()
+            if param:
+                param.image = carrier_image
+                await sync_to_async(param.save)()
+                messages.success(request, f"已上传供应商图片: {param.key}")
+            else:
+                messages.error(request, "未找到该参数")
         context = await self._get_system_parameter_context(request, current_category=category)
         return render(request, self.template_system_parameter_add, context)
 
