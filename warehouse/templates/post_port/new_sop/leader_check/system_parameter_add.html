@@ -579,6 +579,15 @@
                         <td>{{ param.created_at|date:"Y-m-d H:i" }}</td>
                         <td>{{ param.created_by|default:"-" }}</td>
                         <td>
+                            {% if current_category == "FBA仓点" %}
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="system_parameter_delete">
+                                <input type="hidden" name="param_id" value="{{ param.id }}">
+                                <input type="hidden" name="category" value="{{ current_category }}">
+                                <button type="submit" class="btn btn-danger-sm" onclick="return confirm('确定要删除该FBA仓点吗？')">删除</button>
+                            </form>
+                            {% else %}
                             {% if param.is_active %}
                             <form method="post" style="display:inline;">
                                 {% csrf_token %}
@@ -595,6 +604,7 @@
                                 <input type="hidden" name="category" value="{{ current_category }}">
                                 <button type="submit" class="btn btn-success-sm">启用</button>
                             </form>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr>
@@ -618,6 +628,10 @@
 </div>
 
 <script>
+{% if fba_duplicate_alert %}
+alert("{{ fba_duplicate_alert }}");
+{% endif %}
+
 function selectCategory(category) {
     var form = document.createElement('form');
     form.method = 'post';

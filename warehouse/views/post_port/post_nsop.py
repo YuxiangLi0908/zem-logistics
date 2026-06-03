@@ -17934,8 +17934,8 @@ class PostNsop(View):
             lambda: SystemParameter.objects.filter(category="FBA仓点", key=code).exists()
         )()
         if exists:
-            messages.warning(request, f"仓点 {code} 已存在")
             context = await self._get_system_parameter_context(request, current_category="FBA仓点")
+            context["fba_duplicate_alert"] = f"仓点 {code} 已存在，如需修改请先删除已有记录再重新添加"
             return render(request, self.template_system_parameter_add, context)
 
         await sync_to_async(SystemParameter.objects.create)(
