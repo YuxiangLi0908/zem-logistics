@@ -287,7 +287,7 @@ class Accounting(View):
             template, context = self.handle_container_invoice_confirm_get(request)
             return render(request, template, context)
         elif step == "container_confirm_payable":
-            template, context = self.handle_container_invoice_confirm_get(request)
+            template, context = self.handle_container_invoice_confirm_get_payable(request)
             return render(request, template, context)
         elif step == "container_payable":
             template, context = self.handle_container_invoice_payable_get(
@@ -10392,6 +10392,124 @@ class Accounting(View):
                     return self.handle_container_invoice_direct_get(new_request)
         else:
             return self.handle_container_invoice_payable_get(request, True, False, True)
+
+    def handle_container_invoice_confirm_get_payable(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        '''
+        应付库内-财务确认点击账单
+        '''
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+        status = request.GET.get("status")
+
+        invoice = Invoicev2.objects.get(id=invoice_id)
+        order = Order.objects.select_related("container_number").get(
+            container_number__container_number=container_number
+        )
+
+        if status == "confirmed":
+            # 直接读取所有的invoiceitem
+            ctx = self._all_invoice_items_get(invoice, container_number)
+            ctx['category_totals'] = {
+                'warehouse_public': invoice.payable_wh_public_amount or 0,
+                'warehouse_other': invoice.payable_wh_other_amount or 0,
+            }
+            ctx.update({"is_fix_page": False})
+            return self.template_invoice_items_edit, ctx
+
+        if order.order_type == "直送":
+            is_combina = False
+        else:
+            # 看下是不是补开的账单，如果是补开的按转运方式展示记录就行了，不用组合柜形式展示了
+            other_invoices = Invoicev2.objects.filter(
+                container_number=order.container_number
+            ).exclude(id=invoice_id)
+
+            if other_invoices.exists():
+                is_combina = False
+            else:
+                # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
+                ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
+                ctx.update({"is_fix_page": False})
+                if ctx.get('error_messages'):
+                    return self.template_invoice_combina_edit, ctx
+
+        if is_combina:
+            # 删除已有的combina_extra_fee记录,因为财务确认这里，每次组合柜额外费用都会重新计算一遍，因为如果修改了报价表，这个规则就有可能会变化
+            InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                item_category="combina_extra_fee"
+            ).delete()
+            # 这里表示是组合柜的方式计算
+            new_get = request.GET.copy()
+            new_get['is_new_version'] = True
+            request.GET = new_get
+            setattr(request, "is_from_account_confirmation", True)
+            ctx = self.handle_container_invoice_combina_get(request)
+            ctx.update({"is_fix_page": False})
+            return self.template_invoice_combina_edit, ctx
+        else:
+            items = InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                container_number__container_number=container_number,
+                invoice_type="receivable"
+            ).order_by("item_category", "id")
+
+            # 分组（按 5 大类）
+            grouped = {
+                "preport": [],
+                "warehouse_public": [],
+                "warehouse_other": [],
+                "delivery_public": [],
+                "delivery_other": [],
+                "activation_fee": [],
+                "payout_fee": [],
+            }
+
+            # 计算每个类别的总金额
+            category_totals = {}
+            total_amount = 0
+
+            for it in items:
+                grouped.setdefault(it.item_category, []).append(it)
+                if it.amount:
+                    amount = float(it.amount)
+
+                    # 如果是 payout_fee 类别，减去金额；否则加上金额
+                    if it.item_category == "payout_fee":
+                        total_amount -= amount
+                    else:
+                        total_amount += amount
+
+            # 计算每个类别的金额
+            for category, items_list in grouped.items():
+                category_total = sum(float(item.amount or 0) for item in items_list)
+                category_totals[category] = category_total
+
+            groups_order = [
+                ("preport", "📌 港前", grouped.get("preport", [])),
+                ("warehouse_public", "🏬 公仓库内", grouped.get("warehouse_public", [])),
+                ("warehouse_other", "🏭 私仓库内", grouped.get("warehouse_other", [])),
+                ("delivery_public", "🚚 公仓派送", grouped.get("delivery_public", [])),
+                ("delivery_other", "🚚 私仓派送", grouped.get("delivery_other", [])),
+                ("activation_fee", "⚡ PO激活费", grouped.get("activation_fee", [])),
+                ("payout_fee", "💰 赔付费用", grouped.get("payout_fee", [])),
+            ]
+
+            context = {
+                "invoice_number": invoice.invoice_number,
+                "invoice": invoice,  # 添加invoice对象，用于获取状态等信息
+                "container_number": container_number,
+                "groups_order": groups_order,
+                "category_totals": category_totals,
+                "total_amount": total_amount,
+                "start_date": request.GET.get("start_date"),
+                "end_date": request.GET.get("end_date"),
+                "is_combina": is_combina,
+                "is_fix_page": False,
+            }
+            return self.template_confirm_transfer_edit, context
 
     def handle_container_invoice_confirm_get_wait(
         self, request: HttpRequest
