@@ -79,6 +79,28 @@ function closeMessageModal() {
     document.getElementById('messageModal').style.display = 'none';
 }
 
+// 动态显示消息弹框：type='success'|'error'|'warning'
+function showMessageModal(msg, type) {
+    var modal = document.getElementById('messageModal');
+    var iconEl = modal.querySelector('.message-modal-icon');
+    var titleEl = modal.querySelector('.message-modal-title');
+    var textEl = modal.querySelector('.message-modal-text');
+
+    type = type || 'error';
+    if (type === 'success') {
+        iconEl.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success-color, #39c268);"></i>';
+        titleEl.textContent = '操作成功';
+    } else if (type === 'warning') {
+        iconEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #f0ad4e;"></i>';
+        titleEl.textContent = '提示';
+    } else {
+        iconEl.innerHTML = '<i class="fas fa-exclamation-circle" style="color: var(--danger-color, #dc3545);"></i>';
+        titleEl.textContent = '操作失败';
+    }
+    textEl.textContent = msg;
+    modal.style.display = 'block';
+}
+
 // 点击弹窗外部关闭
 document.getElementById('messageModal').addEventListener('click', function(e) {
     if (e.target === this) {

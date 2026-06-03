@@ -1582,13 +1582,69 @@
             const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
             const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
 
-            document.getElementById('formStep').value = 'export_virtual_fleet_pos';
-            document.getElementById('formCargoIds').value = cargoIds.join(',');
-            document.getElementById('formPltIds').value = pltIds.join(',');
-            document.getElementById('formSuggestionId').value = suggestionId;
-
             closeExportPoModal();
-            document.getElementById('actionForm').submit();
+
+            // 使用AJAX提交
+            const form = document.getElementById('actionForm');
+            const formData = new FormData(form);
+            formData.set('step', 'export_virtual_fleet_pos');
+            formData.set('cargo_ids', cargoIds.join(','));
+            formData.set('plt_ids', pltIds.join(','));
+            formData.set('suggestion_id', suggestionId);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(response => {
+                const contentType = response.headers.get('Content-Type') || '';
+                if (contentType.includes('application/json')) {
+                    return response.json().then(data => {
+                        if (data.warning) {
+                            // 甩板提示：先弹框，确认后下载文件
+                            showMessageModal(data.warning, 'warning');
+                            // 自动触发下载
+                            var byteChars = atob(data.file_data);
+                            var byteNumbers = new Array(byteChars.length);
+                            for (var i = 0; i < byteChars.length; i++) {
+                                byteNumbers[i] = byteChars.charCodeAt(i);
+                            }
+                            var byteArray = new Uint8Array(byteNumbers);
+                            var blob = new Blob([byteArray], {type: data.content_type});
+                            var url = window.URL.createObjectURL(blob);
+                            var a = document.createElement('a');
+                            a.href = url;
+                            a.download = data.filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            a.remove();
+                        } else {
+                            showMessageModal(data.error || '操作失败', 'error');
+                        }
+                    });
+                } else {
+                    // 直接返回文件，触发下载
+                    response.blob().then(blob => {
+                        const disposition = response.headers.get('Content-Disposition') || '';
+                        let filename = 'download';
+                        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (match && match[1]) {
+                            filename = match[1].replace(/['"]/g, '');
+                        }
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        a.remove();
+                    });
+                }
+            }).catch(err => {
+                showMessageModal('导出失败：' + err.message, 'error');
+            });
         });
     });
 
