@@ -11,6 +11,7 @@ class SystemParameter(models.Model):
     sort_order = models.IntegerField(default=0, verbose_name="排序顺序")
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
     created_by = models.CharField(max_length=150, null=True, blank=True, verbose_name="登记人")
+    image = models.ImageField(upload_to='carrier_logos/', null=True, blank=True, verbose_name="供应商图片")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
     history = HistoricalRecords()

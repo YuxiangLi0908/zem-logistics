@@ -101,7 +101,11 @@
                     <b class="larger-text">Bill Of Lading#:</b>{{d.arm_pro}}
                 </td>
                 <td style="width:60%;">
+                    {% if d.carrier_image_base64 %}
+                    <img style="width:200px;height:auto;" src="data:image/jpeg;base64,{{ d.carrier_image_base64 }}">
+                    {% else %}
                     <img style="width:200px;height:auto;" src="{% static 'img/'|add:d.carrier|add:'.jpg' %}">
+                    {% endif %}
                 </td>
             </tr>
         </table>
