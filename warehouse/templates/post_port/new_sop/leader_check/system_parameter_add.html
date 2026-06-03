@@ -179,16 +179,15 @@
 
     .carrier-img-upload {
         display: inline-block;
-        width: 86px;
-        height: 44px;
+        width: 126px;
+        height: 64px;
         border: 2px dashed var(--border);
         border-radius: var(--radius-sm);
         text-align: center;
-        line-height: 40px;
+        line-height: 60px;
         vertical-align: middle;
         cursor: pointer;
         transition: border-color 0.2s, background 0.2s;
-        margin-right: 4px;
     }
     .carrier-img-upload:hover {
         border-color: var(--primary);
@@ -578,9 +577,11 @@
                         <th style="width: 60px;">州</th>
                         <th style="width: 90px;">邮编</th>
                         {% else %}
-                        <th>参数值</th>
                         {% if current_category == "私仓供应商" %}
-                        <th style="width: 100px;">供应商图片</th>
+                        <th style="width: 120px;">参数值</th>
+                        <th style="width: 180px;">供应商图片</th>
+                        {% else %}
+                        <th>参数值</th>
                         {% endif %}
                         {% endif %}
                         <th style="width: 70px;">状态</th>
@@ -605,29 +606,33 @@
                         <td>{{ param.fba_state|default:"-" }}</td>
                         <td>{{ param.fba_zipcode|default:"-" }}</td>
                         {% else %}
-                        <td><span class="val-text">{{ param.value }}</span></td>
                         {% if current_category == "私仓供应商" %}
+                        <td><span class="val-text">{{ param.value }}</span></td>
                         <td>
-                            <div class="carrier-img-upload" id="img-drop-{{ param.id }}"
-                                 onclick="this.parentElement.querySelector('input[type=file]').click()"
-                                 ondragover="event.preventDefault();this.classList.add('drag-over')"
-                                 ondragleave="this.classList.remove('drag-over')"
-                                 ondrop="event.preventDefault();this.classList.remove('drag-over');var f=event.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){var fi=this.parentElement.querySelector('input[type=file]');var dt=new DataTransfer();dt.items.add(f);fi.files=dt.files;fi.parentElement.submit();}">
-                                {% if param.image %}
-                                <img src="{{ param.image.url }}" style="max-height:40px;max-width:80px;object-fit:contain;border-radius:3px;" alt="{{ param.key }}">
-                                {% else %}
-                                <span style="color:#bbb;font-size:11px;">拖拽或点击上传</span>
-                                {% endif %}
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <div class="carrier-img-upload" id="img-drop-{{ param.id }}"
+                                     onclick="this.closest('td').querySelector('input[type=file]').click()"
+                                     ondragover="event.preventDefault();this.classList.add('drag-over')"
+                                     ondragleave="this.classList.remove('drag-over')"
+                                     ondrop="event.preventDefault();this.classList.remove('drag-over');var f=event.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){var fi=this.closest('td').querySelector('input[type=file]');var dt=new DataTransfer();dt.items.add(f);fi.files=dt.files;fi.parentElement.submit();}">
+                                    {% if param.image %}
+                                    <img src="{{ param.image.url }}" style="max-height:60px;max-width:120px;object-fit:contain;border-radius:3px;" alt="{{ param.key }}">
+                                    {% else %}
+                                    <span style="color:#bbb;font-size:11px;">拖拽或点击</span>
+                                    {% endif %}
+                                </div>
+                                <form method="post" enctype="multipart/form-data">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="system_parameter_upload_image">
+                                    <input type="hidden" name="param_id" value="{{ param.id }}">
+                                    <input type="hidden" name="category" value="{{ current_category }}">
+                                    <input type="file" name="carrier_image" accept="image/*" style="display:none;" onchange="this.parentElement.submit()">
+                                    <button type="button" class="btn btn-primary-sm" style="font-size:11px;padding:2px 8px;" onclick="this.form.querySelector('input[type=file]').click()">选择</button>
+                                </form>
                             </div>
-                            <form method="post" enctype="multipart/form-data" style="display:inline;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="system_parameter_upload_image">
-                                <input type="hidden" name="param_id" value="{{ param.id }}">
-                                <input type="hidden" name="category" value="{{ current_category }}">
-                                <input type="file" name="carrier_image" accept="image/*" style="display:none;" onchange="this.parentElement.submit()">
-                                <button type="button" class="btn btn-primary-sm" style="font-size:11px;padding:2px 8px;" onclick="this.form.querySelector('input[type=file]').click()">选择</button>
-                            </form>
                         </td>
+                        {% else %}
+                        <td><span class="val-text">{{ param.value }}</span></td>
                         {% endif %}
                         {% endif %}
                         <td>
