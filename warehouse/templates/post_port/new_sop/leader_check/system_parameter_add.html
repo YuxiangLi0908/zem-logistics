@@ -629,7 +629,18 @@
 
 <script>
 {% if fba_duplicate_alert %}
-alert("{{ fba_duplicate_alert }}");
+(function(){
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.35);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    var modal = document.createElement('div');
+    modal.style.cssText = 'background:#fff;border-radius:10px;padding:32px 36px 24px;max-width:420px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.18);text-align:center;font-family:Microsoft YaHei,sans-serif;';
+    modal.innerHTML = '<div style="font-size:40px;margin-bottom:12px;">⚠️</div>' +
+        '<div style="font-size:15px;color:#333;line-height:1.7;margin-bottom:24px;word-break:break-all;">{{ fba_duplicate_alert }}</div>' +
+        '<button style="background:#2570d9;color:#fff;border:none;border-radius:6px;padding:10px 48px;font-size:14px;cursor:pointer;" onmouseover="this.style.background=\'#1a5bb5\'" onmouseout="this.style.background=\'#2570d9\'">确 定</button>';
+    modal.querySelector('button').addEventListener('click', function(){ document.body.removeChild(overlay); });
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+})();
 {% endif %}
 
 function selectCategory(category) {

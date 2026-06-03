@@ -5676,6 +5676,10 @@ class PostNsop(View):
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
     ) ->  HttpResponse:
+        def _alert_response(msg):
+            """返回JSON错误信息，前端用message modal展示"""
+            return JsonResponse({"error": msg}, status=400)
+
         cargo_ids_str = request.POST.get("cargo_ids", "").strip()
         pl_ids = [
             int(i.strip()) for i in cargo_ids_str.split(",") if i.strip().isdigit()
@@ -5686,11 +5690,37 @@ class PostNsop(View):
             int(i.strip()) for i in plt_ids_str.split(",") if i.strip().isdigit()
         ]
         if not pl_ids and not plt_ids:
-            raise ValueError("没有获取到任何 ID")
+            return _alert_response("没有获取到任何ID，请重新选择")
         
         all_data = []
+        dropped_alert_msg = ""
 
         if plt_ids:
+            # 检查甩板情况：先查甩板记录数量
+            dropped_count = await sync_to_async(
+                lambda: Pallet.objects.filter(id__in=plt_ids, is_dropped_pallet=True).count()
+            )()
+
+            if dropped_count == len(plt_ids):
+                # 全部都是甩板
+                return _alert_response("当前选中的板子全部是甩板，无法导出PO")
+
+            if dropped_count > 0:
+                # 部分是甩板，查询甩板的柜号和仓点用于提示
+                dropped_info_list = await sync_to_async(
+                    lambda: list(
+                        Pallet.objects.select_related("container_number")
+                        .filter(id__in=plt_ids, is_dropped_pallet=True)
+                        .values("container_number__container_number", "destination")
+                        .distinct()
+                    )
+                )()
+                dropped_info = "、".join(
+                    f"{p['container_number__container_number']}({p['destination']})"
+                    for p in dropped_info_list
+                )
+                dropped_alert_msg = f"以下柜号/仓点为甩板，已跳过：{dropped_info}，其余正常导出"
+
             pallet_data = await sync_to_async(
                 lambda: list(
                     Pallet.objects.select_related("container_number")
@@ -5830,8 +5860,8 @@ class PostNsop(View):
         # 导出 CSV
 
         if len(df) == 0:
-            raise ValueError('没有数据',len(df))
-        # 如果只有一个 Destination，保持原来返回单 CSV
+            return _alert_response("没有可导出的数据，请检查选择的内容")
+
         grouped_by_dest = {}
         for _, row in df.iterrows():
             dest = row["Destination"]
@@ -5839,7 +5869,48 @@ class PostNsop(View):
                 grouped_by_dest[dest] = []
             grouped_by_dest[dest].append(row.to_dict())
         
-        # 如果只有一个 Destination，返回单 CSV
+        # 构建文件响应的辅助函数
+        def _build_file_response():
+            if len(grouped_by_dest) == 1:
+                dest_name = list(grouped_by_dest.keys())[0]
+                df_single = pd.DataFrame(grouped_by_dest[dest_name])
+                csv_buffer = io.BytesIO()
+                df_single.to_csv(csv_buffer, index=False)
+                csv_buffer.seek(0)
+                return {
+                    "file_data": base64.b64encode(csv_buffer.getvalue()).decode(),
+                    "filename": f"PO_{dest_name}.csv",
+                    "content_type": "text/csv",
+                }
+            else:
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    for dest, rows in grouped_by_dest.items():
+                        df_dest = pd.DataFrame.from_records(rows)
+                        csv_buf = io.BytesIO()
+                        df_dest.to_csv(csv_buf, index=False, encoding='utf-8-sig')
+                        csv_buf.seek(0)
+                        safe_dest = "".join(c for c in dest if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                        filename = f"{safe_dest}.csv" if safe_dest else f"destination_{hash(dest)}.csv"
+                        zf.writestr(filename, csv_buf.getvalue())
+                zip_buffer.seek(0)
+                return {
+                    "file_data": base64.b64encode(zip_buffer.getvalue()).decode(),
+                    "filename": "PO_virtual_fleet.zip",
+                    "content_type": "application/zip",
+                }
+
+        # 如果有甩板提示，返回JSON（包含警告+文件数据）
+        if dropped_alert_msg:
+            file_info = _build_file_response()
+            return JsonResponse({
+                "warning": dropped_alert_msg,
+                "file_data": file_info["file_data"],
+                "filename": file_info["filename"],
+                "content_type": file_info["content_type"],
+            })
+
+        # 无甩板，直接返回文件
         if len(grouped_by_dest) == 1:
             dest_name = list(grouped_by_dest.keys())[0]
             df_single = pd.DataFrame(grouped_by_dest[dest_name])
