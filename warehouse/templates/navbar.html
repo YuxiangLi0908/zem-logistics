@@ -249,12 +249,21 @@
                                 </div>    
                                                           
                                 <!-- 应付账单 -->
-                                <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">应付账单</a>
+                                <div class="nested-dropdown">
+                                    <a>应付账单</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">提拆账单</a>
+                                        <a href="{% url 'accounting' %}?step=inside_the_warehouse" target="_blank">库内账单</a>
+                                    </div>
+                                </div>
 
+
+                                <!-- 财务管理 -->
                                 <div class="nested-dropdown">
                                     <a>应付财务确认</a>
                                     <div class="nested-dropdown-content">
                                         <a href="{% url 'accounting' %}?step=invoice_confirm_payable" target="_blank">提拆账单</a>
+                                        <a href="{% url 'accounting' %}?step=invoice_warehouse_confirm_payable" target="_blank">库内账单</a>
                                         <a href="{% url 'accounting' %}?step=invoice_confirm_payable_delivery" target="_blank">派送账单</a>
                                     </div>
                                 </div>

@@ -385,16 +385,6 @@
             {% elif not is_save_invoice %}
                 <!-- 未保存账单（仅 SAV 显示暂存） -->
                 <div class="invoice-action-group">
-                    {% if 'SAV' in warehouse_filter %}
-                        <button
-                                type="submit"
-                                class="action-btn btn-outline-secondary"
-                                onclick="modifyStatus('save_temporarily')"
-                        >
-                            <i class="bi bi-save me-1"></i>暂时保存
-                        </button>
-                    {% endif %}
-
                     <button
                             type="submit"
                             class="action-btn btn-success"
@@ -407,16 +397,6 @@
             {% elif is_save_invoice and is_rejected %}
                 <!-- SAV 已暂存 + 被驳回 -->
                 <div class="invoice-action-group">
-                    {% if 'SAV' in warehouse_filter %}
-                        <button
-                                type="submit"
-                                class="action-btn btn-outline-secondary"
-                                onclick="modifyStatus('save_temporarily')"
-                        >
-                            <i class="bi bi-save me-1"></i>暂时保存
-                        </button>
-                    {% endif %}
-
                     <button
                             type="submit"
                             class="action-btn btn-success"
