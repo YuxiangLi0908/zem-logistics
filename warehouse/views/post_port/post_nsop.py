@@ -6531,7 +6531,7 @@ class PostNsop(View):
                         'total_pallets': po['total_pallets'], 
                         'rate': None, 
                         'amount': None,
-                        'type': '未找到',
+                        'type': '未找到报价',
                         'region': None,
                         'warehouse': warehouse, 
                         'is_niche_warehouse': None,  
