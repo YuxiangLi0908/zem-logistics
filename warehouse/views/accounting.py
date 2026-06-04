@@ -1117,7 +1117,8 @@ class Accounting(View):
                 stats_map[c_id][d_type]['unshipped'] += 1
         return stats_map
 
-    def handle_confirm_entry_post(self, request: HttpRequest, context: dict | None = None, ) -> Dict[str, Any]:
+    def handle_confirm_entry_post(self, request: HttpRequest, context: dict | None = None, ) -> tuple[
+        str, dict | dict[Any, Any]]:
         '''
         库内- 财务账单确认查询
         '''
@@ -1193,8 +1194,8 @@ class Accounting(View):
             'invoicestatusv2_set',
             queryset=InvoiceStatusv2.objects.filter(
                 invoice_type__in=("payable", "payable_direct"),
-                warehouse_public_status="completed",
-                warehouse_other_status="completed",
+                warehouse_public_status__in=("completed", "financials_completed"),
+                warehouse_other_status__in=("completed", "financials_completed"),
             ),
             to_attr='payable_status_list'
         )
@@ -1247,10 +1248,12 @@ class Accounting(View):
                 # 提取状态字段
                 wh_public = status_obj.warehouse_public_status
                 wh_other = status_obj.warehouse_other_status
-                finance_status = status_obj.finance_status
 
-                # --- 核心判断逻辑：前置节点全 Completed ---
-                if wh_public == "completed" and wh_other == "completed":
+                # --- 核心判断逻辑：库内完成进入待确认，财务完成进入已确认 ---
+                if (
+                    (wh_public == "completed" and wh_other == "completed")
+                    or (wh_public == "financials_completed" and wh_other == "financials_completed")
+                ):
 
                     is_extra_invoice = False
                     if has_multiple_invoices and invoice.created_at > earliest_created_at:
@@ -1284,38 +1287,27 @@ class Accounting(View):
                         'invoice_id__invoice_number': invoice.invoice_number,
                         'invoice_number': invoice.invoice_number,
                         'invoice_id': invoice.id,
-                        'finance_status': finance_status,
                         'has_invoice': True,
                         'cancel_notification': o.cancel_notification,
                     }
 
-                    if finance_status == "completed":
-                        # === 已录入/已完成 (Previous Order List) ===
-                        # 计算剩余金额
-                        payable_warehouse_amount = getattr(invoice, 'payable_warehouse_amount', 0) or 0
-                        rec_offset = getattr(invoice, 'remain_offset', 0) or 0
-
-                        # 只保留待核销费用不为0的账单
-                        if rec_offset != 0:
-                            # 处理 Statement 关联
-                            stmt = invoice.statement_id
-                            stmt_id = stmt.invoice_statement_id if stmt else None
-                            stmt_link = stmt.statement_link if stmt else None
-
-                            row_data.update({
-                                'invoice_id__invoice_date': invoice.invoice_date,
-                                'invoice_id__invoice_link': invoice.invoice_link,
-                                'invoice_id__payable_warehouse_amount': payable_warehouse_amount,
-                                'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
-                                'invoice_id__remain_offset': rec_offset,
-                                'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
-                                'invoice_id__statement_id__invoice_statement_id': stmt_id,
-                                'invoice_id__statement_id__statement_link': stmt_link,
-                            })
-                            previous_order_data_list.append(row_data)
-                    else:
-                        # === 待确认账单 ===
+                    if wh_public == "completed" and wh_other == "completed":
                         order_data_list.append(row_data)
+                    elif wh_public == "financials_completed" and wh_other == "financials_completed":
+                        stmt = invoice.statement_id
+                        stmt_id = stmt.invoice_statement_id if stmt else None
+                        stmt_link = stmt.statement_link if stmt else None
+                        row_data.update({
+                            'invoice_id__invoice_date': invoice.invoice_date,
+                            'invoice_id__invoice_link': invoice.invoice_link,
+                            'invoice_id__payable_warehouse_amount': invoice.payable_warehouse_amount or 0,
+                            'invoice_id__payable_total_amount': invoice.payable_total_amount or 0,
+                            'invoice_id__remain_offset': invoice.remain_offset or 0,
+                            'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
+                            'invoice_id__statement_id__invoice_statement_id': stmt_id,
+                            'invoice_id__statement_id__statement_link': stmt_link,
+                        })
+                        previous_order_data_list.append(row_data)
 
         existing_customers = Customer.objects.all().order_by("zem_name")
 
