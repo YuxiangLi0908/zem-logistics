@@ -75,6 +75,12 @@ class ShipmentBindingLog(models.Model):
         blank=True,
         verbose_name='仓点'
     )
+    shipping_mark = models.CharField(
+        max_length=4000,
+        null=True,
+        blank=True,
+        verbose_name='唛头'
+    )
     warehouse = models.CharField(
         max_length=100,
         null=True,
