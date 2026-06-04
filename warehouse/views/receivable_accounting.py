@@ -8140,7 +8140,8 @@ class ReceivableAccounting(View):
             setattr(invoice_status, status_field, "completed")
             invoice_status.save()
             context["success_messages"] = "所有仓点已录入完毕，状态已更新为已完成"
-            return self.handle_delivery_entry_post(request, context)
+            context = self.handle_delivery_entry_post(request, context)
+            return self.template_delivery_entry, context
         if unbilled_groups:
             has_previous_items = bool(previous_item_dict)  # 判断是否有过账单
             # 有未录入的PO，需要进一步处理
