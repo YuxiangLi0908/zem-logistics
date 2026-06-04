@@ -8134,7 +8134,7 @@ class ReceivableAccounting(View):
                 "combina_groups": [],
                 "combina_info": {}
             }
-        if not unbilled_groups and existing_items:
+        if not unbilled_groups:
             # 所有仓点都已录入，更新状态为已完成
             status_field = "delivery_public_status" if delivery_type == "public" else "delivery_other_status"
             setattr(invoice_status, status_field, "completed")
