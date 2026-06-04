@@ -861,8 +861,16 @@ class Accounting(View):
             to_attr='payable_status_list'
         )
 
+        master_invoice_ids = (
+            Invoicev2.objects
+            .filter(container_number_id__in=container_ids)
+            .order_by("container_number_id", "id")
+            .distinct("container_number_id")
+            .values_list("id", flat=True)
+        )
+
         all_invoices = Invoicev2.objects.filter(
-            container_number_id__in=container_ids
+            id__in=master_invoice_ids
         ).prefetch_related(status_prefetch)
 
         missing_statuses = []
