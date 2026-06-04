@@ -1117,7 +1117,8 @@ class Accounting(View):
                 stats_map[c_id][d_type]['unshipped'] += 1
         return stats_map
 
-    def handle_confirm_entry_post(self, request: HttpRequest, context: dict | None = None, ) -> Dict[str, Any]:
+    def handle_confirm_entry_post(self, request: HttpRequest, context: dict | None = None, ) -> tuple[
+        str, dict | dict[Any, Any]]:
         '''
         库内- 财务账单确认查询
         '''
@@ -1193,8 +1194,8 @@ class Accounting(View):
             'invoicestatusv2_set',
             queryset=InvoiceStatusv2.objects.filter(
                 invoice_type__in=("payable", "payable_direct"),
-                warehouse_public_status="completed",
-                warehouse_other_status="completed",
+                warehouse_public_status__in=("completed", "financials_completed"),
+                warehouse_other_status__in=("completed", "financials_completed"),
             ),
             to_attr='payable_status_list'
         )
@@ -1247,10 +1248,12 @@ class Accounting(View):
                 # 提取状态字段
                 wh_public = status_obj.warehouse_public_status
                 wh_other = status_obj.warehouse_other_status
-                finance_status = status_obj.finance_status
 
-                # --- 核心判断逻辑：前置节点全 Completed ---
-                if wh_public == "completed" and wh_other == "completed":
+                # --- 核心判断逻辑：库内完成进入待确认，财务完成进入已确认 ---
+                if (
+                    (wh_public == "completed" and wh_other == "completed")
+                    or (wh_public == "financials_completed" and wh_other == "financials_completed")
+                ):
 
                     is_extra_invoice = False
                     if has_multiple_invoices and invoice.created_at > earliest_created_at:
@@ -1284,38 +1287,27 @@ class Accounting(View):
                         'invoice_id__invoice_number': invoice.invoice_number,
                         'invoice_number': invoice.invoice_number,
                         'invoice_id': invoice.id,
-                        'finance_status': finance_status,
                         'has_invoice': True,
                         'cancel_notification': o.cancel_notification,
                     }
 
-                    if finance_status == "completed":
-                        # === 已录入/已完成 (Previous Order List) ===
-                        # 计算剩余金额
-                        payable_warehouse_amount = getattr(invoice, 'payable_warehouse_amount', 0) or 0
-                        rec_offset = getattr(invoice, 'remain_offset', 0) or 0
-
-                        # 只保留待核销费用不为0的账单
-                        if rec_offset != 0:
-                            # 处理 Statement 关联
-                            stmt = invoice.statement_id
-                            stmt_id = stmt.invoice_statement_id if stmt else None
-                            stmt_link = stmt.statement_link if stmt else None
-
-                            row_data.update({
-                                'invoice_id__invoice_date': invoice.invoice_date,
-                                'invoice_id__invoice_link': invoice.invoice_link,
-                                'invoice_id__payable_warehouse_amount': payable_warehouse_amount,
-                                'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
-                                'invoice_id__remain_offset': rec_offset,
-                                'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
-                                'invoice_id__statement_id__invoice_statement_id': stmt_id,
-                                'invoice_id__statement_id__statement_link': stmt_link,
-                            })
-                            previous_order_data_list.append(row_data)
-                    else:
-                        # === 待确认账单 ===
+                    if wh_public == "completed" and wh_other == "completed":
                         order_data_list.append(row_data)
+                    elif wh_public == "financials_completed" and wh_other == "financials_completed":
+                        stmt = invoice.statement_id
+                        stmt_id = stmt.invoice_statement_id if stmt else None
+                        stmt_link = stmt.statement_link if stmt else None
+                        row_data.update({
+                            'invoice_id__invoice_date': invoice.invoice_date,
+                            'invoice_id__invoice_link': invoice.invoice_link,
+                            'invoice_id__payable_warehouse_amount': invoice.payable_warehouse_amount or 0,
+                            'invoice_id__payable_total_amount': invoice.payable_total_amount or 0,
+                            'invoice_id__remain_offset': invoice.remain_offset or 0,
+                            'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
+                            'invoice_id__statement_id__invoice_statement_id': stmt_id,
+                            'invoice_id__statement_id__statement_link': stmt_link,
+                        })
+                        previous_order_data_list.append(row_data)
 
         existing_customers = Customer.objects.all().order_by("zem_name")
 
@@ -7990,35 +7982,6 @@ class Accounting(View):
                     note=note,
                     registered_user=username,
                 )
-
-            # 4. 覆盖当前类型金额
-            if delivery_type == "public":
-                invoice.payable_wh_public_amount = float(total_amount)
-            else:
-                invoice.payable_wh_other_amount = float(total_amount)
-
-            # 5. 库内总费用：先减旧，再加新
-            invoice.payable_warehouse_amount = float(
-                Decimal(str(invoice.payable_warehouse_amount or 0))
-                - old_type_amount
-                + total_amount
-            )
-
-            # 6. 应付总费用：也先减旧，再加新
-            invoice.payable_total_amount = float(
-                Decimal(str(invoice.payable_total_amount or 0))
-                - old_type_amount
-                + total_amount
-            )
-
-            if invoice.payable_warehouse_amount < 0:
-                invoice.payable_warehouse_amount = 0
-
-            if invoice.payable_total_amount < 0:
-                invoice.payable_total_amount = 0
-
-            invoice.save()
-
             status_field = f"warehouse_{delivery_type}_status"
             normalized_status = "completed" if save_type in ["completed", "complete"] else save_type
             setattr(invoice_status, status_field, normalized_status)
@@ -10530,6 +10493,18 @@ class Accounting(View):
             container_number=order.container_number,
         ).first()
 
+        def return_confirm_entry_post():
+            original_post = request.POST
+            request.POST = request.GET.copy()
+            if not request.POST.get("container_number_filter"):
+                request.POST["container_number_filter"] = ""
+            result = self.handle_confirm_entry_post(request)
+            request.POST = original_post
+            return result
+
+        if confirm_action == "back":
+            return return_confirm_entry_post()
+
         can_review_warehouse = (
             invoice_status
             and invoice_status.warehouse_public_status == "completed"
@@ -10537,26 +10512,80 @@ class Accounting(View):
         )
         if confirm_action in ("confirm", "reject") and can_review_warehouse:
             if confirm_action == "confirm":
+                items_data = request.GET.get("items_data", "[]")
+                try:
+                    submitted_items = json.loads(items_data)
+                except (TypeError, json.JSONDecodeError):
+                    submitted_items = []
+
+                wh_public_amount = Decimal("0")
+                wh_other_amount = Decimal("0")
+                for item in submitted_items:
+                    item_amount = Decimal(str(item.get("amount") or 0))
+                    if item.get("category") == "warehouse_public":
+                        wh_public_amount += item_amount
+                    elif item.get("category") == "warehouse_other":
+                        wh_other_amount += item_amount
+
+                old_warehouse_amount = Decimal(str(invoice.payable_warehouse_amount or 0))
+                new_warehouse_amount = wh_public_amount + wh_other_amount
+                invoice.payable_wh_public_amount = float(wh_public_amount)
+                invoice.payable_wh_other_amount = float(wh_other_amount)
+                invoice.payable_warehouse_amount = float(new_warehouse_amount)
+                invoice.payable_total_amount = float(
+                    Decimal(str(invoice.payable_total_amount or 0))
+                    - old_warehouse_amount
+                    + new_warehouse_amount
+                )
+                if invoice.payable_total_amount < 0:
+                    invoice.payable_total_amount = 0
+                invoice.save()
+
                 invoice_status.warehouse_public_status = "financials_completed"
                 invoice_status.warehouse_other_status = "financials_completed"
                 invoice_status.is_rejected = False
+                invoice_status.save()
+                return return_confirm_entry_post()
             else:
                 reject_reason = request.GET.get("reject_reason", "")
                 reject_category = request.GET.get("category")
+                old_public_amount = Decimal(str(invoice.payable_wh_public_amount or 0))
+                old_other_amount = Decimal(str(invoice.payable_wh_other_amount or 0))
+                old_warehouse_amount = Decimal(str(invoice.payable_warehouse_amount or 0))
+                deduct_amount = Decimal("0")
                 if reject_category == "warehouse_public":
                     invoice_status.warehouse_public_status = "rejected"
                     invoice_status.warehouse_public_reason = reject_reason
+                    deduct_amount = old_public_amount
+                    invoice.payable_wh_public_amount = 0
                 elif reject_category == "warehouse_other":
                     invoice_status.warehouse_other_status = "rejected"
                     invoice_status.warehouse_self_reason = reject_reason
+                    deduct_amount = old_other_amount
+                    invoice.payable_wh_other_amount = 0
                 elif reject_category == "payable_warehouse_amount":
                     invoice_status.warehouse_public_status = "rejected"
                     invoice_status.warehouse_other_status = "rejected"
                     invoice_status.warehouse_public_reason = reject_reason
                     invoice_status.warehouse_self_reason = reject_reason
+                    deduct_amount = old_warehouse_amount
+                    invoice.payable_wh_public_amount = 0
+                    invoice.payable_wh_other_amount = 0
+
+                invoice.payable_warehouse_amount = float(
+                    Decimal(str(invoice.payable_warehouse_amount or 0)) - deduct_amount
+                )
+                invoice.payable_total_amount = float(
+                    Decimal(str(invoice.payable_total_amount or 0)) - deduct_amount
+                )
+                if invoice.payable_warehouse_amount < 0:
+                    invoice.payable_warehouse_amount = 0
+                if invoice.payable_total_amount < 0:
+                    invoice.payable_total_amount = 0
+                invoice.save()
                 invoice_status.is_rejected = True
-            invoice_status.save()
-            status = "confirmed"
+                invoice_status.save()
+                return return_confirm_entry_post()
 
         if status == "confirmed":
             # 直接读取所有的invoiceitem
@@ -10618,11 +10647,12 @@ class Accounting(View):
             "total_amount": invoice.payable_warehouse_amount or 0,
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
+            "warehouse_filter": request.GET.get("warehouse_filter"),
             "is_fix_page": False,
             "invoice_id": invoice.id,
             "total_items_count": items.count(),
         }
-        return self.handle_confirm_entry_post(request)
+        return self.template_confirm_transfer_edit, context
 
     def handle_container_invoice_confirm_get_wait(
         self, request: HttpRequest
