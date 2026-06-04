@@ -112,7 +112,7 @@
                         <th>总价($)</th>
                         <th style="min-width:100px;max-width:150px;">区域</th>
                         <th>是否冷门仓</th>
-                        <th>报价类型</th>
+                        <th style="min-width:80px;">报价类型</th>
                         <th>报价表</th>
                     </tr>
                 </thead>
@@ -167,13 +167,13 @@
                         </td>
                         <td>
                             {% if item.type == 'amazon' %}
-                                <span style="background-color: #ff9900; color: white; padding: 2px 6px; border-radius: 3px;">Amazon</span>
+                                <span style="background-color: #ff9900; color: white; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">Amazon</span>
                             {% elif item.type == 'walmart' %}
-                                <span style="background-color: #0071ce; color: white; padding: 2px 6px; border-radius: 3px;">Walmart</span>
+                                <span style="background-color: #0071ce; color: white; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">Walmart</span>
                             {% elif item.type == '组合柜' %}
-                                <span style="background-color: #08c560; color: white; padding: 2px 6px; border-radius: 3px;">组合柜</span>
+                                <span style="background-color: #08c560; color: white; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">组合柜</span>
                             {% else %}
-                                <span style="background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px;">{{ item.type }}</span>
+                                <span style="background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">{{ item.type }}</span>
                             {% endif %}
                         </td>
                         <td>{{ item.quotation_name|default:"-" }}</td>
