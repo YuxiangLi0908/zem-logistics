@@ -688,8 +688,8 @@
                                     <th class="th" data-column="customer">客户</th>
                                     <th class="th" data-column="container">柜号</th>
                                     <th class="th" data-column="warehouse">仓库</th>
-                                    <th class="th" data-column="warehouse-in-long">入库时间</th>
-                                    <th class="th" data-column="empty-returned-long">还空时间</th>
+                                    <th class="th" data-column="status-long">状态</th>
+                                    <th class="th" data-column="reject-reason">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -702,27 +702,26 @@
                                         <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'to-record-table')">
                                     </th>
                                     <th class="th">
-                                        <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'to-record-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'to-record-table')">清空</button>
-                                        </div>
+                                        <!-- 状态筛选下拉框 -->
+                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'to-record-table')">
+                                            <option value="">全部状态</option>
+                                            <option value="unstarted">未录入</option>
+                                            <option value="rejected">已驳回</option>
+                                        </select>
                                     </th>
                                     <th class="th">
-                                        <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 'empty_returned', 'to-record-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('empty_returned', 'to-record-table')">清空</button>
-                                        </div>
+                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'to-record-table')">
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if wh_public_to_record_orders %}
                                     {% for item in wh_public_to_record_orders %}
-                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}"
-                                        data-container="{{ item.order.container_number.container_number|lower }}"
-                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
-                                        data-warehouse_in="{% if item.warehouse_entry_at %}{{ item.warehouse_entry_at|date:'Y-m-d' }}{% endif %}"
-                                        data-empty_returned="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
+                                        <tr data-customer="{{ item.order.customer_name.zem_name|lower }}"
+                                            data-container="{{ item.order.container_number.container_number|lower }}"
+                                            data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                            data-status="{{ item.public_status|default:'unstarted' }}"
+                                            data-reject-reason="{{ item.warehouse_public_reason|default:''|lower }}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.has_invoice %}
@@ -737,18 +736,18 @@
                                         </td>
                                         <td class="td">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
                                         <td class="td">
-                                            {% if item.warehouse_entry_at %}
-                                                {{ item.warehouse_entry_at|date:"Y-m-d" }}
+                                            {% if item.public_status %}
+                                                <span class="status-badge {{ item.public_status }}">
+                                                    {% if item.public_status == 'unstarted' %}未录入
+                                                    {% elif item.public_status == 'rejected' %}已驳回
+                                                    {% else %}{{ item.public_status }}{% endif %}
+                                                </span>
                                             {% else %}
-                                                <span style="color: var(--warning-color);">待入库</span>
+                                                <span class="status-badge unstarted">未录入</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {% if item.order.empty_returned_time %}
-                                                {{ item.order.empty_returned_time|date:"Y-m-d" }}
-                                            {% else %}
-                                                <span style="color: #6c757d;">-</span>
-                                            {% endif %}
+                                            {{ item.warehouse_public_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -781,7 +780,6 @@
                                     <th class="th" data-column="warehouse">仓库</th>
                                     <th class="th" data-column="warehouse-in-long">入库时间</th>
                                     <th class="th" data-column="status-long">状态</th>
-                                    <th class="th" data-column="reject-reason">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -803,16 +801,9 @@
                                         <!-- 状态筛选下拉框 -->
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'recorded-table')">
                                             <option value="">全部状态</option>
-                                            <option value="unstarted">未开始</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="pending_review">待审核</option>
-                                            <option value="rejected">已驳回</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="confirmed">已确认</option>
+                                            <option value="completed">客服已完成</option>
+                                            <option value="financials_completed">财务已确认</option>
                                         </select>
-                                    </th>
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'recorded-table')">
                                     </th>
                                 </tr>
                             </thead>
@@ -843,26 +834,19 @@
                                         <td class="td">
                                             {% if item.public_status %}
                                                 <span class="status-badge {{ item.public_status }}">
-                                                    {% if item.public_status == 'unstarted' %}未开始
-                                                    {% elif item.public_status == 'in_progress' %}录入中
-                                                    {% elif item.public_status == 'pending_review' %}待审核
-                                                    {% elif item.public_status == 'rejected' %}已驳回
-                                                    {% elif item.public_status == 'completed' %}已完成
-                                                    {% elif item.public_status == 'confirmed' %}已确认
+                                                    {% if item.public_status == 'completed' %}客服已完成
+                                                    {% elif item.public_status == 'financials_completed' %}财务已确认
                                                     {% else %}{{ item.public_status }}{% endif %}
                                                 </span>
                                             {% else %}
-                                                <span class="status-badge unstarted">未开始</span>
+                                                <span class="status-badge unstarted">客服已完成</span>
                                             {% endif %}
-                                        </td>
-                                        <td class="td">
-                                            {{ item.warehouse_public_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
+                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
                                             暂无公仓已录入订单
                                         </td>
                                     </tr>
@@ -894,9 +878,8 @@
                                     <th class="th" data-column="container">柜号</th>
                                     <th class="th" data-column="warehouse">仓库</th>
                                     <th class="th" data-column="warehouse-in-long">入库时间</th>
-                                    <th class="th" data-column="unshipped-count">未出库</th>
-                                    <th class="th" data-column="shipped-count">已出库</th>
                                     <th class="th" data-column="status-long">状态</th>
+                                    <th class="th" data-column="reject-reason">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -915,19 +898,15 @@
                                         </div>
                                     </th>
                                     <th class="th">
-
-                                    </th>
-                                    <th class="th">
-
-                                    </th>
-                                    <th class="th">
                                         <!-- 状态筛选下拉框 -->
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'pending-review-table')">
                                             <option value="">全部状态</option>
-                                            <option value="unstarted">未开始</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="pending_review">待审核</option>
+                                            <option value="unstarted">未录入</option>
+                                            <option value="rejected">已驳回</option>
                                         </select>
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'completed-table')">
                                     </th>
                                 </tr>
                             </thead>
@@ -956,32 +935,24 @@
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            <span class="shipment-count remaining">
-                                                {{ item.unshipped_shipment_groups }} / {{ item.total_shipment_groups }}
-                                            </span>
-                                        </td>
-                                        <td class="td">
-                                            <span class="shipment-count {% if item.shipped_shipment_groups == item.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
-                                                {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
-                                            </span>
-                                        </td>
-                                        <td class="td">
                                             {% if item.self_status %}
                                                 <span class="status-badge {{ item.self_status }}">
-                                                    {% if item.self_status == 'unstarted' %}未开始
-                                                    {% elif item.self_status == 'in_progress' %}录入中
-                                                    {% elif item.self_status == 'pending_review' %}待审核
+                                                    {% if item.self_status == 'unstarted' %}未录入
+                                                    {% elif item.self_status == 'rejected' %}已驳回
                                                     {% else %}{{ item.self_status }}{% endif %}
                                                 </span>
                                             {% else %}
-                                                <span class="status-badge unstarted">未开始</span>
+                                                <span class="status-badge unstarted">未录入</span>
                                             {% endif %}
+                                        </td>
+                                        <td class="td">
+                                            {{ item.warehouse_self_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="7" class="td" style="text-align: center; color: #6c757d;">
+                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
                                             暂无私仓未录入订单
                                         </td>
                                     </tr>
@@ -1008,7 +979,6 @@
                                     <th class="th" data-column="warehouse">仓库</th>
                                     <th class="th" data-column="warehouse-in-long">入库时间</th>
                                     <th class="th" data-column="status-long">状态</th>
-                                    <th class="th" data-column="reject-reason">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -1031,12 +1001,8 @@
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'completed-table')">
                                             <option value="">全部状态</option>
                                             <option value="completed">已完成</option>
-                                            <option value="rejected">已驳回</option>
-                                            <option value="confirmed">已确认</option>
+                                            <option value="financials_completed">财务已完成</option>
                                         </select>
-                                    </th>
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'completed-table')">
                                     </th>
                                 </tr>
                             </thead>
@@ -1068,22 +1034,18 @@
                                             {% if item.self_status %}
                                                 <span class="status-badge {{ item.self_status }}">
                                                     {% if item.self_status == 'completed' %}已完成
-                                                    {% elif item.self_status == 'rejected' %}已驳回
-                                                    {% elif item.self_status == 'confirmed' %}已确认
+                                                    {% elif item.self_status == 'financials_completed' %}财务已完成
                                                     {% else %}{{ item.self_status }}{% endif %}
                                                 </span>
                                             {% else %}
-                                                <span class="status-badge unstarted">未开始</span>
+                                                <span class="status-badge completed">已完成</span>
                                             {% endif %}
-                                        </td>
-                                        <td class="td">
-                                            {{ item.warehouse_self_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
+                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
                                             暂无私仓已录入订单
                                         </td>
                                     </tr>
@@ -1164,7 +1126,13 @@
 
     // 全局变量存储每个表格的筛选状态
     const tableFilters = {
-        'to-record-table': { customer: '', container: '', warehouse: '', warehouse_in: '', empty_returned: '' },
+        'to-record-table': {
+            customer: '',
+            container: '',
+            warehouse: '',
+            status: '',
+            rejectReason: ''
+        },
         'recorded-table': { customer: '', container: '', warehouse: '', warehouse_in: '', status: '', rejectReason: '' },
         'pending-review-table': { customer: '', container: '', warehouse: '', warehouse_in: '', unshipped: '', shipped: '', status: '' },
         'completed-table': { customer: '', container: '', warehouse: '', warehouse_in: '', status: '', rejectReason: '' }
@@ -1181,7 +1149,13 @@
     // 获取列名
     function getColumnName(tableId, columnIndex) {
         const columnMap = {
-            'to-record-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'empty_returned'],
+            'to-record-table': [
+                'customer',
+                'container',
+                'warehouse',
+                'status',
+                'rejectReason'
+            ],
             'recorded-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'status', 'rejectReason'],
             'pending-review-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'unshipped', 'shipped', 'status'],
             'completed-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'status', 'rejectReason']
