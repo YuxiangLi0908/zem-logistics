@@ -60,7 +60,7 @@ class Invoicev2(models.Model):
 
 
 class InvoiceStatusv2(models.Model):
-    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单")]
+    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单"), ("payable_direct", "应付直送账单")]
     container_number = models.ForeignKey(
         Container, on_delete=models.CASCADE, related_name="invoice_statusesv2"
     )
@@ -87,6 +87,7 @@ class InvoiceStatusv2(models.Model):
             ("in_progress", "录入中"),
             ("completed", "已完成"),
             ("rejected", "已驳回"),
+            ("financials_completed", "财务已完成"),
         ]
     )
     
@@ -98,6 +99,7 @@ class InvoiceStatusv2(models.Model):
             ("in_progress", "录入中"),
             ("completed", "已完成"),
             ("rejected", "已驳回"),
+            ("financials_completed", "财务已完成"),
         ]
     )
     
@@ -170,7 +172,7 @@ class InvoiceStatusv2(models.Model):
 
 
 class InvoiceItemv2(models.Model):
-    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单")]
+    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单"), ("payable_direct", "应付直送账单")]
     ITEM_CATEGORY_CHOICES = [
         ("preport", "港前"),
         ("warehouse_public", "公仓库内"),

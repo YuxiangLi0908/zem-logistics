@@ -129,6 +129,8 @@ class Accounting(View):
     template_warehouse_edit = "accounting/warehouse_edit.html"
     template_confirm_entry = "accounting/confirm_entry.html"
     template_pl_data = "accounting/pl_data.html"
+    template_invoice_items_edit = "accounting/invoice_items_edit.html"
+    template_confirm_transfer_edit = "accounting/confirm_transfer_entry.html"
     template_invoice_management = "accounting/invoice_management.html"
     template_invoice_statement = "accounting/invoice_statement.html"
     template_invoice_container = "accounting/invoice_container.html"
@@ -870,6 +872,15 @@ class Accounting(View):
 
         for inv in all_invoices:
             if not inv.payable_status_list:
+                exists_status = InvoiceStatusv2.objects.filter(
+                    invoice=inv,
+                    invoice_type__in=("payable", "payable_direct"),
+                ).first()
+
+                if exists_status:
+                    inv.payable_status_list = [exists_status]
+                    continue
+
                 order = order_map.get(inv.container_number_id)
                 invoice_type = "payable_direct" if order and order.order_type == "直送" else "payable"
 
@@ -969,26 +980,18 @@ class Accounting(View):
                         p_item = base_data.copy()
                         p_item['warehouse_entry_at'] = p_item['offload_at']
                         p_status = p_item['public_status']
-                        finance_status = p_item['finance_status']
-
-                        if finance_status in ["completed", "tobeconfirmed"] and p_status == "unstarted":
-                            pass
-                        elif p_status in ["unstarted", "in_progress", None]:
+                        if p_status in ["unstarted", "rejected", None]:
                             wh_public_to_record_orders.append(p_item)
-                        elif p_status in ["completed", "rejected", "confirmed"]:
+                        elif p_status in ["completed", "financials_completed"]:
                             wh_public_recorded_orders.append(p_item)
 
                     if should_process_self:
                         s_item = base_data.copy()
                         self._inject_stats_and_ratio(s_item, 'other')
                         s_status = s_item['self_status']
-                        finance_status = s_item['finance_status']
-
-                        if finance_status in ["completed", "tobeconfirmed"] and s_status == "unstarted":
-                            pass
-                        elif s_status in ["unstarted", "in_progress", None]:
+                        if s_status in ["unstarted", "rejected", None]:
                             wh_self_to_record_orders.append(s_item)
-                        elif s_status in ["completed", "rejected", "confirmed"]:
+                        elif s_status in ["completed", "financials_completed"]:
                             wh_self_recorded_orders.append(s_item)
 
         wh_self_to_record_orders.sort(key=lambda x: x.get('completion_ratio', 0), reverse=True)
@@ -10409,123 +10412,209 @@ class Accounting(View):
         else:
             return self.handle_container_invoice_payable_get(request, True, False, True)
 
+    def _all_invoice_items_get(self, invoice: Invoicev2, container_number):
+        try:
+            status_obj = InvoiceStatusv2.objects.filter(
+                invoice_type__in=("payable", "payable_direct"),
+                invoice=invoice,
+                container_number__container_number=container_number,
+            ).first()
+
+            if not status_obj or status_obj.warehouse_public_status not in ("completed", "financials_completed") or status_obj.warehouse_other_status not in ("completed", "financials_completed"):
+                return {
+                    'error_messages': '该应付库内账单未满足公仓/私仓库内完成条件',
+                    'success': False,
+                }
+
+            # 2. 获取库内InvoiceItemv2记录
+            items = list(
+                InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    container_number__container_number=container_number,
+                    invoice_type__in=("payable", "payable_direct"),
+                    item_category__in=("warehouse_public", "warehouse_other"),
+                ).order_by(
+                    Case(
+                        When(item_category="warehouse_public", then=Value(2)),
+                        When(item_category="warehouse_other", then=Value(3)),
+                    ),
+                    "item_category",
+                    "-amount"  # 金额从大到小
+                )
+            )
+
+            # 3. 按item_category分组统计数据
+            categories_data = {}
+            for item in items:
+                category = item.item_category
+                if category not in categories_data:
+                    categories_data[category] = {
+                        'count': 0,
+                        'total_amount': 0,
+                        'items': []
+                    }
+                categories_data[category]['count'] += 1
+                categories_data[category]['total_amount'] += item.amount or 0
+                categories_data[category]['items'].append(item)
+
+            # 6. 获取item_category的中文显示名称
+            category_display_names = {
+                'warehouse_public': '公仓库内费用',
+                'warehouse_other': '私仓库内费用',
+            }
+
+            # 7. 获取delivery_type的中文显示
+            customer = invoice.customer
+            if not customer:
+                order = Order.objects.get(container_number__container_number=container_number)
+                customer = order.customer_name
+                invoice.customer = customer
+                invoice.save()
+            context = {
+                'invoice_number': invoice.invoice_number,
+                'container_number': container_number,
+                'customer_name': invoice.customer.zem_name,
+                'invoice_date': invoice.invoice_date,
+                'categories_data': categories_data,
+                'category_display_names': category_display_names,
+                'category_totals': {
+                    'warehouse_public': invoice.payable_wh_public_amount or 0,
+                    'warehouse_other': invoice.payable_wh_other_amount or 0,
+                    'payable_warehouse_amount': invoice.payable_warehouse_amount or 0,
+                },
+                'total_stats': {
+                    'total_amount': invoice.payable_warehouse_amount or 0,
+                    'total_items': len(items),
+                },
+                'other_items': items,
+                'success': True,
+            }
+
+            return context
+
+        except Invoicev2.DoesNotExist:
+            context = {
+                'error_messages': f'找不到发票号: {invoice.invoice_number if hasattr(invoice, "invoice_number") else "未知"}',
+                'success': False,
+            }
+            return context
+
     def handle_container_invoice_confirm_get_payable(
             self, request: HttpRequest
-    ) -> tuple[Any, Any]:
+    ) -> tuple[str, dict[str, str | bool] | dict[
+        str, str | date | dict[Any, Any] | dict[str, str] | dict[str, float | int] | list[Any] | bool | Any]] | dict[
+             str, Any]:
         '''
         应付库内-财务确认点击账单
         '''
         container_number = request.GET.get("container_number")
         invoice_id = request.GET.get("invoice_id")
         status = request.GET.get("status")
+        confirm_action = request.GET.get("confirm_action")
 
         invoice = Invoicev2.objects.get(id=invoice_id)
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
+        invoice_status = InvoiceStatusv2.objects.filter(
+            invoice_type__in=("payable", "payable_direct"),
+            invoice=invoice,
+            container_number=order.container_number,
+        ).first()
+
+        can_review_warehouse = (
+            invoice_status
+            and invoice_status.warehouse_public_status == "completed"
+            and invoice_status.warehouse_other_status == "completed"
+        )
+        if confirm_action in ("confirm", "reject") and can_review_warehouse:
+            if confirm_action == "confirm":
+                invoice_status.warehouse_public_status = "financials_completed"
+                invoice_status.warehouse_other_status = "financials_completed"
+                invoice_status.is_rejected = False
+            else:
+                reject_reason = request.GET.get("reject_reason", "")
+                reject_category = request.GET.get("category")
+                if reject_category == "warehouse_public":
+                    invoice_status.warehouse_public_status = "rejected"
+                    invoice_status.warehouse_public_reason = reject_reason
+                elif reject_category == "warehouse_other":
+                    invoice_status.warehouse_other_status = "rejected"
+                    invoice_status.warehouse_self_reason = reject_reason
+                elif reject_category == "payable_warehouse_amount":
+                    invoice_status.warehouse_public_status = "rejected"
+                    invoice_status.warehouse_other_status = "rejected"
+                    invoice_status.warehouse_public_reason = reject_reason
+                    invoice_status.warehouse_self_reason = reject_reason
+                invoice_status.is_rejected = True
+            invoice_status.save()
+            status = "confirmed"
 
         if status == "confirmed":
             # 直接读取所有的invoiceitem
             ctx = self._all_invoice_items_get(invoice, container_number)
-            ctx['category_totals'] = {
+            ctx.setdefault('category_totals', {
                 'warehouse_public': invoice.payable_wh_public_amount or 0,
                 'warehouse_other': invoice.payable_wh_other_amount or 0,
-            }
+                'payable_warehouse_amount': invoice.payable_warehouse_amount or 0,
+            })
             ctx.update({"is_fix_page": False})
             return self.template_invoice_items_edit, ctx
 
-        if order.order_type == "直送":
-            is_combina = False
-        else:
-            # 看下是不是补开的账单，如果是补开的按转运方式展示记录就行了，不用组合柜形式展示了
-            other_invoices = Invoicev2.objects.filter(
-                container_number=order.container_number
-            ).exclude(id=invoice_id)
 
-            if other_invoices.exists():
-                is_combina = False
-            else:
-                # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
-                ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
-                ctx.update({"is_fix_page": False})
-                if ctx.get('error_messages'):
-                    return self.template_invoice_combina_edit, ctx
+        items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number__container_number=container_number,
+            invoice_type__in=("payable", "payable_direct"),
+            item_category__in=("warehouse_public", "warehouse_other"),
+        ).order_by("item_category", "id")
 
-        if is_combina:
-            # 删除已有的combina_extra_fee记录,因为财务确认这里，每次组合柜额外费用都会重新计算一遍，因为如果修改了报价表，这个规则就有可能会变化
-            InvoiceItemv2.objects.filter(
-                invoice_number=invoice,
-                item_category="combina_extra_fee"
-            ).delete()
-            # 这里表示是组合柜的方式计算
-            new_get = request.GET.copy()
-            new_get['is_new_version'] = True
-            request.GET = new_get
-            setattr(request, "is_from_account_confirmation", True)
-            ctx = self.handle_container_invoice_combina_get(request)
-            ctx.update({"is_fix_page": False})
-            return self.template_invoice_combina_edit, ctx
-        else:
-            items = InvoiceItemv2.objects.filter(
-                invoice_number=invoice,
-                container_number__container_number=container_number,
-                invoice_type="receivable"
-            ).order_by("item_category", "id")
+        # 分组
+        grouped = {
+            "warehouse_public": [],
+            "warehouse_other": [],
+            "payable_warehouse_amount": [],
+        }
 
-            # 分组（按 5 大类）
-            grouped = {
-                "preport": [],
-                "warehouse_public": [],
-                "warehouse_other": [],
-                "delivery_public": [],
-                "delivery_other": [],
-                "activation_fee": [],
-                "payout_fee": [],
-            }
+        # 计算每个类别的总金额
+        category_totals = {}
+        total_amount = 0
 
-            # 计算每个类别的总金额
-            category_totals = {}
-            total_amount = 0
+        for it in items:
+            grouped.setdefault(it.item_category, []).append(it)
+            if it.amount:
+                amount = float(it.amount)
 
-            for it in items:
-                grouped.setdefault(it.item_category, []).append(it)
-                if it.amount:
-                    amount = float(it.amount)
+        # 计算每个类别的金额
+        for category, items_list in grouped.items():
+            category_total = sum(float(item.amount or 0) for item in items_list)
+            category_totals[category] = category_total
+        category_totals.update({
+            "warehouse_public": invoice.payable_wh_public_amount or 0,
+            "warehouse_other": invoice.payable_wh_other_amount or 0,
+            "payable_warehouse_amount": invoice.payable_warehouse_amount or 0,
+        })
 
-                    # 如果是 payout_fee 类别，减去金额；否则加上金额
-                    if it.item_category == "payout_fee":
-                        total_amount -= amount
-                    else:
-                        total_amount += amount
+        groups_order = [
+            ("warehouse_public", "🏬 公仓库内", grouped.get("warehouse_public", [])),
+            ("warehouse_other", "🏭 私仓库内", grouped.get("warehouse_other", [])),
+            ("payable_warehouse_amount", "🚚 库内总费用", grouped.get("payable_warehouse_amount", [])),
+        ]
 
-            # 计算每个类别的金额
-            for category, items_list in grouped.items():
-                category_total = sum(float(item.amount or 0) for item in items_list)
-                category_totals[category] = category_total
-
-            groups_order = [
-                ("preport", "📌 港前", grouped.get("preport", [])),
-                ("warehouse_public", "🏬 公仓库内", grouped.get("warehouse_public", [])),
-                ("warehouse_other", "🏭 私仓库内", grouped.get("warehouse_other", [])),
-                ("delivery_public", "🚚 公仓派送", grouped.get("delivery_public", [])),
-                ("delivery_other", "🚚 私仓派送", grouped.get("delivery_other", [])),
-                ("activation_fee", "⚡ PO激活费", grouped.get("activation_fee", [])),
-                ("payout_fee", "💰 赔付费用", grouped.get("payout_fee", [])),
-            ]
-
-            context = {
-                "invoice_number": invoice.invoice_number,
-                "invoice": invoice,  # 添加invoice对象，用于获取状态等信息
-                "container_number": container_number,
-                "groups_order": groups_order,
-                "category_totals": category_totals,
-                "total_amount": total_amount,
-                "start_date": request.GET.get("start_date"),
-                "end_date": request.GET.get("end_date"),
-                "is_combina": is_combina,
-                "is_fix_page": False,
-            }
-            return self.template_confirm_transfer_edit, context
+        context = {
+            "invoice_number": invoice.invoice_number,
+            "invoice": invoice,  # 添加invoice对象，用于获取状态等信息
+            "container_number": container_number,
+            "groups_order": groups_order,
+            "category_totals": category_totals,
+            "total_amount": invoice.payable_warehouse_amount or 0,
+            "start_date": request.GET.get("start_date"),
+            "end_date": request.GET.get("end_date"),
+            "is_fix_page": False,
+            "invoice_id": invoice.id,
+            "total_items_count": items.count(),
+        }
+        return self.handle_confirm_entry_post(request)
 
     def handle_container_invoice_confirm_get_wait(
         self, request: HttpRequest
