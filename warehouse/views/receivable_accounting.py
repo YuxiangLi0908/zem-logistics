@@ -6682,6 +6682,7 @@ class ReceivableAccounting(View):
         return context
     
     def handle_delivery_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        '''派送账单管理列表页面'''
         warehouse = request.POST.get("warehouse_filter")
         customer = request.POST.get("customer")
         start_date = request.POST.get("start_date")
