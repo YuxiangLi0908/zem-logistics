@@ -331,7 +331,10 @@
                     </div>
                 </div>
                 <button type="button" class="back-btn" onclick="document.getElementById('back-form').submit()">
-                    <i class="fas fa-arrow-left"></i> 返回
+                    <a href="/accounting/?step=invoice_warehouse_confirm_payable&status=unconfirmed&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">
+                        <i class="fas fa-arrow-left"></i>
+                        返回
+                    </a>
                 </button>
             </div>
         </div>
