@@ -10,58 +10,52 @@
         <div class="card-body" style="padding: 1.25rem;">
             <form method="post" style="width: 100%;">
                 {% csrf_token %}
-                <div class="row" style="display: flex; flex-wrap: wrap; margin-right: -0.75rem; margin-left: -0.75rem; align-items: flex-end;">
-                    
-                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
-                      <label for="start_date" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">开始日期</label>
-                      <input type="date" name="start_date" id="start_date" class="form-control" 
-                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
-                             value="{{ start_date|default:'' }}">
-                  </div>
-                  
-                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
-                      <label for="end_date" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">结束日期</label>
-                      <input type="date" name="end_date" id="end_date" class="form-control" 
-                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
-                             value="{{ end_date|default:'' }}">
-                  </div>
-                  
-                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
-                      <label for="shipment_batch_number" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">Shipment批次号</label>
-                      <input type="text" name="shipment_batch_number" id="shipment_batch_number" class="form-control" 
-                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
-                             placeholder="输入批次号" 
-                             value="{{ shipment_batch_number|default:'' }}">
-                  </div>
-                  
-                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
-                      <label for="container_number" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">柜号</label>
-                      <input type="text" name="container_number" id="container_number" class="form-control" 
-                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
-                             placeholder="输入柜号（输入后忽略日期）" 
-                             value="{{ container_number|default:'' }}">
-                  </div>
-                  
-                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
-                      <label for="destination" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">仓点</label>
-                      <input type="text" name="destination" id="destination" class="form-control" 
-                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
-                             placeholder="输入仓点（输入后忽略日期）" 
-                             value="{{ destination|default:'' }}">
-                  </div>
-                  
-                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
-                      <label for="po_id" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">PO_ID</label>
-                      <div class="input-group" style="display: flex; flex-wrap: nowrap;">
-                          <input type="text" name="po_id" id="po_id" class="form-control" 
-                                 style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem 0 0 0.25rem;"
-                                 placeholder="输入PO_ID" 
-                                 value="{{ po_id|default:'' }}">
-                          <button type="submit" class="btn btn-primary" style="min-width: 80px; display: inline-block; font-weight: 400; line-height: 1.5; color: #fff; text-align: center; text-decoration: none; vertical-align: middle; cursor: pointer; background-color: #0d6efd; border: 1px solid #0d6efd; padding: 0.375rem 0.75rem; font-size: 0.875rem; border-radius: 0 0.25rem 0.25rem 0;">
-                              <i class="fas fa-search" style="margin-right: 0.25rem;"></i> 查询
-                          </button>
-                      </div>
-                  </div>
+                <div style="display: flex; align-items: flex-end; gap: 12px; flex-wrap: nowrap; width: 100%;">
+                    <div style="flex: 1 1 0; min-width: 0;">
+                        <label style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: block;">开始日期</label>
+                        <input type="date" name="start_date" class="form-control" 
+                               style="width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem; line-height: 1.5; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                               value="{{ start_date|default:'' }}">
+                    </div>
+                    <div style="flex: 1 1 0; min-width: 0;">
+                        <label style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: block;">结束日期</label>
+                        <input type="date" name="end_date" class="form-control" 
+                               style="width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem; line-height: 1.5; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                               value="{{ end_date|default:'' }}">
+                    </div>
+                    <div style="flex: 1 1 0; min-width: 0;">
+                        <label style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: block;">Shipment批次号</label>
+                        <input type="text" name="shipment_batch_number" class="form-control" 
+                               style="width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem; line-height: 1.5; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                               placeholder="输入批次号" 
+                               value="{{ shipment_batch_number|default:'' }}">
+                    </div>
+                    <div style="flex: 1 1 0; min-width: 0;">
+                        <label style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: block;">柜号</label>
+                        <input type="text" name="container_number" class="form-control" 
+                               style="width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem; line-height: 1.5; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                               placeholder="输入柜号" 
+                               value="{{ container_number|default:'' }}">
+                    </div>
+                    <div style="flex: 1 1 0; min-width: 0;">
+                        <label style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: block;">仓点</label>
+                        <input type="text" name="destination" class="form-control" 
+                               style="width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem; line-height: 1.5; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                               placeholder="输入仓点" 
+                               value="{{ destination|default:'' }}">
+                    </div>
+                    <div style="flex: 1 1 0; min-width: 0;">
+                        <label style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: block;">PO_ID</label>
+                        <input type="text" name="po_id" class="form-control" 
+                               style="width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem; line-height: 1.5; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                               placeholder="输入PO_ID" 
+                               value="{{ po_id|default:'' }}">
+                    </div>
+                    <div style="flex: 1 1 0; min-width: 0; padding-bottom: 1px;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; font-weight: 400; line-height: 1.5; color: #fff; cursor: pointer; background-color: #0d6efd; border: 1px solid #0d6efd; padding: 0.375rem 0.75rem; font-size: 0.875rem; border-radius: 0.25rem;">
+                            <i class="fas fa-search" style="margin-right: 0.25rem;"></i> 查询
+                        </button>
+                    </div>
                 </div>
                 <input type="hidden" name="step" value="shipment_binding_log_query">
             </form>
