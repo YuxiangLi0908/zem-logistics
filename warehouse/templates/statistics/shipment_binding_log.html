@@ -5,7 +5,7 @@
 <div class="container-fluid" style="padding: 1.5rem 0;">
     <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); margin-bottom: 1.5rem;">
         <div class="card-header" style="background-color: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; padding: 0.75rem 1.25rem;">
-            <h5 style="margin-bottom: 0; font-size: 1.1rem;">约绑定/解绑记录查询</h5>
+            <h5 style="margin-bottom: 0; font-size: 1.4rem; text-align: center;">约绑定/解绑记录查询</h5>
         </div>
         <div class="card-body" style="padding: 1.25rem;">
             <form method="post" style="width: 100%;">
@@ -32,6 +32,22 @@
                              style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
                              placeholder="输入批次号" 
                              value="{{ shipment_batch_number|default:'' }}">
+                  </div>
+                  
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="container_number" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">柜号</label>
+                      <input type="text" name="container_number" id="container_number" class="form-control" 
+                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                             placeholder="输入柜号（输入后忽略日期）" 
+                             value="{{ container_number|default:'' }}">
+                  </div>
+                  
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="destination" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">仓点</label>
+                      <input type="text" name="destination" id="destination" class="form-control" 
+                             style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;"
+                             placeholder="输入仓点（输入后忽略日期）" 
+                             value="{{ destination|default:'' }}">
                   </div>
                   
                   <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
@@ -71,6 +87,7 @@
                         <th style="padding: 0.75rem; width: 220px;">Shipment批次</th>
                         <th style="padding: 0.75rem; width: 160px;">柜号</th>
                         <th style="padding: 0.75rem; width: 120px;">仓点</th>
+                        <th style="padding: 0.75rem; width: 120px;">唛头</th>
                         <th style="padding: 0.75rem; width: 100px;">仓库</th>
                         <th style="padding: 0.75rem; width: 300px;">操作按钮</th>
                         <th style="padding: 0.75rem; width: 120px;">备注</th>
@@ -112,17 +129,21 @@
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
                                    placeholder="搜索仓点" oninput="filterTable()" data-column="8">
                         </th>
+                        <th style="padding: 0.5rem; width: 120px;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
+                                   placeholder="搜索唛头" oninput="filterTable()" data-column="9">
+                        </th>
                         <th style="padding: 0.5rem; width: 100px;">
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="搜索仓库" oninput="filterTable()" data-column="9">
+                                   placeholder="搜索仓库" oninput="filterTable()" data-column="10">
                         </th>
                         <th style="padding: 0.5rem; width: 300px;">
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="搜索操作按钮" oninput="filterTable()" data-column="10">
+                                   placeholder="搜索操作按钮" oninput="filterTable()" data-column="11">
                         </th>
                         <th style="padding: 0.5rem; width: 120px;">
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="搜索备注" oninput="filterTable()" data-column="11">
+                                   placeholder="搜索备注" oninput="filterTable()" data-column="12">
                         </th>
                     </tr>
                 </thead>
@@ -156,6 +177,7 @@
                         <td style="padding: 0.75rem; vertical-align: top; width: 220px;">{{ log.shipment_batch_number|default:"-" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top; width: 160px;">{{ log.container_number|default:"-" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top; width: 120px;">{{ log.destination|default:"-" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top; width: 120px;">{{ log.shipping_mark|default:"-" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top; width: 100px;">{{ log.warehouse|default:"-" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top; width: 300px;">{{ log.operation_button|default:"-" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top; width: 120px;">{{ log.note|default:"-" }}</td>
