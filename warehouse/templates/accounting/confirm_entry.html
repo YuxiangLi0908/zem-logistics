@@ -720,7 +720,6 @@
                         {% csrf_token %}
                         <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
                         <div style="display: flex; gap: 15px; justify-content: flex-end;">
-                            <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">导出</button>
                             <button type="button" onclick="submitBatchAction('invoice_order_reject_payable')"  class="action-btn btn-warning">驳回到财务待确认</button>
                             <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
                                 <i class="fas fa-dollar-sign"></i> 核销
