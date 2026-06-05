@@ -95,7 +95,7 @@
                                     <br>
                                     <span id="selectedCount" style="font-size: 10px; color: #666;">0条</span>
                                 </th>
-                                <th class="th"></th>
+                                <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                                 <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                                 <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                                 <th class="th"></th>
@@ -295,47 +295,64 @@
         document.getElementsByName('step')[0].value = stepValue;
     }
     function filterTable() {
-        var containerInput, destinationInput, containerFilter, destinationFilter, table, tbody, tr, containerTd, destinationTd, i, containerTxtValue, destinationTxtValue;
+        var containerInput, destinationInput, customerInput, containerFilter, destinationFilter, customerFilter, table, tbody, tr, containerTd, destinationTd, customerTd, i, containerTxtValue, destinationTxtValue, customerTxtValue;
         containerInput = document.getElementById("containerSearchInput");
         destinationInput = document.getElementById("destinationSearchInput");
         deliveryInput = document.getElementById("deliverySearchInput");
+        customerInput = document.getElementById("customerSearchInput");
 
         containerFilter = containerInput.value.toUpperCase();
         destinationFilter = destinationInput.value.toUpperCase();
         deliveryFilter = deliveryInput.value.toUpperCase();
+        customerFilter = customerInput.value.toUpperCase();
 
         table = document.getElementById("packing-list-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
         var parts = containerFilter.split(/\W/);  //按照除字母数字（柜号）外的字符分组
-        for (var i = 0; i < parts.length; i++) {
-            var part = parts[i];  
-        }
 
         for (i = 0; i < tr.length; i++) {
+            customerTd = tr[i].getElementsByTagName("td")[1]; 
             containerTd = tr[i].getElementsByTagName("td")[2]; 
             destinationTd = tr[i].getElementsByTagName("td")[3]; 
             deliveryTd = tr[i].getElementsByTagName("td")[11]; 
-            if (containerTd && destinationTd&&deliveryTd) {
+            if (customerTd && containerTd && destinationTd && deliveryTd) {
+                customerTxtValue = customerTd.textContent || customerTd.innerText;
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
                 deliveryTxtValue = deliveryTd.textContent || deliveryTd.innerText;
 
-                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
-                var deliveryDisplayStyle = deliveryTxtValue.toUpperCase().indexOf(deliveryFilter) > -1 ? "" : "none";
-                var containerDisplayStyle = "none";
-                if (parts.length >0){              //如果一次输入多个柜号，则分开处理柜号的显示属性
-                    for(var j=0;j<parts.length;j++){
-                        if(containerTxtValue.toUpperCase().indexOf(parts[j]) > -1){
-                            var containerDisplayStyle = "";
-                            break;
+                // 处理客户筛选：如果筛选框为空，显示该行
+                var customerDisplayStyle = (customerFilter === "" || customerTxtValue.toUpperCase().indexOf(customerFilter) > -1) ? "" : "none";
+                
+                // 处理目的仓库筛选
+                var destinationDisplayStyle = (destinationFilter === "" || destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1) ? "" : "none";
+                
+                // 处理派送方式筛选
+                var deliveryDisplayStyle = (deliveryFilter === "" || deliveryTxtValue.toUpperCase().indexOf(deliveryFilter) > -1) ? "" : "none";
+                
+                // 处理柜号筛选（支持多个柜号，用非字母数字字符分隔）
+                var containerDisplayStyle = "";
+                if (containerFilter !== "") {
+                    containerDisplayStyle = "none";
+                    var hasValidPart = false;
+                    for(var j = 0; j < parts.length; j++) {
+                        if (parts[j].trim() !== "") {
+                            hasValidPart = true;
+                            if (containerTxtValue.toUpperCase().indexOf(parts[j]) > -1) {
+                                containerDisplayStyle = "";
+                                break;
+                            }
                         }
                     }
-                }else{
-                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                    // 如果没有有效部分（只有分隔符），显示所有
+                    if (!hasValidPart) {
+                        containerDisplayStyle = "";
+                    }
                 }
                 
-                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" && deliveryDisplayStyle === "" ? "" : "none";
+                // 所有筛选条件都是"并"的关系（AND）：必须同时满足所有筛选条件
+                tr[i].style.display = customerDisplayStyle === "" && containerDisplayStyle === "" && destinationDisplayStyle === "" && deliveryDisplayStyle === "" ? "" : "none";
             }
         }
     }
