@@ -478,6 +478,26 @@
         height: 18px;
         vertical-align: middle;
     }
+
+    .warehouse-tip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0;
+        padding: 10px 16px;
+        background: #f0f9f1;
+        border: 1px solid #b7e4c7;
+        border-left: 4px solid #2e7d32;
+        border-radius: 6px;
+        color: #2e7d32;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .warehouse-tip i {
+        font-size: 16px;
+        color: #2e7d32;
+    }
 </style>
 
 <div class="finance-system">
@@ -520,7 +540,10 @@
     </form>
 
     <div class="finance-main">
-
+        <div class="warehouse-tip">
+            <i class="fas fa-info-circle"></i>
+            <span>应付库内只要财务确认已完成->记录到账单总表中</span>
+        </div>
         <div class="tables-grid">
             <!-- 待确认账单 -->
             <div class="container-section">
@@ -610,7 +633,7 @@
                         <thead>
                             <tr>
                                 <th class="th" style="width: 40px;">
-                                    <input type="checkbox" id="selectAll">
+                                    <span>选择</span>
                                 </th>
                                 <th class="th">客户</th>
                                 <th class="th">柜号</th>
@@ -663,6 +686,7 @@
                                         <input type="hidden" name="is_order_selected" value='off'>
                                         <input type="hidden" name="invoice_id" value='{{ c.invoice_id }}'>
                                         <input type="hidden" name="order_id" value='{{ c.order_id }}'>
+                                        <input type="hidden" name="container_number" value="{{ c.container_number__container_number }}">
                                     </td>
                                     <td class="td">{{ c.customer_name__zem_name }}</td>
                                     <td class="td">
@@ -697,7 +721,7 @@
                         <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
                         <div style="display: flex; gap: 15px; justify-content: flex-end;">
                             <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">导出</button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_reject')"  class="action-btn btn-warning">驳回</button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_reject_payable')"  class="action-btn btn-warning">驳回到财务待确认</button>
                             <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
                                 <i class="fas fa-dollar-sign"></i> 核销
                             </button>
@@ -719,8 +743,7 @@
 
         <form method="post" action="" id="adjustBalanceForm" enctype="multipart/form-data">
             {% csrf_token %}
-            <input type="hidden" name="step" value="adjustBalance">
-            <input type="hidden" name="customerId" id="selectCustomerId" value="">
+            <input type="hidden" name="step" value="adjustBalance_payable">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
             <input type="hidden" name="selectedOrders" id="selectedOrdersData" value="">
@@ -732,12 +755,6 @@
                     min="0.01"
                     placeholder="输入核销金额"
                     required>
-            </div>
-
-            <div class="form-group">
-                <label for="note">备注：</label>
-                <textarea name="note" id="note"
-                        placeholder="请输入备注信息（可选）"></textarea>
             </div>
 
             <div class="modal-footer">
@@ -831,20 +848,6 @@
     // 初始化
     document.addEventListener('DOMContentLoaded', function() {
         initTableFilters();
-
-        // 全选功能
-        document.getElementById('selectAll').addEventListener('click', function() {
-            const checkboxes = document.querySelectorAll('#order-table-previous tbody tr input[name="is_order_selected_click"]');
-            const visibleRows = Array.from(document.querySelectorAll('#order-table-previous tbody tr')).filter(row => row.style.display !== 'none');
-
-            checkboxes.forEach((checkbox, index) => {
-                const row = checkbox.closest('tr');
-                if (visibleRows.includes(row)) {
-                    checkbox.checked = this.checked;
-                    toggleRowBackground(checkbox);
-                }
-            });
-        });
     });
 
 
@@ -893,6 +896,13 @@
     function validateWriteOff(event) {
         if (event) event.preventDefault();
 
+        const selectedOrdersValue = document.getElementById('selectedOrdersData').value;
+
+        if (!selectedOrdersValue || selectedOrdersValue === '[]') {
+            alert('请选择要核销的账单');
+            return false;
+        }
+
         const usdAmountInput = document.getElementById('usdAmount');
         const usdAmount = parseFloat(usdAmountInput.value);
 
@@ -901,6 +911,7 @@
             usdAmountInput.focus();
             return false;
         }
+
         document.getElementById('adjustBalanceForm').submit();
         return true;
     }
@@ -928,32 +939,20 @@
                 sameCustomer = false;
             }
 
-            // 获取invoice_id
-            const invoiceIdInput = rowData.querySelector('input[name="invoice_id"]');
-            const invoiceId = invoiceIdInput ? invoiceIdInput.value : '';
+            const containerInput = rowData.querySelector('input[name="container_number"]');
+            const containerNumber = containerInput ? containerInput.value : '';
 
             selectedOrdersInfo.push({
-                invoiceId: invoiceId,
-                containerNumber: rowData.cells[2].textContent.trim(),
+                containerNumber: containerNumber,
                 amount: rowData.cells[8]?.textContent.trim() || '$0.00',
                 invoiceNumber: rowData.cells[5]?.textContent.trim() || '',
                 customerName: currentCustomer
             });
         });
 
-        if (!sameCustomer) {
-            alert('请选择同一客户的账单进行核销！');
-            return;
-        }
-
-        const customerBalance = getCustomerBalance(customerName);
         const popup = document.getElementById('adjustBalanceModal');
         popup.style.display = 'block';
         selectedCustomer = customerName;
-
-        // 更新弹窗内容
-        document.getElementById('modalCustomerName').textContent = customerName;
-        document.getElementById('modalCustomerBalance').textContent = customerBalance.toFixed(2);
 
         const ordersInfoContainer = document.getElementById('selectedOrdersInfo');
         ordersInfoContainer.innerHTML = '';
@@ -999,10 +998,8 @@
         table.appendChild(tbody);
         ordersInfoContainer.appendChild(table);
 
-        document.getElementById('selectCustomerId').value = getCustomerId(customerName);
-        // 修改为传递选中的invoice_ids
         document.getElementById('selectedOrdersData').value = JSON.stringify(
-            selectedOrdersInfo.map(order => order.invoiceId)
+            selectedOrdersInfo.map(order => order.containerNumber)
         );
     }
 
@@ -1028,19 +1025,48 @@
         {% endfor %}
     ];
 
-    // 行选中背景切换
     function toggleRowBackground(checkbox) {
-        const row = checkbox.closest('tr');
+        const allCheckboxes = document.querySelectorAll(
+            '#order-table-previous tbody input[name="is_order_selected_click"]'
+        );
+
+        allCheckboxes.forEach(cb => {
+            const row = cb.closest('tr');
+
+            if (cb !== checkbox) {
+                cb.checked = false;
+                row.classList.remove('selected-row');
+            }
+        });
+
+        const currentRow = checkbox.closest('tr');
+
         if (checkbox.checked) {
-            row.classList.add('selected-row');
+            currentRow.classList.add('selected-row');
         } else {
-            row.classList.remove('selected-row');
+            currentRow.classList.remove('selected-row');
+        }
+
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.checked = false;
         }
     }
 
     // 批量操作提交
     function submitBatchAction(step) {
         const invoiceIds = getSelectedInvoiceIds();
+
+        const selectedContainerNumbers = [];
+        document.querySelectorAll(
+            '#order-table-previous tbody input[name="is_order_selected_click"]:checked'
+        ).forEach(cb => {
+            const row = cb.closest('tr');
+            const containerInput = row.querySelector('input[name="container_number"]');
+            if (containerInput && containerInput.value) {
+                selectedContainerNumbers.push(containerInput.value);
+            }
+        });
 
         if (invoiceIds.length === 0) {
             alert('请选择要操作的账单！');
@@ -1080,6 +1106,14 @@
         endDateInput.value = document.querySelector('input[name="end_date"]')?.value || '';
         endDateInput.className = 'dynamic-input';
 
+        // 柜号
+        const selectedOrdersInput = document.createElement('input');
+        selectedOrdersInput.type = 'hidden';
+        selectedOrdersInput.name = 'selectedOrders';
+        selectedOrdersInput.value = JSON.stringify(selectedContainerNumbers);
+        selectedOrdersInput.className = 'dynamic-input';
+
+        form.appendChild(selectedOrdersInput);
         form.appendChild(invoiceInput);
         form.appendChild(stepInput);
         form.appendChild(startDateInput);

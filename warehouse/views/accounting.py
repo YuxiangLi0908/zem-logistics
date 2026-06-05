@@ -486,6 +486,9 @@ class Accounting(View):
         elif step == "invoice_order_reject":
             template, context = self.handle_invoice_order_batch_reject(request)
             return render(request, template, context)
+        elif step == "invoice_order_reject_payable":
+            template, context = self.handle_invoice_order_batch_reject_payable(request)
+            return render(request, template, context)
         elif step == "migrate_payable_receivable_amount":
             template, context = self.migrate_payable_to_receivable()
             return render(request, template, context)
@@ -496,6 +499,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "adjustBalance":
             template, context = self.handle_adjust_balance_save(request)
+            return render(request, template, context)
+        elif step == "adjustBalance_payable":
+            template, context = self.handle_adjust_balance_save_payable(request)
             return render(request, template, context)
         elif step == "invoice_payable_carrier_export":
             return self.handle_carrier_invoice_export(request)
@@ -14605,6 +14611,35 @@ class Accounting(View):
             request.POST.get("end_date_confirm"),
         )
 
+    def handle_invoice_order_batch_reject_payable(self, request: HttpRequest) -> tuple[Any, Any]:
+        """
+        应付库内-财务从已确认页面驳回到财务待确认页面
+        """
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        invoice_status = InvoiceStatusv2.objects.filter(
+            container_number__container_number__in=selected_orders,
+            invoice_type__in=("payable", "payable_direct")
+        )
+        for item in invoice_status:
+            item.warehouse_public_status = "completed"
+            item.warehouse_other_status = "completed"
+            item.save()
+        invoice = Invoicev2.objects.filter(
+            container_number__container_number__in=selected_orders
+        )
+        for item in invoice:
+            old_payable_warehouse_amount = item.payable_warehouse_amount
+            item.payable_wh_public_amount = None
+            item.payable_wh_other_amount = None
+            item.payable_warehouse_amount_written_off = None
+            item.payable_warehouse_amount = None
+            item.payable_warehouse_amount_pending_verification = None
+            item.payable_total_amount -= old_payable_warehouse_amount
+            item.save()
+
+        return self.handle_confirm_entry_post(request)
+
     def handle_invoice_order_batch_delivered(
         self, request: HttpRequest
     ) -> HttpResponse:
@@ -14870,6 +14905,73 @@ class Accounting(View):
             request.POST.get("start_date_confirm"),
             request.POST.get("end_date_confirm"),
         )
+
+    def handle_adjust_balance_save_payable(self, request: HttpRequest) -> tuple[Any, Any]:
+        """
+        应付库内-核销金额
+        """
+        try:
+            offset_amount = Decimal(str(request.POST.get("usdamount") or "0"))
+        except Exception:
+            offset_amount = Decimal("0")
+
+        try:
+            selected_container_numbers = json.loads(
+                request.POST.get("selectedOrders", "[]")
+            )
+        except Exception:
+            selected_container_numbers = []
+
+        selected_container_numbers = [
+            str(num).strip()
+            for num in selected_container_numbers
+            if str(num).strip()
+        ]
+
+        if offset_amount <= 0 or not selected_container_numbers:
+            return self.handle_confirm_entry_post(request)
+
+        invoices = (
+            Invoicev2.objects
+            .filter(container_number__container_number__in=selected_container_numbers)
+            .order_by("container_number_id", "created_at", "id")
+            .distinct("container_number_id")
+        )
+
+        with transaction.atomic():
+            for invoice in invoices:
+                if offset_amount <= 0:
+                    break
+
+                pending_amount = Decimal(str(
+                    invoice.payable_warehouse_amount_pending_verification or 0
+                ))
+
+                written_off_amount = Decimal(str(
+                    invoice.payable_warehouse_amount_written_off or 0
+                ))
+
+                if pending_amount <= 0:
+                    continue
+
+                write_off_amount = min(offset_amount, pending_amount)
+
+                invoice.payable_warehouse_amount_pending_verification = float(
+                    pending_amount - write_off_amount
+                )
+
+                invoice.payable_warehouse_amount_written_off = float(
+                    written_off_amount + write_off_amount
+                )
+
+                invoice.save(update_fields=[
+                    "payable_warehouse_amount_pending_verification",
+                    "payable_warehouse_amount_written_off",
+                ])
+
+                offset_amount -= write_off_amount
+
+        return self.handle_confirm_entry_post(request)
 
     def _generate_invoice_excel(
         self,
