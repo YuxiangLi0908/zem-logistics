@@ -39,6 +39,8 @@ class Invoicev2(models.Model):
     payable_total_amount = models.FloatField(null=True, blank=True)
     payable_preport_amount = models.FloatField(null=True, blank=True)
     payable_warehouse_amount = models.FloatField(null=True, blank=True)
+    payable_warehouse_amount_pending_verification = models.FloatField(null=True, blank=True, verbose_name="应付库内待核销金额")
+    payable_warehouse_amount_written_off = models.FloatField(null=True, blank=True, verbose_name="应付库内已核销金额")
     payable_wh_public_amount = models.FloatField(null=True, blank=True, verbose_name="应付库内公仓费用")
     payable_wh_other_amount = models.FloatField(null=True, blank=True, verbose_name="应付库内私仓费用")
     payable_delivery_amount = models.FloatField(null=True, blank=True)

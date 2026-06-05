@@ -1298,10 +1298,12 @@ class Accounting(View):
                         stmt_id = stmt.invoice_statement_id if stmt else None
                         stmt_link = stmt.statement_link if stmt else None
                         row_data.update({
-                            'invoice_id__invoice_date': invoice.invoice_date,
+                            'invoice_id__created_at': invoice.created_at,
                             'invoice_id__invoice_link': invoice.invoice_link,
                             'invoice_id__payable_warehouse_amount': invoice.payable_warehouse_amount or 0,
                             'invoice_id__payable_total_amount': invoice.payable_total_amount or 0,
+                            'invoice_id__payable_warehouse_amount_pending_verification': invoice.payable_warehouse_amount_pending_verification or 0,
+                            'invoice_id__payable_warehouse_amount_written_off': invoice.payable_warehouse_amount_written_off or 0,
                             'invoice_id__remain_offset': invoice.remain_offset or 0,
                             'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
                             'invoice_id__statement_id__invoice_statement_id': stmt_id,
@@ -7991,6 +7993,18 @@ class Accounting(View):
             else:
                 invoice_status.warehouse_other_status = "completed"
 
+            pallets = Pallet.objects.filter(
+                container_number__container_number=container_number
+            )
+
+            delivery_types = set(
+                pallets.values_list("delivery_type", flat=True)
+            )
+
+            if delivery_types in [{"public"}, {"other"}]:
+                invoice_status.warehouse_public_status = "completed"
+                invoice_status.warehouse_other_status = "completed"
+
             invoice_status.save()
         context = self.handle_warehouse_entry_post(request, context)
         return self.template_warehouse_entry, context
@@ -10532,6 +10546,7 @@ class Accounting(View):
                 invoice.payable_wh_public_amount = float(wh_public_amount)
                 invoice.payable_wh_other_amount = float(wh_other_amount)
                 invoice.payable_warehouse_amount = float(new_warehouse_amount)
+                invoice.payable_warehouse_amount_pending_verification = invoice.payable_warehouse_amount
                 invoice.payable_total_amount = float(
                     Decimal(str(invoice.payable_total_amount or 0))
                     - old_warehouse_amount
@@ -10575,6 +10590,7 @@ class Accounting(View):
                 invoice.payable_warehouse_amount = float(
                     Decimal(str(invoice.payable_warehouse_amount or 0)) - deduct_amount
                 )
+                invoice.payable_warehouse_amount_pending_verification = invoice.payable_warehouse_amount
                 invoice.payable_total_amount = float(
                     Decimal(str(invoice.payable_total_amount or 0)) - deduct_amount
                 )
