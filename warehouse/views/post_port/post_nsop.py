@@ -5604,6 +5604,7 @@ class PostNsop(View):
     async def handle_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''排车管理之加塞搜索'''
         warehouse = request.POST.get("warehouse")
         destination = request.POST.get("destination")
         active_tab = request.POST.get("active_tab")
