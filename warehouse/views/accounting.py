@@ -7114,8 +7114,8 @@ class Accounting(View):
             invoice_status.save()
             return self.handle_invoice_payable_get_v1(
                 request,
-                start_date_confirm,
-                end_date_confirm,
+                data.get("start_date_confirm"),
+                data.get("end_date_confirm"),
                 data.get("customer"),
                 data.get("warehouse_filter"),
             )
