@@ -8136,13 +8136,21 @@ class ReceivableAccounting(View):
                 "combina_info": {}
             }
         if not unbilled_groups:
-            # 所有仓点都已录入，更新状态为已完成
-            status_field = "delivery_public_status" if delivery_type == "public" else "delivery_other_status"
-            setattr(invoice_status, status_field, "completed")
-            invoice_status.save()
-            context["success_messages"] = "所有仓点已录入完毕，状态已更新为已完成"
-            context = self.handle_delivery_entry_post(request, context)
-            return self.template_delivery_entry, context
+            status_del = False
+            if delivery_type == "public":
+                if invoice_status.delivery_public_status != "completed":
+                    status_del = True
+            if delivery_type == "other":
+                if invoice_status.delivery_other_status != "completed":
+                    status_del = True
+            if status_del:
+                # 所有仓点都已录入，更新状态为已完成
+                status_field = "delivery_public_status" if delivery_type == "public" else "delivery_other_status"
+                setattr(invoice_status, status_field, "completed")
+                invoice_status.save()
+                context["success_messages"] = "所有仓点已录入完毕，状态已更新为已完成"
+                context = self.handle_delivery_entry_post(request, context)
+                return self.template_delivery_entry, context
         if unbilled_groups:
             has_previous_items = bool(previous_item_dict)  # 判断是否有过账单
             # 有未录入的PO，需要进一步处理
