@@ -3620,7 +3620,8 @@ class ReceivableAccounting(View):
                     elif delivery_category == "walmart":
                         description = "沃尔玛派送费"
                     elif delivery_category == "upsdelivery":
-                        description = "UPS派送费"
+                        # UPS派送不自动创建记录，跳过
+                        continue
                     else:
                         continue
 
@@ -3639,7 +3640,7 @@ class ReceivableAccounting(View):
                         cbm=group.get("total_cbm", 0),
                         cbm_ratio=cbm_ratio,
                         weight=group.get("total_weight_lbs", 0),
-                        description="派送费",
+                        description=description,
                         qty=group.get("total_pallets", 0),
                         rate=item_data.get("rate", 0),
                         regionPrice=item_data.get("rate", 0),
@@ -3673,7 +3674,8 @@ class ReceivableAccounting(View):
                     elif delivery_category == "walmart":
                         description = "沃尔玛派送费"
                     elif delivery_category == "upsdelivery":
-                        description = "UPS派送费"
+                        # UPS派送不自动创建记录，跳过
+                        continue
                     else:
                         continue
                     
