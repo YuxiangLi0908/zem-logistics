@@ -381,6 +381,22 @@
                     {% endfor %}
                 </select>
                 
+                <b style="font-size: 13px; margin-left: 15px;">客户:</b>
+                <div style="display: inline-block; vertical-align: top;">
+                    <div id="customer-count" style="font-size: 12px; color: #666; margin-bottom: 3px;">已选: <span id="selected-count">{{ customer_list|length }}</span></div>
+                    <div id="customerList" style="display: inline-block; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
+                        {% for k, v in customers.items %}
+                            {% if not forloop.first %} 
+                                <label style="display: block; margin: 3px 0; color: black;">
+                                    <input type="checkbox" name="customer" value="{{ v }}" 
+                                {% if customer_list and v in customer_list %}checked{% endif %} style="margin-right: 5px;" class="customer-checkbox">
+                                    {{ k }}
+                                </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
                 <input type="hidden" name="step" value="ltl_warehouse">
                 <button id="confirmWarehouse">
                     <i class="fas fa-check"></i> 确认
@@ -556,6 +572,17 @@
     document.addEventListener('DOMContentLoaded', function() {
         // 设置激活标签页
         setActiveTabFromParams();
+        
+        // 客户复选框监听 - 更新选中数量
+        function updateSelectedCustomerCount() {
+            const checkedCount = document.querySelectorAll('.customer-checkbox:checked').length;
+            document.getElementById('selected-count').textContent = checkedCount;
+        }
+        
+        // 绑定所有客户复选框的change事件
+        document.querySelectorAll('.customer-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('change', updateSelectedCustomerCount);
+        });
         // 标签页切换 - 为所有标签添加点击事件
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', function() {
