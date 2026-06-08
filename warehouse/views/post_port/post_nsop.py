@@ -81,6 +81,7 @@ from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.container import Container
+from warehouse.models.customer import Customer
 from warehouse.models.invoicev2 import (
     Invoicev2,
     InvoiceItemv2,
@@ -254,9 +255,18 @@ class PostNsop(View):
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
-        elif step == "LTL_pallets":       
+        elif step == "LTL_pallets":
+            # 获取所有客户
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers_dict = {c.zem_name: str(c.id) for c in customers}
+            # 添加----选项
+            customers_dict = {"----": None, **customers_dict}
+            # 默认选中除了"new fortun"外的所有客户（使用字符串类型）
+            customer_list = [customers_dict[k] for k in customers_dict.keys() if k != "----" and k.lower() != "new fortun"]
             context = {
-                "warehouse_options": WAREHOUSE_OPTIONS
+                "warehouse_options": WAREHOUSE_OPTIONS,
+                "customers": customers_dict,
+                "customer_list": customer_list
             }
             return render(request, self.template_ltl_pos_all, context)
         elif step == "LTL_history_po":        
@@ -12839,6 +12849,10 @@ class PostNsop(View):
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
         
+        # 获取客户筛选条件（保持字符串类型）
+        customer_idlist = request.POST.getlist("customer")
+        
+        # 构建基础筛选条件
         pl_criteria = Q(
             container_number__orders__offload_id__offload_other_at__isnull=True,
             shipment_batch_number__shipment_batch_number__isnull=True,
@@ -12851,6 +12865,18 @@ class PostNsop(View):
             container_number__orders__offload_id__offload_other_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
+        
+        # 如果有客户筛选条件，添加到筛选条件中
+        if customer_idlist:
+            # 将字符串ID转换为整数
+            customer_idlist_int = [int(id) for id in customer_idlist if id]
+            # 获取选中客户的 zem_name
+            customer_names = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist_int).values_list("zem_name", flat=True)
+            )
+            # 添加客户筛选条件
+            pl_criteria &= Q(container_number__orders__customer_name__zem_name__in=customer_names)
+            plt_criteria &= Q(container_number__orders__customer_name__zem_name__in=customer_names)
         # 未放行、已放行-客提、已放行-自发
         release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
         #release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
@@ -12889,6 +12915,11 @@ class PostNsop(View):
             context = {}
         supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
         
+        # 获取所有客户数据
+        customers = await sync_to_async(list)(Customer.objects.all())
+        customers_dict = {c.zem_name: str(c.id) for c in customers}
+        customers_dict = {"----": None, **customers_dict}
+        
         context.update({
             'warehouse': warehouse,
             'warehouse_options': WAREHOUSE_OPTIONS,
@@ -12907,7 +12938,9 @@ class PostNsop(View):
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
-            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping))
+            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping)),
+            "customers": customers_dict,
+            "customer_list": customer_idlist
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
