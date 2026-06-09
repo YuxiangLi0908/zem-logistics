@@ -2664,7 +2664,10 @@ class Palletization(View):
                     cbm += cbm % 2
                 elif remainder:
                     cbm += 2
-                cbm /= 2
+                if customer_name == "准时达" and retrieval_destination_area == "LA":
+                    cbm /= 1.8
+                else:
+                    cbm /= 2
                 cbm *= n_label
                 cbm = int(cbm)
                 if (
