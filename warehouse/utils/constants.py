@@ -53,6 +53,7 @@ CONTAINER_PICKUP_CARRIER = [
     ("new world", "new world"),
     ("JCR", "JCR"),
     ("allways", "allways"),
+    ("Chris Trinsav", "Chris Trinsav"),
 ]
 
 CLEARANCE_OPTIONS = [
