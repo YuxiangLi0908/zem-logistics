@@ -13463,6 +13463,12 @@ class Accounting(View):
             data = {"actual_day": None, "chassis_fee": None}
             # 计算车架费
             cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+            if warehouse_precise == "LA 91748":
+                warehouse_precise = "LA 91761"
+            if warehouse_precise == "LA 91789":
+                warehouse_precise = "LA 91761"
+            if warehouse_precise == "LA 91730":
+                warehouse_precise = "LA 91761"
             if act_pick_time and act_pick_time < cutoff_date:
                 data = self._calculate_chassis_fee(context,
                                                    fee_detail[warehouse][warehouse_precise][preport_carrier],
