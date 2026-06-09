@@ -13460,38 +13460,37 @@ class Accounting(View):
             per_diem_fee = 0
             pallet_details = {"": ""}
             palletization_carrier = {}
+            fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
             data = {"actual_day": None, "chassis_fee": None}
             # 计算车架费
             cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
-            if warehouse_precise == "LA 91748":
-                warehouse_precise = "LA 91761"
-            if warehouse_precise == "LA 91789":
-                warehouse_precise = "LA 91761"
-            if warehouse_precise == "LA 91730":
-                warehouse_precise = "LA 91761"
-            if act_pick_time and act_pick_time < cutoff_date:
-                data = self._calculate_chassis_fee(context,
-                                                   fee_detail[warehouse][warehouse_precise][preport_carrier],
-                                                   order)
-                chassis_fee = data["chassis_fee"]
-                actual_day = data["actual_day"]
-            else:
-                if preport_carrier == "东海岸":
-                    data = self._calculate_chassis_fee_91(context,
-                                                          fee_detail[warehouse][warehouse_precise][preport_carrier],
-                                                          order)
-                elif preport_carrier == "Best":
-                    data = self._calculate_chassis_fee_91_best(context,
-                                                               fee_detail[warehouse][warehouse_precise][
-                                                                   preport_carrier],
-                                                               order)
-                elif preport_carrier == "new world":
-                    data = self._calculate_chassis_fee_91_new_world(context,
-                                                                    fee_detail[warehouse][warehouse_precise][
-                                                                        preport_carrier],
-                                                                    order)
-                chassis_fee = data["chassis_fee"]
-                actual_day = data["actual_day"]
+            if 'NJ' == warehouse or 'LA' == warehouse:
+                data = {"actual_day": None, "chassis_fee": None}
+                # 计算车架费
+                cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+                if act_pick_time and act_pick_time < cutoff_date:
+                    data = self._calculate_chassis_fee(context,
+                                                       fee_detail[warehouse][warehouse_precise][preport_carrier],
+                                                       order)
+                    chassis_fee = data["chassis_fee"]
+                    actual_day = data["actual_day"]
+                else:
+                    if preport_carrier == "东海岸":
+                        data = self._calculate_chassis_fee_91(context,
+                                                              fee_detail[warehouse][warehouse_precise][preport_carrier],
+                                                              order)
+                    elif preport_carrier == "Best":
+                        data = self._calculate_chassis_fee_91_best(context,
+                                                                   fee_detail[warehouse][warehouse_precise][
+                                                                       preport_carrier],
+                                                                   order)
+                    elif preport_carrier == "new world":
+                        data = self._calculate_chassis_fee_91_new_world(context,
+                                                                        fee_detail[warehouse][warehouse_precise][
+                                                                            preport_carrier],
+                                                                        order)
+                    chassis_fee = data["chassis_fee"]
+                    actual_day = data["actual_day"]
 
             # LA-91730 无报价表 → 只显示拆柜费用（Iris）
             if warehouse_precise_p == "LA-91730":
