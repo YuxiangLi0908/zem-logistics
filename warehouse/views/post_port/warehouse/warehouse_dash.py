@@ -25,6 +25,7 @@ class WarehouseDashView(View):
     warehouse_dash_template = 'post_port/warehouse_dash/01_warehouse_dash.html'
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
     is_shipment_batch_numbers = {
+        "全部": "Global",
         "是": "True",
         "否": "False"
     }
@@ -70,6 +71,13 @@ class WarehouseDashView(View):
         }
         return context
 
+    def _get_shipment_batch_criteria(self, is_shipment_batch_number: str):
+        if is_shipment_batch_number == "True":
+            return models.Q(shipment_batch_number__shipment_batch_number__isnull=False)
+        elif is_shipment_batch_number == "False":
+            return models.Q(shipment_batch_number__shipment_batch_number__isnull=True)
+        return models.Q()
+
     def _get_destination_container_detail(
             self,
             warehouse: str,
@@ -77,22 +85,10 @@ class WarehouseDashView(View):
             is_shipment_batch_number: str,
     ):
         today = now().date()
-
         thirteen_weeks_ago = today - timedelta(weeks=13)
+        thirteen_weeks_ago_start = thirteen_weeks_ago - timedelta(days=thirteen_weeks_ago.weekday())
 
-        thirteen_weeks_ago_start = (
-                thirteen_weeks_ago
-                - timedelta(days=thirteen_weeks_ago.weekday())
-        )
-
-        if is_shipment_batch_number == "True":
-            criteria = models.Q(
-                shipment_batch_number__shipment_batch_number__isnull=False
-            )
-        else:
-            criteria = models.Q(
-                shipment_batch_number__shipment_batch_number__isnull=True
-            )
+        criteria = self._get_shipment_batch_criteria(is_shipment_batch_number)
 
         data = (
             Pallet.objects
@@ -101,8 +97,6 @@ class WarehouseDashView(View):
                 location__startswith=warehouse,
                 delivery_type="public",
                 destination=destination,
-
-                # 跟总表统一口径
                 container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start,
             )
             .values(
@@ -117,74 +111,88 @@ class WarehouseDashView(View):
                 total_cbm=Sum("cbm"),
             )
             .order_by(
-                "container_number__container_number"
+                "shipment_batch_number__shipment_batch_number",
+                "-total_pallet",
             )
         )
 
-        return list(data)
-    
-    def _get_historical_inventory(self, warehouse: str, is_shipment_batch_number: str) -> dict:
+        result = list(data)
+
+        # 没预约号放前边，板数降序
+        result.sort(
+            key=lambda x: (
+                1 if x.get("shipment_batch_number__shipment_batch_number") else 0,
+                -int(x.get("total_pallet") or 0),
+            )
+        )
+
+        return result
+
+    def _get_historical_inventory(self, warehouse: str, is_shipment_batch_number: str) -> list:
         today = now().date()
         thirteen_weeks_ago = today - timedelta(weeks=13)
         thirteen_weeks_ago_start = thirteen_weeks_ago - timedelta(days=thirteen_weeks_ago.weekday())
-        if is_shipment_batch_number == "True":
-            criteria = models.Q(shipment_batch_number__shipment_batch_number__isnull = False)
-        else:
-            criteria = models.Q(shipment_batch_number__shipment_batch_number__isnull = True)
-        data = Pallet.objects.prefetch_related(
-                "container_number",
-                "shipment_batch_number",
-                "container_number__orders__offload_id",
-            ).filter(
+
+        criteria = self._get_shipment_batch_criteria(is_shipment_batch_number)
+
+        data = (
+            Pallet.objects
+            .filter(
                 criteria,
                 location__startswith=warehouse,
                 delivery_type="public",
-                container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start
-            ).annotate(
+                container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start,
+            )
+            .annotate(
                 week=Week("container_number__orders__offload_id__offload_at")
-            ).values(
+            )
+            .values(
                 "week",
-                "destination"
-            ).annotate(
+                "destination",
+            )
+            .annotate(
                 total_cbm=Sum("cbm"),
                 total_pallet=Count("id", distinct=True),
-            ).order_by("week")
+            )
+            .order_by("week", "destination")
+        )
+
         return list(data)
-    
-    def _get_next_week_inventory(self, warehouse: str, is_shipment_batch_number: str) -> dict:
+
+    def _get_next_week_inventory(self, warehouse: str, is_shipment_batch_number: str) -> list:
         today = now().date()
         next_week_start = today + timedelta(days=1)
         next_week_end = next_week_start + timedelta(days=6)
-        criteria = models.Q(
-            container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
-            container_number__orders__vessel_id__vessel_eta__gte=next_week_start,
-            container_number__orders__vessel_id__vessel_eta__lte=next_week_end,
-            container_number__orders__cancel_notification=False
-        ) | models.Q(
-            container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
-            container_number__orders__vessel_id__vessel_eta__lte=next_week_start,
-            container_number__orders__cancel_notification=False,
-            container_number__orders__offload_id__offload_at__isnull=True,
-            container_number__orders__offload_id__offload_required=True,
+
+        criteria = (
+                models.Q(
+                    container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
+                    container_number__orders__vessel_id__vessel_eta__gte=next_week_start,
+                    container_number__orders__vessel_id__vessel_eta__lte=next_week_end,
+                    container_number__orders__cancel_notification=False,
+                )
+                |
+                models.Q(
+                    container_number__orders__retrieval_id__retrieval_destination_area=warehouse,
+                    container_number__orders__vessel_id__vessel_eta__lte=next_week_start,
+                    container_number__orders__cancel_notification=False,
+                    container_number__orders__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_required=True,
+                )
         )
-        if is_shipment_batch_number == "True":
-            criteria &= models.Q(shipment_batch_number__shipment_batch_number__isnull = False)
-        else:
-            criteria &= models.Q(shipment_batch_number__shipment_batch_number__isnull = True)
-        data = PackingList.objects.prefetch_related(
-                "container_number__orders__vessel_id",
-                "container_number__orders__retrieval_id",
-                "container_number__orders__offload_id",
-                "container_number__orders__warehouse",
-                "container_number__orders",
-                "packinglist"
-            ).filter(
-                criteria
-            ).values(
-                "destination"
-            ).annotate(
+
+        criteria &= self._get_shipment_batch_criteria(is_shipment_batch_number)
+
+        data = (
+            PackingList.objects
+            .filter(criteria)
+            .values("destination")
+            .annotate(
                 total_cbm=Sum("cbm")
             )
+            .order_by("destination")
+        )
+
         return list(data)
     
     def _merge_inventory(self, inventory_metrics, next_week_inventory):
