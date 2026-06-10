@@ -28,7 +28,7 @@ from django.views import View
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
-from warehouse.utils.constants import WAREHOUSE_OPTIONS
+from warehouse.models.warehouse import ZemWarehouse
 
 
 class TimeoutWarning(View):
@@ -40,7 +40,11 @@ class TimeoutWarning(View):
             return HttpResponseForbidden(
                 "You are not authenticated to access this page!"
             )
-        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
+        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            ZemWarehouse.objects
+            .order_by("name")
+            .values_list("name", "name")
+        ), }
         return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
@@ -177,7 +181,11 @@ class TimeoutWarning(View):
         )
         context = {
             "warehouse": warehouse,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "pallets": pallets,  # 未预约
             "shipments": shipments,  # 未排车
             "fleets": fleets,  # 未出库

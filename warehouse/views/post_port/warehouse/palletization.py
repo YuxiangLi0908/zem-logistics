@@ -61,11 +61,11 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 from warehouse.utils.constants import (
     DELIVERY_METHOD_CODE,
     DELIVERY_METHOD_OPTIONS,
-    WAREHOUSE_OPTIONS,
 )
 from warehouse.views.export_file import export_palletization_list, export_palletization_list_v2
 from warehouse.views.pre_port.pre_port_dash import PrePortDash
@@ -272,7 +272,11 @@ class Palletization(View):
         context = {
             "abnormal": abnormal,
             "warehouse": warehouse,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         }
         if include_all:
             return self.template_pallet_abnormal_records_display, context
@@ -611,7 +615,11 @@ class Palletization(View):
             "shipment": shipment,
             "fleet": fleet,
             "arrived_containers": arrived_containers,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "warehouse_filter": warehouse,
         }
         return self.template_pallet_daily_operation, context
@@ -858,7 +866,11 @@ class Palletization(View):
             context = {
                 'warehouse': warehouse,
                 "storehouse": storehouse,
-                'warehouse_options': WAREHOUSE_OPTIONS,
+                'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    ZemWarehouse.objects
+                    .order_by("name")
+                    .values_list("name", "name")
+                ),
                 "storehouse_form": {"public": "public", "other": "other"},
                 "packinglist_not_selfpick_cargos": packinglist_not_selfpick_cargos,
                 "packinglist_selfpick_cargos": packinglist_selfpick_cargos,

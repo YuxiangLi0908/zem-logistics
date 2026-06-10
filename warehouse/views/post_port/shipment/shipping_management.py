@@ -56,7 +56,6 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    WAREHOUSE_OPTIONS,
 )
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.utils.shipment_binding_utils import (
@@ -258,7 +257,11 @@ class ShippingManagement(View):
                 "load_type_options": LOAD_TYPE_OPTIONS,
                 "account_options": self.account_options,
                 "warehouse": request.GET.get("warehouse"),
-                "warehouse_options": WAREHOUSE_OPTIONS,
+                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
                 "shipment_type_options": self.shipment_type_options,
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
@@ -272,7 +275,11 @@ class ShippingManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         context = {
             "load_type_options": LOAD_TYPE_OPTIONS,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "account_options": self.account_options,
             "start_date": (datetime.now().date() + timedelta(days=-7)).strftime(
                 "%Y-%m-%d"
@@ -287,7 +294,11 @@ class ShippingManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "start_date": (datetime.now().date() + timedelta(days=-7)).strftime(
                 "%Y-%m-%d"
             ),
@@ -366,7 +377,11 @@ class ShippingManagement(View):
             "shipment_type_options": self.shipment_type_options,
             "unused_appointment": json.dumps(unused_appointment),
             "shipment_data": json.dumps(shipment_data),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "load_type_options": LOAD_TYPE_OPTIONS,
             "account_options": self.account_options,
         }
@@ -1256,7 +1271,11 @@ class ShippingManagement(View):
                     "plt_ids_raw": plt_ids,
                     "address": address,
                     "shipment_data": shipment_data,
-                    "warehouse_options": WAREHOUSE_OPTIONS,
+                    "warehouse_options": [("", "")] + await sync_to_async(list)(
+                        ZemWarehouse.objects
+                        .order_by("name")
+                        .values_list("name", "name")
+                    ),
                     "load_type_options": LOAD_TYPE_OPTIONS,
                     "shipment_type_options": self.shipment_type_options,
                     "unused_appointment": json.dumps(unused_appointment),
@@ -2890,7 +2909,11 @@ class ShippingManagement(View):
             "appointment": appointment,
             "po_appointment_summary": df.to_dict("records"),
             "warehouse": warehouse,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "upload_file_form": UploadFileForm(),
             "start_date": start_date,
             "end_date": end_date,
@@ -3057,7 +3080,11 @@ class ShippingManagement(View):
             "warehouse": warehouse,
             "start_date": appointmnet_start_date,
             "end_date": appointment_end_date,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "shipment": shipment,
         }
         return self.template_shipment_list, context

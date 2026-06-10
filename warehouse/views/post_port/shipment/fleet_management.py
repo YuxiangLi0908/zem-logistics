@@ -82,7 +82,7 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    SYSTEM_FOLDER, WAREHOUSE_OPTIONS,
+    SYSTEM_FOLDER,
 )
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.export_file import link_callback
@@ -773,7 +773,11 @@ class FleetManagement(View):
             "shipments": shipments,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "shipment": json.dumps(shipment_fleet_dict),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "area": area,
         }
         return self.template_delivery_and_pod, context
@@ -2646,7 +2650,11 @@ class FleetManagement(View):
             "batch_number": batch_number,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "area": area,
             "error_messages": error_messages or [],
             "success_count": success_count,
@@ -3076,7 +3084,11 @@ class FleetManagement(View):
             "end_time": end_time,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "error_messages": error_messages or [],
             "success_count": success_count,
             # 新增：传递一提多卸分组数据到前端
@@ -3619,7 +3631,11 @@ class FleetManagement(View):
             "batch_number": batch_number,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "area": area,
             "arrived_at": arrived_at,
         }

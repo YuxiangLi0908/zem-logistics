@@ -26,7 +26,6 @@ from django.views import View
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
-from warehouse.utils.constants import WAREHOUSE_OPTIONS
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 

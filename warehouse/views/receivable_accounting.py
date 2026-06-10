@@ -68,6 +68,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.transaction import Transaction
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.forms.order_form import OrderForm
 
@@ -80,7 +81,7 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
     WEST_COAST_REGION1,
-    DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+    DELIVERY_METHOD_OPTIONS,
 )
 from warehouse.views.export_file import export_invoice
 
@@ -134,6 +135,12 @@ class ReceivableAccounting(View):
         "delivery_other": "delivery_other_status",
     }
 
+    warehouse_options = [("", "")] + list(
+        ZemWarehouse.objects
+        .order_by("name")
+        .values_list("name", "name")
+    )
+
     def get(self, request: HttpRequest) -> HttpResponse:
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
@@ -143,23 +150,23 @@ class ReceivableAccounting(View):
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
         elif step == "preport":  #港前
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm()}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_preport_entry, context)
         elif step == "warehouse":  #库内
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm()}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_warehouse_entry, context)    
         elif step == "delivery":  # 派送
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm()}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_delivery_entry, context)
         elif step == "pay_out":  # 赔付
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm()}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_payout_entry, context)
         elif step == "cancel_container_account":  # 取消预报的柜子录账单
             context = self.handle_cancel_con_entry_post(request)
             return render(request, self.template_cancel_con_entry, context)
         elif step == "confirm":
             existing_customers = Customer.objects.all().order_by("zem_name")
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm(), "existing_customers": existing_customers}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
             return render(request, self.template_confirm_entry, context)
         elif step == "container_confirm":
             template, context = self.handle_container_invoice_confirm_get(request)
@@ -168,7 +175,7 @@ class ReceivableAccounting(View):
             template, context = self.handle_container_fix_cacl_get(request)
             return render(request, template, context)       
         elif step == "supplementary": #补开账单
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm()}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_supplementary_entry, context) 
         elif step == "pl_container_fee": #报价表管理
             quotes = QuotationMaster.objects.filter(quote_type="receivable")
@@ -191,16 +198,16 @@ class ReceivableAccounting(View):
             return render(request, tempalte, context)
         elif step == "write_off_account":
             existing_customers = Customer.objects.all().order_by("zem_name")
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm(), "existing_customers": existing_customers}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
             return render(request, self.template_write_off_entry, context)
         elif step == "fix_account":  # 按报价表计算的固定费用，财务录入页面
             existing_customers = Customer.objects.all().order_by("zem_name")
-            context = {"warehouse_options": WAREHOUSE_OPTIONS,"order_form": OrderForm(), "existing_customers": existing_customers}
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
             return render(request, self.template_fix_account_entry, context)
         elif step == "container_check":  # 柜子账单自检
             existing_customers = Customer.objects.all().order_by("zem_name")
             context = {
-                "warehouse_options": WAREHOUSE_OPTIONS,
+                "warehouse_options": self.warehouse_options,
                 "order_form": OrderForm(),
                 "existing_customers": existing_customers,
                 "start_date": "",
@@ -1358,7 +1365,7 @@ class ReceivableAccounting(View):
         context.update({
             "rows": rows,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "start_date": start_date,
             "end_date": end_date,
@@ -1516,7 +1523,7 @@ class ReceivableAccounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
         }
         return self.template_invoice_search, context
@@ -4762,7 +4769,7 @@ class ReceivableAccounting(View):
             'preport_pending_review_orders': preport_pending_review_orders,
             'preport_completed_orders': preport_completed_orders,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "default_tab": default_tab, 
             "is_leader": is_leader,
@@ -4965,7 +4972,7 @@ class ReceivableAccounting(View):
             'preport_pending_review_orders': preport_pending_review_orders,
             'preport_completed_orders': preport_completed_orders,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "container_number_filter": container_number_filter,
             "default_tab": default_tab, 
@@ -5150,7 +5157,7 @@ class ReceivableAccounting(View):
             'wh_self_to_record_orders': wh_self_to_record_orders,
             'wh_self_recorded_orders': wh_self_recorded_orders,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "default_tab": default_tab, 
         })
@@ -5406,7 +5413,7 @@ class ReceivableAccounting(View):
             'wh_self_to_record_orders': wh_self_to_record_orders,
             'wh_self_recorded_orders': wh_self_recorded_orders,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "container_number_filter": container_number_filter,
             "default_tab": default_tab, 
@@ -5577,7 +5584,7 @@ class ReceivableAccounting(View):
             'order': order,
             'previous_order': previous_order,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
         })
         return self.template_supplementary_entry, context
@@ -5731,7 +5738,7 @@ class ReceivableAccounting(View):
             'order': order,
             'previous_order': previous_order,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
         })
         return self.template_confirm_entry, context
@@ -6034,7 +6041,7 @@ class ReceivableAccounting(View):
             'order': filtered_order_data_list,
             'previous_order': previous_order_data_list,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "existing_customers": existing_customers,
             "container_number_filter": container_number_filter,
@@ -6267,7 +6274,7 @@ class ReceivableAccounting(View):
             'order': order_data_list,
             'previous_order': previous_order_data_list,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "existing_customers": existing_customers,
             "container_number_filter": container_number_filter,
@@ -6465,7 +6472,7 @@ class ReceivableAccounting(View):
             'end_date': end_date,
             'write_off_order': write_off_data_list,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "existing_customers": existing_customers,
             "container_number_filter": container_number_filter,
@@ -6675,7 +6682,7 @@ class ReceivableAccounting(View):
             'wh_self_to_record_orders': dl_self_to_record_orders,
             'wh_self_recorded_orders': dl_self_recorded_orders,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "default_tab": default_tab, 
         })
@@ -6930,7 +6937,7 @@ class ReceivableAccounting(View):
             'dl_self_to_record_orders': dl_self_to_record_orders,
             'dl_self_recorded_orders': dl_self_recorded_orders,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "container_number_filter": container_number_filter,
             "default_tab": default_tab, 
@@ -7068,7 +7075,7 @@ class ReceivableAccounting(View):
             'unrecorded_list': unrecorded_list,
             'recorded_list': recorded_list,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
         })
         return context
@@ -7215,7 +7222,7 @@ class ReceivableAccounting(View):
             'unconfirm_list': unconfirm_list,
             'confirm_list': confirm_list,
             "order_form": OrderForm(),
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
         })
         return context
@@ -10432,7 +10439,7 @@ class ReceivableAccounting(View):
             "rejected": rejected,
             "pending_review": pending_review,
             "completed": completed,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "category": category,
         }
@@ -12607,7 +12614,7 @@ class ReceivableAccounting(View):
         existing_customers = Customer.objects.all().order_by("zem_name")
         
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "existing_customers": existing_customers,
             "container_data": container_data,
             "start_date": start_date,
@@ -12714,7 +12721,7 @@ class ReceivableAccounting(View):
         existing_customers = Customer.objects.all().order_by("zem_name")
         
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "existing_customers": existing_customers,
             "container_number": container_number,
             "customer_name": order.customer_name.zem_name if order.customer_name else "",

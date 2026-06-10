@@ -58,7 +58,8 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from django.db import transaction
 from asgiref.sync import sync_to_async
 
-from warehouse.utils.constants import WAREHOUSE_OPTIONS, LOAD_TYPE_OPTIONS
+from warehouse.models.warehouse import ZemWarehouse
+from warehouse.utils.constants import LOAD_TYPE_OPTIONS
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 import logging
@@ -4562,7 +4563,11 @@ class ExceptionHandling(View):
     async def handle_search_shipment(self, request: HttpRequest):
         """处理查询shipment请求"""
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             'shipment_type_options': self.shipment_type_options,
             'load_type_options': LOAD_TYPE_OPTIONS,
         }

@@ -40,7 +40,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 from warehouse.views.export_file import link_callback
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
@@ -240,7 +240,11 @@ class TransferPallet(View):
     async def handle_transfer_history_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
+        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),}
         return self.template_transfer_history, context
 
     async def handle_transfer_history_warehouse_post(
@@ -383,7 +387,11 @@ class TransferPallet(View):
             "not_arrived": not_arrived,
             "arrived": arrived,
             "warehouse": warehouse,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         }
         return self.template_transfer_history, context
 
@@ -573,7 +581,11 @@ class TransferPallet(View):
         return await self.handle_transfer_history_warehouse_post(request)
 
     async def handle_operation_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
+        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),}
         return self.template_transfer_pallet, context
 
     async def handle_warehouse_post(
@@ -606,7 +618,11 @@ class TransferPallet(View):
         total_pallet = sum([p.get("n_pallet") for p in pallet])
         context = {
             "warehouse": warehouse,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
             "total_cbm": total_cbm,
