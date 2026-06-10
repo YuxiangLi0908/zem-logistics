@@ -2158,6 +2158,8 @@ class OrderQuantity(View):
         end_date = request.POST.get("end_date")
         shipment_batch_number = request.POST.get("shipment_batch_number", "").strip()
         po_id = request.POST.get("po_id", "").strip()
+        container_number = request.POST.get("container_number", "").strip()
+        destination = request.POST.get("destination", "").strip()
         
         # 设置默认时间范围：过去一个月到今天
         today = datetime.today()
@@ -2171,11 +2173,12 @@ class OrderQuantity(View):
         # 构建查询条件
         criteria = Q()
         
-        # 时间范围筛选
-        start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-        end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-        criteria &= Q(operation_time_utc__gte=start_datetime)
-        criteria &= Q(operation_time_utc__lt=end_datetime)
+        # 时间范围筛选（柜号或仓点有值时跳过）
+        if not shipment_batch_number or not destination or not po_id:
+            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+            end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            criteria &= Q(operation_time_beijing__gte=start_datetime)
+            criteria &= Q(operation_time_beijing__lt=end_datetime)
         
         # Shipment批次号筛选
         if shipment_batch_number:
@@ -2184,6 +2187,14 @@ class OrderQuantity(View):
         # PO_ID筛选
         if po_id:
             criteria &= Q(po_id__icontains=po_id)
+        
+        # 柜号筛选
+        if container_number:
+            criteria &= Q(container_number__icontains=container_number)
+        
+        # 仓点筛选
+        if destination:
+            criteria &= Q(destination__icontains=destination)
         
         # 查询记录
         logs = await sync_to_async(list)(
@@ -2199,6 +2210,8 @@ class OrderQuantity(View):
             "end_date": end_date,
             "shipment_batch_number": shipment_batch_number,
             "po_id": po_id,
+            "container_number": container_number,
+            "destination": destination,
         }
         
         return self.template_shipment_binding_log, context

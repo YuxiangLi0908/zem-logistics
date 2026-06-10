@@ -73,6 +73,9 @@ class ShipmentBindingLogger:
                 # 获取仓点
                 destination = po.destination if hasattr(po, 'destination') else None
                 
+                # 获取唛头
+                shipping_mark = po.shipping_mark if hasattr(po, 'shipping_mark') else None
+                
                 # 获取仓库（根据实际情况调整）
                 warehouse = None
                 
@@ -82,6 +85,7 @@ class ShipmentBindingLogger:
                     'delivery_type': delivery_type,
                     'container_number': container_number,
                     'destination': destination,
+                    'shipping_mark': shipping_mark,
                     'warehouse': warehouse,
                 }
             elif po_type == 'packing_list':
@@ -97,6 +101,9 @@ class ShipmentBindingLogger:
                 # 获取仓点
                 destination = po.destination if hasattr(po, 'destination') else None
                 
+                # 获取唛头
+                shipping_mark = po.shipping_mark if hasattr(po, 'shipping_mark') else None
+                
                 # 获取仓库
                 warehouse = None
                 
@@ -106,6 +113,7 @@ class ShipmentBindingLogger:
                     'delivery_type': delivery_type,
                     'container_number': container_number,
                     'destination': destination,
+                    'shipping_mark': shipping_mark,
                     'warehouse': warehouse,
                 }
         except Exception as e:
@@ -126,6 +134,7 @@ class ShipmentBindingLogger:
         shipment_type: str = 'actual',
         delivery_type: str = None,
         skip_get_po_info: bool = False,
+        shipping_mark: str = None,
     ):
         """
         记录绑定操作
@@ -167,6 +176,8 @@ class ShipmentBindingLogger:
                     destination = po_info['destination']
                 if warehouse is None:
                     warehouse = po_info['warehouse']
+                if shipping_mark is None and final_delivery_type == 'other':
+                    shipping_mark = po_info.get('shipping_mark')
         
         # 记录日志
         log = ShipmentBindingLog.objects.create(
@@ -178,6 +189,7 @@ class ShipmentBindingLogger:
             delivery_type=final_delivery_type,
             container_number=container_number,
             destination=destination,
+            shipping_mark=shipping_mark,
             warehouse=warehouse,
             operator=operator,
             operator_username=operator.username,
@@ -203,6 +215,7 @@ class ShipmentBindingLogger:
         shipment_type: str = 'actual',
         delivery_type: str = None,
         skip_get_po_info: bool = False,
+        shipping_mark: str = None,
     ):
         """
         记录解绑操作
@@ -250,6 +263,8 @@ class ShipmentBindingLogger:
                     destination = po_info['destination']
                 if warehouse is None:
                     warehouse = po_info['warehouse']
+                if shipping_mark is None and final_delivery_type == 'other':
+                    shipping_mark = po_info.get('shipping_mark')
         
         # 记录日志
         log = ShipmentBindingLog.objects.create(
@@ -261,6 +276,7 @@ class ShipmentBindingLogger:
             delivery_type=final_delivery_type,
             container_number=container_number,
             destination=destination,
+            shipping_mark=shipping_mark,
             warehouse=warehouse,
             operator=operator,
             operator_username=operator.username,
@@ -306,12 +322,14 @@ class ShipmentBindingLogger:
                     Pallet.objects.filter(id__in=pallet_ids).select_related('container_number')
                 )
                 
-                # 按 container_number 和 PO_ID 分组
+                # 按 container_number、PO_ID 分组，私仓加唛头
                 pallet_log_groups = {}
                 for pallet in pallets:
                     container_num = pallet.container_number.container_number if pallet.container_number else None
                     po_id = pallet.PO_ID
-                    key = (container_num, po_id)
+                    is_other = pallet.delivery_type == 'other'
+                    shipping_mark = pallet.shipping_mark if is_other else None
+                    key = (container_num, po_id, shipping_mark) if is_other else (container_num, po_id)
                     
                     if key not in pallet_log_groups:
                         pallet_log_groups[key] = {
@@ -320,6 +338,7 @@ class ShipmentBindingLogger:
                             'destination': pallet.destination,
                             'warehouse': pallet.location,
                             'delivery_type': pallet.delivery_type,
+                            'shipping_mark': shipping_mark,
                         }
                 
                 # 记录 Pallet 日志
@@ -336,6 +355,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
                     else:
@@ -350,6 +370,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
             
@@ -363,12 +384,14 @@ class ShipmentBindingLogger:
                     PackingList.objects.filter(id__in=packinglist_ids).select_related('container_number')
                 )
                 
-                # 按 container_number 和 PO_ID 分组
+                # 按 container_number、PO_ID 分组，私仓加唛头
                 pl_log_groups = {}
                 for pl in packing_lists:
                     container_num = pl.container_number.container_number if pl.container_number else None
                     po_id = pl.PO_ID
-                    key = (container_num, po_id)
+                    is_other = pl.delivery_type == 'other'
+                    shipping_mark = pl.shipping_mark if is_other else None
+                    key = (container_num, po_id, shipping_mark) if is_other else (container_num, po_id)
                     
                     if key not in pl_log_groups:
                         pl_log_groups[key] = {
@@ -377,6 +400,7 @@ class ShipmentBindingLogger:
                             'destination': pl.destination,
                             'warehouse': None,
                             'delivery_type': pl.delivery_type,
+                            'shipping_mark': shipping_mark,
                         }
                 
                 # 记录 PackingList 日志
@@ -393,6 +417,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
                     else:
@@ -407,6 +432,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
             
@@ -440,12 +466,14 @@ class ShipmentBindingLogger:
         if pallets:
             @sync_to_async
             def process_pallets():
-                # 按 container_number 和 PO_ID 分组
+                # 按 container_number、PO_ID 分组，私仓加唛头
                 pallet_log_groups = {}
                 for pallet in pallets:
                     container_num = pallet.container_number.container_number if pallet.container_number else None
                     po_id = pallet.PO_ID
-                    key = (container_num, po_id)
+                    is_other = pallet.delivery_type == 'other'
+                    shipping_mark = pallet.shipping_mark if is_other else None
+                    key = (container_num, po_id, shipping_mark) if is_other else (container_num, po_id)
                     
                     if key not in pallet_log_groups:
                         pallet_log_groups[key] = {
@@ -454,6 +482,7 @@ class ShipmentBindingLogger:
                             'destination': pallet.destination,
                             'warehouse': pallet.location,
                             'delivery_type': pallet.delivery_type,
+                            'shipping_mark': shipping_mark,
                         }
                 
                 # 记录 Pallet 日志
@@ -470,6 +499,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
                     else:
@@ -484,6 +514,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
             
@@ -493,12 +524,14 @@ class ShipmentBindingLogger:
         if packing_lists:
             @sync_to_async
             def process_packing_lists():
-                # 按 container_number 和 PO_ID 分组
+                # 按 container_number、PO_ID 分组，私仓加唛头
                 pl_log_groups = {}
                 for pl in packing_lists:
                     container_num = pl.container_number.container_number if pl.container_number else None
                     po_id = pl.PO_ID
-                    key = (container_num, po_id)
+                    is_other = pl.delivery_type == 'other'
+                    shipping_mark = pl.shipping_mark if is_other else None
+                    key = (container_num, po_id, shipping_mark) if is_other else (container_num, po_id)
                     
                     if key not in pl_log_groups:
                         pl_log_groups[key] = {
@@ -507,6 +540,7 @@ class ShipmentBindingLogger:
                             'destination': pl.destination,
                             'warehouse': None,
                             'delivery_type': pl.delivery_type,
+                            'shipping_mark': shipping_mark,
                         }
                 
                 # 记录 PackingList 日志
@@ -523,6 +557,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
                     else:
@@ -537,6 +572,7 @@ class ShipmentBindingLogger:
                             destination=log_data['destination'],
                             warehouse=log_data['warehouse'],
                             delivery_type=log_data['delivery_type'],
+                            shipping_mark=log_data['shipping_mark'],
                             skip_get_po_info=True,
                         )
             

@@ -82,6 +82,7 @@ from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.container import Container
+from warehouse.models.customer import Customer
 from warehouse.models.invoicev2 import (
     Invoicev2,
     InvoiceItemv2,
@@ -172,13 +173,13 @@ class PostNsop(View):
         # "客户自提": "客户自提",
     }
     RE_PUBLIC_WH = re.compile(
-        r"^[A-Z]{4}$|"  # 4位纯字母
-        r"^[A-Z]{3}\d{1,2}$|"  # 3字母 + 1或2位数字 (最常见)
-        r"^[A-Z]{3}\d[A-Z]$|"  # 3字母 + 1数字 + 1字母
-        r"^[A-Z]{2}\d{2}$"  # 2字母 + 2数字
+        r"^[A-Z]{4}$|"               # 4位纯字母
+        r"^[A-Z]{3}\d{1,2}$|"         # 3字母 + 1或2位数字 (最常见)
+        r"^[A-Z]{3}\d[A-Z]$|"         # 3字母 + 1数字 + 1字母
+        r"^[A-Z]{2}\d{2}$"            # 2字母 + 2数字
     )
     PUBLIC_KEYWORDS = {"WALMART", "沃尔玛", "AMAZON", "亚马逊"}
-
+    
     async def get_carrier_options(self):
         """获取公仓供应商选项（带空选项）"""
         carrier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("公仓供应商")
@@ -186,13 +187,13 @@ class PostNsop(View):
         for carrier in carrier_list:
             carrier_dict[carrier] = carrier
         return carrier_dict
-
+    
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
         pk = kwargs.get("pk", None)
-
+        
         # 操作组权限检查
         public_steps = [
             "unscheduled_pos_all",  # 四大仓备约
@@ -205,7 +206,7 @@ class PostNsop(View):
         if step in public_steps:
             if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
                 return HttpResponseForbidden("你没有公仓派送界面的访问权限!")
-
+        
         # 私仓组权限检查
         other_steps = [
             "LTL_pallets",  # 库存排约
@@ -215,7 +216,7 @@ class PostNsop(View):
         if step in other_steps:
             if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
                 return HttpResponseForbidden("你没有私仓派送界面的访问权限!")
-
+        
         if step == "appointment_management":
             context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
                 ZemWarehouse.objects
@@ -273,7 +274,16 @@ class PostNsop(View):
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
         elif step == "LTL_pallets":
+            # 获取所有客户
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers_dict = {c.zem_name: str(c.id) for c in customers}
+            # 添加----选项
+            customers_dict = {"----": None, **customers_dict}
+            # 默认选中除了"new fortun"外的所有客户（使用字符串类型）
+            customer_list = [customers_dict[k] for k in customers_dict.keys() if k != "----" and k.lower() != "new fortun"]
             context = {
+                "customers": customers_dict,
+                "customer_list": customer_list,
                 "warehouse_options": [("", "")] + await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
@@ -281,7 +291,7 @@ class PostNsop(View):
                 )
             }
             return render(request, self.template_ltl_pos_all, context)
-        elif step == "LTL_history_po":
+        elif step == "LTL_history_po":        
             context = {
                 "warehouse_options": [("", "")] + await sync_to_async(list)(
                     ZemWarehouse.objects
@@ -336,7 +346,7 @@ class PostNsop(View):
     async def post(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
-
+        
         # 检查是否是JSON请求
         content_type = request.content_type or ''
         if content_type.startswith('application/json'):
@@ -348,7 +358,7 @@ class PostNsop(View):
                 step = None
         else:
             step = request.POST.get("step")
-
+        
         # 操作组权限检查
         public_steps = [
             "unscheduled_pos_warehouse",  # 四大仓备约
@@ -361,7 +371,7 @@ class PostNsop(View):
         if step in public_steps:
             if not await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user):
                 return HttpResponseForbidden("你没有公仓派送操作的访问权限!")
-
+        
         # 私仓组权限检查
         other_steps = [
             "ltl_warehouse",  # 库存排约
@@ -370,13 +380,13 @@ class PostNsop(View):
         if step in other_steps:
             if not await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user):
                 return HttpResponseForbidden("你没有私仓派送操作的访问权限!")
-
+        
         print('step', step)
-
+        
         # 处理柜号仓点查询
         if step == "search_by_container_and_destination":
             return await self.handle_search_by_container_and_destination(request)
-
+               
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -416,25 +426,25 @@ class PostNsop(View):
         elif step == "export_pos":
             return await self.handle_export_pos(request)
         elif step == "shipment_export_po":
-            return await self.handle_shipment_export_pos(request)
-        elif step == "fleet_export_po":
-            return await self.handle_fleet_export_pos(request)
+            return await self.handle_shipment_export_pos(request)    
+        elif step =="fleet_export_po":
+            return await self.handle_fleet_export_pos(request) 
         elif step == "appointment_time_modify":
             template, context = await self.handle_appointment_time(request)
             return render(request, template, context)
         elif step == "update_fleet":
             fm = FleetManagement()
-            context = await fm.handle_update_fleet_post(request, 'post_nsop')
+            context = await fm.handle_update_fleet_post(request,'post_nsop')
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_td_shipment_post(request)
-            context.update({"success_messages": "更新出库车次成功!"})
+            context.update({"success_messages": "更新出库车次成功!"}) 
             return render(request, template, context)
         elif step == "fleet_confirmation":
             template, context = await self.handle_fleet_confirmation_post(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "cancel_maersk_shipment":
             return await self.handle_cancel_maersk_shipment(request)
         elif step == "ltl_cancel_shipment":
@@ -442,20 +452,20 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "cancel_fleet":
             fm = FleetManagement()
-            context = await fm.handle_cancel_fleet_post(request, 'post_nsop')
-
+            context = await fm.handle_cancel_fleet_post(request,'post_nsop')
+            
             page = request.POST.get("page")
             if page == "arm_appointment":
-                template, context = await self.handle_unscheduled_pos_post(request, context)
+                template, context = await self.handle_unscheduled_pos_post(request,context)
             elif page == "ltl_readyShip":
                 template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_td_shipment_post(request)
-            context.update({"success_messages": '取消批次成功!'})
+            context.update({"success_messages": '取消批次成功!'})  
             return render(request, template, context)
         elif step == "confirm_delivery":
             fm = FleetManagement()
-            context = await fm.handle_confirm_delivery_post(request, 'post_nsop')
+            context = await fm.handle_confirm_delivery_post(request,'post_nsop')
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
@@ -463,7 +473,7 @@ class PostNsop(View):
                 template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
-            context.update({"success_messages": '确认送达成功!'})
+            context.update({"success_messages": '确认送达成功!'})  
             return render(request, template, context)
         elif step == "batch_confirm_delivery":
             fm = FleetManagement()
@@ -474,18 +484,18 @@ class PostNsop(View):
         elif step == "abnormal_fleet":
             fm = FleetManagement()
             page = request.POST.get("page")
-            context = await fm.handle_abnormal_fleet_post(request, 'post_nsop')
-
+            context = await fm.handle_abnormal_fleet_post(request,'post_nsop')
+            
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
             elif page == "ltl_pos_all":
                 # 把约直接取消
                 sm = ShippingManagement()
-                info = await sm.handle_cancel_abnormal_appointment_post(request, 'post_nsop')
+                info = await sm.handle_cancel_abnormal_appointment_post(request,'post_nsop')     
                 template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
-            context.update({"success_messages": '异常处理成功!'})
+            context.update({"success_messages": '异常处理成功!'})  
             return render(request, template, context)
         elif step == "set_shipping_no_link" or step == "batch_set_shipping_no_link":
             template, context = await self.handle_set_shipping_no_link(request)
@@ -495,13 +505,13 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "batch_pod_upload":
             fm = FleetManagement()
-            context = await fm.handle_pod_upload_post(request, 'post_nsop')
+            context = await fm.handle_pod_upload_post(request,'post_nsop')
             template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '批量POD上传成功!'})
             return render(request, template, context)
         elif step == "pod_upload":
             fm = FleetManagement()
-            context = await fm.handle_pod_upload_post(request, 'post_nsop')
+            context = await fm.handle_pod_upload_post(request,'post_nsop')
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
@@ -512,7 +522,7 @@ class PostNsop(View):
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
 
-            context.update({"success_messages": 'POD上传成功!'})
+            context.update({"success_messages": 'POD上传成功!'})           
             return render(request, template, context)
         elif step == "get_maersk_quote":
             return await self.handle_get_maersk_quote(request)
@@ -524,25 +534,25 @@ class PostNsop(View):
             return await self.handle_maersk_schedule_post(request)
         elif step == "bind_group_shipment":
             template, context = await self.handle_appointment_post(request)
-            return render(request, template, context)
-        elif step == "ltl_bind_group_shipment":
+            return render(request, template, context) 
+        elif step =="ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "unassign_shipment":
             template, context = await self.handle_cancel_appointment_post(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "one_fleet_departure":
             template, context = await self.handle_one_fleet_departure_post(request)
             return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
-            return render(request, template, context)
+            return render(request, template, context)      
         elif step == "fleet_add_pallet":
             template, context = await self.handle_fleet_add_pallet_post(request)
             return render(request, template, context)
         elif step == "sp_notified_customer":
             template, context = await self.handle_sp_notified_customer_post(request)
-            return render(request, template, context)
+            return render(request, template, context)       
         elif step == "fl_notified_customer":
             template, context = await self.handle_fl_notified_customer_post(request)
             return render(request, template, context)
@@ -561,95 +571,95 @@ class PostNsop(View):
         elif step == "upload_check_po":
             po_cl = PO()
             request.POST = request.POST.copy()
-            request.POST['time_code'] = 'eta'
-            info = await po_cl.handle_upload_check_po_post(request, 'post_nsop')
-            context = {'success_messages': '校验结果上传成功！'}
+            request.POST['time_code'] = 'eta' 
+            info = await po_cl.handle_upload_check_po_post(request,'post_nsop')
+            context = {'success_messages':'校验结果上传成功！'}
             page = request.POST.get("page")
             if page == "arm_appointment":
-                template, context = await self.handle_unscheduled_pos_post(request, context)
+                template, context = await self.handle_unscheduled_pos_post(request,context)
             else:
-                template, context = await self.handle_appointment_management_post(request, context)
-            return render(request, template, context)
+                template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)    
         elif step == "create_empty_appointment":
             sm = ShippingManagement()
-            info = await sm.handle_create_empty_appointment_post(request, 'post_nsop')
-            context = {'success_messages': '备约登记成功！'}
+            info = await sm.handle_create_empty_appointment_post(request,'post_nsop') 
+            context = {'success_messages':'备约登记成功！'}
             page = request.POST.get("page")
             if page == "arm_appointment":
-                template, context = await self.handle_unscheduled_pos_post(request, context)
+                template, context = await self.handle_unscheduled_pos_post(request,context)
             else:
-                template, context = await self.handle_appointment_management_post(request, context)
-            return render(request, template, context)
+                template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)   
         elif step == "download_empty_appointment_template":
             sm = ShippingManagement()
-            return await sm.handle_download_empty_appointment_template_post()
+            return await sm.handle_download_empty_appointment_template_post()  
         elif step == "upload_and_create_empty_appointment":
             sm = ShippingManagement()
-            info = await sm.handle_upload_and_create_empty_appointment_post(request, 'post_nsop')
-            context = {'success_messages': '备约批量登记成功！'}
+            info = await sm.handle_upload_and_create_empty_appointment_post(request,'post_nsop') 
+            context = {'success_messages':'备约批量登记成功！'}
             page = request.POST.get("page")
             if page == "arm_appointment":
-                template, context = await self.handle_unscheduled_pos_post(request, context)
+                template, context = await self.handle_unscheduled_pos_post(request,context)
             else:
-                template, context = await self.handle_appointment_management_post(request, context)
-            return render(request, template, context)
+                template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)   
         elif step == "edit_appointment":
             template, context = await self.handle_edit_appointment_post(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "save_external_shipment":
             template, context = await self.handle_save_external_shipment_post(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "edit_note_sp":
             template, context = await self.handle_edit_note_sp_post(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "export_virtual_fleet_pos":
             return await self.handle_export_virtual_fleet_pos_post(request)
         elif step == "multi_group_booking":
             template, context = await self.handle_multi_group_booking(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "update_fleet_info":
             template, context = await self.handle_update_fleet_info(request)
-            return render(request, template, context)
+            return render(request, template, context)      
         elif step == "fix_shipment_exceptions":
             solution = request.POST.get("solution")
             if solution != "keep_old":
-                template, context = await self.handle_edit_appointment_post(request, "fleet_departure")
-                return render(request, template, context)
+                template, context = await self.handle_edit_appointment_post(request,"fleet_departure")
+                return render(request, template, context) 
             sm = ShippingManagement()
-            info = await sm.handle_fix_shipment_exceptions_post(request, 'post_nsop')
+            info = await sm.handle_fix_shipment_exceptions_post(request,'post_nsop')  
             shipment_batch_number = request.POST.get("shipment_batch_number")
-
+            
             if solution == "keep_old":
                 context = {"success_messages": f"{shipment_batch_number}已改为正常状态！"}
             else:
                 context = {"success_messages": f"{shipment_batch_number}约已修改，可以正常使用！"}
-            template, context = await self.handle_fleet_schedule_post(request, context)
-            return render(request, template, context)
+            template, context = await self.handle_fleet_schedule_post(request,context)
+            return render(request, template, context) 
         elif step == "cancel_abnormal_appointment":
             shipment_batch_number = request.POST.get("batch_number")
             sm = ShippingManagement()
-            info = await sm.handle_cancel_abnormal_appointment_post(request, 'post_nsop')
+            info = await sm.handle_cancel_abnormal_appointment_post(request,'post_nsop')     
             context = {"success_messages": f"{shipment_batch_number}约已取消不可用，所有po已解绑！"}
-            template, context = await self.handle_fleet_schedule_post(request, context)
-            return render(request, template, context)
+            template, context = await self.handle_fleet_schedule_post(request,context)
+            return render(request, template, context) 
         elif step == "export_bol":
             return await self.handle_bol_post(request)
-        elif step == "export_bol_fleet":
+        elif step =="export_bol_fleet":
             return await self.handle_bol_fleet_post(request)
         elif step == "verify_ltl_cargo":
             template, context = await self.handle_verify_ltl_cargo(request)
-            return render(request, template, context)
+            return render(request, template, context)  
         elif step == "export_ltl_unscheduled":
             return await self.export_ltl_unscheduled(request)
         elif step == "save_fleet_cost":
             template, context = await self.handle_save_fleet_cost(request)
-            return render(request, template, context)
-        elif step == "save_selfpick_cargo":
+            return render(request, template, context)  
+        elif step =="save_selfpick_cargo":
             template, context = await self.handle_save_selfpick_cargo(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "save_selfdel_cargo":
             template, context = await self.handle_save_selfdel_cargo(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "export_ltl_label":
             return await self.export_ltl_label(request)
         elif step == "export_ltl_bol":
@@ -658,13 +668,13 @@ class PostNsop(View):
             return await self.handle_bol_upload_post(request)
         elif step == "save_shipping_tracking":
             template, context = await self.handle_save_shipping_tracking(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "update_pod_status":
             template, context = await self.handle_update_pod_status(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "save_releaseCommand":
             template, context = await self.handle_save_releaseCommand(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "shipment_note_save":
             template, context = await self.handle_save_shipment_note(request)
             return render(request, template, context)
@@ -673,14 +683,14 @@ class PostNsop(View):
             if isinstance(result, HttpResponse):
                 return result
             template, context = result
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "export_maersk_label":
             return await self.handle_export_maersk_label(request)
         elif step == "export_maersk_bol":
             return await self.handle_export_maersk_bol(request)
         elif step == "po_invalid_save":
             template, context = await self.handle_po_invalid_save(request)
-            return render(request, template, context)
+            return render(request, template, context) 
         elif step == "batch_update_delivery_method":
             template, context = await self.handle_batch_update_delivery_method(request)
             return render(request, template, context)
@@ -857,9 +867,9 @@ class PostNsop(View):
                     seed_parts.append(f"{mark[:5]}{mark[-5:]}")
                 else:
                     seed_parts.append(mark)
-
+            
             seed_str = "|".join(seed_parts)
-
+            
             # 2. 通过 Seed 生成唯一的 UUID (uuid5 基于命名空间和字符串生成)
             # 这样如果用户在不同时间点选了同一组唛头，生成的关联ID理论上是一致的
             correlation_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, seed_str))
@@ -879,10 +889,10 @@ class PostNsop(View):
                     )
                     if not existing_records:
                         continue
-
+                        
                     # 检查是否需要取消关联（如果所有选中的记录都有ltl_correlation_id值）
                     has_correlation = any(record['ltl_correlation_id'] for record in existing_records)
-
+                    
                     # 只取消已有关联的记录
                     if has_correlation:
                         # 找出有值的记录ID
@@ -891,7 +901,7 @@ class PostNsop(View):
                     else:
                         # 使用异步 aupdate 批量更新
                         await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id=correlation_id)
-                        context.update({'success_messages': f"成功关联一提多卸"})
+                        context.update({'success_messages':f"成功关联一提多卸"})
                 else:
                     # --- 处理未打板数据 (PackingList) ---
                     cargo_ids = raw_id.split(',')
@@ -902,7 +912,7 @@ class PostNsop(View):
                     if not existing_records:
                         continue
                     has_correlation = any(record['ltl_correlation_id'] for record in existing_records)
-
+                    
                     # 如果原本有值，则设置为空（取消操作）
                     if has_correlation:
                         await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id='')
@@ -910,32 +920,31 @@ class PostNsop(View):
                     else:
                         # 使用异步 aupdate 批量更新
                         await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id=correlation_id)
-                        context.update({'success_messages': f"成功关联一提多卸"})
+                        context.update({'success_messages':f"成功关联一提多卸"})
         return await self.handle_ltl_unscheduled_pos_post(request, context)
-
+    
     async def handle_batch_other_shipment_upload(self, request: HttpRequest):
         '''处理私仓批量预约出库文件上传'''
         context = {}
-
+        
         # 检查是否有文件上传
         if 'excel_file' not in request.FILES:
             context['error'] = '请选择要上传的Excel文件'
             return self.template_batch_other_shipment, context
-
+        
         # 获取上传的文件
         excel_file = request.FILES['excel_file']
-
+        
         # 使用pandas读取Excel文件
         df = pd.read_excel(excel_file)
-
+        
         # 检查表头是否正确
-        required_columns = ['柜号', '唛头', '卡板', 'CBM', 'pickup time', '承运公司', '供应商', '预约类型', '备注',
-                            '发货仓库', '车次成本', '出库时间', '送达时间']
+        required_columns = ['柜号', '唛头', '卡板', 'CBM', 'pickup time', '承运公司', '供应商', '预约类型', '备注', '发货仓库', '车次成本', '出库时间', '送达时间']
         for col in required_columns:
             if col not in df.columns:
                 context['error'] = f'文件缺少必要的列: {col}'
                 return self.template_batch_other_shipment, context
-
+        
         # 处理数据，按空行分组，每个组就是一个预约批次
         groups = []
         current_group = {
@@ -950,7 +959,7 @@ class PostNsop(View):
             'departure_time': None,
             'arrival_time': None
         }
-
+        
         for index, row in df.iterrows():
             # 检查是否为空行
             if row.isnull().all():
@@ -981,11 +990,10 @@ class PostNsop(View):
                 mark = row.get('唛头')
                 cbm = row.get('CBM')
                 pallet = row.get('卡板')
-
+                
                 # 检查是否是预约信息行（包含pickup time等）
-                has_appointment_info = pd.notna(row.get('pickup time')) or pd.notna(row.get('承运公司')) or pd.notna(
-                    row.get('供应商')) or pd.notna(row.get('预约类型')) or pd.notna(row.get('发货仓库'))
-
+                has_appointment_info = pd.notna(row.get('pickup time')) or pd.notna(row.get('承运公司')) or pd.notna(row.get('供应商')) or pd.notna(row.get('预约类型')) or pd.notna(row.get('发货仓库'))
+                
                 # 如果当前有预约信息且已经有柜子，说明是新的预约批次
                 if has_appointment_info and current_group['containers']:
                     groups.append(current_group)
@@ -1001,7 +1009,7 @@ class PostNsop(View):
                         'departure_time': None,
                         'arrival_time': None
                     }
-
+                
                 # 检查必填项（柜号、唛头）
                 if pd.notna(container_number) and pd.notna(mark):
                     # 这是柜号信息行
@@ -1018,12 +1026,11 @@ class PostNsop(View):
                                 pallet_int = int(match.group())
                     except (ValueError, TypeError):
                         pass
-
+                    
                     # 检查是否已存在相同的柜号
                     is_duplicate = False
                     for existing_container in current_group['containers']:
-                        if existing_container['container_number'] == container_number and existing_container[
-                            'mark'] == mark:
+                        if existing_container['container_number'] == container_number and existing_container['mark'] == mark:
                             is_duplicate = True
                             break
                     if not is_duplicate:
@@ -1034,7 +1041,7 @@ class PostNsop(View):
                             'pallet': pallet,
                             'pallet_int': pallet_int
                         })
-
+                    
                     # 提取预约信息（只提取非空值）
                     if pd.notna(row.get('pickup time')):
                         pickup_time = row.get('pickup time')
@@ -1106,7 +1113,7 @@ class PostNsop(View):
                                 current_group['arrival_time'] = arrival_time.strftime('%Y-%m-%d %H:%M')
                         except Exception:
                             current_group['arrival_time'] = arrival_time
-
+        
         # 添加最后一组
         if current_group['containers'] or any([
             current_group['pickup_time'],
@@ -1116,11 +1123,11 @@ class PostNsop(View):
             current_group['origin']
         ]):
             groups.append(current_group)
-
+        
         # 验证每组数据
         valid_groups = []
         for group in groups:
-
+            
             # 检查预约信息是否完整
             required_appointment_fields = [
                 'pickup_time',
@@ -5702,6 +5709,7 @@ class PostNsop(View):
     async def handle_add_pallet_post(
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''排车管理之加塞搜索'''
         warehouse = request.POST.get("warehouse")
         destination = request.POST.get("destination")
         active_tab = request.POST.get("active_tab")
@@ -8457,12 +8465,14 @@ class PostNsop(View):
             all_po_matching_packinglists = await sync_to_async(list)(
                 PackingList.objects.filter(base_query).values('id', 'fba_id', 'ref_id')
             )
+
             matching_packinglists = [
                 packinglist['id']
                 for packinglist in all_po_matching_packinglists
                 if (not pallet_fba_id or (packinglist['fba_id'].strip() or '') in pallet_fba_id) and
                    (not pallet_ref_id or (packinglist['ref_id'].strip() or '') in pallet_ref_id)
             ]
+
 
             if matching_packinglists:
                 packinglist_ids.extend(matching_packinglists)
@@ -13022,6 +13032,10 @@ class PostNsop(View):
             context.update({'error_messages': "没选仓库！"})
             return self.template_unscheduled_pos_all, context
 
+        # 获取客户筛选条件（保持字符串类型）
+        customer_idlist = request.POST.getlist("customer")
+
+        # 构建基础筛选条件
         pl_criteria = Q(
             container_number__orders__offload_id__offload_other_at__isnull=True,
             shipment_batch_number__shipment_batch_number__isnull=True,
@@ -13034,6 +13048,18 @@ class PostNsop(View):
             container_number__orders__offload_id__offload_other_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
+
+        # 如果有客户筛选条件，添加到筛选条件中
+        if customer_idlist:
+            # 将字符串ID转换为整数
+            customer_idlist_int = [int(id) for id in customer_idlist if id]
+            # 获取选中客户的 zem_name
+            customer_names = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist_int).values_list("zem_name", flat=True)
+            )
+            # 添加客户筛选条件
+            pl_criteria &= Q(container_number__orders__customer_name__zem_name__in=customer_names)
+            plt_criteria &= Q(container_number__orders__customer_name__zem_name__in=customer_names)
         # 未放行、已放行-客提、已放行-自发
         release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
         # release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
@@ -13072,6 +13098,11 @@ class PostNsop(View):
             context = {}
         supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
 
+        # 获取所有客户数据
+        customers = await sync_to_async(list)(Customer.objects.all())
+        customers_dict = {c.zem_name: str(c.id) for c in customers}
+        customers_dict = {"----": None, **customers_dict}
+
         context.update({
             'warehouse': warehouse,
             'warehouse_options': [("", "")] + await sync_to_async(list)(
@@ -13094,7 +13125,9 @@ class PostNsop(View):
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
-            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping))
+            "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping)),
+            "customers": customers_dict,
+            "customer_list": customer_idlist
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
@@ -15165,25 +15198,26 @@ class PostNsop(View):
                 # 实际提柜
                 actual_time = item.get('actual_retrieval_time')
                 group = 0
-                sort_time = actual_time or datetime.min
+                sort_time = actual_time or timezone.make_aware(datetime.min)
 
             elif item.get('has_appointment_retrieval'):
                 # 码头预约
                 arm_time = item.get('arm_time')
                 group = 1
-                sort_time = arm_time or datetime.min
+                sort_time = arm_time or timezone.make_aware(datetime.min)
 
             elif item.get('has_estimated_retrieval'):
                 # 预计提柜
                 estimated_time = item.get('estimated_time')
+                estimated_lower_time = item.get('estimated_lower_time')
                 group = 2
-                sort_time = estimated_time or datetime.min
+                sort_time = estimated_lower_time or estimated_time or timezone.make_aware(datetime.min)
 
             else:
                 # 无计划
                 group = 3
-                sort_time = datetime.min
-
+                sort_time = timezone.make_aware(datetime.min)
+            
             # 优先级2: 把包含暂扣的放最后面
             custom_method = item.get("custom_delivery_method", "") or ""
             keywords = ["暂扣", "HOLD", "留仓"]
@@ -15495,6 +15529,7 @@ class PostNsop(View):
                     actual_retrieval_time=F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
                     arm_time=F("container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
                     estimated_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp"),
+                    estimated_lower_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp_lower"),
                 )
                 .annotate(
                     fba_ids=StringAgg(

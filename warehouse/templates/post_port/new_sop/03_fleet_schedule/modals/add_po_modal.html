@@ -250,7 +250,7 @@
     <div id="addPOModal" class="modal">
         <div class="modal-content" style="width: 90%; max-width: 900px; max-height: 700px;">
             <div class="modal-header">
-                <h3><i class="fas fa-plus"></i> 加塞 - {{ add_pallet_ISA }}</h3>
+                <h3><i class="fas fa-plus"></i> 加塞 - {{ add_pallet_ISA }} <span style="font-size: 0.75rem; font-weight: 400; opacity: 0.85; margin-left: 8px;">筛选规则：已打板、仓库与约内PO一致、仓点与约的目的地一致、未排车或未发货</span></h3>
                 <span class="close" onclick="closeAddPOModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -404,14 +404,23 @@ document.querySelector('#addPOModal .close').addEventListener('click', closeAddP
 document.querySelectorAll(".col-filter").forEach(input => {
     input.addEventListener("input", function () {
         const colIndex = parseInt(this.dataset.col);
-        const keyword = this.value.toLowerCase();
+        const keyword = this.value.trim();
+
+        // 柜号列（colIndex=3）支持多值筛选，以空格和换行分隔
+        const keywords = colIndex === 3
+            ? keyword.split(/[\s\n]+/).filter(k => k.length > 0).map(k => k.toLowerCase())
+            : keyword ? [keyword.toLowerCase()] : [];
 
         document.querySelectorAll("#addPOTableBody tr").forEach(row => {
             const cell = row.children[colIndex];
             if (!cell) return;
 
             const text = cell.innerText.toLowerCase();
-            row.style.display = text.includes(keyword) ? "" : "none";
+            if (keywords.length === 0) {
+                row.style.display = "";
+            } else {
+                row.style.display = keywords.some(k => text.includes(k)) ? "" : "none";
+            }
         });
     });
 });

@@ -3426,16 +3426,28 @@ class ReceivableAccounting(View):
                         final_pallet_groups.append(group)
 
         if final_pallet_groups:
-            # 针对未计算过费用的板子进行自动计算
-            self._process_fix_unbilled_groups(
-                request=request,
-                pallet_groups=final_pallet_groups,
-                container=order.container_number,
-                order=order,
-                invoice=invoice,
-                is_combina=is_combina,
-                warehouse=order.retrieval_id.retrieval_destination_area
-            )
+            # 过滤掉完全等于UPS或以UPS结尾的仓点，不进行自动计算
+            filtered_groups = []
+            for group in final_pallet_groups:
+                destination = group.get("destination", "")
+                if destination:
+                    destination_lower = destination.lower()
+                    # 过滤掉UPS或者包含转UPS的仓点
+                    # 只过滤完全等于ups或者以ups结尾的仓点
+                    if not (destination_lower == "ups" or destination_lower.endswith("ups")):
+                        filtered_groups.append(group)
+            
+            if filtered_groups:
+                # 针对未计算过费用的板子进行自动计算
+                self._process_fix_unbilled_groups(
+                    request=request,
+                    pallet_groups=filtered_groups,
+                    container=order.container_number,
+                    order=order,
+                    invoice=invoice,
+                    is_combina=is_combina,
+                    warehouse=order.retrieval_id.retrieval_destination_area
+                )
     
     def _process_fix_unbilled_groups(
         self,
@@ -3627,7 +3639,8 @@ class ReceivableAccounting(View):
                     elif delivery_category == "walmart":
                         description = "沃尔玛派送费"
                     elif delivery_category == "upsdelivery":
-                        description = "UPS派送费"
+                        # UPS派送不自动创建记录，跳过
+                        continue
                     else:
                         continue
 
@@ -3646,7 +3659,7 @@ class ReceivableAccounting(View):
                         cbm=group.get("total_cbm", 0),
                         cbm_ratio=cbm_ratio,
                         weight=group.get("total_weight_lbs", 0),
-                        description="派送费",
+                        description=description,
                         qty=group.get("total_pallets", 0),
                         rate=item_data.get("rate", 0),
                         regionPrice=item_data.get("rate", 0),
@@ -3680,7 +3693,8 @@ class ReceivableAccounting(View):
                     elif delivery_category == "walmart":
                         description = "沃尔玛派送费"
                     elif delivery_category == "upsdelivery":
-                        description = "UPS派送费"
+                        # UPS派送不自动创建记录，跳过
+                        continue
                     else:
                         continue
                     
@@ -8143,13 +8157,21 @@ class ReceivableAccounting(View):
                 "combina_info": {}
             }
         if not unbilled_groups:
-            # 所有仓点都已录入，更新状态为已完成
-            status_field = "delivery_public_status" if delivery_type == "public" else "delivery_other_status"
-            setattr(invoice_status, status_field, "completed")
-            invoice_status.save()
-            context["success_messages"] = "所有仓点已录入完毕，状态已更新为已完成"
-            context = self.handle_delivery_entry_post(request, context)
-            return self.template_delivery_entry, context
+            status_del = False
+            if delivery_type == "public":
+                if invoice_status.delivery_public_status != "completed":
+                    status_del = True
+            if delivery_type == "other":
+                if invoice_status.delivery_other_status != "completed":
+                    status_del = True
+            if status_del:
+                # 所有仓点都已录入，更新状态为已完成
+                status_field = "delivery_public_status" if delivery_type == "public" else "delivery_other_status"
+                setattr(invoice_status, status_field, "completed")
+                invoice_status.save()
+                context["success_messages"] = "所有仓点已录入完毕，状态已更新为已完成"
+                context = self.handle_delivery_entry_post(request, context)
+                return self.template_delivery_entry, context
         if unbilled_groups:
             has_previous_items = bool(previous_item_dict)  # 判断是否有过账单
             # 有未录入的PO，需要进一步处理
