@@ -384,7 +384,7 @@
                 <b style="font-size: 13px; margin-left: 15px;">客户:</b>
                 <div style="display: inline-block; vertical-align: top; position: relative;">
                     <button type="button" id="customerDropdownBtn" style="padding: 6px 12px; border: 1px solid #ced4da; border-radius: 4px; background: white; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; color: #333;">
-                        <span>已选 <span id="selected-count" style="background: #3498db; color: white; border-radius: 10px; padding: 1px 7px; font-size: 12px; font-weight: bold;">{{ customer_list|length }}</span> 个客户</span>
+                        <span>已选 <span id="selected-count" style="background: #3498db; color: white; border-radius: 10px; padding: 1px 7px; font-size: 12px; font-weight: bold;">0/0</span> 个客户</span>
                         <i class="fas fa-caret-down" style="font-size: 12px; color: #999;"></i>
                     </button>
                     <div id="customerDropdown" style="display: none; position: absolute; top: 100%; left: 0; z-index: 999; margin-top: 4px; background: white; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); width: 260px;">
@@ -588,13 +588,15 @@
         // 客户复选框监听 - 更新选中数量
         function updateSelectedCustomerCount() {
             const checkedCount = document.querySelectorAll('.customer-checkbox:checked').length;
-            document.getElementById('selected-count').textContent = checkedCount;
+            const totalCount = document.querySelectorAll('.customer-checkbox').length;
+            document.getElementById('selected-count').textContent = checkedCount + '/' + totalCount;
         }
         
         // 绑定所有客户复选框的change事件
         document.querySelectorAll('.customer-checkbox').forEach(function(checkbox) {
             checkbox.addEventListener('change', updateSelectedCustomerCount);
         });
+        updateSelectedCustomerCount();
 
         // 客户下拉框展开/收起
         var dropdownBtn = document.getElementById('customerDropdownBtn');
