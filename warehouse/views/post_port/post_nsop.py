@@ -8366,7 +8366,7 @@ class PostNsop(View):
                 if (not pallet_fba_id or (packinglist['fba_id'].strip() or '') in pallet_fba_id) and 
                 (not pallet_ref_id or (packinglist['ref_id'].strip() or '') in pallet_ref_id)
             ]
-            raise ValueError(all_po_matching_packinglists,matching_packinglists)
+
             
             if matching_packinglists:
                 packinglist_ids.extend(matching_packinglists)
