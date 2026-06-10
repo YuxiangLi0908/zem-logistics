@@ -15002,8 +15002,9 @@ class PostNsop(View):
             elif item.get('has_estimated_retrieval'):
                 # 预计提柜
                 estimated_time = item.get('estimated_time')
+                estimated_lower_time = item.get('estimated_lower_time')
                 group = 2
-                sort_time = estimated_time or timezone.make_aware(datetime.min)
+                sort_time = estimated_lower_time or estimated_time or timezone.make_aware(datetime.min)
 
             else:
                 # 无计划
@@ -15314,7 +15315,8 @@ class PostNsop(View):
                     # 添加时间字段用于排序
                     actual_retrieval_time=F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
                     arm_time=F("container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
-                    estimated_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp"),                  
+                    estimated_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp"),     
+                    estimated_lower_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp_lower"),             
                 )
                 .annotate(
                     fba_ids=StringAgg(
