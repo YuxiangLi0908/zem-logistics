@@ -13446,7 +13446,7 @@ class Accounting(View):
                 "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
                 "入库拆柜费": f"{arrive_fee}",
                 "超重费用": f"{overweight}",
-                "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')*actual_day}",
+                "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')*actual_day if actual_day else fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
                 "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
                 "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
             }
