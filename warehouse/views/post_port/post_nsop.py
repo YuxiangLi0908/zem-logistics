@@ -14991,24 +14991,24 @@ class PostNsop(View):
                 # 实际提柜
                 actual_time = item.get('actual_retrieval_time')
                 group = 0
-                sort_time = actual_time or datetime.min
+                sort_time = actual_time or timezone.make_aware(datetime.min) 
 
             elif item.get('has_appointment_retrieval'):
                 # 码头预约
                 arm_time = item.get('arm_time')
                 group = 1
-                sort_time = arm_time or datetime.min
+                sort_time = arm_time or timezone.make_aware(datetime.min)
 
             elif item.get('has_estimated_retrieval'):
                 # 预计提柜
                 estimated_time = item.get('estimated_time')
                 group = 2
-                sort_time = estimated_time or datetime.min
+                sort_time = estimated_time or timezone.make_aware(datetime.min)
 
             else:
                 # 无计划
                 group = 3
-                sort_time = datetime.min
+                sort_time = timezone.make_aware(datetime.min)
             
             # 优先级2: 把包含暂扣的放最后面
             custom_method = item.get("custom_delivery_method", "") or ""
