@@ -8359,6 +8359,7 @@ class PostNsop(View):
             all_po_matching_packinglists = await sync_to_async(list)(
                 PackingList.objects.filter(base_query).values('id', 'fba_id', 'ref_id')
             )
+            raise ValueError(all_po_matching_packinglists)
             matching_packinglists = [
                 packinglist['id'] 
                 for packinglist in all_po_matching_packinglists 
