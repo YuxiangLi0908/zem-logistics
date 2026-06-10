@@ -193,14 +193,14 @@
     <!-- 页面主标题 -->
     <h1 class="page-title">
         <i class="fas fa-exclamation-triangle"></i>
-        T49待追踪管理
+        删除订单
     </h1>
-    <!-- T49待追踪订单区块 -->
+
+    <!-- 重复柜号订单区块 -->
     <div class="order-group">
-        <h3 class="t49-title">
-            <i class="fas fa-clock"></i>
-            T49待追踪订单
-            <span class="count-badge">{{ t49_pending_count }} 条</span>
+        <h3 class="duplicate-title">
+            <i class="fas fa-copy"></i>
+            柜号订单（仅未拆柜）
         </h3>
         <div class="table-wrapper">
             <table class="order-table">
@@ -213,26 +213,26 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for order in t49_pending_orders %}
+                    {% for order in duplicate_orders %}
                     <tr>
                         <td>{{ order.id }}</td>
                         <td>{{ order.container_number__container_number|default:"-" }}</td>
                         <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                         <td>
                             <!-- 新增table-form类，消除表单默认间距 -->
-                            <form action="" method="post" class="table-form">
+                            <form method="post" action="" class="table-form">
                                 {% csrf_token %}
-                                <input type="hidden" name="step" value="add_t49_order">
+                                <input type="hidden" name="step" value="delete_repeat_container">
+                                <input type="hidden" name="container_number_id" value="{{ order.container_number__id }}">
                                 <input type="hidden" name="order_id" value="{{ order.id }}">
-                                <!-- 添加btn-track-t49和table-btn类，应用美化样式 -->
-                                <button type="submit" class="table-btn btn-track-t49">追踪T49</button>
+                                <!-- 添加btn-delete和table-btn类，应用美化样式 -->
+                                <button type="submit" class="table-btn btn-delete">删除</button>
                             </form>
                         </td>
                     </tr>
                     {% empty %}
-                    <!-- 修复：空数据行列数从3改为4，匹配表头列数，避免布局错位 -->
                     <tr class="empty-row">
-                        <td colspan="4">暂无T49待追踪订单数据</td>
+                        <td colspan="4">暂无柜号订单数据</td>
                     </tr>
                     {% endfor %}
                 </tbody>
