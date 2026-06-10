@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone,date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict
-from django.db.models import Sum, Count, FloatField, IntegerField
+from django.db.models import Count, FloatField, IntegerField
 from django.db.models.functions import Coalesce, Cast, Round 
 from itertools import zip_longest
 
@@ -21,7 +21,7 @@ from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import Sum
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.dateparse import parse_date
 from django.utils import timezone
@@ -30,6 +30,7 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
+from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.offload import Offload
@@ -43,21 +44,17 @@ from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import (
     ADDITIONAL_CONTAINER,
-    CONTAINER_PICKUP_CARRIER,
     DELIVERY_METHOD_CODE,
     DELIVERY_METHOD_OPTIONS,
     PACKING_LIST_TEMP_COL_MAPPING,
     SHIPPING_LINE_OPTIONS,
-    WAREHOUSE_OPTIONS,
 )
 from warehouse.views.export_file import export_do
-from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
 from warehouse.utils.shipment_binding_utils import ShipmentBindingPermission
 from django.http import HttpResponseForbidden
 
 
 class OrderCreation(View):
-    # template_main = 'pre_port/create_order/01_order_creation_and_management.html'
     template_order_create_base = (
         "pre_port/create_order/02_base_order_creation_status.html"
     )
@@ -74,6 +71,7 @@ class OrderCreation(View):
         "pre_port/create_order/base_peer_pallet_creation_other.html"
     )
     template_order_create_supplement = "pre_port/create_order/03_order_creation.html"
+    template_create_warehouse_get = "pre_port/create_order/create_warehouse_get.html"
     template_order_create_supplement_pl_tab = (
         "pre_port/create_order/03_order_creation_packing_list_tab.html"
     )
@@ -115,6 +113,9 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "repeat_all":
             template, context = await self.repeat_all()
+            return await sync_to_async(render)(request, template, context)
+        elif step == "create_warehouse_get":
+            template, context = await self.create_warehouse_get()
             return await sync_to_async(render)(request, template, context)
         elif step == "container_info_supplement":
             template, context = await self.handle_order_supplemental_info_get(request)
@@ -163,6 +164,18 @@ class OrderCreation(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step == "add_warehouse":
+            return await self.add_warehouse(request)
+
+        elif step == "delete_warehouse":
+            return await self.delete_warehouse(request)
+
+        elif step == "add_supplier":
+            return await self.add_supplier(request)
+
+        elif step == "delete_supplier":
+            return await self.delete_supplier(request)
+
         elif step == "update_order_retrieval_info":
             template, context = await self.handle_update_order_retrieval_info_post(
                 request
@@ -795,10 +808,17 @@ class OrderCreation(View):
                 request.user.groups.filter(name="create_order").exists
             )(),
         }
-        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
-        context["warehouse_options"] = [
-            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
-        ]
+        context["carrier_options"] = await sync_to_async(list)(
+            ContainerPickupCarrier.objects
+            .filter(is_active=True)
+            .order_by("name")
+            .values_list("name", "name")
+        )
+        context["warehouse_options"] = await sync_to_async(list)(
+            ZemWarehouse.objects
+            .order_by("name")
+            .values_list("name", "name")
+        )
         context["delivery_types"] = [
             ("", ""),
             ("公仓", "public"),
@@ -1292,6 +1312,108 @@ class OrderCreation(View):
         }
 
         return self.template_repeat_all, context
+
+    async def create_warehouse_get(self) -> tuple[Any, Any]:
+        """
+        select-新增仓库及供应商
+        """
+        zem_warehouse = await sync_to_async(list)(
+            ZemWarehouse.objects.values("id", "name", "address")
+        )
+
+        supplier = await sync_to_async(list)(
+            ContainerPickupCarrier.objects.filter(is_active=True).values("id", "name")
+        )
+
+        context = {
+            "zem_warehouse": zem_warehouse,
+            "supplier": supplier,
+        }
+
+        return self.template_create_warehouse_get, context
+
+    async def add_warehouse(self, request):
+        name = request.POST.get("name", "").strip()
+        address = request.POST.get("address", "").strip()
+
+        if not name:
+            return JsonResponse({"success": False, "message": "仓库名称不能为空"})
+
+        exists = await sync_to_async(
+            ZemWarehouse.objects.filter(name=name).exists
+        )()
+
+        if exists:
+            return JsonResponse({"success": False, "message": "仓库已存在"})
+
+        await sync_to_async(ZemWarehouse.objects.create)(
+            name=name,
+            address=address
+        )
+
+        return JsonResponse({"success": True, "message": "新增仓库成功"})
+
+    async def delete_warehouse(self, request):
+        warehouse_id = request.POST.get("id")
+
+        if not warehouse_id:
+            return JsonResponse({"success": False, "message": "缺少仓库ID"})
+
+        warehouse = await sync_to_async(
+            ZemWarehouse.objects.filter(id=warehouse_id).first
+        )()
+
+        if not warehouse:
+            return JsonResponse({"success": False, "message": "仓库不存在"})
+
+        await sync_to_async(warehouse.delete)()
+
+        return JsonResponse({"success": True, "message": "删除仓库成功"})
+
+    async def add_supplier(self, request):
+        name = request.POST.get("name", "").strip()
+
+        if not name:
+            return JsonResponse({"success": False, "message": "供应商名称不能为空"})
+
+        supplier = await sync_to_async(
+            ContainerPickupCarrier.objects.filter(name=name).first
+        )()
+
+        if supplier:
+            if supplier.is_active:
+                return JsonResponse({"success": False, "message": "供应商已存在"})
+
+            supplier.is_active = True
+            await sync_to_async(supplier.save)()
+            return JsonResponse({"success": True, "message": "供应商已重新启用"})
+
+        await sync_to_async(ContainerPickupCarrier.objects.create)(
+            name=name,
+            is_active=True
+        )
+
+        return JsonResponse({"success": True, "message": "新增供应商成功"})
+
+    async def delete_supplier(self, request):
+        supplier_id = request.POST.get("id")
+
+        if not supplier_id:
+            return JsonResponse({"success": False, "message": "缺少供应商ID"})
+
+        supplier = await sync_to_async(
+            ContainerPickupCarrier.objects.filter(id=supplier_id).first
+        )()
+
+        if not supplier:
+            return JsonResponse({"success": False, "message": "供应商不存在"})
+
+        supplier.is_active = False
+        await sync_to_async(supplier.save)()
+
+        return JsonResponse({"success": True, "message": "删除供应商成功"})
+
+
 
     async def delete_repeat_container(
             self, request: HttpRequest

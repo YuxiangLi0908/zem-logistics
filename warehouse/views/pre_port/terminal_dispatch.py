@@ -14,6 +14,7 @@ from django.shortcuts import redirect, render
 from django.utils.dateparse import parse_datetime
 from django.views import View
 
+from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.po_check_eta import PoCheckEtaSeven
@@ -21,8 +22,6 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import (
     ADDITIONAL_CONTAINER,
-    CONTAINER_PICKUP_CARRIER,
-    WAREHOUSE_OPTIONS,
 )
 
 
@@ -190,10 +189,17 @@ class TerminalDispatch(View):
         
         _, context = await self.handle_all_get()
         context["selected_orders"] = selected_orders
-        context["warehouse_options"] = [
-            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
-        ]
-        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+        context["warehouse_options"] = [("", "")] + await sync_to_async(list)(
+            ZemWarehouse.objects
+            .order_by("name")
+            .values_list("name", "name")
+        )
+        context["carrier_options"] = [("", "")] + await sync_to_async(list)(
+            ContainerPickupCarrier.objects
+            .filter(is_active=True)
+            .order_by("name")
+            .values_list("name", "name")
+        )
     
         return self.template_batch_update_container_pickup_schedule, context
 
@@ -215,10 +221,17 @@ class TerminalDispatch(View):
 
         _, context = await self.handle_all_get()
         context["selected_orders"] = selected_orders
-        context["warehouse_options"] = [
-            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
-        ]
-        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+        context["warehouse_options"] = [("", "")] + await sync_to_async(list)(
+            ZemWarehouse.objects
+            .order_by("name")
+            .values_list("name", "name")
+        )
+        context["carrier_options"] = [("", "")] + await sync_to_async(list)(
+            ContainerPickupCarrier.objects
+            .filter(is_active=True)
+            .order_by("name")
+            .values_list("name", "name")
+        )
 
         return self.template_batch_update_container_pickup_schedule, context
 
@@ -243,10 +256,17 @@ class TerminalDispatch(View):
         
         _, context = await self.handle_all_get()
         context["selected_orders"] = selected_orders
-        context["warehouse_options"] = [
-            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
-        ]
-        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+        context["warehouse_options"] = [("", "")] + await sync_to_async(list)(
+            ZemWarehouse.objects
+            .order_by("name")
+            .values_list("name", "name")
+        )
+        context["carrier_options"] = [("", "")] + await sync_to_async(list)(
+            ContainerPickupCarrier.objects
+            .filter(is_active=True)
+            .order_by("name")
+            .values_list("name", "name")
+        )
         
         return self.template_batch_schedule_container, context
     
@@ -267,10 +287,17 @@ class TerminalDispatch(View):
             context["packing_list"] = packing_list
         context["container_number"] = container_number
         context["selected_order"] = order
-        context["warehouse_options"] = [
-            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
-        ]
-        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+        context["warehouse_options"] = [("", "")] + await sync_to_async(list)(
+            ZemWarehouse.objects
+            .order_by("name")
+            .values_list("name", "name")
+        )
+        context["carrier_options"] = [("", "")] + await sync_to_async(list)(
+            ContainerPickupCarrier.objects
+            .filter(is_active=True)
+            .order_by("name")
+            .values_list("name", "name")
+        )
         return self.template_schedule_container_pickup, context
 
     async def hanlde_update_pickup_schedule_get(

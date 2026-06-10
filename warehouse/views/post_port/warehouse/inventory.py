@@ -34,7 +34,8 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
-from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+from warehouse.models.warehouse import ZemWarehouse
+from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 
 
@@ -126,15 +127,36 @@ class Inventory(View):
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options, "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
+        context = {
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "delivery_type_options": self.delivery_type_options,
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
         return self.template_counting_main, context
 
     async def handle_inventory_management_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options, "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
+        context = {
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "delivery_type_options": self.delivery_type_options,
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
         return self.template_inventory_management_main, context
 
     async def handle_pallet_merge_get(self) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS, "delivery_type_options": self.delivery_type_options, "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
+        context = {
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "delivery_type_options": self.delivery_type_options,
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
         return self.template_inventory_list_and_merge, context
 
     async def handle_export_inventory(self, request: HttpRequest) -> HttpResponse:
@@ -240,7 +262,11 @@ class Inventory(View):
             "delivery_type_options": self.delivery_type_options,
             "is_shipment_batch_number": is_shipment_batch_number,
             "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
             "total_cbm": total_cbm,
@@ -303,7 +329,11 @@ class Inventory(View):
 
             updated_count_p = await sync_to_async(update_packinglists)()
             context = {
-                "warehouse_options": WAREHOUSE_OPTIONS,
+                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
                 "warehouse": warehouse,
                 "delivery_type_options": self.delivery_type_options,
                 "is_shipment_batch_number": is_shipment_batch_number,
@@ -368,7 +398,11 @@ class Inventory(View):
         context = {
             "warehouse": warehouse,
             "delivery_type": delivery_type,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             "delivery_type_options": self.delivery_type_options,
             "is_shipment_batch_number": is_shipment_batch_number,
             "is_shipment_batch_numbers": self.is_shipment_batch_numbers,

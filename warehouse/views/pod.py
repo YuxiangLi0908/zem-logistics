@@ -17,6 +17,7 @@ from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import (
     APP_ENV,
     SP_DOC_LIB,
@@ -27,7 +28,7 @@ from warehouse.utils.constants import (
     SP_TENANT,
     SP_THUMBPRINT,
     SP_URL,
-    SYSTEM_FOLDER, WAREHOUSE_OPTIONS,
+    SYSTEM_FOLDER,
 )
 
 
@@ -36,6 +37,11 @@ class POD(View):
     template_main = "pod/shipment_list.html"
     template_shipment_detail = "pod/shipment_detail.html"
 
+    warehouse_options = [("", "")] + list(
+        ZemWarehouse.objects
+        .order_by("name")
+        .values_list("name", "name")
+    )
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -66,7 +72,7 @@ class POD(View):
         shipment_list = self._get_not_delivered_shipment()
         context = {
             "shipment_list": shipment_list,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
         }
         return context
 
@@ -168,7 +174,7 @@ class POD(View):
             "fleet_number": fleet_number,
             "batch_number": batch_number,
             "fleet": shipment,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": self.warehouse_options,
             "area": area,
         }
         return context

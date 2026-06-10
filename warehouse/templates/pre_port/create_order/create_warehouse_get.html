@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    .manage-page {
+        padding: 24px;
+        background: #f5f7fb;
+        min-height: calc(100vh - 60px);
+        box-sizing: border-box;
+    }
+
+    .page-header {
+        margin-bottom: 22px;
+    }
+
+    .page-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #1f2937;
+        margin: 0;
+    }
+
+    .page-desc {
+        margin-top: 6px;
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    .manage-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        gap: 20px;
+    }
+
+    .manage-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+        border: 1px solid #edf0f5;
+    }
+
+    .card-header-custom {
+        padding: 18px 20px;
+        border-bottom: 1px solid #eef2f7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(180deg, #ffffff, #fafbff);
+    }
+
+    .card-title-custom {
+        font-size: 16px;
+        font-weight: 600;
+        color: #111827;
+        margin: 0;
+    }
+
+    .card-count {
+        font-size: 12px;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 4px 10px;
+        border-radius: 999px;
+    }
+
+    .card-body-custom {
+        padding: 18px 20px 20px;
+    }
+
+    .form-row-custom {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .form-input {
+        height: 38px;
+        border: 1px solid #d9dee8;
+        border-radius: 8px;
+        padding: 0 12px;
+        outline: none;
+        font-size: 14px;
+        color: #111827;
+        background: #fff;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+
+    .form-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .input-name {
+        width: 34%;
+    }
+
+    .input-address {
+        flex: 1;
+    }
+
+    .supplier-input {
+        flex: 1;
+    }
+
+    .btn-custom {
+        height: 38px;
+        border: none;
+        border-radius: 8px;
+        padding: 0 16px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-primary-custom {
+        background: #2563eb;
+        color: #fff;
+    }
+
+    .btn-primary-custom:hover {
+        background: #1d4ed8;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-danger-custom {
+        background: #fff1f2;
+        color: #e11d48;
+        border: 1px solid #fecdd3;
+        height: 30px;
+        padding: 0 12px;
+        font-size: 13px;
+    }
+
+    .btn-danger-custom:hover {
+        background: #e11d48;
+        color: #fff;
+    }
+
+    .table-wrap {
+        border: 1px solid #eef2f7;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .manage-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: #fff;
+    }
+
+    .manage-table thead {
+        background: #f9fafb;
+    }
+
+    .manage-table th {
+        text-align: left;
+        padding: 12px 14px;
+        color: #4b5563;
+        font-weight: 600;
+        border-bottom: 1px solid #eef2f7;
+    }
+
+    .manage-table td {
+        padding: 12px 14px;
+        color: #1f2937;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .manage-table tbody tr:hover {
+        background: #f8fbff;
+    }
+
+    .manage-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .empty-row {
+        text-align: center;
+        color: #9ca3af !important;
+        padding: 28px 0 !important;
+    }
+
+    .operation-col {
+        width: 90px;
+        text-align: center;
+    }
+
+    @media (max-width: 1100px) {
+        .manage-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-row-custom {
+            flex-wrap: wrap;
+        }
+
+        .input-name,
+        .input-address,
+        .supplier-input {
+            width: 100%;
+            flex: auto;
+        }
+
+        .btn-custom {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="manage-page">
+
+    <div class="page-header">
+        <h3 class="page-title">仓库与供应商管理</h3>
+        <div class="page-desc">维护港前提柜相关仓库信息与供应商信息</div>
+    </div>
+
+    <div class="manage-grid">
+
+        <!-- 仓库管理 -->
+        <div class="manage-card">
+            <div class="card-header-custom">
+                <h4 class="card-title-custom">仓库管理</h4>
+                <span class="card-count">共 {{ zem_warehouse|length }} 个仓库</span>
+            </div>
+
+            <div class="card-body-custom">
+                <div class="form-row-custom">
+                    <input id="warehouseName" class="form-input input-name" placeholder="仓库名称">
+                    <input id="warehouseAddress" class="form-input input-address" placeholder="仓库地址">
+                    <button class="btn-custom btn-primary-custom" onclick="addWarehouse()">新增仓库</button>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="manage-table">
+                        <thead>
+                            <tr>
+                                <th>仓库名称</th>
+                                <th>仓库地址</th>
+                                <th class="operation-col">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in zem_warehouse %}
+                            <tr>
+                                <td>{{ item.name }}</td>
+                                <td>{{ item.address }}</td>
+                                <td class="operation-col">
+                                    <button class="btn-custom btn-danger-custom"
+                                            onclick="deleteWarehouse('{{ item.id }}')">
+                                        删除
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="empty-row">暂无仓库数据</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 供应商管理 -->
+        <div class="manage-card">
+            <div class="card-header-custom">
+                <h4 class="card-title-custom">供应商管理</h4>
+                <span class="card-count">共 {{ supplier|length }} 个供应商</span>
+            </div>
+
+            <div class="card-body-custom">
+                <div class="form-row-custom">
+                    <input id="supplierName" class="form-input supplier-input" placeholder="供应商名称">
+                    <button class="btn-custom btn-primary-custom" onclick="addSupplier()">新增供应商</button>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="manage-table">
+                        <thead>
+                            <tr>
+                                <th>供应商名称</th>
+                                <th class="operation-col">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in supplier %}
+                            <tr>
+                                <td>{{ item.name }}</td>
+                                <td class="operation-col">
+                                    <button class="btn-custom btn-danger-custom"
+                                            onclick="deleteSupplier('{{ item.id }}')">
+                                        删除
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="empty-row">暂无供应商数据</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+
+function getCookie(name) {
+    let cookieValue = null;
+
+    if (document.cookie && document.cookie !== '') {
+
+        const cookies = document.cookie.split(';');
+
+        for (let i = 0; i < cookies.length; i++) {
+
+            const cookie = cookies[i].trim();
+
+            if (
+                cookie.substring(0, name.length + 1)
+                === (name + '=')
+            ) {
+                cookieValue = decodeURIComponent(
+                    cookie.substring(name.length + 1)
+                );
+                break;
+            }
+        }
+    }
+
+    return cookieValue;
+}
+
+async function postStep(formData) {
+
+    try {
+
+        const response = await fetch(
+            window.location.pathname,
+            {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCookie("csrftoken")
+                },
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (data.success) {
+
+            alert(data.message || "操作成功");
+
+            location.reload();
+
+        } else {
+
+            alert(data.message || "操作失败");
+        }
+
+    } catch (e) {
+
+        console.error(e);
+
+        alert("请求失败");
+    }
+}
+
+async function addWarehouse() {
+
+    const name = document.getElementById("warehouseName").value.trim();
+    const address = document.getElementById("warehouseAddress").value.trim();
+
+    if (!name) {
+
+        alert("请输入仓库名称");
+        return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("step", "add_warehouse");
+    formData.append("name", name);
+    formData.append("address", address);
+
+    await postStep(formData);
+}
+
+async function deleteWarehouse(id) {
+
+    if (!confirm("确定删除该仓库吗？")) {
+        return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("step", "delete_warehouse");
+    formData.append("id", id);
+
+    await postStep(formData);
+}
+
+async function addSupplier() {
+
+    const name = document.getElementById("supplierName").value.trim();
+
+    if (!name) {
+
+        alert("请输入供应商名称");
+        return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("step", "add_supplier");
+    formData.append("name", name);
+
+    await postStep(formData);
+}
+
+async function deleteSupplier(id) {
+
+    if (!confirm("确定删除该供应商吗？")) {
+        return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("step", "delete_supplier");
+    formData.append("id", id);
+
+    await postStep(formData);
+}
+
+</script>
+
+{% endblock %}

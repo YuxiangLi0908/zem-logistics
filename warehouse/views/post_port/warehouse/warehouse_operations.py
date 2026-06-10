@@ -34,6 +34,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.views.export_file import export_palletization_list, export_palletization_list_v2
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
@@ -46,7 +47,7 @@ from warehouse.utils.constants import (
     SP_URL,
     SP_DOC_LIB,
     SYSTEM_FOLDER,
-    APP_ENV, WAREHOUSE_OPTIONS
+    APP_ENV
 )
 
 class WarehouseOperations(View):
@@ -235,7 +236,11 @@ class WarehouseOperations(View):
 
     async def warehousing_operation_get(self, request: HttpRequest):
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         }
         return self.template_warehousing_operation, context
 
@@ -379,7 +384,11 @@ class WarehouseOperations(View):
 
         context = {
             'retrieval': retrieval,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             'warehouse': request.POST.get('warehouse_filter'),
             'total_count': total_count,
             'current_time': current_time  # 传递当前时间到前端（可选，用于前端二次验证）
@@ -442,13 +451,21 @@ class WarehouseOperations(View):
     async def handle_counting_pallet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
+        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),}
         return self.template_counting_pallet, context
     
     async def handle_upcoming_fleet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": WAREHOUSE_OPTIONS,}
+        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),}
         return self.template_upcoming_fleet, context
     
 
@@ -754,7 +771,11 @@ class WarehouseOperations(View):
             if plt['delivery_type'] == "other":
                 private_inventory.append(plt)
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             'warehouse': warehouse,
             'total_inventory': total_inventory,
             'private_inventory': private_inventory,
@@ -1129,7 +1150,11 @@ class WarehouseOperations(View):
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
             'fleets': fleet_data,
             'warehouse': warehouse,
             'shipment_type_filter': shipment_type_filter,
