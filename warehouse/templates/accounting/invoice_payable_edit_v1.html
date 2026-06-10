@@ -820,19 +820,19 @@
                                         {% if not is_save_invoice and actual_day %}
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="chassis_fee"
-                                                    {% if fee.rate %}
-                                                   value="{{ fee.rate }}"
+                                                    {% if fee.amount %}
+                                                   value="{{ fee.amount }}"
                                                     {% elif FS and fee.description in FS %}
                                                    value="{{ FS|get_item:fee.description }}"
                                                     {% else %}
-                                                   value="{{ chassis_fee|default:0 }}"
+                                                   value="0.00"
                                                     {% endif %}
                                                    oninput="calculateTotal()">
                                         {% elif not is_save_invoice and not actual_day %}
                                             <span class="amount-display amount-zero">0.00</span>
                                         {% else %}
-                                            {% if fee.rate %}
-                                                <span class="amount-display">{{ fee.rate }}</span>
+                                            {% if fee.amount %}
+                                                <span class="amount-display">{{ fee.amount }}</span>
                                             {% else %}
                                                 <span class="amount-display amount-zero">0.00</span>
                                             {% endif %}
