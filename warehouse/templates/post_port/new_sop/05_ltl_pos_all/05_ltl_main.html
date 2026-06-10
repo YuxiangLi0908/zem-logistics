@@ -598,6 +598,58 @@
         });
         updateSelectedCustomerCount();
 
+        // 全局函数：向指定表单注入当前选中的客户数据
+        function injectCustomerFields(form) {
+            form.querySelectorAll('input[name="customer"]').forEach(function(input) {
+                if (input.type === 'hidden') input.remove();
+            });
+            document.querySelectorAll('.customer-checkbox:checked').forEach(function(cb) {
+                var hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'customer';
+                hiddenInput.value = cb.value;
+                form.appendChild(hiddenInput);
+            });
+        }
+
+        // 拦截1：通过 submit 事件捕获常规表单提交
+        document.addEventListener('submit', function(e) {
+            injectCustomerFields(e.target);
+        });
+
+        // 拦截2：重写 HTMLFormElement.prototype.submit，捕获 JS 动态调用的 form.submit()
+        var originalSubmit = HTMLFormElement.prototype.submit;
+        HTMLFormElement.prototype.submit = function() {
+            injectCustomerFields(this);
+            originalSubmit.call(this);
+        };
+
+        // 拦截3：重写 window.location.reload，改为带客户数据的 POST 提交
+        var originalReload = window.location.reload.bind(window.location);
+        window.location.reload = function() {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = window.location.pathname;
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            form.appendChild(csrfInput);
+            var stepInput = document.createElement('input');
+            stepInput.type = 'hidden';
+            stepInput.name = 'step';
+            stepInput.value = 'ltl_warehouse';
+            form.appendChild(stepInput);
+            var whInput = document.createElement('input');
+            whInput.type = 'hidden';
+            whInput.name = 'warehouse';
+            whInput.value = '{{ warehouse }}';
+            form.appendChild(whInput);
+            injectCustomerFields(form);
+            document.body.appendChild(form);
+            originalSubmit.call(form);
+        };
+
         // 客户下拉框展开/收起
         var dropdownBtn = document.getElementById('customerDropdownBtn');
         var dropdown = document.getElementById('customerDropdown');
