@@ -51,8 +51,8 @@ class WarehouseDashView(View):
     def get_warehouse_dash_context(self, request: HttpRequest) -> dict:
         warehouse = request.POST.get("warehouse_filter", None)
         is_shipment_batch_number = request.POST.get("is_shipment_batch_number", None)
-        historical_inventory = self._get_historical_inventory(warehouse, is_shipment_batch_number)
-        next_week_inventory = self._get_next_week_inventory(warehouse, is_shipment_batch_number)
+        historical_inventory = self._get_historical_inventory(warehouse)
+        next_week_inventory = self._get_next_week_inventory(warehouse)
         inventory_metrics = self._calculate_historical_metrics(historical_inventory)
         for destination, metrics in inventory_metrics.items():
             metrics["detail"] = self._get_destination_container_detail(
@@ -64,6 +64,7 @@ class WarehouseDashView(View):
 
         context = {
             "inventory_metrics": inventory_metrics,
+            "next_week_inventory": next_week_inventory,
             "warehouse": warehouse,
             "area": self.area,
             "is_shipment_batch_number": is_shipment_batch_number,
@@ -128,17 +129,14 @@ class WarehouseDashView(View):
 
         return result
 
-    def _get_historical_inventory(self, warehouse: str, is_shipment_batch_number: str) -> list:
+    def _get_historical_inventory(self, warehouse: str) -> list:
         today = now().date()
         thirteen_weeks_ago = today - timedelta(weeks=13)
         thirteen_weeks_ago_start = thirteen_weeks_ago - timedelta(days=thirteen_weeks_ago.weekday())
 
-        criteria = self._get_shipment_batch_criteria(is_shipment_batch_number)
-
         data = (
             Pallet.objects
             .filter(
-                criteria,
                 location__startswith=warehouse,
                 delivery_type="public",
                 container_number__orders__offload_id__offload_at__gte=thirteen_weeks_ago_start,
@@ -159,7 +157,7 @@ class WarehouseDashView(View):
 
         return list(data)
 
-    def _get_next_week_inventory(self, warehouse: str, is_shipment_batch_number: str) -> list:
+    def _get_next_week_inventory(self, warehouse: str) -> list:
         today = now().date()
         next_week_start = today + timedelta(days=1)
         next_week_end = next_week_start + timedelta(days=6)
@@ -180,8 +178,6 @@ class WarehouseDashView(View):
                     container_number__orders__offload_id__offload_required=True,
                 )
         )
-
-        criteria &= self._get_shipment_batch_criteria(is_shipment_batch_number)
 
         data = (
             PackingList.objects
