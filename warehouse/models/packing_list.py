@@ -105,6 +105,9 @@ class PackingList(models.Model):
     ltl_state = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的州")
     ltl_zipcode = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价的邮编")
     ltl_address_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="ltl询价地址类型")
+    notify_cus_del_time = models.BooleanField(default=False, null=True, blank=True)
+    delivery_est_start = models.DateField(null=True, blank=True)
+    delivery_est_end = models.DateField(null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
