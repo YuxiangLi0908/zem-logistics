@@ -282,6 +282,9 @@ class ReceivableAccounting(View):
         elif step == "preport_save":
             context = self.handle_invoice_preport_save(request)
             return render(request, self.template_preport_entry, context)
+        elif step == "batch_preport_review":
+            context = self.handle_batch_preport_review(request)
+            return render(request, self.template_preport_entry, context)
         elif step == "payout_save":
             context = self.handle_payout_save(request)
             return render(request, self.template_payout_entry, context)
@@ -4959,7 +4962,28 @@ class ReceivableAccounting(View):
                     else:
                         preport_to_record_orders.append(base_data)
 
-        # --- 8. 排序逻辑 ---
+        # --- 8. 批量获取费用明细(仅待审核) ---
+        review_invoice_ids = []
+        for item in preport_pending_review_orders:
+            if item.get('invoice_id'):
+                review_invoice_ids.append(item['invoice_id'])
+        
+        fee_map = {}  # invoice_id -> list of fee descriptions
+        if review_invoice_ids:
+            fee_items = InvoiceItemv2.objects.filter(
+                invoice_number_id__in=review_invoice_ids,
+                item_category="preport"
+            ).values_list('invoice_number_id', 'description', 'amount')
+            for inv_id, desc, amt in fee_items:
+                if inv_id not in fee_map:
+                    fee_map[inv_id] = []
+                fee_map[inv_id].append(f"{desc}:{amt}" if amt else desc)
+        
+        for item in preport_pending_review_orders:
+            inv_id = item.get('invoice_id')
+            item['fee_summary'] = "\n".join(fee_map.get(inv_id, []))
+
+        # --- 9. 排序逻辑 ---
         preport_recorded_orders.sort(key=lambda x: {
             "rejected": 0,
             "pending_review": 1, 
@@ -4992,6 +5016,21 @@ class ReceivableAccounting(View):
             "default_tab": default_tab, 
             "is_leader": is_leader,
         })
+        return context
+
+    def handle_batch_preport_review(self, request: HttpRequest) -> Dict[str, Any]:
+        """批量审核待审核的港前账单"""
+        invoice_ids = request.POST.getlist("invoice_ids")
+        reviewed_count = 0
+        if invoice_ids:
+            updated = InvoiceStatusv2.objects.filter(
+                invoice_id__in=invoice_ids,
+                invoice_type="receivable",
+                preport_status="pending_review"
+            ).update(preport_status="completed")
+            reviewed_count = updated
+        context = self.handle_preport_entry_post(request)
+        context['success_messages'] = f'{reviewed_count} 条账单已审核成功'
         return context
 
     def old_handle_warehouse_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
