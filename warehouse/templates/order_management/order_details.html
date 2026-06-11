@@ -299,7 +299,7 @@
 
     <div id="order-packing-list-info-sec" style="display: none;">
         <div style="display: flex;">
-            {% if not selected_order.offload_id.offload_at %}
+            {% if not selected_order.offload_id.offload_at and not selected_order.offload_id.offload_other_at%}
             <div style="display: flex; width: 80%;">
                 <div>
                     <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
@@ -337,7 +337,7 @@
             </div>
             {% else%}
                 {% if user.is_authenticated %}
-                    {% if user.is_staff or cancel_access %}
+                    {% if user.is_staff %}
                         <div style="display: flex; width: 80%;">
                             <div>
                                 <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
