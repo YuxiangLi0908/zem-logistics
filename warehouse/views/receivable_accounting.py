@@ -3638,9 +3638,9 @@ class ReceivableAccounting(View):
                     )
                     delivery_category = item_data.get("delivery_category", "")
                     if delivery_category == "amazon":
-                        description = "亚马逊派送费"
+                        description = "派送费"
                     elif delivery_category == "walmart":
-                        description = "沃尔玛派送费"
+                        description = "派送费"
                     elif delivery_category == "upsdelivery":
                         # UPS派送不自动创建记录，跳过
                         continue
@@ -3692,9 +3692,9 @@ class ReceivableAccounting(View):
                     # 确定description
                     delivery_category = item_data.get("delivery_category", "")
                     if delivery_category == "amazon":
-                        description = "亚马逊派送费"
+                        description = "派送费"
                     elif delivery_category == "walmart":
-                        description = "沃尔玛派送费"
+                        description = "派送费"
                     elif delivery_category == "upsdelivery":
                         # UPS派送不自动创建记录，跳过
                         continue
