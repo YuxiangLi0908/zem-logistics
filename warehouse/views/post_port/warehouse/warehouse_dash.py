@@ -60,11 +60,11 @@ class WarehouseDashView(View):
                 destination,
                 is_shipment_batch_number,
             )
+            metrics["next_week_cbm"] = next_week_inventory.get(destination, 0)
 
 
         context = {
             "inventory_metrics": inventory_metrics,
-            "next_week_inventory": next_week_inventory,
             "warehouse": warehouse,
             "area": self.area,
             "is_shipment_batch_number": is_shipment_batch_number,
