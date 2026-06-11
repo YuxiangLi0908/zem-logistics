@@ -4952,7 +4952,28 @@ class ReceivableAccounting(View):
                     else:
                         preport_to_record_orders.append(base_data)
 
-        # --- 8. 排序逻辑 ---
+        # --- 8. 批量获取费用明细(仅待审核) ---
+        review_invoice_ids = []
+        for item in preport_pending_review_orders:
+            if item.get('invoice_id'):
+                review_invoice_ids.append(item['invoice_id'])
+        
+        fee_map = {}  # invoice_id -> list of fee descriptions
+        if review_invoice_ids:
+            fee_items = InvoiceItemv2.objects.filter(
+                invoice_number_id__in=review_invoice_ids,
+                item_category="preport"
+            ).values_list('invoice_number_id', 'description', 'amount')
+            for inv_id, desc, amt in fee_items:
+                if inv_id not in fee_map:
+                    fee_map[inv_id] = []
+                fee_map[inv_id].append(f"{desc}:{amt}" if amt else desc)
+        
+        for item in preport_pending_review_orders:
+            inv_id = item.get('invoice_id')
+            item['fee_summary'] = "\n".join(fee_map.get(inv_id, []))
+
+        # --- 9. 排序逻辑 ---
         preport_recorded_orders.sort(key=lambda x: {
             "rejected": 0,
             "pending_review": 1, 

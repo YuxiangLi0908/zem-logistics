@@ -791,31 +791,25 @@
                                 <tr>
                                     <th class="th">客户</th>
                                     <th class="th">货柜号</th>
-                                    <th class="th">实际提柜日期</th>
-                                    <th class="th">还空时间</th>
-                                    <th class="th">状态</th>
+                                    <th class="th" style="width:130px;">费用明细</th>
+                                    <th class="th" style="width:90px;">实际提柜日期</th>
+                                    <th class="th" style="width:90px;">还空时间</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th"></th>
                                     <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'pending-review-table')"></th>
+                                    <th class="th"></th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'pending-review-table')">
+                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 3, 'pending-review-table')">
                                             <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'pending-review-table')">清除</button>
                                         </div>
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 3, 'pending-review-table')">
+                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 4, 'pending-review-table')">
                                             <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'pending-review-table')">清除</button>
                                         </div>
-                                    </th>
-                                    <th class="th">
-                                        <!-- 待审核状态筛选下拉框 -->
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'pending-review-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="待审核">待审核</option>
-                                        </select>
                                     </th>
                                 </tr>
                             </thead>
@@ -824,8 +818,7 @@
                                     {% for item in preport_pending_review_orders %}
                                     <tr data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-retrieval="{% if item.order.retrieval_time %}{{ item.order.retrieval_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}"
-                                        data-status="待审核">
+                                        data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if not item.is_master_bill %}
@@ -836,6 +829,7 @@
                                                 </a>
                                             
                                         </td>
+                                        <td class="td" style="font-size:13px; color:#555;"><div style="white-space:pre-line; line-height:1.6; word-break:keep-all;">{{ item.fee_summary|default:"-" }}</div></td>
                                         <td class="td">
                                             {% if item.order.retrieval_time %}
                                                 {{ item.order.retrieval_time|date:"Y-m-d" }}
@@ -849,9 +843,6 @@
                                             {% else %}
                                                 <span style="color: #6c757d;">-</span>
                                             {% endif %}
-                                        </td>
-                                        <td class="td">
-                                            <span class="status-badge review">待审核</span>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -885,8 +876,8 @@
                                 <tr>
                                     <th class="th">客户</th>
                                     <th class="th">货柜号</th>
-                                    <th class="th">实际提柜日期</th>
-                                    <th class="th">还空时间</th>
+                                    <th class="th" style="width:90px;">实际提柜日期</th>
+                                    <th class="th" style="width:90px;">还空时间</th>
                                     <th class="th">状态</th>
                                 </tr>
                                 <tr class="search-row">
@@ -894,18 +885,17 @@
                                     <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'completed-table')"></th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'completed-table')">
+                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 2, 'completed-table')">
                                             <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'completed-table')">清除</button>
                                         </div>
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 3, 'completed-table')">
+                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 3, 'completed-table')">
                                             <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'completed-table')">清除</button>
                                         </div>
                                     </th>
                                     <th class="th">
-                                        <!-- 已审核状态筛选下拉框 -->
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'completed-table')">
                                             <option value="">全部状态</option>
                                             <option value="财务未确认">财务未确认</option>
