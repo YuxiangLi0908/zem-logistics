@@ -4744,11 +4744,20 @@ class PostNsop(View):
             if not filename_base:
                 safe_fleet_number = sanitize_filename(fleet_number)
                 filename_base = f"{safe_fleet_number}+MULTI"
+            appointment_prefix = fleet.appointment_datetime.strftime("%m%d") if fleet.appointment_datetime else ""
+            if appointment_prefix:
+                filename_base = f"{appointment_prefix}+{filename_base}"
             content_disposition = f'attachment; filename="{filename_base}+BOL.pdf"'
         else:
-            content_disposition = (
-                f'attachment; filename="{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
-            )
+            appointment_prefix = fleet.appointment_datetime.strftime("%m%d") if fleet.appointment_datetime else ""
+            if appointment_prefix:
+                content_disposition = (
+                    f'attachment; filename="{appointment_prefix}+{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
+                )
+            else:
+                content_disposition = (
+                    f'attachment; filename="{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
+                )
 
         pisa_status = pisa.CreatePDF(html, dest=pdf_buffer, link_callback=link_callback)
         if pisa_status.err:
