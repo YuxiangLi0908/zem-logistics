@@ -53,6 +53,11 @@ class WarehouseDashView(View):
         is_shipment_batch_number = request.POST.get("is_shipment_batch_number", None)
         historical_inventory = self._get_historical_inventory(warehouse)
         next_week_inventory = self._get_next_week_inventory(warehouse)
+
+        next_week_inventory_map = {
+            item["destination"]: item["total_cbm"] or 0
+            for item in next_week_inventory
+        }
         inventory_metrics = self._calculate_historical_metrics(historical_inventory)
         for destination, metrics in inventory_metrics.items():
             metrics["detail"] = self._get_destination_container_detail(
@@ -60,7 +65,7 @@ class WarehouseDashView(View):
                 destination,
                 is_shipment_batch_number,
             )
-            metrics["next_week_cbm"] = next_week_inventory.get(destination, 0)
+            metrics["next_week_cbm"] = next_week_inventory_map.get(destination, 0)
 
 
         context = {
