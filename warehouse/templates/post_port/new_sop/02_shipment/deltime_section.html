@@ -1,0 +1,464 @@
+{% load custom_filters %}
+<style>
+    #deltimeTable thead tr:first-child th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+    }
+    #deltimeTable thead tr.search-row {
+        position: sticky;
+        top: 44px;
+        z-index: 3;
+        background-color: #f8f9fa;
+    }
+    #deltimeTable thead tr.search-row th {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .deltime-header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    #deltimeCnSearch {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        min-height: 30px;
+        resize: vertical;
+    }
+    .deltime-total-cbm {
+        font-size: 14px;
+        color: #2c3e50;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .deltime-total-cbm span {
+        color: #e74c3c;
+        font-size: 16px;
+    }
+</style>
+<div class="content-section" id="deltime-section">
+    <div class="search-box">
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center; flex-wrap: wrap;">
+            <div class="filter-notice">
+                <i class="fas fa-filter"></i>
+                筛选条件：<strong>{{ warehouse }}</strong> |
+                <strong>未排约</strong> |
+                <strong>公仓</strong>
+            </div>
+            <div class="deltime-total-cbm">
+                选中总CBM：<span id="deltimeSelectedCbms">0</span>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="action-btn btn-success" id="deltimeExportPoBtn" onclick="deltimeExportPo()">
+                <i class="fas fa-file-export"></i> 导出PO
+            </button>
+            <button class="action-btn btn-primary" id="deltimeConfirmTimeBtn" onclick="deltimeOpenConfirmModal()">
+                <i class="fas fa-clock"></i> 确认时间
+            </button>
+            <button class="action-btn btn-warning" id="deltimeNotifyCustomerBtn" onclick="deltimeNotifyCustomer()">
+                <i class="fas fa-bell"></i> 通知客户
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table" id="deltimeTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;"><input type="checkbox" id="deltimeSelectAll" onchange="deltimeToggleSelectAll(this)"></th>
+                    <th>柜号</th>
+                    <th>仓点</th>
+                    <th>FBA ID</th>
+                    <th>REF ID</th>
+                    <th>客户</th>
+                    <th>入仓时间</th>
+                    <th>派送时间</th>
+                    <th>CBM</th>
+                    <th>通知客户</th>
+                    <th>是否甩板</th>
+                    <th>操作</th>
+                </tr>
+                <tr class="search-row">
+                    <th></th>
+                    <th><textarea id="deltimeCnSearch" placeholder="柜号搜索(换行/空格分隔)" oninput="deltimeFilterTable()"></textarea></th>
+                    <th><input type="text" placeholder="搜索仓点..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="2"></th>
+                    <th><input type="text" placeholder="搜索FBA..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="3"></th>
+                    <th><input type="text" placeholder="搜索REF..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="4"></th>
+                    <th><input type="text" placeholder="搜索客户..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="5"></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if deltime_pos %}
+                    {% for item in deltime_pos %}
+                    <tr data-deltime-ds="{{ item.data_source }}"
+                        data-deltime-pl-ids="{{ item.ids|default:'' }}"
+                        data-deltime-plt-ids="{{ item.plt_ids|default:'' }}"
+                        data-deltime-cbm="{{ item.total_cbm|default:0 }}">
+                        <td style="text-align:center;"><input type="checkbox" class="deltime-row-checkbox"></td>
+                        <td>{{ item.cns|default:'-' }}</td>
+                        <td>{{ item.destination|default:'-' }}</td>
+                        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.fba_ids|default:'-' }}</td>
+                        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.ref_ids|default:'-' }}</td>
+                        <td>{{ item.customer_name|default:'-' }}</td>
+                        <td>{{ item.offload_time|default:'-' }}</td>
+                        <td>
+                            {% if item.formatted_delivery_est_start and item.formatted_delivery_est_end %}
+                                {{ item.formatted_delivery_est_start }} ~ {{ item.formatted_delivery_est_end }}{% if item.is_forecast %}<span style="color:#e67e22;font-size:11px;">（预报）</span>{% endif %}
+                            {% elif item.formatted_delivery_est_start %}
+                                {{ item.formatted_delivery_est_start }}{% if item.is_forecast %}<span style="color:#e67e22;font-size:11px;">（预报）</span>{% endif %}
+                            {% elif item.formatted_delivery_est_end %}
+                                {{ item.formatted_delivery_est_end }}{% if item.is_forecast %}<span style="color:#e67e22;font-size:11px;">（预报）</span>{% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ item.total_cbm|default:'-' }}</td>
+                        <td style="text-align:center;">
+                            {% if item.notify_cus_del_time %}
+                                <span style="color:#2ecc71;font-size:16px;"><i class="fas fa-check"></i></span>
+                            {% else %}
+                                <span style="color:#999;font-size:16px;"><i class="fas fa-times"></i></span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if item.is_dropped_pallet %}
+                                <span style="color:#e74c3c;font-size:16px;"><i class="fas fa-check"></i></span>
+                            {% else %}
+                                <span style="color:#999;font-size:16px;"><i class="fas fa-times"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="action-btn btn-primary" style="padding:2px 8px;font-size:12px;" onclick="deltimeOpenConfirmModalSingle(this)">
+                                <i class="fas fa-clock"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="12" style="text-align:center;color:#6c757d;padding:20px;">暂无数据</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 确认时间弹框 -->
+<div id="deltimeConfirmModal" class="modal">
+    <div class="modal-content" style="width:400px;max-width:90%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-clock"></i> 确认派送时间</h3>
+            <span class="close" onclick="deltimeCloseConfirmModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:5px;font-weight:600;">派送开始时间</label>
+                <input type="date" id="deltimeEstStart" style="width:100%;padding:8px;border:1px solid #ced4da;border-radius:6px;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:5px;font-weight:600;">派送截止时间</label>
+                <input type="date" id="deltimeEstEnd" style="width:100%;padding:8px;border:1px solid #ced4da;border-radius:6px;">
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-success" onclick="deltimeSubmitConfirmTime()">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+                <button class="modal-btn modal-btn-danger" onclick="deltimeCloseConfirmModal()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏表单 -->
+<form method="post" action="" id="deltimeActionForm" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" id="deltimeFormStep">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="st_type" value="{{ st_type }}">
+</form>
+
+<script>
+// 全选/取消全选（仅针对当前可见行）
+function deltimeToggleSelectAll(masterCb) {
+    document.querySelectorAll('#deltimeTable tbody tr[data-deltime-ds]').forEach(function(row) {
+        if (row.style.display !== 'none') {
+            var cb = row.querySelector('.deltime-row-checkbox');
+            if (cb) cb.checked = masterCb.checked;
+        }
+    });
+    deltimeUpdateSelectedCbm();
+}
+
+// 更新选中总CBM
+function deltimeUpdateSelectedCbm() {
+    var totalCbm = 0;
+    document.querySelectorAll('.deltime-row-checkbox:checked').forEach(function(cb) {
+        var row = cb.closest('tr');
+        var cbm = parseFloat(row.getAttribute('data-deltime-cbm')) || 0;
+        totalCbm += cbm;
+    });
+    document.getElementById('deltimeSelectedCbms').textContent = totalCbm.toFixed(3);
+}
+
+// 获取选中的行
+function deltimeGetSelectedRows() {
+    return document.querySelectorAll('.deltime-row-checkbox:checked');
+}
+
+// 柜号搜索（支持换行和空格分隔多个值）
+function deltimeFilterTable() {
+    var cnText = document.getElementById('deltimeCnSearch').value.trim();
+    var cnKeywords = [];
+    if (cnText) {
+        cnKeywords = cnText.split(/[\s\n]+/).filter(function(k) { return k; });
+    }
+    var searchInputs = document.querySelectorAll('.deltime-search-input');
+    var searchVals = {};
+    searchInputs.forEach(function(inp) {
+        var col = inp.getAttribute('data-col');
+        searchVals[col] = inp.value.trim().toLowerCase();
+    });
+
+    var rows = document.querySelectorAll('#deltimeTable tbody tr[data-deltime-ds]');
+    rows.forEach(function(row) {
+        var show = true;
+        // 柜号搜索
+        if (cnKeywords.length > 0) {
+            var cnCell = row.cells[1] ? row.cells[1].textContent.trim().toLowerCase() : '';
+            var match = cnKeywords.some(function(kw) { return cnCell.indexOf(kw.toLowerCase()) !== -1; });
+            if (!match) show = false;
+        }
+        // 其他列搜索
+        if (show) {
+            for (var col in searchVals) {
+                if (searchVals[col]) {
+                    var cellText = row.cells[parseInt(col)] ? row.cells[parseInt(col)].textContent.trim().toLowerCase() : '';
+                    if (cellText.indexOf(searchVals[col]) === -1) {
+                        show = false;
+                        break;
+                    }
+                }
+            }
+        }
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// 导出PO
+function deltimeExportPo() {
+    var selected = deltimeGetSelectedRows();
+    if (selected.length === 0) {
+        alert('请先勾选需要导出的行');
+        return;
+    }
+    if (!confirm('确认导出 ' + selected.length + ' 条记录的PO？')) return;
+
+    var form = document.getElementById('deltimeActionForm');
+    // 清除旧的隐藏字段
+    form.querySelectorAll('input[name="deltime_data_source"],input[name="deltime_pl_ids"],input[name="deltime_plt_ids"]').forEach(function(el) { el.remove(); });
+    document.getElementById('deltimeFormStep').value = 'deltime_export_po';
+
+    selected.forEach(function(cb) {
+        var row = cb.closest('tr');
+        var ds = row.getAttribute('data-deltime-ds');
+        var plIds = row.getAttribute('data-deltime-pl-ids') || '';
+        var pltIds = row.getAttribute('data-deltime-plt-ids') || '';
+
+        var dsInput = document.createElement('input');
+        dsInput.type = 'hidden'; dsInput.name = 'deltime_data_source'; dsInput.value = ds;
+        form.appendChild(dsInput);
+
+        var plInput = document.createElement('input');
+        plInput.type = 'hidden'; plInput.name = 'deltime_pl_ids'; plInput.value = plIds;
+        form.appendChild(plInput);
+
+        var pltInput = document.createElement('input');
+        pltInput.type = 'hidden'; pltInput.name = 'deltime_plt_ids'; pltInput.value = pltIds;
+        form.appendChild(pltInput);
+    });
+
+    // 使用AJAX提交以处理文件下载
+    var formData = new FormData(form);
+    fetch(form.action || window.location.href, {
+        method: 'POST',
+        body: formData,
+    }).then(function(response) {
+        var contentType = response.headers.get('Content-Type') || '';
+        if (contentType.includes('application/json')) {
+            return response.json().then(function(data) {
+                if (data.warning) {
+                    showMessageModal(data.warning, 'warning');
+                }
+                if (data.file_data) {
+                    var byteChars = atob(data.file_data);
+                    var byteNumbers = new Array(byteChars.length);
+                    for (var i = 0; i < byteChars.length; i++) {
+                        byteNumbers[i] = byteChars.charCodeAt(i);
+                    }
+                    var byteArray = new Uint8Array(byteNumbers);
+                    var blob = new Blob([byteArray], {type: data.content_type});
+                    var url = window.URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                }
+            });
+        } else {
+            // 直接下载文件
+            response.blob().then(function(blob) {
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g,'') || 'export.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            });
+        }
+    }).catch(function(err) {
+        alert('导出失败: ' + err.message);
+    });
+}
+
+// 通知客户
+function deltimeNotifyCustomer() {
+    var selected = deltimeGetSelectedRows();
+    if (selected.length === 0) {
+        alert('请先勾选需要通知客户的行');
+        return;
+    }
+    if (!confirm('确认通知 ' + selected.length + ' 条记录的客户？')) return;
+
+    var form = document.getElementById('deltimeActionForm');
+    form.querySelectorAll('input[name="deltime_data_source"],input[name="deltime_pl_ids"],input[name="deltime_plt_ids"]').forEach(function(el) { el.remove(); });
+    document.getElementById('deltimeFormStep').value = 'deltime_notify_customer';
+
+    selected.forEach(function(cb) {
+        var row = cb.closest('tr');
+        var ds = row.getAttribute('data-deltime-ds');
+        var plIds = row.getAttribute('data-deltime-pl-ids') || '';
+        var pltIds = row.getAttribute('data-deltime-plt-ids') || '';
+
+        var dsInput = document.createElement('input');
+        dsInput.type = 'hidden'; dsInput.name = 'deltime_data_source'; dsInput.value = ds;
+        form.appendChild(dsInput);
+
+        var plInput = document.createElement('input');
+        plInput.type = 'hidden'; plInput.name = 'deltime_pl_ids'; plInput.value = plIds;
+        form.appendChild(plInput);
+
+        var pltInput = document.createElement('input');
+        pltInput.type = 'hidden'; pltInput.name = 'deltime_plt_ids'; pltInput.value = pltIds;
+        form.appendChild(pltInput);
+    });
+
+    form.submit();
+}
+
+// 打开确认时间弹框
+function deltimeOpenConfirmModal() {
+    var selected = deltimeGetSelectedRows();
+    if (selected.length === 0) {
+        alert('请先勾选需要确认时间的行');
+        return;
+    }
+    document.getElementById('deltimeConfirmModal').style.display = 'block';
+}
+
+// 单行确认时间
+function deltimeOpenConfirmModalSingle(btn) {
+    var row = btn.closest('tr');
+    var cb = row.querySelector('.deltime-row-checkbox');
+    // 取消其他选中，只选中当前行
+    document.querySelectorAll('.deltime-row-checkbox').forEach(function(c) { c.checked = false; });
+    cb.checked = true;
+    document.getElementById('deltimeConfirmModal').style.display = 'block';
+}
+
+// 关闭确认时间弹框
+function deltimeCloseConfirmModal() {
+    document.getElementById('deltimeConfirmModal').style.display = 'none';
+}
+
+// 提交确认时间
+function deltimeSubmitConfirmTime() {
+    var estStart = document.getElementById('deltimeEstStart').value;
+    var estEnd = document.getElementById('deltimeEstEnd').value;
+    if (!estStart || !estEnd) {
+        alert('请填写派送开始和截止时间');
+        return;
+    }
+
+    var selected = deltimeGetSelectedRows();
+    if (selected.length === 0) {
+        alert('请先勾选需要确认时间的行');
+        return;
+    }
+
+    var form = document.getElementById('deltimeActionForm');
+    form.querySelectorAll('input[name="deltime_data_source"],input[name="deltime_pl_ids"],input[name="deltime_plt_ids"],input[name="delivery_est_start"],input[name="delivery_est_end"]').forEach(function(el) { el.remove(); });
+    document.getElementById('deltimeFormStep').value = 'deltime_confirm_time';
+
+    // 添加时间字段
+    var startInput = document.createElement('input');
+    startInput.type = 'hidden'; startInput.name = 'delivery_est_start'; startInput.value = estStart;
+    form.appendChild(startInput);
+
+    var endInput = document.createElement('input');
+    endInput.type = 'hidden'; endInput.name = 'delivery_est_end'; endInput.value = estEnd;
+    form.appendChild(endInput);
+
+    selected.forEach(function(cb) {
+        var row = cb.closest('tr');
+        var ds = row.getAttribute('data-deltime-ds');
+        var plIds = row.getAttribute('data-deltime-pl-ids') || '';
+        var pltIds = row.getAttribute('data-deltime-plt-ids') || '';
+
+        var dsInput = document.createElement('input');
+        dsInput.type = 'hidden'; dsInput.name = 'deltime_data_source'; dsInput.value = ds;
+        form.appendChild(dsInput);
+
+        var plInput = document.createElement('input');
+        plInput.type = 'hidden'; plInput.name = 'deltime_pl_ids'; plInput.value = plIds;
+        form.appendChild(plInput);
+
+        var pltInput = document.createElement('input');
+        pltInput.type = 'hidden'; pltInput.name = 'deltime_plt_ids'; pltInput.value = pltIds;
+        form.appendChild(pltInput);
+    });
+
+    deltimeCloseConfirmModal();
+    form.submit();
+}
+
+// 点击弹框外部关闭
+document.getElementById('deltimeConfirmModal').addEventListener('click', function(e) {
+    if (e.target === this) deltimeCloseConfirmModal();
+});
+
+// 单个checkbox变化时更新选中总CBM
+document.querySelectorAll('.deltime-row-checkbox').forEach(function(cb) {
+    cb.addEventListener('change', deltimeUpdateSelectedCbm);
+});
+</script>
