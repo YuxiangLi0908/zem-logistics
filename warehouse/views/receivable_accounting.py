@@ -275,6 +275,9 @@ class ReceivableAccounting(View):
         elif step == "preport_save":
             context = self.handle_invoice_preport_save(request)
             return render(request, self.template_preport_entry, context)
+        elif step == "batch_preport_review":
+            context = self.handle_batch_preport_review(request)
+            return render(request, self.template_preport_entry, context)
         elif step == "payout_save":
             context = self.handle_payout_save(request)
             return render(request, self.template_payout_entry, context)
@@ -5006,6 +5009,21 @@ class ReceivableAccounting(View):
             "default_tab": default_tab, 
             "is_leader": is_leader,
         })
+        return context
+
+    def handle_batch_preport_review(self, request: HttpRequest) -> Dict[str, Any]:
+        """批量审核待审核的港前账单"""
+        invoice_ids = request.POST.getlist("invoice_ids")
+        reviewed_count = 0
+        if invoice_ids:
+            updated = InvoiceStatusv2.objects.filter(
+                invoice_id__in=invoice_ids,
+                invoice_type="receivable",
+                preport_status="pending_review"
+            ).update(preport_status="completed")
+            reviewed_count = updated
+        context = self.handle_preport_entry_post(request)
+        context['success_messages'] = f'{reviewed_count} 条账单已审核成功'
         return context
 
     def old_handle_warehouse_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:

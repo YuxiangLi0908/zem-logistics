@@ -784,30 +784,39 @@
                         <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
                             {{ preport_pending_review_orders|length }}
                         </span>
+                        <form method="post" action="" id="batchReviewForm" style="display:inline; margin-left:10px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="batch_preport_review">
+                            <button type="button" onclick="submitBatchReview()" style="padding: 4px 16px; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-check-double"></i> 批量审核
+                            </button>
+                        </form>
                     </div>
                     <div class="table-container">
                         <table class="table" id="pending-review-table">
                             <thead>
                                 <tr>
-                                    <th class="th">客户</th>
-                                    <th class="th">货柜号</th>
+                                    <th class="th" style="width:40px;"><input type="checkbox" id="selectAllReview" onchange="toggleSelectAll(this)"></th>
+                                    <th class="th" style="width:10%;">客户</th>
+                                    <th class="th" style="width:18%;">货柜号</th>
                                     <th class="th" style="width:130px;">费用明细</th>
                                     <th class="th" style="width:90px;">实际提柜日期</th>
                                     <th class="th" style="width:90px;">还空时间</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'pending-review-table')"></th>
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'pending-review-table')"></th>
                                     <th class="th"></th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 3, 'pending-review-table')">
+                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 4, 'pending-review-table')">
                                             <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'pending-review-table')">清除</button>
                                         </div>
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 4, 'pending-review-table')">
+                                            <input type="date" class="date-search-input" style="width:90px;" onchange="filterTableByDate(this, 5, 'pending-review-table')">
                                             <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'pending-review-table')">清除</button>
                                         </div>
                                     </th>
@@ -819,6 +828,7 @@
                                     <tr data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-retrieval="{% if item.order.retrieval_time %}{{ item.order.retrieval_time|date:'Y-m-d' }}{% endif %}" 
                                         data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
+                                        <td class="td" style="text-align:center;"><input type="checkbox" class="review-checkbox" value="{{ item.invoice_id }}"></td>
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if not item.is_master_bill %}
@@ -848,7 +858,7 @@
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
+                                        <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
                                             {% if not is_leader %}
                                                 没有审核权限
                                             {% else %}
@@ -971,6 +981,37 @@
 {% include 'receivable_accounting/modals/message_modal.html' %}
 
 <script>
+    // 全选/取消全选
+    function toggleSelectAll(masterCheckbox) {
+        document.querySelectorAll('.review-checkbox').forEach(function(cb) {
+            cb.checked = masterCheckbox.checked;
+        });
+    }
+
+    // 批量审核提交
+    function submitBatchReview() {
+        var selected = document.querySelectorAll('.review-checkbox:checked');
+        if (selected.length === 0) {
+            alert('请先勾选需要审核的订单');
+            return;
+        }
+        if (!confirm('确认批量审核 ' + selected.length + ' 条订单？')) {
+            return;
+        }
+        var form = document.getElementById('batchReviewForm');
+        // 移除之前可能残留的隐藏字段
+        form.querySelectorAll('input[name="invoice_ids"]').forEach(function(el) { el.remove(); });
+        // 添加选中的 invoice_id
+        selected.forEach(function(cb) {
+            var hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'invoice_ids';
+            hidden.value = cb.value;
+            form.appendChild(hidden);
+        });
+        form.submit();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // 从后端获取默认打开的标签页
         const defaultTab = "{{ default_tab|default:'entry' }}";
