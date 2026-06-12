@@ -1599,7 +1599,7 @@ class OrderCreation(View):
             po_id_seg: str = ""
             po_id_hkey: str = ""
             if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
-                po_id_hkey = f"{container_number}-{dm}-{dest}"
+                po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                 po_id_seg = (
                     f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                 )
