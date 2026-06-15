@@ -11,11 +11,11 @@
         z-index: 3;
         background-color: #f8f9fa;
     }
-    #deltimeTable thead tr.search-row th {
+    .search-row td {
         padding: 5px !important;
         border-bottom: 1px solid #dee2e6;
     }
-    .deltime-header-search {
+    .header-search {
         width: 100%;
         padding: 4px 8px;
         border: 1px solid #ced4da;
@@ -86,18 +86,18 @@
                     <th>操作</th>
                 </tr>
                 <tr class="search-row">
-                    <th></th>
-                    <th><textarea id="deltimeCnSearch" placeholder="柜号搜索(换行/空格分隔)" oninput="deltimeFilterTable()"></textarea></th>
-                    <th><input type="text" placeholder="搜索仓点..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="2"></th>
-                    <th><input type="text" placeholder="搜索FBA..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="3"></th>
-                    <th><input type="text" placeholder="搜索REF..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="4"></th>
-                    <th><input type="text" placeholder="搜索客户..." oninput="deltimeFilterTable()" class="deltime-header-search deltime-search-input" data-col="5"></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
+                    <td></td>
+                    <td><textarea id="deltimeCnSearch" placeholder="柜号搜索(换行/空格分隔)" oninput="deltimeFilterTable()"></textarea></td>
+                    <td><input type="text" placeholder="搜索仓点" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="2"></td>
+                    <td><input type="text" placeholder="搜索FBA" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="3"></td>
+                    <td><input type="text" placeholder="搜索REF" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="4"></td>
+                    <td><input type="text" placeholder="搜索客户" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="5"></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                 </tr>
             </thead>
             <tbody>
@@ -231,7 +231,7 @@ function deltimeFilterTable() {
     var searchInputs = document.querySelectorAll('.deltime-search-input');
     var searchVals = {};
     searchInputs.forEach(function(inp) {
-        var col = inp.getAttribute('data-col');
+        var col = inp.getAttribute('data-column');
         searchVals[col] = inp.value.trim().toLowerCase();
     });
 
