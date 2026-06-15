@@ -10107,6 +10107,7 @@ class PostNsop(View):
                 "is_forecast": is_forecast,
                 "notify_cus_del_time": bool(item.get("notify_cus_del_time")),
                 "total_cbm": item.get("total_cbm", "-"),
+                "total_n_pallet_act": item.get("total_n_pallet_act", 0),
                 "is_dropped_pallet": item.get("is_dropped_pallet", False),
             })
         return deltime_pos

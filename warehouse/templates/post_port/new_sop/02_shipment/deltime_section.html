@@ -54,6 +54,9 @@
             <div class="deltime-total-cbm">
                 选中总CBM：<span id="deltimeSelectedCbms">0</span>
             </div>
+            <div class="deltime-total-cbm">
+                选中总板数：<span id="deltimeSelectedPallets">0</span>
+            </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
             <button class="action-btn btn-success" id="deltimeExportPoBtn" onclick="deltimeExportPo()">
@@ -81,6 +84,7 @@
                     <th>入仓时间</th>
                     <th>派送时间</th>
                     <th>CBM</th>
+                    <th>板数</th>
                     <th>通知客户</th>
                     <th>是否甩板</th>
                     <th>操作</th>
@@ -98,6 +102,7 @@
                     <td></td>
                     <td></td>
                     <td></td>
+                    <td></td>
                 </tr>
             </thead>
             <tbody>
@@ -106,7 +111,8 @@
                     <tr data-deltime-ds="{{ item.data_source }}"
                         data-deltime-pl-ids="{{ item.ids|default:'' }}"
                         data-deltime-plt-ids="{{ item.plt_ids|default:'' }}"
-                        data-deltime-cbm="{{ item.total_cbm|default:0 }}">
+                        data-deltime-cbm="{{ item.total_cbm|default:0 }}"
+                        data-deltime-pallet="{{ item.total_n_pallet_act|default:0 }}">
                         <td style="text-align:center;"><input type="checkbox" class="deltime-row-checkbox"></td>
                         <td>{{ item.cns|default:'-' }}</td>
                         <td>{{ item.destination|default:'-' }}</td>
@@ -126,6 +132,7 @@
                             {% endif %}
                         </td>
                         <td>{{ item.total_cbm|default:'-' }}</td>
+                        <td>{{ item.total_n_pallet_act|default:'-' }}</td>
                         <td style="text-align:center;">
                             {% if item.notify_cus_del_time %}
                                 <span style="color:#2ecc71;font-size:16px;"><i class="fas fa-check"></i></span>
@@ -149,7 +156,7 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="12" style="text-align:center;color:#6c757d;padding:20px;">暂无数据</td>
+                        <td colspan="13" style="text-align:center;color:#6c757d;padding:20px;">暂无数据</td>
                     </tr>
                 {% endif %}
             </tbody>
@@ -205,15 +212,19 @@ function deltimeToggleSelectAll(masterCb) {
     deltimeUpdateSelectedCbm();
 }
 
-// 更新选中总CBM
+// 更新选中总CBM和总板数
 function deltimeUpdateSelectedCbm() {
     var totalCbm = 0;
+    var totalPallet = 0;
     document.querySelectorAll('.deltime-row-checkbox:checked').forEach(function(cb) {
         var row = cb.closest('tr');
         var cbm = parseFloat(row.getAttribute('data-deltime-cbm')) || 0;
+        var pallet = parseFloat(row.getAttribute('data-deltime-pallet')) || 0;
         totalCbm += cbm;
+        totalPallet += pallet;
     });
     document.getElementById('deltimeSelectedCbms').textContent = totalCbm.toFixed(3);
+    document.getElementById('deltimeSelectedPallets').textContent = totalPallet.toFixed(2);
 }
 
 // 获取选中的行
