@@ -784,9 +784,17 @@
                                         <strong class="text-muted d-block">
                                             <input type="number" id="overregion_pickup_cbm" name="overregion_pickup_non_combina_cbm" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.non_combina_cbm }}"> CBM</strong>
                                     </div>
+                                    <div class="flex-grow-1 p-3 border rounded text-center">
+                                        <small class="text-muted d-block mb-1">组合柜总体积</small>
+                                        <strong class="text-muted d-block">{{ display_data.extra_fees.overregion.pickup.cbm_combina_total }} CBM</strong>
+                                    </div>
+                                    <div class="flex-grow-1 p-3 border rounded text-center">
+                                        <small class="text-muted d-block mb-1">预报总体积</small>
+                                        <strong class="text-muted d-block">{{ display_data.extra_fees.overregion.pickup.packinglist_total_cbm }}</strong>
+                                    </div>
                                     
                                     <div class="flex-grow-1 p-3 border rounded bg-light text-center" id="total-cbm-container">
-                                        <small class="text-muted d-block mb-1">总体积</small>
+                                        <small class="text-muted d-block mb-1">预报的总体积</small>
                                         <strong class="text-muted d-block">{{ display_data.extra_fees.overregion.pickup.total_cbm }} CBM</strong>
                                     </div>
                                     <div class="flex-grow-1 p-3 border rounded bg-light text-center">
