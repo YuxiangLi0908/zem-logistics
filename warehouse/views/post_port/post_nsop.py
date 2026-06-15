@@ -10320,7 +10320,7 @@ class PostNsop(View):
         ws = wb.active
         ws.title = "派送时间汇总"
 
-        headers = ["客户", "柜号", "派送方式", "仓点", "建议时间段"]
+        headers = ["客户", "柜号", "仓点", "建议时间段", "派送方式"]
         header_font = Font(bold=True)
         thin_border = Border(
             left=Side(style='thin'),
@@ -10352,9 +10352,9 @@ class PostNsop(View):
             row_data = [
                 data.get("customer_name", ""),
                 data.get("container_number", ""),
-                data.get("delivery_method", ""),
                 data.get("destination", ""),
                 time_range,
+                data.get("delivery_method", ""),
             ]
             for col, val in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=val)
