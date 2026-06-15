@@ -546,6 +546,9 @@
             <div class="tab active" data-tab="unscheduled">
                 未排约 <span class="badge">{{ summary.unscheduled_sp_count }}</span>
             </div>
+            <div class="tab" data-tab="deltime">
+                派送时间 <span class="badge">{{ deltime_pos|length }}</span>
+            </div>
             <div class="tab" data-tab="scheduled">
                 已排约 <span class="badge">{{ summary.scheduled_sp_count }}</span>
             </div>
@@ -562,6 +565,7 @@
 
         <!-- 包含三个标签页 -->
         {% include 'post_port/new_sop/02_shipment/unscheduled_section.html' %}
+        {% include 'post_port/new_sop/02_shipment/deltime_section.html' %}
         {% include 'post_port/new_sop/02_shipment/scheduled_section.html' %}
         {% include 'post_port/new_sop/02_shipment/unscheduled_fleet.html' %}
         {% include 'post_port/new_sop/02_shipment/scheduledFleet_section.html' %}

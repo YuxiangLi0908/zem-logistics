@@ -414,6 +414,14 @@ class PostNsop(View):
         elif step == "td_shipment_warehouse":
             template, context = await self.handle_td_shipment_post(request)
             return render(request, template, context)
+        elif step == "deltime_confirm_time":
+            template, context = await self.handle_deltime_confirm_time(request)
+            return render(request, template, context)
+        elif step == "deltime_notify_customer":
+            template, context = await self.handle_deltime_notify_customer(request)
+            return render(request, template, context)
+        elif step == "deltime_export_po":
+            return await self.handle_deltime_export_po(request)
         elif step == "td_unshipment_warehouse":
             template, context = await self.handle_td_unshipment_post(request)
             return render(request, template, context)
@@ -8398,7 +8406,7 @@ class PostNsop(View):
             item["check_id"] = check_map.get(item["id"])  # 如果没有对应记录就返回 None
             data.append(item)
         all_data += data
-        if len(all_data) == 1:
+        if len(all_data) == 0:
             raise ValueError('没有找到任何数据！')
         keep = [
             "shipping_mark",
@@ -9927,8 +9935,10 @@ class PostNsop(View):
             )
             matching_suggestions = sp_result.get("matching_suggestions", [])
             destination_list = sp_result.get("destination_list", [])
+            unshipment_pos = sp_result.get("unshipment_pos", [])
         else:
             destination_list = []
+            unshipment_pos = []
         # 已排约
         # 先检查下有没有异常的绑定约情况
         await self._checkAbnormalBindings(warehouse, 'public', request.user)
@@ -9942,6 +9952,8 @@ class PostNsop(View):
         schedule_fleet_data = fleets['fleet_list']
         # 外配的约
         external_distribution_data = await self.sp_external_distribution_data(warehouse, request.user)
+        # 派送时间标签页数据（复用unshipment_pos，避免重复查询）
+        deltime_pos = self._build_deltime_pos(unshipment_pos)
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
 
@@ -9964,6 +9976,7 @@ class PostNsop(View):
             'unschedule_fleet': unschedule_fleet_data,
             'fleet_list': schedule_fleet_data,  # 已排车
             'external_distribution_data': external_distribution_data,  # 外配的约
+            'deltime_pos': deltime_pos,  # 派送时间标签页数据
             'unscheduled_fl_count': len(unschedule_fleet_data),
             'available_shipments': available_shipments,
             'summary': summary,
@@ -10048,7 +10061,157 @@ class PostNsop(View):
         return {
             "matching_suggestions": matching_suggestions,
             "destination_list": destination_list,
+            "unshipment_pos": unshipment_pos,
         }
+
+    def _build_deltime_pos(self, unshipment_pos: list) -> list:
+        """从unshipment_pos构建派送时间标签页数据，优先用delivery_est，无值则回退到delivery_window加（预报）"""
+        deltime_pos = []
+        for item in unshipment_pos:
+            est_start = item.get("delivery_est_start_str", "")
+            est_end = item.get("delivery_est_end_str", "")
+            window_start = item.get("delivery_window_start_str", "")
+            window_end = item.get("delivery_window_end_str", "")
+            # 过滤空字符串
+            formatted_start = est_start if est_start and est_start.strip() else None
+            formatted_end = est_end if est_end and est_end.strip() else None
+            window_start_val = window_start if window_start and window_start.strip() else None
+            window_end_val = window_end if window_end and window_end.strip() else None
+
+            # 回退逻辑：est有值用est，否则用window加（预报）
+            if formatted_start or formatted_end:
+                display_start = formatted_start
+                display_end = formatted_end
+                is_forecast = False
+            elif window_start_val or window_end_val:
+                display_start = window_start_val
+                display_end = window_end_val
+                is_forecast = True
+            else:
+                display_start = None
+                display_end = None
+                is_forecast = False
+
+            deltime_pos.append({
+                "data_source": item.get("data_source", ""),
+                "ids": item.get("ids", ""),
+                "plt_ids": item.get("plt_ids", ""),
+                "cns": item.get("cns", "-"),
+                "destination": item.get("destination", "-"),
+                "fba_ids": item.get("fba_ids", "-"),
+                "ref_ids": item.get("ref_ids", "-"),
+                "customer_name": item.get("customer_name", "-"),
+                "offload_time": item.get("offload_time", "-"),
+                "formatted_delivery_est_start": display_start,
+                "formatted_delivery_est_end": display_end,
+                "is_forecast": is_forecast,
+                "notify_cus_del_time": bool(item.get("notify_cus_del_time")),
+                "total_cbm": item.get("total_cbm", "-"),
+                "total_n_pallet_act": item.get("total_n_pallet_act", 0),
+                "is_dropped_pallet": item.get("is_dropped_pallet", False),
+            })
+        return deltime_pos
+
+    async def handle_deltime_confirm_time(self, request: HttpRequest) -> tuple[str, dict]:
+        """派送时间标签页 - 确认时间"""
+        data_sources = request.POST.getlist("deltime_data_source")
+        pl_ids_str = request.POST.getlist("deltime_pl_ids")
+        plt_ids_str = request.POST.getlist("deltime_plt_ids")
+        est_start = request.POST.get("delivery_est_start")
+        est_end = request.POST.get("delivery_est_end")
+
+        if not est_start or not est_end:
+            context = await self._deltime_context_with_error(request, "请填写派送开始和截止时间")
+            return self.template_td_shipment, context
+
+        updated = 0
+        for i, ds in enumerate(data_sources):
+            if ds == "PACKINGLIST" and i < len(pl_ids_str):
+                ids = [x.strip() for x in pl_ids_str[i].split(",") if x.strip().isdigit()]
+                if ids:
+                    cnt = await sync_to_async(
+                        lambda: PackingList.objects.filter(id__in=[int(x) for x in ids]).update(
+                            delivery_est_start=est_start, delivery_est_end=est_end
+                        )
+                    )()
+                    updated += cnt
+            elif ds == "PALLET" and i < len(plt_ids_str):
+                ids = [x.strip() for x in plt_ids_str[i].split(",") if x.strip().isdigit()]
+                if ids:
+                    cnt = await sync_to_async(
+                        lambda: Pallet.objects.filter(id__in=[int(x) for x in ids]).update(
+                            delivery_est_start=est_start, delivery_est_end=est_end
+                        )
+                    )()
+                    updated += cnt
+
+        context = await self.handle_td_shipment_post(request)
+        context = context[1] if isinstance(context, tuple) else context
+        context['success_messages'] = f'已更新 {updated} 条记录的派送时间'
+        return self.template_td_shipment, context
+
+    async def handle_deltime_notify_customer(self, request: HttpRequest) -> tuple[str, dict]:
+        """派送时间标签页 - 通知客户"""
+        data_sources = request.POST.getlist("deltime_data_source")
+        pl_ids_str = request.POST.getlist("deltime_pl_ids")
+        plt_ids_str = request.POST.getlist("deltime_plt_ids")
+
+        updated = 0
+        for i, ds in enumerate(data_sources):
+            if ds == "PACKINGLIST" and i < len(pl_ids_str):
+                ids = [x.strip() for x in pl_ids_str[i].split(",") if x.strip().isdigit()]
+                if ids:
+                    cnt = await sync_to_async(
+                        lambda: PackingList.objects.filter(id__in=[int(x) for x in ids]).update(
+                            notify_cus_del_time=True
+                        )
+                    )()
+                    updated += cnt
+            elif ds == "PALLET" and i < len(plt_ids_str):
+                ids = [x.strip() for x in plt_ids_str[i].split(",") if x.strip().isdigit()]
+                if ids:
+                    cnt = await sync_to_async(
+                        lambda: Pallet.objects.filter(id__in=[int(x) for x in ids]).update(
+                            notify_cus_del_time=True
+                        )
+                    )()
+                    updated += cnt
+
+        context = await self.handle_td_shipment_post(request)
+        context = context[1] if isinstance(context, tuple) else context
+        context['success_messages'] = f'已通知 {updated} 条记录的客户'
+        return self.template_td_shipment, context
+
+    async def handle_deltime_export_po(self, request: HttpRequest) -> HttpResponse:
+        """派送时间标签页 - 导出PO"""
+        data_sources = request.POST.getlist("deltime_data_source")
+        pl_ids_str = request.POST.getlist("deltime_pl_ids")
+        plt_ids_str = request.POST.getlist("deltime_plt_ids")
+
+        pl_ids = []
+        plt_ids = []
+        for i, ds in enumerate(data_sources):
+            if ds == "PACKINGLIST" and i < len(pl_ids_str):
+                for x in pl_ids_str[i].split(","):
+                    x = x.strip()
+                    if x.isdigit():
+                        pl_ids.append(int(x))
+            elif ds == "PALLET" and i < len(plt_ids_str):
+                for x in plt_ids_str[i].split(","):
+                    x = x.strip()
+                    if x.isdigit():
+                        plt_ids.append(int(x))
+
+        if not pl_ids and not plt_ids:
+            raise ValueError('没有获取到id')
+        return await self._execute_export_logic(pl_ids, plt_ids)
+
+    async def _deltime_context_with_error(self, request, error_msg):
+        """派送时间标签页 - 返回带错误信息的context"""
+        context = await self.handle_td_shipment_post(request)
+        context = context[1] if isinstance(context, tuple) else context
+        context['error_messages'] = error_msg
+        return context
 
     async def _get_available_shipments(self, warehouse: str):
         """获取可用的shipment记录"""
@@ -15259,6 +15422,18 @@ class PostNsop(View):
                         function='to_char',
                         output_field=CharField()
                     ),
+                    formatted_delivery_est_start=Func(
+                        F('delivery_est_start'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
+                    formatted_delivery_est_end=Func(
+                        F('delivery_est_end'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
+                    formatted_delivery_window_start=Func(
+                        F('delivery_window_start'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
+                    formatted_delivery_window_end=Func(
+                        F('delivery_window_end'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
                     is_zhunshida=Case(
                         When(container_number__orders__customer_name__zem_name__icontains='准时达', then=Value(True)),
                         default=Value(False),
@@ -15330,6 +15505,19 @@ class PostNsop(View):
                     offload_time=StringAgg(
                         "formatted_offload_at", delimiter="\n", distinct=True, ordering="formatted_offload_at"
                     ),
+                    delivery_est_start_str=StringAgg(
+                        "formatted_delivery_est_start", delimiter=",", distinct=True, ordering="formatted_delivery_est_start"
+                    ),
+                    delivery_est_end_str=StringAgg(
+                        "formatted_delivery_est_end", delimiter=",", distinct=True, ordering="formatted_delivery_est_end"
+                    ),
+                    delivery_window_start_str=StringAgg(
+                        "formatted_delivery_window_start", delimiter=",", distinct=True, ordering="formatted_delivery_window_start"
+                    ),
+                    delivery_window_end_str=StringAgg(
+                        "formatted_delivery_window_end", delimiter=",", distinct=True, ordering="formatted_delivery_window_end"
+                    ),
+                    notify_cus_del_time=Max(Cast("notify_cus_del_time", IntegerField())),
                     total_pcs=Sum("pcs", output_field=IntegerField()),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
                     total_weight_lbs=Round(Sum("weight_lbs", output_field=FloatField()), 3),
@@ -15411,6 +15599,18 @@ class PostNsop(View):
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
+                    ),
+                    formatted_delivery_est_start=Func(
+                        F('delivery_est_start'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
+                    formatted_delivery_est_end=Func(
+                        F('delivery_est_end'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
+                    formatted_delivery_window_start=Func(
+                        F('delivery_window_start'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
+                    ),
+                    formatted_delivery_window_end=Func(
+                        F('delivery_window_end'), Value('YYYY-MM-DD'), function='to_char', output_field=CharField()
                     ),
 
                     # 格式化实际提柜时间为月日
@@ -15637,6 +15837,19 @@ class PostNsop(View):
                         default=Value("无预计提柜"),
                         output_field=CharField()
                     ),
+                    delivery_est_start_str=StringAgg(
+                        "formatted_delivery_est_start", delimiter=",", distinct=True, ordering="formatted_delivery_est_start"
+                    ),
+                    delivery_est_end_str=StringAgg(
+                        "formatted_delivery_est_end", delimiter=",", distinct=True, ordering="formatted_delivery_est_end"
+                    ),
+                    delivery_window_start_str=StringAgg(
+                        "formatted_delivery_window_start", delimiter=",", distinct=True, ordering="formatted_delivery_window_start"
+                    ),
+                    delivery_window_end_str=StringAgg(
+                        "formatted_delivery_window_end", delimiter=",", distinct=True, ordering="formatted_delivery_window_end"
+                    ),
+                    notify_cus_del_time=Max(Cast("notify_cus_del_time", IntegerField())),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
                     total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()), 3),
