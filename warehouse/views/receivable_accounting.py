@@ -11636,6 +11636,8 @@ class ReceivableAccounting(View):
                 "overregion": {
                     "pickup": {
                         "non_combina_cbm": non_combina_cbm,
+                        "cbm_combina_total": cbm_combina_total,
+                        "packinglist_total_cbm": packinglist_total_cbm,
                         "total_cbm": plts["total_cbm"],
                         "ratio": non_combina_cbm_ratio * 100,
                         "base_fee": pickup_fee,
