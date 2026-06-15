@@ -8853,7 +8853,6 @@ class ReceivableAccounting(View):
         for group in pallet_groups:
             po_id = group.get("PO_ID", "")
             destination_str = group.get("destination", "")
-            poid_list.append(po_id)
 
             #改前和改后的
             destination_origin, destination = self._process_destination(destination_str)
@@ -8889,12 +8888,14 @@ class ReceivableAccounting(View):
                     # 该目的地已在组合柜名单里，直接加入
                     combina_pallet_groups.append(group)
                     processed_po_ids.add(po_id)
+                    poid_list.append(po_id)
                 elif combina_dest_count < combina_threshold:
                     # 这是一个新仓点，且组合柜名额还没满
                     combina_dest_count += 1
                     occupied_combina_dests.add(dest_fixed)
                     combina_pallet_groups.append(group)
                     processed_po_ids.add(po_id)
+                    poid_list.append(po_id)
                 else:
                     # 这是一个新仓点，但名额已满，强制转为非组合柜
                     is_combina_region = False
