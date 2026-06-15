@@ -422,6 +422,8 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "deltime_export_po":
             return await self.handle_deltime_export_po(request)
+        elif step == "deltime_export_table":
+            return await self.handle_deltime_export_table(request)
         elif step == "td_unshipment_warehouse":
             template, context = await self.handle_td_unshipment_post(request)
             return render(request, template, context)
@@ -10205,6 +10207,181 @@ class PostNsop(View):
         if not pl_ids and not plt_ids:
             raise ValueError('没有获取到id')
         return await self._execute_export_logic(pl_ids, plt_ids)
+
+    async def handle_deltime_export_table(self, request: HttpRequest) -> HttpResponse:
+        """派送时间标签页 - 导出表格（按PO_ID汇总，含客户、柜号、派送方式、仓点、建议时间段）"""
+        data_sources = request.POST.getlist("deltime_data_source")
+        pl_ids_str = request.POST.getlist("deltime_pl_ids")
+        plt_ids_str = request.POST.getlist("deltime_plt_ids")
+
+        pl_ids = []
+        plt_ids = []
+        for i, ds in enumerate(data_sources):
+            if ds == "PACKINGLIST" and i < len(pl_ids_str):
+                for x in pl_ids_str[i].split(","):
+                    x = x.strip()
+                    if x.isdigit():
+                        pl_ids.append(int(x))
+            elif ds == "PALLET" and i < len(plt_ids_str):
+                for x in plt_ids_str[i].split(","):
+                    x = x.strip()
+                    if x.isdigit():
+                        plt_ids.append(int(x))
+
+        if not pl_ids and not plt_ids:
+            raise ValueError('没有获取到id')
+
+        # 收集数据：按PO_ID分组
+        grouped_data = {}  # key: PO_ID, value: dict
+
+        # 从PackingList查询
+        if pl_ids:
+            pl_records = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number")
+                .filter(id__in=pl_ids)
+                .values(
+                    "PO_ID",
+                    "container_number__container_number",
+                    "destination",
+                    "delivery_method",
+                    "delivery_est_start",
+                    "delivery_est_end",
+                    "container_number_id",
+                )
+            )
+            # 获取container到customer的映射
+            container_ids = list(set(r["container_number_id"] for r in pl_records if r["container_number_id"]))
+            order_map = {}
+            if container_ids:
+                orders = await sync_to_async(list)(
+                    Order.objects.filter(container_number_id__in=container_ids)
+                    .select_related("customer_name")
+                    .values("container_number_id", "customer_name__zem_name")
+                )
+                for o in orders:
+                    order_map[o["container_number_id"]] = o.get("customer_name__zem_name") or ""
+
+            for r in pl_records:
+                po_id = r.get("PO_ID") or ""
+                if po_id not in grouped_data:
+                    grouped_data[po_id] = {
+                        "customer_name": order_map.get(r.get("container_number_id"), ""),
+                        "container_number": r.get("container_number__container_number") or "",
+                        "delivery_method": r.get("delivery_method") or "",
+                        "destination": r.get("destination") or "",
+                        "delivery_est_start": r.get("delivery_est_start"),
+                        "delivery_est_end": r.get("delivery_est_end"),
+                    }
+
+        # 从Pallet查询
+        if plt_ids:
+            plt_records = await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(id__in=plt_ids)
+                .values(
+                    "PO_ID",
+                    "container_number__container_number",
+                    "destination",
+                    "delivery_method",
+                    "delivery_est_start",
+                    "delivery_est_end",
+                    "container_number_id",
+                )
+            )
+            container_ids = list(set(r["container_number_id"] for r in plt_records if r["container_number_id"]))
+            order_map = {}
+            if container_ids:
+                orders = await sync_to_async(list)(
+                    Order.objects.filter(container_number_id__in=container_ids)
+                    .select_related("customer_name")
+                    .values("container_number_id", "customer_name__zem_name")
+                )
+                for o in orders:
+                    order_map[o["container_number_id"]] = o.get("customer_name__zem_name") or ""
+
+            for r in plt_records:
+                po_id = r.get("PO_ID") or ""
+                if po_id not in grouped_data:
+                    grouped_data[po_id] = {
+                        "customer_name": order_map.get(r.get("container_number_id"), ""),
+                        "container_number": r.get("container_number__container_number") or "",
+                        "delivery_method": r.get("delivery_method") or "",
+                        "destination": r.get("destination") or "",
+                        "delivery_est_start": r.get("delivery_est_start"),
+                        "delivery_est_end": r.get("delivery_est_end"),
+                    }
+
+        # 构建Excel
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "派送时间汇总"
+
+        headers = ["客户", "柜号", "派送方式", "仓点", "建议时间段"]
+        header_font = Font(bold=True)
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin'),
+        )
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal='center')
+
+        row_num = 2
+        for po_id, data in grouped_data.items():
+            # 格式化建议时间段
+            est_start = data.get("delivery_est_start")
+            est_end = data.get("delivery_est_end")
+            if est_start and est_end:
+                time_range = f"{est_start} ~ {est_end}"
+            elif est_start:
+                time_range = str(est_start)
+            elif est_end:
+                time_range = str(est_end)
+            else:
+                time_range = ""
+
+            row_data = [
+                data.get("customer_name", ""),
+                data.get("container_number", ""),
+                data.get("delivery_method", ""),
+                data.get("destination", ""),
+                time_range,
+            ]
+            for col, val in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col, value=val)
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal='center')
+            row_num += 1
+
+        # 自动调整列宽
+        for col in range(1, len(headers) + 1):
+            max_length = len(str(ws.cell(row=1, column=col).value or ""))
+            for row in range(2, row_num):
+                cell_val = str(ws.cell(row=row, column=col).value or "")
+                if len(cell_val) > max_length:
+                    max_length = len(cell_val)
+            ws.column_dimensions[get_column_letter(col)].width = min(max_length + 4, 40)
+
+        from io import BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        response = HttpResponse(
+            output.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="deltime_summary.xlsx"'
+        return response
 
     async def _deltime_context_with_error(self, request, error_msg):
         """派送时间标签页 - 返回带错误信息的context"""
