@@ -8406,7 +8406,7 @@ class PostNsop(View):
             item["check_id"] = check_map.get(item["id"])  # 如果没有对应记录就返回 None
             data.append(item)
         all_data += data
-        if len(all_data) == 1:
+        if len(all_data) == 0:
             raise ValueError('没有找到任何数据！')
         keep = [
             "shipping_mark",
