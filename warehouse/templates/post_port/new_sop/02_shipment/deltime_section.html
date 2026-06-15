@@ -59,6 +59,9 @@
             </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="action-btn btn-info" id="deltimeExportTableBtn" onclick="deltimeExportTable()">
+                <i class="fas fa-table"></i> 导出表格
+            </button>
             <button class="action-btn btn-success" id="deltimeExportPoBtn" onclick="deltimeExportPo()">
                 <i class="fas fa-file-export"></i> 导出PO
             </button>
@@ -336,6 +339,66 @@ function deltimeExportPo() {
             });
         } else {
             // 直接下载文件
+            response.blob().then(function(blob) {
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g,'') || 'export.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            });
+        }
+    }).catch(function(err) {
+        alert('导出失败: ' + err.message);
+    });
+}
+
+// 导出表格
+function deltimeExportTable() {
+    var selected = deltimeGetSelectedRows();
+    if (selected.length === 0) {
+        alert('请先勾选需要导出的行');
+        return;
+    }
+
+    var form = document.getElementById('deltimeActionForm');
+    form.querySelectorAll('input[name="deltime_data_source"],input[name="deltime_pl_ids"],input[name="deltime_plt_ids"]').forEach(function(el) { el.remove(); });
+    document.getElementById('deltimeFormStep').value = 'deltime_export_table';
+
+    selected.forEach(function(cb) {
+        var row = cb.closest('tr');
+        var ds = row.getAttribute('data-deltime-ds');
+        var plIds = row.getAttribute('data-deltime-pl-ids') || '';
+        var pltIds = row.getAttribute('data-deltime-plt-ids') || '';
+
+        var dsInput = document.createElement('input');
+        dsInput.type = 'hidden'; dsInput.name = 'deltime_data_source'; dsInput.value = ds;
+        form.appendChild(dsInput);
+
+        var plInput = document.createElement('input');
+        plInput.type = 'hidden'; plInput.name = 'deltime_pl_ids'; plInput.value = plIds;
+        form.appendChild(plInput);
+
+        var pltInput = document.createElement('input');
+        pltInput.type = 'hidden'; pltInput.name = 'deltime_plt_ids'; pltInput.value = pltIds;
+        form.appendChild(pltInput);
+    });
+
+    var formData = new FormData(form);
+    fetch(form.action || window.location.href, {
+        method: 'POST',
+        body: formData,
+    }).then(function(response) {
+        var contentType = response.headers.get('Content-Type') || '';
+        if (contentType.includes('application/json')) {
+            return response.json().then(function(data) {
+                if (data.error) {
+                    alert('导出失败: ' + data.error);
+                }
+            });
+        } else {
             response.blob().then(function(blob) {
                 var url = window.URL.createObjectURL(blob);
                 var a = document.createElement('a');
