@@ -9184,10 +9184,10 @@ class ReceivableAccounting(View):
 
         # 获取结果，如果为空则设置为0.0
         total_cbm = group.get("total_cbm")
-        # 3/25之后的要按规定重新计算板数
-        target_date = datetime(2026, 3, 25).date()
-        if vessel_etd.date() > target_date:
-            total_cbm = self._calculate_combine_cbm_trial(destination,total_cbm)
+        # 3/25之后的要按规定重新计算板数,但是散板派送补齐没有规定
+        # target_date = datetime(2026, 3, 25).date()
+        # if vessel_etd.date() > target_date:
+        #     total_cbm = self._calculate_combine_cbm_trial(destination,total_cbm)
 
         total_weight_lbs = group.get("total_weight_lbs")
         need_manual_input = False
