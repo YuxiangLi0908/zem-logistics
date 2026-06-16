@@ -1335,10 +1335,6 @@ class OrderCreation(View):
     async def add_warehouse(self, request):
         name = request.POST.get("name", "").strip()
         address = request.POST.get("address", "").strip()
-
-        if not name:
-            return JsonResponse({"success": False, "message": "仓库名称不能为空"})
-
         exists = await sync_to_async(
             ZemWarehouse.objects.filter(name=name).exists
         )()
