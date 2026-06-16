@@ -401,6 +401,8 @@ class PostportDash(View):
         
         containers_only_in_pl = packinglist_containers - pallet_containers
         
+        # 这里是指，如果这个柜子没有任何板子满足条件，如果这个柜子已经打板了但是板子只有公仓或只有私仓也满足条件
+        # 满足条件的柜子，就需要进行plt和pl的去重
         containers_need_supplement = [
             cn for cn, dt_set in container_delivery_types.items()
             if len(dt_set) < 2
@@ -414,8 +416,11 @@ class PostportDash(View):
             cn = item.get('container_number__container_number')
             dt = item.get('delivery_type')
             if cn in containers_only_in_pl:
+                # 如果这个柜子没有任何板子，直接加入集合
                 filtered_supplement.append(item)
             elif cn in container_delivery_types and dt and dt not in container_delivery_types[cn]:
+                # 如果这个椅子打板了，但是打板的仓点类型和这个预报的仓点类型不一样，也加入。
+                # 比如公仓打板了私仓没打，这里私仓的就要介入到集合里
                 filtered_supplement.append(item)
         
         return pallet_data + filtered_supplement
