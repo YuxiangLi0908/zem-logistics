@@ -3891,7 +3891,6 @@ class PostNsop(View):
                     total_pallet=Count("pallet_id", distinct=True),
                 )
             )
-            print('arm_pickup',arm_pickup)
             if arm_pickup:
                 new_list = []
                 for p in arm_pickup:
