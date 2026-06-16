@@ -5741,7 +5741,7 @@ class PostNsop(View):
                 shipment_batch_number__fleet_number__departured_at__isnull=True
             ),
             location=warehouse,
-            destination=destination,
+            #destination=destination,
             container_number__orders__offload_id__offload_at__isnull=False,
         )
         plt_unshipped = await self._get_packing_list(
