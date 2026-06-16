@@ -3887,7 +3887,7 @@ class PostNsop(View):
                     "shipment_batch_number__note",
                 )
                 .annotate(
-                    total_pcs=Count("pcs", distinct=True),
+                    total_pcs=Sum("pcs"),
                     total_pallet=Count("pallet_id", distinct=True),
                 )
             )
@@ -8993,6 +8993,9 @@ class PostNsop(View):
         # 先查一下有没有没类型的车次，补上类型
         await self._update_fleets_type(fl_base_q, target_date)
 
+        # 校正fleet的total_weight、total_cbm、total_pallet、total_pcs
+        await self._update_fleet_totals(fl_base_q, target_date)
+
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(fl_base_q).filter(
                 Q(appointment_datetime__gt=target_date) | Q(appointment_datetime__isnull=True)
@@ -9015,6 +9018,7 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
+        
         # 在获取fleet列表后，添加具体柜号、仓点等详情
         for fleet_obj in fleet:
             detailed_shipments = []
@@ -9095,6 +9099,132 @@ class PostNsop(View):
             "fleet_list": fleet,
         }
         return context
+
+    async def _update_fleet_totals(self, fl_base_q, target_date):
+        """
+        校正fleet的total_weight、total_cbm、total_pallet、total_pcs
+        通过_get_combined_packing_data逻辑，按shipment查询pallet和packinglist，合并去重后计算总值
+        """
+        fleet_list = await sync_to_async(list)(
+            Fleet.objects.filter(fl_base_q).filter(
+                Q(appointment_datetime__gt=target_date) | Q(appointment_datetime__isnull=True)
+            )
+        )
+
+        for fleet_obj in fleet_list:
+            # 获取该车次关联的所有shipment
+            shipment_batch_numbers = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number=fleet_obj)
+                .values_list("shipment_batch_number", flat=True)
+            )
+            if not shipment_batch_numbers:
+                continue
+
+            # 构建筛选条件：shipment_batch_number指向的fleet是当前fleet
+            criteria = models.Q(
+                shipment_batch_number__shipment_batch_number__in=shipment_batch_numbers
+            )
+
+            # === 以下逻辑参照 _get_combined_packing_data ===
+
+            # 1. 查询pallet数据
+            pallet_data = await sync_to_async(list)(
+                Pallet.objects.filter(criteria)
+                .values(
+                    "container_number__container_number",
+                    "delivery_type",
+                )
+                .annotate(
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                    total_pcs=Sum("pcs", output_field=IntegerField()),
+                    total_n_pallet_act=Count("id", distinct=True),
+                )
+            )
+
+            # 记录每个柜子的delivery_type集合
+            container_delivery_types = {}
+            for item in pallet_data:
+                cn = item.get("container_number__container_number")
+                dt = item.get("delivery_type")
+                if cn not in container_delivery_types:
+                    container_delivery_types[cn] = set()
+                if dt:
+                    container_delivery_types[cn].add(dt)
+
+            # 2. 查询packinglist数据
+            packinglist_data = await sync_to_async(list)(
+                PackingList.objects.filter(criteria)
+                .values(
+                    "container_number__container_number",
+                    "delivery_type",
+                )
+                .annotate(
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    total_pcs=Sum("pcs", output_field=IntegerField()),
+                )
+            )
+
+            pallet_containers = set(container_delivery_types.keys())
+            packinglist_containers = set()
+            for item in packinglist_data:
+                cn = item.get("container_number__container_number")
+                if cn:
+                    packinglist_containers.add(cn)
+
+            containers_only_in_pl = packinglist_containers - pallet_containers
+
+            # 需要补充packinglist的柜子：没有pallet的，或pallet的delivery_type不全的
+            containers_need_supplement = [
+                cn for cn, dt_set in container_delivery_types.items()
+                if len(dt_set) < 2
+            ] + list(containers_only_in_pl)
+
+            # 3. 合并数据
+            combined_data = list(pallet_data)
+
+            if containers_need_supplement:
+                for item in packinglist_data:
+                    cn = item.get("container_number__container_number")
+                    dt = item.get("delivery_type")
+                    if cn in containers_only_in_pl:
+                        combined_data.append(item)
+                    elif cn in container_delivery_types and dt and dt not in container_delivery_types[cn]:
+                        combined_data.append(item)
+
+            # 4. 计算总值
+            total_cbm = 0
+            total_weight = 0
+            total_pcs = 0
+            total_pallet = 0
+
+            for item in combined_data:
+                cbm = float(item.get("total_cbm") or 0)
+                weight = float(item.get("total_weight_lbs") or 0)
+                pcs = int(item.get("total_pcs") or 0)
+
+                total_cbm += cbm
+                total_weight += weight
+                total_pcs += pcs
+
+                # 板数计算：pallet用id数，packinglist用cbm/1.8取上限
+                if "total_n_pallet_act" in item:
+                    # pallet数据
+                    total_pallet += int(item.get("total_n_pallet_act") or 0)
+                else:
+                    # packinglist数据，cbm/1.8取上限
+                    if cbm > 0:
+                        total_pallet += math.ceil(cbm / 1.8)
+
+            # 5. 更新fleet
+            fleet_obj.total_cbm = round(total_cbm, 3)
+            fleet_obj.total_weight = round(total_weight, 3)
+            fleet_obj.total_pcs = total_pcs
+            fleet_obj.total_pallet = total_pallet
+            await sync_to_async(fleet_obj.save, thread_sensitive=True)(
+                update_fields=["total_cbm", "total_weight", "total_pcs", "total_pallet"]
+            )
 
     async def _update_fleets_type(self, fl_base_q, target_date):
         fleets_without_type = await sync_to_async(list)(
