@@ -22,7 +22,7 @@ class FleetShipmentPallet(models.Model):
         TransferLocation, null=True, blank=True, on_delete=models.SET_NULL
     )
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
-    PO_ID = models.CharField(max_length=20, null=True, blank=True)
+    PO_ID = models.CharField(max_length=50, null=True, blank=True)
     total_pallet = models.FloatField(null=True, default=0)
     expense = models.FloatField(null=True, blank=True)
     is_recorded = models.BooleanField(default=False, verbose_name="是否已记录")
