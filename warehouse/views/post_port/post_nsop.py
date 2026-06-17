@@ -18578,11 +18578,9 @@ class PostNsop(View):
         if has_public:
             visible_categories.append("公仓供应商")
             visible_categories.append("FBA仓点")
+            visible_categories.append("州仓点")
         if has_other:
             visible_categories.append("私仓供应商")
-        if is_superuser:
-            visible_categories.append("州仓点")
-            
 
         categories_from_db = await sync_to_async(list)(
             SystemParameter.objects.filter(category__in=visible_categories)
@@ -18637,11 +18635,9 @@ class PostNsop(View):
             if has_public:
                 allowed_categories.append("公仓供应商")
                 allowed_categories.append("FBA仓点")
+                allowed_categories.append("州仓点")
             if has_other:
                 allowed_categories.append("私仓供应商")
-            if is_superuser:
-                allowed_categories.append("州仓点")
-                
 
             if category_name not in allowed_categories:
                 messages.error(request, "您无权创建该分类")
@@ -18671,11 +18667,9 @@ class PostNsop(View):
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
+            allowed_categories.append("州仓点")
         if has_other:
             allowed_categories.append("私仓供应商")
-        if is_superuser:
-            allowed_categories.append("州仓点")
-            
 
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
@@ -18738,11 +18732,9 @@ class PostNsop(View):
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
-        if has_other:
-            allowed_categories.append("私仓供应商")
-        if is_superuser:
             allowed_categories.append("州仓点")
-            
+        if has_other:
+            allowed_categories.append("私仓供应商")   
 
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
@@ -18772,11 +18764,9 @@ class PostNsop(View):
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
-        if has_other:
-            allowed_categories.append("私仓供应商")
-        if is_superuser:
             allowed_categories.append("州仓点")
-            
+        if has_other:
+            allowed_categories.append("私仓供应商")  
 
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
