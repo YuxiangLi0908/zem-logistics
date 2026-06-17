@@ -1233,7 +1233,7 @@
                 </div>
                 <div class="search-group">
                     <label><i class="fas fa-tag"></i> 唛头:</label>
-                    <input type="text" name="shipping_marks" value="{{ query_params.shipping_marks|default:'' }}" placeholder="输入唛头">
+                    <textarea name="shipping_marks" placeholder="输入唛头(空格/换行分隔)" style="min-height:30px;resize:vertical;width:100%;padding:4px 8px;border:1px solid #ced4da;border-radius:4px;font-size:0.9rem;">{{ query_params.shipping_marks|default:'' }}</textarea>
                 </div>
                 <div class="search-group">
                     <label><i class="fas fa-barcode"></i> FBA:</label>
