@@ -452,17 +452,27 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
-    first_time_download = request.POST.get("first_time_download")
+    warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
     offload_id = request.POST.get("offload_id")
+
+    WAREHOUSE_TIMEZONE = {
+        "NJ": "America/New_York",
+        "SAV": "America/New_York",
+        "LA": "America/Los_Angeles",
+    }
 
     warehouse_unpacking_time = None
 
-    if first_time_download == "1":
-        try:
-            now = datetime.now()
-            warehouse_unpacking_time = now.strftime("%Y-%m-%d %H:%M:%S")
-        except:
-            pass
+    try:
+        tz_name = WAREHOUSE_TIMEZONE.get(warehouse, "UTC")
+        tz = pytz.timezone(tz_name)
+
+        warehouse_unpacking_time = (
+            datetime.now(tz)
+            .strftime("%Y-%m-%d")
+        )
+    except:
+        pass
 
     if warehouse_unpacking_time and offload_id:
         try:
