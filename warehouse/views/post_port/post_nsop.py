@@ -188,6 +188,15 @@ class PostNsop(View):
             carrier_dict[carrier] = carrier
         return carrier_dict
     
+    async def get_carrier_other_options(self):
+        """获取公仓供应商选项（带空选项）"""
+        carrier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
+        carrier_dict = {"": ""}
+        for carrier in carrier_list:
+            carrier_dict[carrier] = carrier
+        return carrier_dict
+    
+    
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -13348,7 +13357,7 @@ class PostNsop(View):
             "fleet_cargos": fleet_cargos,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": await self.get_carrier_options(),
+            "carrier_options": await self.get_carrier_other_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             "start_date": start_date,
@@ -13600,7 +13609,7 @@ class PostNsop(View):
             "pod_data": pod_data,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": await self.get_carrier_options(),
+            "carrier_options": await self.get_carrier_other_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
