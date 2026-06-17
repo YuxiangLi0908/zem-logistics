@@ -1,5 +1,6 @@
 
 
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -94,12 +95,17 @@ class Home(View):
         if bool(query_params['shipping_marks'] or query_params['fba_ids'] or query_params['ref_ids'] or query_params['destination']):
             #这个就只展示柜子的基本信息，以表格的形式
             if query_params['shipping_marks']:
-                pl_criteria &= models.Q(
-                    shipping_mark__contains=query_params['shipping_marks']
-                )
-                plt_criteria &= models.Q(
-                    shipping_mark__contains=query_params['shipping_marks']
-                )
+                mark_keywords = [k for k in re.split(r'[\s\n]+', query_params['shipping_marks']) if k]
+                if mark_keywords:
+                    mark_q_pl = models.Q()
+                    mark_q_plt = models.Q()
+                    for kw in mark_keywords:
+                        mark_q_pl |= models.Q(shipping_mark__contains=kw)
+                        mark_q_plt |= models.Q(shipping_mark__contains=kw)
+
+                    pl_criteria &= mark_q_pl
+                    plt_criteria &= mark_q_plt
+                    print('pl_criteria',pl_criteria)
             elif query_params['fba_ids']:
                 pl_criteria &= models.Q(
                     fba_id__contains=query_params['fba_ids']
@@ -161,7 +167,9 @@ class Home(View):
         elif query_params['destination']:
             criteria &= models.Q(packinglist__destination=query_params['destination'])  # 直接从Order关联PackingList
         elif query_params['shipping_marks']:
-            criteria &= models.Q(packinglist__shipping_mark__icontains=query_params['shipping_marks'])
+            mark_keywords = [k for k in re.split(r'[\s\n]+', query_params['shipping_marks']) if k]
+            for kw in mark_keywords:
+                criteria &= models.Q(packinglist__shipping_mark__icontains=kw)
         elif query_params['fba_ids']:
             criteria &= models.Q(packinglist__fba_id__icontains=query_params['fba_ids'])
         elif query_params['ref_ids']:
