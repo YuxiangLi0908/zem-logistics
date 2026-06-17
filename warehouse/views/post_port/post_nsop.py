@@ -18819,12 +18819,6 @@ class PostNsop(View):
     async def _handle_system_parameter_add_fba(self, request: HttpRequest):
         import json
 
-        is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
-        if not is_superuser:
-            messages.error(request, "仅管理员可添加FBA仓点")
-            context = await self._get_system_parameter_context(request, current_category="FBA仓点")
-            return render(request, self.template_system_parameter_add, context)
-
         code = request.POST.get("fba_code", "").strip()
         location = request.POST.get("fba_location", "").strip()
         city = request.POST.get("fba_city", "").strip()
