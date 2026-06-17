@@ -10239,6 +10239,7 @@ class PostNsop(View):
                 "plt_ids": item.get("plt_ids", ""),
                 "cns": item.get("cns", "-"),
                 "destination": item.get("destination", "-"),
+                "shipping_marks": item.get("shipping_marks", "-"),
                 "fba_ids": item.get("fba_ids", "-"),
                 "ref_ids": item.get("ref_ids", "-"),
                 "customer_name": item.get("customer_name", "-"),

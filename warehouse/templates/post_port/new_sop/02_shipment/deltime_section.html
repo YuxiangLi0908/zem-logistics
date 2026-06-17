@@ -31,6 +31,15 @@
         min-height: 30px;
         resize: vertical;
     }
+    #deltimeMarkSearch {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        min-height: 30px;
+        resize: vertical;
+    }
     .deltime-total-cbm {
         font-size: 14px;
         color: #2c3e50;
@@ -81,6 +90,7 @@
                     <th style="width:40px;"><input type="checkbox" id="deltimeSelectAll" onchange="deltimeToggleSelectAll(this)"></th>
                     <th>柜号</th>
                     <th>仓点</th>
+                    <th>唛头</th>
                     <th>FBA ID</th>
                     <th>REF ID</th>
                     <th>客户</th>
@@ -96,9 +106,10 @@
                     <td></td>
                     <td><textarea id="deltimeCnSearch" placeholder="柜号搜索(换行/空格分隔)" oninput="deltimeFilterTable()"></textarea></td>
                     <td><input type="text" placeholder="搜索仓点" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="2"></td>
-                    <td><input type="text" placeholder="搜索FBA" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="3"></td>
-                    <td><input type="text" placeholder="搜索REF" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="4"></td>
-                    <td><input type="text" placeholder="搜索客户" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="5"></td>
+                    <td><textarea id="deltimeMarkSearch" placeholder="唛头搜索(换行/空格分隔)" oninput="deltimeFilterTable()"></textarea></td>
+                    <td><input type="text" placeholder="搜索FBA" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="4"></td>
+                    <td><input type="text" placeholder="搜索REF" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="5"></td>
+                    <td><input type="text" placeholder="搜索客户" oninput="deltimeFilterTable()" class="header-search deltime-search-input" data-column="6"></td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -119,6 +130,7 @@
                         <td style="text-align:center;"><input type="checkbox" class="deltime-row-checkbox"></td>
                         <td>{{ item.cns|default:'-' }}</td>
                         <td>{{ item.destination|default:'-' }}</td>
+                        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.shipping_marks|default:'-' }}</td>
                         <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.fba_ids|default:'-' }}</td>
                         <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.ref_ids|default:'-' }}</td>
                         <td>{{ item.customer_name|default:'-' }}</td>
@@ -159,7 +171,7 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="13" style="text-align:center;color:#6c757d;padding:20px;">暂无数据</td>
+                        <td colspan="14" style="text-align:center;color:#6c757d;padding:20px;">暂无数据</td>
                     </tr>
                 {% endif %}
             </tbody>
@@ -235,12 +247,17 @@ function deltimeGetSelectedRows() {
     return document.querySelectorAll('.deltime-row-checkbox:checked');
 }
 
-// 柜号搜索（支持换行和空格分隔多个值）
+// 柜号和唛头搜索（支持换行和空格分隔多个值）
 function deltimeFilterTable() {
     var cnText = document.getElementById('deltimeCnSearch').value.trim();
     var cnKeywords = [];
     if (cnText) {
         cnKeywords = cnText.split(/[\s\n]+/).filter(function(k) { return k; });
+    }
+    var markText = document.getElementById('deltimeMarkSearch').value.trim();
+    var markKeywords = [];
+    if (markText) {
+        markKeywords = markText.split(/[\s\n]+/).filter(function(k) { return k; });
     }
     var searchInputs = document.querySelectorAll('.deltime-search-input');
     var searchVals = {};
@@ -257,6 +274,12 @@ function deltimeFilterTable() {
             var cnCell = row.cells[1] ? row.cells[1].textContent.trim().toLowerCase() : '';
             var match = cnKeywords.some(function(kw) { return cnCell.indexOf(kw.toLowerCase()) !== -1; });
             if (!match) show = false;
+        }
+        // 唛头搜索
+        if (show && markKeywords.length > 0) {
+            var markCell = row.cells[3] ? row.cells[3].textContent.trim().toLowerCase() : '';
+            var markMatch = markKeywords.some(function(kw) { return markCell.indexOf(kw.toLowerCase()) !== -1; });
+            if (!markMatch) show = false;
         }
         // 其他列搜索
         if (show) {
