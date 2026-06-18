@@ -635,6 +635,7 @@ class OrderCreation(View):
             ("", ""),
             ("公仓", "public"),
             ("其他", "other"),
+            ("一件代发", "一件代发"),
         ]
         context["container_type"] = self.container_type
         context["packing_list_upload_form"] = UploadFileForm()
@@ -824,6 +825,7 @@ class OrderCreation(View):
             ("", ""),
             ("公仓", "public"),
             ("其他", "other"),
+            ("一件代发", "一件代发"),
         ]
         non_combina_region = getattr(request, "non_combina_region", 0)
         combina_region = getattr(request, "combina_region", 0)
