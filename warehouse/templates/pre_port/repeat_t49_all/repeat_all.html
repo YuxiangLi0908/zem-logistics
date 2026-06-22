@@ -195,6 +195,20 @@
         <i class="fas fa-exclamation-triangle"></i>
         删除订单
     </h1>
+    <div style="margin-bottom:20px;">
+        <input
+                type="text"
+                id="containerSearch"
+                placeholder="输入柜号搜索..."
+                style="
+            width:350px;
+            padding:10px 12px;
+            border:1px solid #ced4da;
+            border-radius:6px;
+            font-size:14px;
+        "
+        >
+    </div>
 
     <!-- 重复柜号订单区块 -->
     <div class="order-group">
@@ -203,7 +217,7 @@
             柜号订单（仅未拆柜）
         </h3>
         <div class="table-wrapper">
-            <table class="order-table">
+            <table class="order-table" id="orderTable">
                 <thead>
                     <tr>
                         <th>订单ID</th>
@@ -243,4 +257,48 @@
 
 <!-- 引入字体图标 -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const searchInput = document.getElementById("containerSearch");
+
+    searchInput.addEventListener("input", function () {
+
+        const keyword = this.value.trim().toLowerCase();
+
+        const rows = document.querySelectorAll(
+            "#orderTable tbody tr"
+        );
+
+        rows.forEach(function(row) {
+
+            if (row.classList.contains("empty-row")) {
+                return;
+            }
+
+            const containerCell = row.cells[1];
+
+            if (!containerCell) {
+                return;
+            }
+
+            const containerNumber =
+                containerCell.textContent.toLowerCase();
+
+            if (
+                keyword === "" ||
+                containerNumber.includes(keyword)
+            ) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+
+        });
+
+    });
+
+});
+</script>
 {% endblock %}
