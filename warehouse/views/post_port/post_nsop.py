@@ -6477,10 +6477,17 @@ class PostNsop(View):
         '''查询多个仓点的报价'''
         context = {}
         is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-        cargo_ids = request.POST.get("cargo_ids", "")
-        plt_ids = request.POST.get("plt_ids", "")
-        cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
-        plt_id_list = [int(i) for i in plt_ids.split(",") if i]
+        try:
+            cargo_ids = request.POST.get("cargo_ids", "")
+            plt_ids = request.POST.get("plt_ids", "")
+            cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
+            plt_id_list = [int(i) for i in plt_ids.split(",") if i]
+        except (ValueError, TypeError) as e:
+            message = f"解析ID失败：{e}（cargo_ids={request.POST.get('cargo_ids', '')}, plt_ids={request.POST.get('plt_ids', '')}）"
+            if is_ajax:
+                return JsonResponse({"success": False, "message": message}, status=400)
+            context.update({"error_messages": message})
+            return await self.handle_td_shipment_post(request, context)
         if not cargo_ids and not plt_ids:
             message = "未提供ID，无法查询报价"
             if is_ajax:
@@ -6524,7 +6531,7 @@ class PostNsop(View):
         quote_total = 0.0
         # 查找报价
         if not combined_list:
-            message = f"{combined_list}是空的"
+            message = f"未找到匹配的PO数据（cargo_ids={cargo_ids}, plt_ids={plt_ids}），请检查ID是否正确"
             if is_ajax:
                 return JsonResponse({"success": False, "message": message}, status=400)
             context = {"error_messages": message}
@@ -6545,8 +6552,26 @@ class PostNsop(View):
                     container_number__container_number=cn
                 ).first()
             )()
+            if not order:
+                message = f"柜号{container_number}未找到对应的Order记录，无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
+            if not order.retrieval_id:
+                message = f"柜号{container_number}的Order({order.id})缺少retrieval_id（预报仓库信息），无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
             # 2026/4/8 claire说报价应该都要按照预报的仓库查找，不按照实际所在地查找
             warehouse = order.retrieval_id.retrieval_destination_area
+            if not warehouse:
+                message = f"柜号{container_number}的Order({order.id})的retrieval_id({order.retrieval_id_id})缺少retrieval_destination_area（预报仓区），无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
             # if po['source'] == 'packinglist':
             #     warehouse = order.retrieval_id.retrieval_destination_area
             # else:
@@ -6559,6 +6584,12 @@ class PostNsop(View):
             #         return await self.handle_td_shipment_post(request, context)
 
             customer_name = order.customer_name.zem_name if order.customer_name else None
+            if not order.vessel_id:
+                message = f"柜号{container_number}的Order({order.id})缺少vessel_id（船期信息），无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
             # 查找报价表
             quotations = await self._get_fee_details(order, warehouse, customer_name)
             if isinstance(quotations, dict) and quotations.get("error_messages"):
@@ -7251,7 +7282,7 @@ class PostNsop(View):
         context = {}
         quotation, quotation_error = await self._get_quotation_for_order(order, customer_name, 'receivable')
         if quotation_error:
-            context.update({"error_messages": quotation_error})
+            context.update({"error_messages": f"柜号{order.container_number_id}查询报价表失败：{quotation_error}（客户={customer_name}, 仓区={warehouse}）"})
             return context
         id = quotation.id
 
