@@ -227,28 +227,28 @@ class PostNsop(View):
                 return HttpResponseForbidden("你没有私仓派送界面的访问权限!")
         
         if step == "appointment_management":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return await sync_to_async(render)(request, self.template_main_dash, context)
         elif step == "schedule_shipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return render(request, self.template_td_shipment, context)
         elif step == "schedule_unshipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return render(request, self.template_td_unshipment, context)
         elif step == "fleet_management":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -293,7 +293,7 @@ class PostNsop(View):
             context = {
                 "customers": customers_dict,
                 "customer_list": customer_list,
-                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -302,7 +302,7 @@ class PostNsop(View):
             return render(request, self.template_ltl_pos_all, context)
         elif step == "LTL_history_po":        
             context = {
-                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -310,14 +310,14 @@ class PostNsop(View):
             }
             return render(request, self.template_ltl_history_pos, context)
         elif step == "history_shipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return render(request, self.template_history_shipment, context)
         elif step == "batch_shipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -326,7 +326,7 @@ class PostNsop(View):
         elif step == "batch_shipment_other":
             supplier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
             context = {
-                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -2833,7 +2833,7 @@ class PostNsop(View):
 
     async def handle_query_pallet_status(self, request: HttpRequest):
         '''查询已录板数情况'''
-        context = {'warehouse_options': [("", "")] + await sync_to_async(list)(
+        context = {'warehouse_options':await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
             .values_list("name", "name")
@@ -2922,7 +2922,7 @@ class PostNsop(View):
 
         context['container_results'] = container_results
         context['container_numbers_input'] = container_numbers_input
-        context['warehouse_options'] = [("", "")] + await sync_to_async(list)(
+        context['warehouse_options'] =  await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
             .values_list("name", "name")
@@ -5317,7 +5317,7 @@ class PostNsop(View):
         mutable_post["pickupList"] = None
         warehouse = mutable_post["warehouse"]
         context = {}
-        warehouse_options = [("", "")] + await sync_to_async(list)(
+        warehouse_options = await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
             .values_list("name", "name")
@@ -8721,7 +8721,7 @@ class PostNsop(View):
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         context = {
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -8837,7 +8837,7 @@ class PostNsop(View):
 
         context = {
             'fleets': fleet_data,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -9517,7 +9517,7 @@ class PostNsop(View):
             'ready_to_ship_data': ready_to_ship_data,
             'sum_fleet': sum_fleet,
             'summary': summary,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -9544,7 +9544,7 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9553,7 +9553,7 @@ class PostNsop(View):
             else:
                 context = {
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9587,7 +9587,7 @@ class PostNsop(View):
             'destination_list': destination_list,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -9868,7 +9868,7 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9877,7 +9877,7 @@ class PostNsop(View):
             else:
                 context = {
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9912,7 +9912,7 @@ class PostNsop(View):
             'warehouse': warehouse,
             'scheduled_data': scheduled_data,
             'fleet_list': schedule_fleet_data,  # 已排车
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -10058,7 +10058,7 @@ class PostNsop(View):
         if not warehouse:
             context.update({
                 "error_messages": "未选择仓库!",
-                'warehouse_options': [("", "")] + await sync_to_async(list)(
+                'warehouse_options': await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -10123,7 +10123,7 @@ class PostNsop(View):
             'summary': summary,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13296,7 +13296,7 @@ class PostNsop(View):
         else:
             context.update({
                 'error_messages': "没选仓库！",
-                'warehouse_options': [("", "")] + await sync_to_async(list)(
+                'warehouse_options':await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -13346,7 +13346,7 @@ class PostNsop(View):
         supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13594,7 +13594,7 @@ class PostNsop(View):
 
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13635,7 +13635,7 @@ class PostNsop(View):
 
         context = {
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13658,7 +13658,7 @@ class PostNsop(View):
 
         context = {
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -15445,7 +15445,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -15554,7 +15554,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
