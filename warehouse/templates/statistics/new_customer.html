@@ -560,5 +560,32 @@
         passwordRepeatInput.addEventListener('input', validatePassword);
     }
 
+    document.addEventListener("DOMContentLoaded", function () {
+
+    const form = document.querySelector(".customer-form");
+
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener("submit", function (e) {
+
+        const fullName = document.getElementById("id_full_name");
+        const zemName = document.getElementById("id_zem_name");
+        const zemCode = document.getElementById("id_zem_code");
+
+        if (
+            !fullName.value.trim() ||
+            !zemName.value.trim() ||
+            !zemCode.value.trim()
+        ) {
+            alert("客户全称、客户简称、ZEM客户代码为必填项");
+            e.preventDefault();
+            return false;
+        }
+    });
+
+});
+
 </script>
 {% endblock %}
