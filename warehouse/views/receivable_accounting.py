@@ -8110,8 +8110,7 @@ class ReceivableAccounting(View):
                         'shipping_marks': item.shipping_marks or '',
                         'amount': item.amount or '',
                         'invoice_number': item.invoice_number.invoice_number,
-                        'finance_status': item.invoice_number.get_finance_status_display(),
-                    })
+                        'finance_status': ''                    })
             
             for item in previous_items:
                 if item.PO_ID:
