@@ -251,15 +251,23 @@ class WarehouseOperations(View):
         current_time = timezone.now()  # 改用带时区的当前时间，避免时区偏差
         future_four_days = current_time + timedelta(days=4)
         warehouse = request.POST.get("warehouse_filter", None)
-        ORDER_FILTER_CRITERIA = Q(
-            offload_id__offload_required=True,
-            offload_id__offload_at__isnull=True,
-            cancel_notification=False,
-            warehouse__name=warehouse,
-            created_at__gte=timezone.make_aware(timezone.datetime(2025, 1, 1))
-        ) & Q(
-            Q(retrieval_id__temp_t49_available_for_pickup=True) |
-            Q(vessel_id__vessel_eta__lte=future_four_days)
+        ORDER_FILTER_CRITERIA = (
+                Q(
+                    offload_id__offload_required=True,
+                    cancel_notification=False,
+                    warehouse__name=warehouse,
+                    created_at__gte=timezone.make_aware(
+                        timezone.datetime(2025, 1, 1)
+                    ),
+                )
+                & (
+                        Q(offload_id__offload_at__isnull=True)
+                        | Q(offload_id__offload_other_at__isnull=True)
+                )
+                & (
+                        Q(retrieval_id__temp_t49_available_for_pickup=True)
+                        | Q(vessel_id__vessel_eta__lte=future_four_days)
+                )
         )
 
         def sync_get_retrieval_and_count():
