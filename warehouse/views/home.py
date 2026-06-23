@@ -174,8 +174,18 @@ class Home(View):
                         pl_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
                         plt_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
                 elif query_params['appointment_id']:
-                    pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
-                    plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
+                    isa_keywords = [k for k in re.split(r'[\s\n]+', query_params['appointment_id']) if k]
+                    if len(isa_keywords) > 1:
+                        isa_q_pl = models.Q()
+                        isa_q_plt = models.Q()
+                        for kw in isa_keywords:
+                            isa_q_pl |= models.Q(shipment_batch_number__appointment_id=kw)
+                            isa_q_plt |= models.Q(shipment_batch_number__appointment_id=kw)
+                        pl_criteria &= isa_q_pl
+                        plt_criteria &= isa_q_plt
+                    else:
+                        pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
+                        plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
             elif bool(query_params['pickup_number']):
                 pl_criteria &= models.Q(shipment_batch_number__fleet_number__pickup_number=query_params['pickup_number'])
                 plt_criteria &= models.Q(shipment_batch_number__fleet_number__pickup_number=query_params['pickup_number'])

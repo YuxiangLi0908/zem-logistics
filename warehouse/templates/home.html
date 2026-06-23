@@ -1219,7 +1219,7 @@
                 </div>
                 <div class="search-group">
                     <label><i class="fas fa-calendar-check"></i> ISA:</label>
-                    <input type="text" name="appointment_id" value="{{ query_params.appointment_id|default:'' }}" placeholder="输入ISA">
+                    <textarea name="appointment_id" placeholder="输入ISA(空格/换行分隔多值)" style="min-height:30px;resize:vertical;width:100%;padding:4px 8px;border:1px solid #ced4da;border-radius:4px;font-size:0.9rem;">{{ query_params.appointment_id|default:'' }}</textarea>
                 </div>
                 <div class="search-group">
                     <label><i class="fas fa-calendar-check"></i> Pickup Number:</label>
