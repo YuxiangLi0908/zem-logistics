@@ -1211,7 +1211,7 @@
             <div class="search-row">
                 <div class="search-group">
                     <label><i class="fas fa-box"></i> 柜号:</label>
-                    <input type="text" name="container_number" value="{{ query_params.container_number|default:'' }}" placeholder="输入柜号">
+                    <textarea name="container_number" placeholder="输入柜号(空格/换行分隔多值)" style="min-height:30px;resize:vertical;width:100%;padding:4px 8px;border:1px solid #ced4da;border-radius:4px;font-size:0.9rem;">{{ query_params.container_number|default:'' }}</textarea>
                 </div>
                 <div class="search-group">
                     <label><i class="fas fa-list-ol"></i> 批次号:</label>

@@ -92,6 +92,12 @@ class Home(View):
         context = {'query_params': query_params}
         pl_criteria = models.Q()
         plt_criteria = models.Q()
+
+        # 解析柜号：按空格/换行分组
+        cn_keywords = []
+        if query_params['container_number']:
+            cn_keywords = [k for k in re.split(r'[\s\n]+', query_params['container_number']) if k]
+
         if bool(query_params['shipping_marks'] or query_params['fba_ids'] or query_params['ref_ids'] or query_params['destination']):
             #这个就只展示柜子的基本信息，以表格的形式
             if query_params['shipping_marks']:
@@ -135,6 +141,17 @@ class Home(View):
                     container_number__container_number=query_params['container_number']
                 )
             temp = await self._get_post_port_data(pl_criteria,plt_criteria) 
+            context['post_port_table'] = temp['warehouses']
+        elif len(cn_keywords) > 1:
+            # 多个柜号：用contains匹配，以表格形式展示
+            cn_q_pl = models.Q()
+            cn_q_plt = models.Q()
+            for kw in cn_keywords:
+                cn_q_pl |= models.Q(container_number__container_number__contains=kw)
+                cn_q_plt |= models.Q(container_number__container_number__contains=kw)
+            pl_criteria &= cn_q_pl
+            plt_criteria &= cn_q_plt
+            temp = await self._get_post_port_data(pl_criteria, plt_criteria)
             context['post_port_table'] = temp['warehouses']
         else:
             #如果是只查柜号，才展示港前信息
