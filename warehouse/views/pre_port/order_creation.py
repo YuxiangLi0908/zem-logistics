@@ -511,6 +511,11 @@ class OrderCreation(View):
             "order_type": self.order_type,
             "area": self.area,
             "peer_customer": self.peer_customer,
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         })
 
         return self.template_peer_pallet_create_base_other, context
@@ -523,6 +528,11 @@ class OrderCreation(View):
             "order_type": self.order_type,
             "area": self.area,
             "peer_customer": self.peer_customer,
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         })
 
         return self.template_peer_pallet_create_base, context
