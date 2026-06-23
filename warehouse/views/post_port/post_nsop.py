@@ -18585,12 +18585,14 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         visible_categories = []
+        visible_categories.append("同行客户")
         if has_public:
             visible_categories.append("公仓供应商")
             visible_categories.append("FBA仓点")
             visible_categories.append("州仓点")
         if has_other:
             visible_categories.append("私仓供应商")
+        
 
         categories_from_db = await sync_to_async(list)(
             SystemParameter.objects.filter(category__in=visible_categories)
@@ -18642,10 +18644,12 @@ class PostNsop(View):
             is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
             allowed_categories = []
+            allowed_categories.append("同行客户")
             if has_public:
                 allowed_categories.append("公仓供应商")
                 allowed_categories.append("FBA仓点")
                 allowed_categories.append("州仓点")
+                
             if has_other:
                 allowed_categories.append("私仓供应商")
 
@@ -18674,10 +18678,12 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         allowed_categories = []
+        allowed_categories.append("同行客户")
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            
         if has_other:
             allowed_categories.append("私仓供应商")
 
@@ -18712,6 +18718,32 @@ class PostNsop(View):
                     messages.success(request, f"已添加 {len(added)} 个仓点: {', '.join(added)}")
                 if skipped:
                     messages.warning(request, f"已跳过 {len(skipped)} 个重复仓点: {', '.join(skipped)}")
+        elif category == "同行客户":
+            key = param_value
+            exists = await sync_to_async(
+                lambda: SystemParameter.objects.filter(category=category, key=key, value=param_value).exists()
+            )()
+            if exists:
+                messages.error(request, f"同行客户 '{param_value}' 已存在")
+            else:
+                await sync_to_async(SystemParameter.objects.create)(
+                    category=category,
+                    key=key,
+                    value=param_value,
+                    created_by=username,
+                )
+                # 同步到Customer表
+                customer_exists = await sync_to_async(
+                    lambda: Customer.objects.filter(zem_name=param_value).exists()
+                )()
+                if not customer_exists:
+                    await sync_to_async(Customer.objects.create)(
+                        zem_name=param_value,
+                        full_name=param_value,
+                        accounting_name=param_value,
+                        zem_code=param_value,
+                    )
+                messages.success(request, f"已添加同行客户: {param_value}")
         else:
             key = param_key if param_key else param_value
             exists = await sync_to_async(
@@ -18739,10 +18771,12 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         allowed_categories = []
+        allowed_categories.append("同行客户")
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            
         if has_other:
             allowed_categories.append("私仓供应商")   
 
@@ -18771,10 +18805,12 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         allowed_categories = []
+        allowed_categories.append("同行客户")
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            
         if has_other:
             allowed_categories.append("私仓供应商")  
 
