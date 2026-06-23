@@ -76,6 +76,7 @@ class Palletization(View):
     template_palletize = "post_port/palletization/palletization_packing_list.html"
     template_pallet_abnormal = "post_port/palletization/palletization_abnormal.html"
     template_pallet_label = "export_file/pallet_label_template.html"
+    template_other_selfpick_cargos = "post_port/new_sop/05_ltl_pos_all/other_selfpick_cargos.html"
     template_pallet_abnormal_records_search = (
         "post_port/palletization/palletization_abnormal_records_search.html"
     )
@@ -171,6 +172,9 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "cancel_sav_other":
             template, context = await self.handle_cancel_sav_other_post(request)
+            return render(request, template, context)
+        elif step == "cancel_post_other_selfpick_cargos":
+            template, context = await self.handle_cancel_post_other_selfpick_cargos(request)
             return render(request, template, context)
         elif step == "amend_abnormal":
             template, context = await self.handle_amend_abnormal_post(request)
@@ -854,14 +858,12 @@ class Palletization(View):
 
         # 判断 LA / SAV 私仓 + other
         if ('LA' in warehouse or 'SAV' in warehouse) and storehouse == "other":
-            from warehouse.views.post_port.post_nsop import PostNsop
-            pn = PostNsop()
             # LA,SAV 私仓 待拆柜
-            packinglist_not_selfpick_cargos = await pn._get_order_not_palletized_other_selfpick_cargos(warehouse)
+            packinglist_not_selfpick_cargos = await self._get_order_not_palletized_other_selfpick_cargos(warehouse)
             # LA,SAV 私仓 已拆柜
-            packinglist_selfpick_cargos = await pn._get_order_palletized_other_selfpick_cargos(warehouse)
+            packinglist_selfpick_cargos = await self._get_order_palletized_other_selfpick_cargos(warehouse)
             # LA,SAV 私仓 预约情况
-            order_with_shipment = await pn._get_order_shipment_other_selfpick_cargos(warehouse)
+            order_with_shipment = await self._get_order_shipment_other_selfpick_cargos(warehouse)
 
             context = {
                 'warehouse': warehouse,
@@ -878,7 +880,7 @@ class Palletization(View):
             }
 
             if 'LA' in warehouse:
-                template = pn.template_other_selfpick_cargos
+                template = self.template_other_selfpick_cargos
             elif 'SAV' in warehouse:
                 context = {
                     "order_not_palletized": packinglist_not_selfpick_cargos,
@@ -2452,6 +2454,168 @@ class Palletization(View):
 
         return await self.handle_warehouse_post(request)
 
+    async def handle_cancel_post_other_selfpick_cargos(
+            self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """la私仓撤销拆柜"""
+        container_number = request.POST.get("container_number")
+        order = await sync_to_async(
+            Order.objects.select_related("offload_id", "warehouse").get
+        )(container_number__container_number=container_number)
+        offload = order.offload_id
+        # la私仓总板数
+        other_total_pallet = offload.other_total_pallet
+        offload.total_pallet -= other_total_pallet
+        offload.other_total_pallet = None
+        offload.offload_other_at = None
+
+        # 先查询当前柜子是否还有 public 类型的板子
+        has_public = await sync_to_async(
+            Pallet.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="public"
+            ).exists
+        )()
+
+        # 如果没有 public → 清空拆柜时间
+        if not has_public:
+            offload.offload_at = None
+        # ====================================================
+
+        try:
+            offload.devanning_company = None
+            offload.devanning_fee = None
+        except:
+            pass
+        pallet = await sync_to_async(list)(
+            Pallet.objects.select_related("shipment_batch_number").filter(
+                container_number__container_number=container_number, delivery_type__in=('other', '一件代发'),
+            )
+        )
+        shipment = set()
+        shipment.update([p.shipment_batch_number for p in pallet if p])
+        await sync_to_async(
+            Pallet.objects.filter(
+                container_number__container_number=container_number, delivery_type__in=('other', '一件代发'),
+            ).delete
+        )()
+        await sync_to_async(
+            AbnormalOffloadStatus.objects.filter(
+                container_number__container_number=container_number, delivery_type__in=('other', '一件代发'),
+            ).delete
+        )()
+        await sync_to_async(offload.save)()
+        await self._update_shipment_abnormal_palletization(shipment)
+        mutable_post = request.POST.copy()
+        mutable_post["name"] = order.warehouse.name
+        request.POST = mutable_post
+        return await self.other_selfpick_cargos(request)
+
+    async def other_selfpick_cargos(self, request):
+        """la私仓客户自提，卡车派送，暂扣留仓 待拆柜 已拆柜"""
+        warehouse = request.POST.get("warehouse")
+        # LA私仓客户自提 待拆柜
+        packinglist_not_selfpick_cargos = await self._get_order_not_palletized_other_selfpick_cargos(warehouse)
+        # LA私仓客户自提 已拆柜
+        packinglist_selfpick_cargos = await self._get_order_palletized_other_selfpick_cargos(warehouse)
+        # LA私仓客户自提 预约情况
+        order_with_shipment = await self._get_order_shipment_other_selfpick_cargos(warehouse)
+
+        context = {
+            'warehouse': warehouse,
+            'warehouse_options': [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "packinglist_not_selfpick_cargos": packinglist_not_selfpick_cargos,
+            "packinglist_selfpick_cargos": packinglist_selfpick_cargos,
+            "order_with_shipment": order_with_shipment,
+        }
+        return self.template_other_selfpick_cargos, context
+
+
+    async def _get_order_not_palletized_other_selfpick_cargos(self, warehouse: str) -> Order:
+        """私仓未打板"""
+        packinglist = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_other_at=None,
+                    created_at__gte="2024-07-01",
+                    cancel_notification=False,
+                    container_number__packinglist__delivery_type__in=('other', '一件代发'),
+                )
+            )
+            .order_by("retrieval_id__arrive_at")
+        )
+        seen = set()
+        return [
+            order for order in packinglist
+            if order.container_number.container_number not in seen
+               and not seen.add(order.container_number.container_number)
+        ]
+
+    async def _get_order_palletized_other_selfpick_cargos(self, warehouse: str) -> Order:
+        """私仓已打板"""
+        pallet = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__pallet_set")
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    offload_id__offload_required=True,
+                    offload_id__offload_other_at__isnull=False,
+                    cancel_notification=False,
+                    created_at__gte=timezone.now() - timedelta(days=120),
+                    container_number__pallet__delivery_type__in=('other', '一件代发'),
+                )
+            )
+            .order_by("offload_id__offload_at")
+        )
+        seen = set()
+        return [
+            order for order in pallet
+            if order.container_number.container_number not in seen
+               and not seen.add(order.container_number.container_number)
+        ]
+
+    async def _get_order_shipment_other_selfpick_cargos(self, warehouse: str) -> Order:
+        """私仓客户自提预约情况"""
+        return await sync_to_async(list)(
+            PackingList.objects.prefetch_related(
+                "container_number",
+                "container_number__orders",
+                "container_number__orders__warehouse",
+                "shipment_batch_number",
+            )
+            .filter(
+                models.Q(
+                    container_number__orders__warehouse__name=warehouse,
+                    shipment_batch_number__isnull=False,
+                    delivery_type__in=('other', '一件代发'),
+                )
+            )
+            .values("container_number__container_number")
+            .annotate(
+                shipment_scheduled_time=Min(
+                    "shipment_batch_number__shipment_appointment"
+                )
+            )
+        )
 
 
     async def handle_amend_abnormal_post(
