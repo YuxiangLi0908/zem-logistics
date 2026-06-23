@@ -8107,8 +8107,10 @@ class ReceivableAccounting(View):
                 if item.item_category == target_category and item.warehouse_code:
                     previous_delivery_warehouses.append({
                         'warehouse_code': item.warehouse_code,
+                        'shipping_marks': item.shipping_marks or '',
                         'amount': item.amount or '',
                         'invoice_number': item.invoice_number.invoice_number,
+                        'finance_status': item.invoice_number.get_finance_status_display(),
                     })
             
             for item in previous_items:
