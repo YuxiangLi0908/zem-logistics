@@ -161,8 +161,18 @@ class Home(View):
                 plt_criteria &= models.Q(container_number__container_number=query_params['container_number'])
             elif bool(query_params['shipment_batch_number'] or query_params['appointment_id'] ):
                 if query_params['shipment_batch_number']:
-                    pl_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
-                    plt_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
+                    sbn_keywords = [k for k in re.split(r'[\s\n]+', query_params['shipment_batch_number']) if k]
+                    if len(sbn_keywords) > 1:
+                        sbn_q_pl = models.Q()
+                        sbn_q_plt = models.Q()
+                        for kw in sbn_keywords:
+                            sbn_q_pl |= models.Q(shipment_batch_number__shipment_batch_number=kw)
+                            sbn_q_plt |= models.Q(shipment_batch_number__shipment_batch_number=kw)
+                        pl_criteria &= sbn_q_pl
+                        plt_criteria &= sbn_q_plt
+                    else:
+                        pl_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
+                        plt_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
                 elif query_params['appointment_id']:
                     pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
                     plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
