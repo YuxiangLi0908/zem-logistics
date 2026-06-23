@@ -93,7 +93,7 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
-
+from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
@@ -793,15 +793,12 @@ class PostNsop(View):
             template, context = await self.other_selfpick_cargos(request)
             return render(request, template, context)
         elif step == "export_pallet_label":
-            from warehouse.views.post_port.warehouse.palletization import Palletization
             palletization = Palletization()
             return await palletization._export_pallet_label(request)
         elif step == "export_palletization_list":
-            from warehouse.views.post_port.warehouse.palletization import Palletization
             palletization = Palletization()
             return await palletization.export_palletization_list(request)
         elif step == "new_export_palletization_list":
-            from warehouse.views.post_port.warehouse.palletization import Palletization
             palletization = Palletization()
             return await palletization.export_palletization_list_v2(request)
         elif step == "cancel_post_other_selfdelivery":
@@ -13864,7 +13861,6 @@ class PostNsop(View):
                             )
                             dw_end = re.sub(r"(\w{3})\.", r"\1", dw_end)
                             dw_end = datetime.strptime(dw_end, "%b %d, %Y").date()
-                    from warehouse.views.post_port.warehouse.palletization import Palletization
                     palletization = Palletization()
                     pallet_data += await palletization._split_pallet(
                         order_selected,
@@ -14196,7 +14192,6 @@ class PostNsop(View):
                         released_at = created_at
                     # ======================================================
 
-                    from warehouse.views.post_port.warehouse.palletization import Palletization
                     palletization = Palletization()
                     pd, log_info = await palletization._split_pallet(
                         order_selected,
@@ -14392,7 +14387,7 @@ class PostNsop(View):
             # 所有项都 不是 public → 满足条件
             # 检查是否存在 不是 other 的装箱单
             has_public = await sync_to_async(
-                PackingList.objects.filter(container_number=container).exclude(delivery_type="other").exists
+                PackingList.objects.filter(container_number=container).exclude(delivery_type__in=("other", "一件代发")).exists
             )()
 
             # 如果 没有 public，全部是 other
@@ -14449,7 +14444,6 @@ class PostNsop(View):
         await sync_to_async(co.save, thread_sensitive=True)()
 
         # 批量将LTL的参数从pl转到plt
-        from warehouse.views.post_port.warehouse.palletization import Palletization
         palletization = Palletization()
         await palletization._ltl_parameter_transfer(container)
 
@@ -14584,7 +14578,7 @@ class PostNsop(View):
                     offload_id__offload_other_selfdelivery_at__isnull=False,
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
-                    container_number__pallet__delivery_type='other',
+                    container_number__pallet__delivery_type__in=('other', '一件代发'),
                     container_number__pallet__delivery_method='卡车派送',
                 )
             )
@@ -14732,7 +14726,7 @@ class PostNsop(View):
         if status == "non_palletized":
             return await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
-                .filter(container_number__container_number=container_number, delivery_type='other')
+                .filter(container_number__container_number=container_number, delivery_type__in=('other','一件代发'))
                 .annotate(
                     custom_delivery_method=Case(
                         When(
@@ -14787,7 +14781,7 @@ class PostNsop(View):
                     ids=StringAgg("str_id", delimiter=",", distinct=True),
                     pcs=Sum("pcs", output_field=IntegerField()),
                     cbm=Sum("cbm", output_field=FloatField()),
-                    n_pallet=Count("pallet__id", distinct=True, filter=Q(pallet__delivery_type='other')),
+                    n_pallet=Count("pallet__id", distinct=True, filter=Q(pallet__delivery_type__in=('other','一件代发'))),
                     weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                     plt_ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
@@ -14798,7 +14792,7 @@ class PostNsop(View):
         elif status == "palletized":
             return await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
-                .filter(container_number__container_number=container_number, delivery_type='other')
+                .filter(container_number__container_number=container_number, delivery_type__in=('other','一件代发'))
                 .annotate(
                     str_id=Cast("id", CharField()),
                     str_length=Cast("length", CharField()),
@@ -14823,7 +14817,7 @@ class PostNsop(View):
                 .annotate(
                     pcs=Sum("pcs", output_field=IntegerField()),
                     cbm=Sum("cbm", output_field=FloatField()),
-                    n_pallet=Count("id", distinct=True, filter=Q(delivery_type='other')),
+                    n_pallet=Count("id", distinct=True, filter=Q(delivery_type__in=('other','一件代发'))),
                     ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
@@ -14887,7 +14881,6 @@ class PostNsop(View):
             ).delete
         )()
         await sync_to_async(offload.save)()
-        from warehouse.views.post_port.warehouse.palletization import Palletization
         palletization = Palletization()
         await palletization._update_shipment_abnormal_palletization(shipment)
         mutable_post = request.POST.copy()
@@ -14946,7 +14939,6 @@ class PostNsop(View):
             ).delete
         )()
         await sync_to_async(offload.save)()
-        from warehouse.views.post_port.warehouse.palletization import Palletization
         palletization = Palletization()
         await palletization._update_shipment_abnormal_palletization(shipment)
         mutable_post = request.POST.copy()
