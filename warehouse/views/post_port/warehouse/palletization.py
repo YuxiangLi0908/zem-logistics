@@ -68,6 +68,7 @@ from warehouse.utils.constants import (
     DELIVERY_METHOD_OPTIONS,
 )
 from warehouse.views.export_file import export_palletization_list, export_palletization_list_v2
+from warehouse.views.post_port.post_nsop import PostNsop
 from warehouse.views.pre_port.pre_port_dash import PrePortDash
 
 
@@ -171,6 +172,11 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "cancel_sav_other":
             template, context = await self.handle_cancel_sav_other_post(request)
+            return render(request, template, context)
+        elif step == "cancel_post_other_selfpick_cargos":
+            from warehouse.views.post_port.post_nsop import PostNsop
+            pn = PostNsop()
+            template, context = await pn.handle_cancel_post_other_selfpick_cargos(request)
             return render(request, template, context)
         elif step == "amend_abnormal":
             template, context = await self.handle_amend_abnormal_post(request)
