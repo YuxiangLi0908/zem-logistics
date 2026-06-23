@@ -1393,6 +1393,12 @@
                 <div class="warehouse-destination">
                     <i class="fas fa-warehouse"></i>
                     <span>{{ warehouse.destination }}</span>
+                    {% if warehouse.shipment_batch_number__shipment_batch_number %}
+                    <span style="color:#6c757d;font-size:12px;margin-left:8px;">批次: {{ warehouse.shipment_batch_number__shipment_batch_number }}</span>
+                    {% endif %}
+                    {% if warehouse.shipment_batch_number__appointment_id %}
+                    <span style="color:#6c757d;font-size:12px;margin-left:8px;">ISA: {{ warehouse.shipment_batch_number__appointment_id }}</span>
+                    {% endif %}
                 </div>
                 <div class="warehouse-details">
                     <div class="detail-item">
