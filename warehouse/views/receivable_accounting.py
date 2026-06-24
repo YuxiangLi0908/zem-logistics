@@ -5868,7 +5868,7 @@ class ReceivableAccounting(View):
             )
             filter_rules.append(f"柜号 = {container_number_filter}")
             filter_rules.append("未取消预报")
-            filter_rules.append("已提柜")
+            filter_rules.append("有实际提柜时间")
             filter_rules.append("已拆柜(公仓+私仓)")
         else:
             criteria = (
@@ -5881,8 +5881,8 @@ class ReceivableAccounting(View):
             )
             filter_rules.append(f"ETD {start_date} ~ {end_date}")
             filter_rules.append("未取消预报")
-            filter_rules.append("已提柜")
-            filter_rules.append("已卸柜(主仓+副仓)")
+            filter_rules.append("有实际提柜时间")
+            filter_rules.append("已拆柜(公仓+私仓)")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
