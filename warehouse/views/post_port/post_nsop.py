@@ -7490,6 +7490,7 @@ class PostNsop(View):
         context = {}
         shipment_id = request.POST.get('shipment_id', '').strip()
         appointment_id_new = request.POST.get('appointment_id', '').strip()
+        carrier_new = request.POST.get('carrier', '').strip()
         shipment_appointment = request.POST.get('shipment_appointment')
         pickup_time = request.POST.get('pickup_time')
 
@@ -7510,21 +7511,27 @@ class PostNsop(View):
 
         if appointment_id_new == appointment_id_old:
             # 预约号不变，只更新其他字段
+            old_shipment.carrier = carrier_new if carrier_new else None
             old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
             old_shipment.pickup_time = pickup_time if pickup_time else None
             await sync_to_async(old_shipment.save)()
             context.update({'success_messages': f"{appointment_id_old}预约信息修改成功！"})
         else:
-            # 预约号变化，检查重复
-            context = await self._check_ISA_is_repetition(appointment_id_new, old_shipment.destination)
+            if bool(appointment_id_new):
+                # 预约号变化，检查重复
+                context = await self._check_ISA_is_repetition(appointment_id_new, old_shipment.destination)
+            else:
+                # 说明把ISA清空了
+                context.update({'success_messages': "ISA已清空"})
             if context.get('success_messages'):
                 old_shipment.appointment_id = appointment_id_new
+                old_shipment.carrier = carrier_new if carrier_new else None
                 old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
                 old_shipment.pickup_time = pickup_time if pickup_time else None
                 await sync_to_async(old_shipment.save)()
                 if not context.get('success_messages'):
                     context.update({'success_messages': f"{appointment_id_old}预约信息修改成功！"})
-
+  
         return await self.handle_td_shipment_post(request, context)
 
     async def _check_ISA_is_repetition(self, appointment_id, destination):
