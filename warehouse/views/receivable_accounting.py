@@ -8105,12 +8105,20 @@ class ReceivableAccounting(View):
             target_category = f"delivery_{delivery_type}"
             for item in previous_items:
                 if item.item_category == target_category and item.warehouse_code:
+                    inv_status = InvoiceStatusv2.objects.filter(
+                        invoice=item.invoice_number, invoice_type="receivable"
+                    ).first()
                     previous_delivery_warehouses.append({
                         'warehouse_code': item.warehouse_code,
                         'shipping_marks': item.shipping_marks or '',
                         'amount': item.amount or '',
                         'invoice_number': item.invoice_number.invoice_number,
-                        'finance_status': ''                    })
+                        'finance_status': {
+                            'unstarted': '未开始',
+                            'tobeconfirmed': '回退',
+                            'completed': '已完成',
+                        }.get(inv_status.finance_status, inv_status.finance_status) if inv_status else '',
+                    })
             
             for item in previous_items:
                 if item.PO_ID:
