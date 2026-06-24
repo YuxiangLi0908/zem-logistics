@@ -2846,8 +2846,8 @@ class Palletization(View):
                     cbm /= 2
                 cbm *= n_label
                 cbm = int(cbm)
-                if (
-                        "客户自提" in pl.get("destination")
+                if (    customer_name == "JINYU"
+                        or "客户自提" in pl.get("destination")
                         or "自提" in pl.get("destination")
                         or "客户自提" in delivery_method
                         or "other" in pl.get("delivery_type")
