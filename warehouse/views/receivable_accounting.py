@@ -5857,6 +5857,7 @@ class ReceivableAccounting(View):
             end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         # --- 2. 构建查询条件 ---
+        filter_rules = []  # 筛选规则描述
         if container_number_filter:
             criteria = (
                 Q(container_number__container_number=container_number_filter)
@@ -5865,6 +5866,10 @@ class ReceivableAccounting(View):
                 & Q(offload_id__offload_at__isnull=False)
                 & Q(offload_id__offload_other_at__isnull=False)
             )
+            filter_rules.append(f"柜号 = {container_number_filter}")
+            filter_rules.append("未取消预报")
+            filter_rules.append("已提柜")
+            filter_rules.append("已拆柜(公仓+私仓)")
         else:
             criteria = (
                 Q(cancel_notification=False)
@@ -5874,12 +5879,18 @@ class ReceivableAccounting(View):
                 & Q(offload_id__offload_at__isnull=False)
                 & Q(offload_id__offload_other_at__isnull=False)
             )
+            filter_rules.append(f"ETD {start_date} ~ {end_date}")
+            filter_rules.append("未取消预报")
+            filter_rules.append("已提柜")
+            filter_rules.append("已卸柜(主仓+副仓)")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
                 criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+                filter_rules.append(f"仓点 = {warehouse}")
             if customer:
                 criteria &= Q(customer_name__zem_name=customer)
+                filter_rules.append(f"客户 = {customer}")
 
         # --- 3. 获取基础订单数据 ---
         base_orders = (
@@ -6098,6 +6109,7 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "existing_customers": existing_customers,
             "container_number_filter": container_number_filter,
+            "filter_rules": filter_rules,
         })
         return self.template_fix_account_entry, context
     
