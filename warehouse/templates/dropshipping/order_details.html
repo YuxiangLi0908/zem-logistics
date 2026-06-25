@@ -158,8 +158,7 @@
                     <tr>
                         <th class="th">客户</th>
                         <th class="th">订单类型</th>
-                        <th class="th" id="td-order-area-th" {% if selected_order.order_type == "直送" %}style="display: none;"{% endif %}>所属仓</th>
-                        <th class="th" id="dd-order-destination-th" {% if selected_order.order_type == "转运" or selected_order.order_type == "转运组合" %}style="display: none;"{% endif %}>直送地址</th>
+                        <th class="th" id="td-order-area-th">所属仓</th>
                         <th class="th">柜号</th>
                         <th class="th">MBL</th>
                         <th class="th">柜重</th>
@@ -627,19 +626,15 @@
                             </select>
                         </td>
                         <td class="td">
-                            {% if selected_order.order_type == "直送" %}
-                                <input type="text" name="retrieval_destination_precise" {%if retrieval %} value="{{ retrieval.retrieval_destination_precise }}" {% endif %} required>
-                            {% else %}
-                                <select name="retrieval_destination_precise" id="retrieval_destination_precise-select" style="font-size: 13px;">
-                                    {% for k, v in warehouse_options %}
-                                        {% if v == retrieval.retrieval_destination_precise  %}
-                                            <option value="{{ retrieval.retrieval_destination_precise }}" selected>{{ k }}</option>
-                                        {% else %}
-                                            <option value="{{ v }}">{{ k }}</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                </select>
-                            {% endif %}
+                            <select name="retrieval_destination_precise" id="retrieval_destination_precise-select" style="font-size: 13px;">
+                                {% for k, v in warehouse_options %}
+                                    {% if v == retrieval.retrieval_destination_precise  %}
+                                        <option value="{{ retrieval.retrieval_destination_precise }}" selected>{{ k }}</option>
+                                    {% else %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
                         </td>
                         <td class="td">
                             <input type="date" name="target_retrieval_timestamp" {%if retrieval %} value="{{ retrieval.target_retrieval_timestamp|date:'Y-m-d' }}"{% endif %}>

@@ -78,6 +78,11 @@ class Dropshipping(View):
         elif step == "repeat_t49_all":
             template, context = await self.repeat_t49_all()
             return await sync_to_async(render)(request, template, context)
+        elif step == "order_management_container":
+            template, context = await self.handle_order_management_container_get(
+                request
+            )
+            return await sync_to_async(render)(request, template, context)
 
 
     async def post(self, request: HttpRequest, **kwargs) -> None | HttpResponse | tuple[Any, Any] | Any:
@@ -124,6 +129,11 @@ class Dropshipping(View):
         elif step == "add_t49_order":
             template, context = await self.add_t49_order(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_order_retrieval_info":
+            template, context = await self.handle_update_order_retrieval_info_post(
+                request
+            )
+            return await sync_to_async(render)(request, template, context)
 
     async def add_t49_order(
             self, request: HttpRequest
@@ -134,6 +144,73 @@ class Dropshipping(View):
             thread_sensitive=False  # 非线程敏感操作，提升执行效率
         )(add_to_t49=True)
         return await self.repeat_t49_all()
+
+    async def handle_update_order_retrieval_info_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
+            container_number__container_number=container_number
+        )
+        destination = request.POST.get("retrieval_destination_precise")
+        order_type = order.order_type
+        warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=destination)
+        order.warehouse = warehouse
+        await sync_to_async(order.save)()
+        retrieval = await sync_to_async(Retrieval.objects.get)(
+            models.Q(retrieval_id=order.retrieval_id)
+        )
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        retrieval.retrieval_carrier = request.POST.get("retrieval_carrier")
+        retrieval.retrieval_destination_precise = request.POST.get(
+            "retrieval_destination_precise"
+        )
+        target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
+        retrieval.target_retrieval_timestamp = (
+            self._parse_ts(target_retrieval_timestamp, tzinfo)
+            if target_retrieval_timestamp
+            else None
+        )
+        actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        retrieval.actual_retrieval_timestamp = (
+            self._parse_ts(actual_retrieval_timestamp, tzinfo)
+            if actual_retrieval_timestamp
+            else None
+        )
+
+        arrive_at = request.POST.get("arrive_at")
+        retrieval.arrive_at = self._parse_ts(arrive_at, tzinfo) if arrive_at else None
+        empty_returned_at = request.POST.get("empty_returned_at")
+        retrieval.empty_returned_at = (
+            self._parse_ts(empty_returned_at, tzinfo) if empty_returned_at else None
+        )
+        if not empty_returned_at:
+            retrieval.empty_returned = False
+        retrieval.note = request.POST.get("retrieval_note").strip()
+        await sync_to_async(retrieval.save)()
+        mutable_get = request.GET.copy()
+        mutable_get["container_number"] = container_number
+        mutable_get["step"] = "container_info_supplement"
+        request.GET = mutable_get
+        return await self.handle_order_management_container_get(request)
+
+    def _parse_tzinfo(self, s: str | None) -> str:
+        if not s:
+            return "America/New_York"
+        elif "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: str, tzinfo: str) -> str:
+        ts_naive = datetime.fromisoformat(ts)
+        tz = pytz.timezone(tzinfo)
+        ts = tz.localize(ts_naive).astimezone(timezone.utc)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")
 
     async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
@@ -572,6 +649,14 @@ class Dropshipping(View):
             )
         )
         offload = order.offload_id
+        cancel_access = await sync_to_async(
+            lambda: (
+                    request.user.is_authenticated
+                    and request.user.groups.filter(
+                name="create_order_dropshipping"
+            ).exists()
+            )
+        )()
         context = {
             "selected_order": order,
             "packing_list": packing_list,
@@ -585,9 +670,7 @@ class Dropshipping(View):
             "customers": customers,
             "area": self.area,
             "offload_at": offload.offload_at,
-            "cancel_access": await sync_to_async(
-                request.user.groups.filter(name="create_order").exists
-            )(),
+            "cancel_access": cancel_access
         }
         context["carrier_options"] = await sync_to_async(list)(
             ContainerPickupCarrier.objects
