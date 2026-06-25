@@ -2489,19 +2489,19 @@ class Palletization(View):
             pass
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
-                container_number__container_number=container_number, delivery_type__in=('other', '一件代发'),
+                container_number__container_number=container_number, delivery_type='other',
             )
         )
         shipment = set()
         shipment.update([p.shipment_batch_number for p in pallet if p])
         await sync_to_async(
             Pallet.objects.filter(
-                container_number__container_number=container_number, delivery_type__in=('other', '一件代发'),
+                container_number__container_number=container_number, delivery_type='other',
             ).delete
         )()
         await sync_to_async(
             AbnormalOffloadStatus.objects.filter(
-                container_number__container_number=container_number, delivery_type__in=('other', '一件代发'),
+                container_number__container_number=container_number, delivery_type='other',
             ).delete
         )()
         await sync_to_async(offload.save)()
@@ -2552,7 +2552,7 @@ class Palletization(View):
                     offload_id__offload_other_at=None,
                     created_at__gte="2024-07-01",
                     cancel_notification=False,
-                    container_number__packinglist__delivery_type__in=('other', '一件代发'),
+                    container_number__packinglist__delivery_type='other',
                 )
             )
             .order_by("retrieval_id__arrive_at")
@@ -2581,7 +2581,7 @@ class Palletization(View):
                     offload_id__offload_other_at__isnull=False,
                     cancel_notification=False,
                     created_at__gte=timezone.now() - timedelta(days=120),
-                    container_number__pallet__delivery_type__in=('other', '一件代发'),
+                    container_number__pallet__delivery_type='other',
                 )
             )
             .order_by("offload_id__offload_at")
@@ -2606,7 +2606,7 @@ class Palletization(View):
                 models.Q(
                     container_number__orders__warehouse__name=warehouse,
                     shipment_batch_number__isnull=False,
-                    delivery_type__in=('other', '一件代发'),
+                    delivery_type='other',
                 )
             )
             .values("container_number__container_number")
