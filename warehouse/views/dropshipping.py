@@ -1,19 +1,22 @@
+import json
 import os
 import string
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from itertools import zip_longest
 from pathlib import Path
 import random
-from typing import Any
+from typing import Any, Coroutine
 import re
 
+import chardet
 import numpy as np
 import pandas as pd
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models import Sum
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render
 from django.utils.dateparse import parse_date
@@ -26,16 +29,19 @@ from django.utils import timezone
 from warehouse.models.container import Container
 from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.po_check_eta import PoCheckEtaSeven
+from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER, \
     PACKING_LIST_TEMP_COL_MAPPING, DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE
+from warehouse.views.export_file import export_do
 
 
 class Dropshipping(View):
@@ -44,6 +50,8 @@ class Dropshipping(View):
     template_order_details = "dropshipping/order_details.html"
     template_order_details_pl = "dropshipping/order_details_pl_tab.html"
     template_order_create_supplement_pl_tab = "dropshipping/03_order_creation_packing_list_tab.html"
+    template_order_list = "dropshipping/order_list.html"
+    template_repeat_t49_all = "dropshipping/repeat_t49_all.html"
 
     container_type = {
         "": "",
@@ -56,7 +64,7 @@ class Dropshipping(View):
     order_type = {"一件代发": "一件代发"}
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA",}
 
-    async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
+    async def get(self, request: HttpRequest, **kwargs) -> Any | None:
         step = request.GET.get("step", None)
         if step == "all":
             template, context = await self.handle_order_basic_info_get()
@@ -64,8 +72,15 @@ class Dropshipping(View):
         elif step == "container_info_supplement":
             template, context = await self.handle_order_supplemental_info_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "order_management_list":
+            template, context = await self.handle_order_management_list_get()
+            return await sync_to_async(render)(request, template, context)
+        elif step == "repeat_t49_all":
+            template, context = await self.repeat_t49_all()
+            return await sync_to_async(render)(request, template, context)
 
-    async def post(self, request: HttpRequest, **kwargs) -> HttpResponse:
+
+    async def post(self, request: HttpRequest, **kwargs) -> None | HttpResponse | tuple[Any, Any] | Any:
         step = request.POST.get("step")
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
@@ -88,6 +103,93 @@ class Dropshipping(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step == "export_forecast":
+            return await self.handle_export_forecast(request)
+        elif step == "order_management_search":
+            start_date_eta = request.POST.get("start_date_eta")
+            end_date_eta = request.POST.get("end_date_eta")
+            start_date_etd = request.POST.get("start_date_etd")
+            end_date_etd = request.POST.get("end_date_etd")
+            template, context = await self.handle_order_management_list_get(
+                start_date_eta, end_date_eta, start_date_etd, end_date_etd
+            )
+            return await sync_to_async(render)(request, template, context)
+        elif step == "export_do":
+            return await sync_to_async(export_do)(request)
+        elif step == "export_details_by_destination":
+            return await self.handle_export_details_by_destination(request)
+        elif step == "delete_order":
+            template, context = await self.handle_delete_order_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "add_t49_order":
+            template, context = await self.add_t49_order(request)
+            return await sync_to_async(render)(request, template, context)
+
+    async def add_t49_order(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        order_id = request.POST.get("order_id")
+        await sync_to_async(
+            Order.objects.filter(id=order_id).update,
+            thread_sensitive=False  # 非线程敏感操作，提升执行效率
+        )(add_to_t49=True)
+        return await self.repeat_t49_all()
+
+    async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "warehouse",
+            )
+            .values(
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "order_type",
+                "vessel_id__vessel_eta",
+                "vessel_id__vessel_etd",
+                "cancel_time",
+                "created_at",
+                "retrieval_id__retrieval_carrier",
+                "vessel_id__destination_port",
+                "vessel_id__master_bill_of_lading",
+                "warehouse__name",
+                "container_number__container_type",
+            )
+            .filter(models.Q(container_number__container_number__in=selected_orders))
+        )
+        for order in orders:
+            # 由于carrier的内容为中文，导出的文件中为乱码，所以修改编码，但是这段代码并没有解决编码问题，依旧是乱码，没有找到解决方案
+            if order.get("retrieval_id__retrieval_carrier"):
+                raw_data = order["retrieval_id__retrieval_carrier"]
+                raw_data = raw_data.encode("utf-8")
+                encoding = chardet.detect(raw_data)["encoding"]
+                order["retrieval_id__retrieval_carrier"] = raw_data.decode(encoding)
+
+        df = pd.DataFrame(orders)
+        df = df.rename(
+            {
+                "container_number__container_number": "container",
+                "customer_name__zem_name": "customer",
+                "vessel_id__master_bill_of_lading": "MBL",
+                "vessel_id__destination_port": "destination_port",
+                "vessel_id__vessel_eta": "ETA",
+                "vessel_id__vessel_etd": "ETD",
+                "retrieval_id__retrieval_carrier": "carrier",
+                "container_number__container_type": "container_type",
+                "order_type": "order_type",
+            },
+            axis=1,
+        )
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename=forecast.csv"
+        df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
+        return response
 
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
@@ -960,3 +1062,273 @@ class Dropshipping(View):
             return await self.handle_order_management_container_get(request)
         else:
             return await self.handle_order_basic_info_get()
+
+    async def handle_order_management_list_get(
+            self,
+            start_date_eta: str = None,
+            end_date_eta: str = None,
+            start_date_etd: str = None,
+            end_date_etd: str = None,
+    ) -> tuple[Any, Any]:
+        # 默认时间：ETA 最近30天
+        if not start_date_eta and not start_date_etd:
+            start_date_eta = (datetime.now().date() + timedelta(days=-30)).strftime("%Y-%m-%d")
+        if not end_date_eta and not end_date_etd:
+            end_date_eta = (datetime.now().date() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+        criteria = None
+        if start_date_eta and end_date_eta:
+            criteria = (
+                    models.Q(vessel_id__vessel_eta__gte=start_date_eta, vessel_id__vessel_eta__lte=end_date_eta, order_type="一件代发") |
+                    models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta, order_type="一件代发")
+            )
+
+        if start_date_etd and end_date_etd:
+            etd_q = models.Q(vessel_id__vessel_etd__gte=start_date_etd, vessel_id__vessel_etd__lte=end_date_etd, order_type="一件代发")
+            criteria = criteria & etd_q if criteria else etd_q
+
+        # 查询订单
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            ).prefetch_related("container_number__packinglist_set")
+            .filter(criteria if criteria else models.Q())
+        )
+
+        # 遍历设置状态
+        for order in orders:
+            status = "未知"
+
+            # 1. 已取消
+            if order.cancel_notification:
+                status = "已取消"
+
+            # 2. T49 待追踪
+            elif not order.add_to_t49:
+                status = "T49待追踪"
+
+            else:
+                ret = order.retrieval_id
+                offload = order.offload_id
+
+                # 安全判断：防止 None 报错
+                if not ret:
+                    status = "未设置提柜信息"
+                    order.status = status
+                    continue
+
+                # 3. 未设置实际提柜时间
+                if not ret.actual_retrieval_timestamp:
+                    if not ret.retrieval_carrier:
+                        status = "待预约提柜"
+                    else:
+                        status = "待确认提柜"
+
+                # 4. 已提柜，未到仓
+                elif not ret.arrive_at_destination:
+                    status = "待确认到仓"
+
+                # 5. 已到仓 → 拆柜逻辑
+                else:
+                    if not offload.offload_at:
+                        status = "待确认拆柜"
+                    else:
+                        status = "已拆柜"
+
+            order.status = status
+
+        context = {
+            "orders": orders,
+            "start_date_eta": start_date_eta,
+            "end_date_eta": end_date_eta,
+            "start_date_etd": start_date_etd,
+            "end_date_etd": end_date_etd,
+        }
+
+        return self.template_order_list, context
+
+    async def handle_export_details_by_destination(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "retrieval_id",
+                "warehouse",
+                "customer_name",
+            )
+            .values(
+                "container_number__container_number",
+                "vessel_id__vessel_etd",
+                "retrieval_id__retrieval_destination_area",
+                "customer_name__zem_name",
+            )
+            .filter(models.Q(container_number__container_number__in=selected_orders))
+        )
+        results = []
+        for order in orders:
+            container_number = order.get("container_number__container_number")
+            vessel_etd = order.get("vessel_id__vessel_etd")
+            warehouse = order.get("retrieval_id__retrieval_destination_area")
+
+            # 找报价表
+            customer_name = order.get("customer_name__zem_name")
+            matching_quotation = await (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=True,
+                    exclusive_user=customer_name,
+                    quote_type='receivable',
+                )
+                .order_by("-effective_date")
+                .afirst()
+            )
+
+            if not matching_quotation:
+                matching_quotation = await (
+                    QuotationMaster.objects.filter(
+                        effective_date__lte=vessel_etd,
+                        is_user_exclusive=False,  # 非用户专属的通用报价单
+                        quote_type='receivable',
+                    )
+                    .order_by("-effective_date")
+                    .afirst()
+                )
+            if not matching_quotation:
+                raise ValueError("找不到报价表")
+
+            # 找组合柜报价
+            combina_fee_detail = await FeeDetail.objects.aget(
+                quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
+            )
+            combina_fee = combina_fee_detail.details
+            plts_by_destination = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number
+                    ).values("destination")
+                )
+            )()
+            matched_regions = self.find_matching_regions(
+                plts_by_destination, combina_fee
+            )
+
+            combina_keys = "+".join(matched_regions["combina_dests"].keys())
+            non_combina_vals = ",".join(matched_regions["non_combina_dests"])
+            ups_total_pcs = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number__container_number=container_number,
+                    destination__icontains="UPS",
+                ).aggregate(total=Sum("pcs"))["total"]
+            )()
+            fxdex_total_pcs = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number__container_number=container_number,
+                    destination__icontains="FEDEX",
+                ).aggregate(total=Sum("pcs"))["total"]
+            )()
+            results.append(
+                {
+                    "container_number": container_number,
+                    "combina_dests": combina_keys,
+                    "non_combina_dests": non_combina_vals,
+                    "UPS": ups_total_pcs,
+                    "FEDEX": fxdex_total_pcs,
+                }
+            )
+
+        df = pd.DataFrame(
+            results,
+            columns=[
+                "container_number",
+                "combina_dests",
+                "non_combina_dests",
+                "UPS",
+                "FEDEX",
+            ],
+        )
+        df = df.rename(
+            {
+                "container_number": "柜号",
+                "combina_dests": "组合柜的区",
+                "non_combina_dests": "非组合柜仓点",
+            },
+            axis=1,
+        )
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f"attachment; filename=destination_details.csv"
+        )
+        df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
+        return response
+
+    async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        # 在这里进行订单删除操作，例如：
+        for order_number in selected_orders:
+            await sync_to_async(
+                Order.objects.filter(
+                    container_number__container_number=order_number
+                ).delete
+            )()
+        start_date_eta = request.POST.get("start_date_eta")
+        end_date_eta = request.POST.get("end_date_eta")
+        start_date_etd = (
+            request.POST.get("start_date_etd")
+            if request.POST.get("start_date_etd")
+            and request.POST.get("start_date_etd") != "None"
+            else ""
+        )
+        end_date_etd = (
+            request.POST.get("end_date_etd")
+            if request.POST.get("end_date_etd")
+            and request.POST.get("end_date_etd") != "None"
+            else ""
+        )
+        return await self.handle_order_management_list_get(
+            start_date_eta, end_date_eta, start_date_etd, end_date_etd
+        )
+
+    async def repeat_t49_all(self) -> tuple[Any, Any]:
+        """
+        T49待追踪订单（add_to_t49=False且满足过滤条件）
+        """
+        # 公共过滤条件（抽离复用，避免重复代码）
+        common_filter = (
+                (models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
+                 | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER))
+                & models.Q(offload_id__offload_at__isnull=True)
+                & models.Q(cancel_notification=False)
+        )
+        t49_pending_orders = await sync_to_async(list)(
+            Order.objects.select_related("container_number")
+            .values(
+                "id",
+                "created_at",
+                "container_number__container_number",
+                "add_to_t49"
+            )
+            .filter(
+                common_filter,
+                add_to_t49=False,
+                order_type="一件代发"
+            )
+            .order_by("-created_at")
+        )
+
+        context = {
+            "t49_pending_orders": t49_pending_orders,
+            "t49_pending_count": len(t49_pending_orders),
+        }
+
+        return self.template_repeat_t49_all, context
+
