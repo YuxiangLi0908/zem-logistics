@@ -5,8 +5,9 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from itertools import zip_longest
 from pathlib import Path
-from random import random
-from typing import Any, re
+import random
+from typing import Any
+import re
 
 import numpy as np
 import pandas as pd
@@ -63,11 +64,8 @@ class Dropshipping(View):
         elif step == "container_info_supplement":
             template, context = await self.handle_order_supplemental_info_get(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "container_info_supplement":
-            template, context = await self.handle_order_supplemental_info_get(request)
-            return await sync_to_async(render)(request, template, context)
 
-    async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
+    async def post(self, request: HttpRequest, **kwargs) -> HttpResponse:
         step = request.POST.get("step")
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
@@ -637,7 +635,7 @@ class Dropshipping(View):
     async def handle_download_template_post(self) -> HttpResponse:
         file_path = (
             Path(__file__)
-            .parent.parent.parent.resolve()
+            .parent.parent.resolve()
             .joinpath("templates/export_file/dropshipping_packing_list_template.xlsx")
         )
         if not os.path.exists(file_path):
