@@ -4330,7 +4330,7 @@ class ReceivableAccounting(View):
         
         context = self.batch_save_delivery_item(container, invoice, items_data, item_category, context, username)
 
-        container_delivery_type = getattr(container, 'delivery_type', 'mixed')
+        #container_delivery_type = getattr(container, 'delivery_type', 'mixed')
 
         status_obj = InvoiceStatusv2.objects.get(
                 invoice=invoice,
@@ -4340,12 +4340,12 @@ class ReceivableAccounting(View):
         # 根据柜子类型自动更新另一边的状态
         if delivery_type == "public":
             status_obj.delivery_public_status = "completed"
-            if container_delivery_type == "public":
-                status_obj.delivery_other_status = "completed"
+            # if container_delivery_type == "public":
+            #     status_obj.delivery_other_status = "completed"
         else:
             status_obj.delivery_other_status = "completed"
-            if container_delivery_type == "other":
-                status_obj.delivery_public_status = "completed"
+            # if container_delivery_type == "other":
+            #     status_obj.delivery_public_status = "completed"
         status_obj.save()
         #计算派送总费用
         self._calculate_delivery_total_amount(delivery_type,invoice,container_number)
@@ -5857,6 +5857,7 @@ class ReceivableAccounting(View):
             end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         # --- 2. 构建查询条件 ---
+        filter_rules = []  # 筛选规则描述
         if container_number_filter:
             criteria = (
                 Q(container_number__container_number=container_number_filter)
@@ -5865,6 +5866,10 @@ class ReceivableAccounting(View):
                 & Q(offload_id__offload_at__isnull=False)
                 & Q(offload_id__offload_other_at__isnull=False)
             )
+            filter_rules.append(f"柜号 = {container_number_filter}")
+            filter_rules.append("未取消预报")
+            filter_rules.append("有实际提柜时间")
+            filter_rules.append("已拆柜(公仓+私仓)")
         else:
             criteria = (
                 Q(cancel_notification=False)
@@ -5874,12 +5879,18 @@ class ReceivableAccounting(View):
                 & Q(offload_id__offload_at__isnull=False)
                 & Q(offload_id__offload_other_at__isnull=False)
             )
+            filter_rules.append(f"ETD {start_date} ~ {end_date}")
+            filter_rules.append("未取消预报")
+            filter_rules.append("有实际提柜时间")
+            filter_rules.append("已拆柜(公仓+私仓)")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
                 criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+                filter_rules.append(f"仓点 = {warehouse}")
             if customer:
                 criteria &= Q(customer_name__zem_name=customer)
+                filter_rules.append(f"客户 = {customer}")
 
         # --- 3. 获取基础订单数据 ---
         base_orders = (
@@ -6098,6 +6109,7 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "existing_customers": existing_customers,
             "container_number_filter": container_number_filter,
+            "filter_rules": filter_rules,
         })
         return self.template_fix_account_entry, context
     
@@ -8105,10 +8117,19 @@ class ReceivableAccounting(View):
             target_category = f"delivery_{delivery_type}"
             for item in previous_items:
                 if item.item_category == target_category and item.warehouse_code:
+                    inv_status = InvoiceStatusv2.objects.filter(
+                        invoice=item.invoice_number, invoice_type="receivable"
+                    ).first()
                     previous_delivery_warehouses.append({
                         'warehouse_code': item.warehouse_code,
+                        'shipping_marks': item.shipping_marks or '',
                         'amount': item.amount or '',
                         'invoice_number': item.invoice_number.invoice_number,
+                        'finance_status': {
+                            'unstarted': '未开始',
+                            'tobeconfirmed': '回退',
+                            'completed': '已完成',
+                        }.get(inv_status.finance_status, inv_status.finance_status) if inv_status else '',
                     })
             
             for item in previous_items:
@@ -10012,23 +10033,24 @@ class ReceivableAccounting(View):
                 setattr(invoice_status, reason_field, request.POST.get("reject_reason", ""))
             
             # 从 packinglist 查询这个柜号下是否有 delivery_type 是 public 的值
-            has_public_packinglist = PackingList.objects.filter(
-                container_number__container_number=container_number,
-                delivery_type="public"
-            ).exists()
-            has_other_packinglist = PackingList.objects.filter(
-                container_number__container_number=container_number,
-                delivery_type="other"
-            ).exists()
+            # has_public_packinglist = PackingList.objects.filter(
+            #     container_number__container_number=container_number,
+            #     delivery_type="public"
+            # ).exists()
+            # has_other_packinglist = PackingList.objects.filter(
+            #     container_number__container_number=container_number,
+            #     delivery_type="other"
+            # ).exists()
             
             # 根据柜子类型自动更新另一边的状态
-            if delivery_type == "public" and not has_other_packinglist:
-                invoice_status.warehouse_other_status = "completed"
-                invoice_status.delivery_other_status = "completed"
+            # 有发现过这个不准的情况，所以先注释掉，以后哪边没板子也需要手动去录一下
+            # if delivery_type == "public" and not has_other_packinglist:
+            #     invoice_status.warehouse_other_status = "completed"
+            #     invoice_status.delivery_other_status = "completed"
 
-            elif delivery_type == "other" and not has_public_packinglist:
-                invoice_status.warehouse_public_status = "completed"
-                invoice_status.delivery_public_status = "completed"
+            # elif delivery_type == "other" and not has_public_packinglist:
+            #     invoice_status.warehouse_public_status = "completed"
+            #     invoice_status.delivery_public_status = "completed"
 
                 
             invoice_status.save()

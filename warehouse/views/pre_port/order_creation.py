@@ -40,6 +40,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.system_parameter import SystemParameter
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import (
@@ -506,11 +507,20 @@ class OrderCreation(View):
     async def handle_peer_po_creation_other(self,request: HttpRequest,context: Dict[str, Any]) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = {c.zem_name: c.id for c in customers}
+        peer_customer_list = await sync_to_async(
+            lambda: list(SystemParameter.objects.filter(category="同行客户", is_active=True).order_by("sort_order", "id").values_list("value", flat=True))
+        )()
+        peer_customer = {v: v for v in peer_customer_list}
         context.update({
             "customers": customers,
             "order_type": self.order_type,
             "area": self.area,
-            "peer_customer": self.peer_customer,
+            "peer_customer": peer_customer,
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         })
 
         return self.template_peer_pallet_create_base_other, context
@@ -518,11 +528,20 @@ class OrderCreation(View):
     async def handle_peer_po_creation(self,request: HttpRequest,context: Dict[str, Any]) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = {c.zem_name: c.id for c in customers}
+        peer_customer_list = await sync_to_async(
+            lambda: list(SystemParameter.objects.filter(category="同行客户", is_active=True).order_by("sort_order", "id").values_list("value", flat=True))
+        )()
+        peer_customer = {v: v for v in peer_customer_list}
         context.update({
             "customers": customers,
             "order_type": self.order_type,
             "area": self.area,
-            "peer_customer": self.peer_customer,
+            "peer_customer": peer_customer,
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
         })
 
         return self.template_peer_pallet_create_base, context

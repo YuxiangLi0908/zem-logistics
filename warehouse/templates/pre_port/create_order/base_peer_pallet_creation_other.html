@@ -486,12 +486,9 @@
                         <label for="warehouse" class="peer-label">仓库</label>
                         <select name="warehouse" id="warehouse" class="peer-form-control" required>
                             <option value="">请选择仓库</option>
-                            <option value="NJ-07001" {% if warehouse == 'NJ-07001' %}selected{% endif %}>NJ-07001</option>
-                            <option value="SAV-31326" {% if warehouse == 'SAV-31326' %}selected{% endif %}>SAV-31326</option>
-                            <option value="LA-91761" {% if warehouse == 'LA-91761' %}selected{% endif %}>LA-91761</option>
-                            <option value="LA-91730" {% if warehouse == 'LA-91730' %}selected{% endif %}>LA-91730</option>
-                            <option value="LA-91748" {% if warehouse == 'LA-91748' %}selected{% endif %}>LA-91748</option>
-                            <option value="LA-91766" {% if warehouse == 'LA-91766' %}selected{% endif %}>LA-91766</option>
+                            {% for k, v in warehouse_options %}
+                            <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>

@@ -854,16 +854,20 @@
                     <thead>
                         <tr>
                             <th>仓点</th>
+                            <th>唛头</th>
                             <th>费用</th>
                             <th>账单号</th>
+                            <th>财务状态</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for wh in previous_delivery_warehouses %}
                         <tr>
                             <td>{{ wh.warehouse_code }}</td>
+                            <td>{{ wh.shipping_marks }}</td>
                             <td>{{ wh.amount }}</td>
                             <td>{{ wh.invoice_number }}</td>
+                            <td>{{ wh.finance_status }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

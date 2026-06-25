@@ -227,28 +227,28 @@ class PostNsop(View):
                 return HttpResponseForbidden("你没有私仓派送界面的访问权限!")
         
         if step == "appointment_management":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return await sync_to_async(render)(request, self.template_main_dash, context)
         elif step == "schedule_shipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return render(request, self.template_td_shipment, context)
         elif step == "schedule_unshipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return render(request, self.template_td_unshipment, context)
         elif step == "fleet_management":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -293,7 +293,7 @@ class PostNsop(View):
             context = {
                 "customers": customers_dict,
                 "customer_list": customer_list,
-                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -302,7 +302,7 @@ class PostNsop(View):
             return render(request, self.template_ltl_pos_all, context)
         elif step == "LTL_history_po":        
             context = {
-                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -310,14 +310,14 @@ class PostNsop(View):
             }
             return render(request, self.template_ltl_history_pos, context)
         elif step == "history_shipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
             )}
             return render(request, self.template_history_shipment, context)
         elif step == "batch_shipment":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -326,7 +326,7 @@ class PostNsop(View):
         elif step == "batch_shipment_other":
             supplier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
             context = {
-                "warehouse_options": [("", "")] + await sync_to_async(list)(
+                "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -2833,7 +2833,7 @@ class PostNsop(View):
 
     async def handle_query_pallet_status(self, request: HttpRequest):
         '''查询已录板数情况'''
-        context = {'warehouse_options': [("", "")] + await sync_to_async(list)(
+        context = {'warehouse_options':await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
             .values_list("name", "name")
@@ -2922,7 +2922,7 @@ class PostNsop(View):
 
         context['container_results'] = container_results
         context['container_numbers_input'] = container_numbers_input
-        context['warehouse_options'] = [("", "")] + await sync_to_async(list)(
+        context['warehouse_options'] =  await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
             .values_list("name", "name")
@@ -5317,7 +5317,7 @@ class PostNsop(View):
         mutable_post["pickupList"] = None
         warehouse = mutable_post["warehouse"]
         context = {}
-        warehouse_options = [("", "")] + await sync_to_async(list)(
+        warehouse_options = await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
             .values_list("name", "name")
@@ -6477,10 +6477,17 @@ class PostNsop(View):
         '''查询多个仓点的报价'''
         context = {}
         is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-        cargo_ids = request.POST.get("cargo_ids", "")
-        plt_ids = request.POST.get("plt_ids", "")
-        cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
-        plt_id_list = [int(i) for i in plt_ids.split(",") if i]
+        try:
+            cargo_ids = request.POST.get("cargo_ids", "")
+            plt_ids = request.POST.get("plt_ids", "")
+            cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
+            plt_id_list = [int(i) for i in plt_ids.split(",") if i]
+        except (ValueError, TypeError) as e:
+            message = f"解析ID失败：{e}（cargo_ids={request.POST.get('cargo_ids', '')}, plt_ids={request.POST.get('plt_ids', '')}）"
+            if is_ajax:
+                return JsonResponse({"success": False, "message": message}, status=400)
+            context.update({"error_messages": message})
+            return await self.handle_td_shipment_post(request, context)
         if not cargo_ids and not plt_ids:
             message = "未提供ID，无法查询报价"
             if is_ajax:
@@ -6524,7 +6531,7 @@ class PostNsop(View):
         quote_total = 0.0
         # 查找报价
         if not combined_list:
-            message = f"{combined_list}是空的"
+            message = f"未找到匹配的PO数据（cargo_ids={cargo_ids}, plt_ids={plt_ids}），请检查ID是否正确"
             if is_ajax:
                 return JsonResponse({"success": False, "message": message}, status=400)
             context = {"error_messages": message}
@@ -6545,8 +6552,26 @@ class PostNsop(View):
                     container_number__container_number=cn
                 ).first()
             )()
+            if not order:
+                message = f"柜号{container_number}未找到对应的Order记录，无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
+            if not order.retrieval_id:
+                message = f"柜号{container_number}的Order({order.id})缺少retrieval_id（预报仓库信息），无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
             # 2026/4/8 claire说报价应该都要按照预报的仓库查找，不按照实际所在地查找
             warehouse = order.retrieval_id.retrieval_destination_area
+            if not warehouse:
+                message = f"柜号{container_number}的Order({order.id})的retrieval_id({order.retrieval_id_id})缺少retrieval_destination_area（预报仓区），无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
             # if po['source'] == 'packinglist':
             #     warehouse = order.retrieval_id.retrieval_destination_area
             # else:
@@ -6559,6 +6584,12 @@ class PostNsop(View):
             #         return await self.handle_td_shipment_post(request, context)
 
             customer_name = order.customer_name.zem_name if order.customer_name else None
+            if not order.vessel_id:
+                message = f"柜号{container_number}的Order({order.id})缺少vessel_id（船期信息），无法查询报价"
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
+                return await self.handle_td_shipment_post(request, context)
             # 查找报价表
             quotations = await self._get_fee_details(order, warehouse, customer_name)
             if isinstance(quotations, dict) and quotations.get("error_messages"):
@@ -7251,7 +7282,7 @@ class PostNsop(View):
         context = {}
         quotation, quotation_error = await self._get_quotation_for_order(order, customer_name, 'receivable')
         if quotation_error:
-            context.update({"error_messages": quotation_error})
+            context.update({"error_messages": f"柜号{order.container_number_id}查询报价表失败：{quotation_error}（客户={customer_name}, 仓区={warehouse}）"})
             return context
         id = quotation.id
 
@@ -7459,6 +7490,7 @@ class PostNsop(View):
         context = {}
         shipment_id = request.POST.get('shipment_id', '').strip()
         appointment_id_new = request.POST.get('appointment_id', '').strip()
+        carrier_new = request.POST.get('carrier', '').strip()
         shipment_appointment = request.POST.get('shipment_appointment')
         pickup_time = request.POST.get('pickup_time')
 
@@ -7479,21 +7511,27 @@ class PostNsop(View):
 
         if appointment_id_new == appointment_id_old:
             # 预约号不变，只更新其他字段
+            old_shipment.carrier = carrier_new if carrier_new else None
             old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
             old_shipment.pickup_time = pickup_time if pickup_time else None
             await sync_to_async(old_shipment.save)()
             context.update({'success_messages': f"{appointment_id_old}预约信息修改成功！"})
         else:
-            # 预约号变化，检查重复
-            context = await self._check_ISA_is_repetition(appointment_id_new, old_shipment.destination)
+            if bool(appointment_id_new):
+                # 预约号变化，检查重复
+                context = await self._check_ISA_is_repetition(appointment_id_new, old_shipment.destination)
+            else:
+                # 说明把ISA清空了
+                context.update({'success_messages': "ISA已清空"})
             if context.get('success_messages'):
                 old_shipment.appointment_id = appointment_id_new
+                old_shipment.carrier = carrier_new if carrier_new else None
                 old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
                 old_shipment.pickup_time = pickup_time if pickup_time else None
                 await sync_to_async(old_shipment.save)()
                 if not context.get('success_messages'):
                     context.update({'success_messages': f"{appointment_id_old}预约信息修改成功！"})
-
+  
         return await self.handle_td_shipment_post(request, context)
 
     async def _check_ISA_is_repetition(self, appointment_id, destination):
@@ -8721,7 +8759,7 @@ class PostNsop(View):
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         context = {
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -8837,7 +8875,7 @@ class PostNsop(View):
 
         context = {
             'fleets': fleet_data,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -9517,7 +9555,7 @@ class PostNsop(View):
             'ready_to_ship_data': ready_to_ship_data,
             'sum_fleet': sum_fleet,
             'summary': summary,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -9544,7 +9582,7 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9553,7 +9591,7 @@ class PostNsop(View):
             else:
                 context = {
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9587,7 +9625,7 @@ class PostNsop(View):
             'destination_list': destination_list,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -9868,7 +9906,7 @@ class PostNsop(View):
             if context:
                 context.update({
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9877,7 +9915,7 @@ class PostNsop(View):
             else:
                 context = {
                     "error_messages": "未选择仓库!",
-                    'warehouse_options': [("", "")] + await sync_to_async(list)(
+                    'warehouse_options': await sync_to_async(list)(
                         ZemWarehouse.objects
                         .order_by("name")
                         .values_list("name", "name")
@@ -9912,7 +9950,7 @@ class PostNsop(View):
             'warehouse': warehouse,
             'scheduled_data': scheduled_data,
             'fleet_list': schedule_fleet_data,  # 已排车
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -10058,7 +10096,7 @@ class PostNsop(View):
         if not warehouse:
             context.update({
                 "error_messages": "未选择仓库!",
-                'warehouse_options': [("", "")] + await sync_to_async(list)(
+                'warehouse_options': await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -10123,7 +10161,7 @@ class PostNsop(View):
             'summary': summary,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13296,7 +13334,7 @@ class PostNsop(View):
         else:
             context.update({
                 'error_messages': "没选仓库！",
-                'warehouse_options': [("", "")] + await sync_to_async(list)(
+                'warehouse_options':await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
                     .values_list("name", "name")
@@ -13346,7 +13384,7 @@ class PostNsop(View):
         supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13594,7 +13632,7 @@ class PostNsop(View):
 
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13635,7 +13673,7 @@ class PostNsop(View):
 
         context = {
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -13658,7 +13696,7 @@ class PostNsop(View):
 
         context = {
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -15445,7 +15483,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -15554,7 +15592,7 @@ class PostNsop(View):
             context = {}
         context.update({
             'warehouse': warehouse,
-            'warehouse_options': [("", "")] + await sync_to_async(list)(
+            'warehouse_options': await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -18585,12 +18623,14 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         visible_categories = []
+        visible_categories.append("同行客户")
         if has_public:
             visible_categories.append("公仓供应商")
             visible_categories.append("FBA仓点")
             visible_categories.append("州仓点")
         if has_other:
             visible_categories.append("私仓供应商")
+        
 
         categories_from_db = await sync_to_async(list)(
             SystemParameter.objects.filter(category__in=visible_categories)
@@ -18642,10 +18682,12 @@ class PostNsop(View):
             is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
             allowed_categories = []
+            allowed_categories.append("同行客户")
             if has_public:
                 allowed_categories.append("公仓供应商")
                 allowed_categories.append("FBA仓点")
                 allowed_categories.append("州仓点")
+                
             if has_other:
                 allowed_categories.append("私仓供应商")
 
@@ -18674,10 +18716,12 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         allowed_categories = []
+        allowed_categories.append("同行客户")
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            
         if has_other:
             allowed_categories.append("私仓供应商")
 
@@ -18712,6 +18756,32 @@ class PostNsop(View):
                     messages.success(request, f"已添加 {len(added)} 个仓点: {', '.join(added)}")
                 if skipped:
                     messages.warning(request, f"已跳过 {len(skipped)} 个重复仓点: {', '.join(skipped)}")
+        elif category == "同行客户":
+            key = param_value
+            exists = await sync_to_async(
+                lambda: SystemParameter.objects.filter(category=category, key=key, value=param_value).exists()
+            )()
+            if exists:
+                messages.error(request, f"同行客户 '{param_value}' 已存在")
+            else:
+                await sync_to_async(SystemParameter.objects.create)(
+                    category=category,
+                    key=key,
+                    value=param_value,
+                    created_by=username,
+                )
+                # 同步到Customer表
+                customer_exists = await sync_to_async(
+                    lambda: Customer.objects.filter(zem_name=param_value).exists()
+                )()
+                if not customer_exists:
+                    await sync_to_async(Customer.objects.create)(
+                        zem_name=param_value,
+                        full_name=param_value,
+                        accounting_name=param_value,
+                        zem_code=param_value,
+                    )
+                messages.success(request, f"已添加同行客户: {param_value}")
         else:
             key = param_key if param_key else param_value
             exists = await sync_to_async(
@@ -18739,10 +18809,12 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         allowed_categories = []
+        allowed_categories.append("同行客户")
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            
         if has_other:
             allowed_categories.append("私仓供应商")   
 
@@ -18771,10 +18843,12 @@ class PostNsop(View):
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
 
         allowed_categories = []
+        allowed_categories.append("同行客户")
         if has_public:
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            
         if has_other:
             allowed_categories.append("私仓供应商")  
 
