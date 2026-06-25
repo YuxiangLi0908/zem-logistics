@@ -193,6 +193,34 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "最早派送时间": "delivery_window_start",
     "最晚派送时间": "delivery_window_end",
 }
+
+DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING = {
+    "唛头": "shipping_mark",
+    "品名": "product_name",
+    "箱数": "pcs",
+    "单箱重kg": "unit_weight_kg",
+    "总箱重kg": "total_weight_kg",
+    "单箱磅(lb)": "unit_weight_lbs",
+    "总箱磅(lb)": "total_weight_lbs",
+    "长": "long",
+    "宽": "width",
+    "高": "height",
+    "总cbm": "cbm",
+    "货物名称": "dropshipping_item_name",
+    "货物型号": "dropshipping_item_model_number",
+    "邮编": "zipcode",
+    "收件人": "contact_name",
+    "联系方式": "contact_method",
+    "仓库/私人 地址": "address",
+    "FBA号": "fba_id",
+    "Amazon Reference ID": "ref_id",
+    "派送方式": "delivery_method",
+    "快递单号": "express_number",
+    "备注": "note",
+    "最早派送时间": "delivery_window_start",
+    "最晚派送时间": "delivery_window_end",
+}
+
 SHIPMENT_TABLE_MAPPING = {
     "预约批次号": "shipment_batch_number",
     "ISA": "appointment_id",
