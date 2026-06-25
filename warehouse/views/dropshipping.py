@@ -3,6 +3,7 @@ from django.views import View
 
 
 class Dropshipping(View):
+    template_create = ""
     def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         step = request.GET.get("step", None)
         if step == "warehouse":
