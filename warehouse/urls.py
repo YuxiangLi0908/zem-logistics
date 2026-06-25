@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 
+from warehouse.views.dropshipping import Dropshipping
 from warehouse.views.pre_port.information_update import InformationUpdate
 from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.accounting import Accounting
@@ -56,6 +57,7 @@ urlpatterns = [
         name="create_order_legacy",
     ),
     path("create_order/", OrderCreation.as_view(), name="create_order"),
+    path("dropshipping/", Dropshipping.as_view(), name="dropshipping"),
     path("pre_port_tracking/", PrePortTracking.as_view(), name="pre_port_tracking"),
     path("terminal_dispatch/", TerminalDispatch.as_view(), name="terminal_dispatch"),
     path(
