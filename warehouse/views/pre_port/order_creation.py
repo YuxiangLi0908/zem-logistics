@@ -580,7 +580,7 @@ class OrderCreation(View):
             ).filter(
                 (models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
                  | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER))
-                & models.Q(offload_id__offload_at__isnull=True)
+                & (models.Q(offload_id__offload_at__isnull=True)|models.Q(offload_id__offload_other_at__isnull=True))
                 & models.Q(cancel_notification=False)
             )
         )
