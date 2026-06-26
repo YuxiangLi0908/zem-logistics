@@ -2,7 +2,8 @@ import json
 import os
 import string
 import uuid
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import datetime, timedelta, date
 from decimal import Decimal, InvalidOperation
 from itertools import zip_longest
 from pathlib import Path
@@ -13,10 +14,12 @@ import re
 import chardet
 import numpy as np
 import pandas as pd
+import pytz
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, Count, FloatField, IntegerField
+from django.db.models.functions import Coalesce, Round, Cast
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render
 from django.utils.dateparse import parse_date
@@ -34,7 +37,6 @@ from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
-from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
@@ -134,6 +136,456 @@ class Dropshipping(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step == "cancel_notification":
+            template, context = await self.handle_cancel_notification(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "check_destination":
+            template, context = await self.handle_check_destination(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "check_order_status":
+            template, context = await self.check_order_status(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "check_order_type_destination":
+            template, context = await self.handle_check_order_type_destination(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_delivery_type_all":
+            template, context = await self.handle_update_delivery_type(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_container_unpacking_priority":
+            template, context = await self.handle_update_container_unpacking_priority(
+                request
+            )
+            return await sync_to_async(render)(request, template, context)
+
+    # 更新5月1之后所有柜子的优先级
+    async def handle_update_container_unpacking_priority(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_numbers = await sync_to_async(
+            lambda: list(
+                Order.objects.filter(
+                    created_at__date__gt=date(2025, 7, 1)
+                ).values_list("container_number__container_number", flat=True).distinct()
+            )
+        )()
+
+        for container_number in container_numbers:
+            await self._update_container_unpacking_priority(container_number)
+
+        return await self.handle_order_management_container_get(request)
+
+    async def handle_update_delivery_type(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+
+        # 处理PackingList
+        batch_size = 10000
+        queryset = PackingList.objects.filter(
+            models.Q(delivery_type__isnull=True)
+            | models.Q(delivery_type=None)
+            | models.Q(delivery_type="None")
+        ).order_by("id")
+        total = await sync_to_async(queryset.count)()
+
+        for start in range(0, total, batch_size):
+            batch = await sync_to_async(list)(
+                queryset[start : start + batch_size].values("id", "dropshipping_item_model_number")
+            )
+
+            public_ids = [
+                item["id"]
+                for item in batch
+                if (
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["dropshipping_item_model_number"]).strip())
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["dropshipping_item_model_number"]).strip())
+                    or re.fullmatch(
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["dropshipping_item_model_number"]).strip()
+                    )
+                    or any(
+                        kw.lower() in str(item["dropshipping_item_model_number"]).lower()
+                        for kw in {"walmart", "沃尔玛"}
+                    )
+                )
+            ]
+
+            # 批量更新
+            if public_ids:
+                await sync_to_async(
+                    PackingList.objects.filter(id__in=public_ids).update
+                )(delivery_type="一件代发")
+        plt_size = 10000
+        queryset = Pallet.objects.filter(
+            models.Q(delivery_type__isnull=True)
+            | models.Q(delivery_type=None)
+            | models.Q(delivery_type="None")
+        ).order_by("id")
+        total = await sync_to_async(queryset.count)()
+
+        for start in range(0, total, plt_size):
+            batch_plt = await sync_to_async(list)(
+                queryset[start : start + plt_size].values("id", "dropshipping_item_model_number")
+            )
+
+            public_ids = [
+                item["id"]
+                for item in batch_plt
+                if (
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["dropshipping_item_model_number"]).strip())
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["dropshipping_item_model_number"]).strip())
+                    or re.fullmatch(
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["dropshipping_item_model_number"]).strip()
+                    )
+                    or any(
+                        kw.lower() in str(item["dropshipping_item_model_number"]).lower()
+                        for kw in {"walmart", "沃尔玛"}
+                    )
+                )
+            ]
+
+            # 批量更新
+            if public_ids:
+                await sync_to_async(Pallet.objects.filter(id__in=public_ids).update)(
+                    delivery_type="一件代发"
+                )
+        return await self.handle_order_management_container_get(request)
+
+    async def handle_check_order_type_destination(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        orders = await sync_to_async(list)(
+            Order.objects.filter(models.Q(order_type="一件代发"))
+            .select_related("container_number")  # 优化查询性能
+            .values_list("container_number__container_number", flat=True)
+            .distinct()  # 确保柜号唯一
+        )
+
+        matched_containers = []
+
+        for container_number in orders:
+            dropshipping_item_model_number = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number
+                    )
+                    .values_list("dropshipping_item_model_number", flat=True)
+                    .distinct()
+                )
+            )()
+            if len(dropshipping_item_model_number) == 1:
+                matched_containers.append(container_number)
+        request.abnormal_container = matched_containers
+        return await self.handle_order_management_container_get(request)
+
+    async def check_order_status(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        order_id = request.POST.get("order_id")
+        await Order.objects.filter(id=order_id).aupdate(status="checked")
+        return await self.handle_order_management_container_get(request)
+
+    async def handle_check_destination(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        # 准备参数
+        # 找组合柜报价
+        matched_regions = await self._is_combina(container_number)
+        # 非组合柜区域
+        request.non_combina_region = matched_regions["non_combina_dests"]
+        # 组合柜区域
+        request.combina_region = matched_regions["combina_dests"]
+        request.is_combina = matched_regions["is_combina"]
+        request.quotation_file = matched_regions["quotation_file"]
+        return await self.handle_order_management_container_get(request)
+
+    async def _is_combina(self, container_number: str) -> bool:
+        container = await sync_to_async(Container.objects.get)(container_number=container_number)
+        order = await sync_to_async(
+            lambda: Order.objects.select_related("retrieval_id", "vessel_id", "customer_name")
+            .get(container_number__container_number=container_number)
+        )()
+        customer = order.customer_name
+        customer_name = customer.zem_name
+        # 从报价表找+客服录的数据
+        warehouse = order.retrieval_id.retrieval_destination_area
+        vessel_etd = order.vessel_id.vessel_etd
+
+        container_type = container.container_type
+        is_combina = True
+        has_pallet = True
+        #  基础数据统计
+        plts = await sync_to_async(
+            lambda: Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).aggregate(
+                unique_dropshipping_item_model_numbers=Count("dropshipping_item_model_number", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+                total_pallets=Count("id"),
+            )
+        )()
+        if plts['total_pallets'] == 0:
+            has_pallet = False
+            plts = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).aggregate(
+                    unique_dropshipping_item_model_numbers=Count("dropshipping_item_model_number", distinct=True),
+                    total_weight=Sum("total_weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                    total_pallets=Coalesce(
+                        Round(
+                            Cast(Sum("cbm"), output_field=FloatField()) / 1.8,
+                            output_field=IntegerField()
+                        ),
+                        0  # 默认值，当Sum("cbm")为None时设为0
+                    )
+                )
+            )()
+        plts["total_cbm"] = round(plts["total_cbm"], 2)
+        plts["total_weight"] = round(plts["total_weight"], 2)
+        # 获取匹配的报价表
+        matching_quotation = await sync_to_async(
+            lambda: QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name,
+                quote_type='receivable',
+            ).order_by("-effective_date").first()
+        )()
+
+        if not matching_quotation:
+            matching_quotation = await sync_to_async(
+                lambda: QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False,
+                    quote_type='receivable',
+                ).order_by("-effective_date").first()
+            )()
+        if matching_quotation:
+            quotation_file = matching_quotation.filename
+        else:
+            quotation_file = '未找到对应报价表'
+
+        # 获取费用详情
+        stipulate = await sync_to_async(
+            lambda: FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
+            ).details
+        )()
+
+        combina_fee = await sync_to_async(
+            lambda: FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
+            ).details
+        )()
+        if isinstance(combina_fee, str):
+            combina_fee = json.loads(combina_fee)
+
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+
+        if plts["unique_dropshipping_item_model_numbers"] > uncombina_threshold:
+            container.account_order_type = "一件代发"
+            container.non_combina_reason = (
+                f"总仓点超过{uncombina_threshold}个"
+            )
+            await sync_to_async(container.save)()
+            is_combina = False  # 不是组合柜
+
+        # 按区域统计
+        if has_pallet:
+            plts_by_destination = await sync_to_async(
+                lambda: list(Pallet.objects.filter(
+                    container_number__container_number=container_number
+                ).values("dropshipping_item_model_number").annotate(total_cbm=Sum("cbm")))
+            )()
+        else:
+            plts_by_destination = await sync_to_async(
+                lambda: list(PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).values("dropshipping_item_model_number").annotate(total_cbm=Sum("cbm")))
+            )()
+        total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
+        # 区分组合柜区域和非组合柜区域
+        container_type_temp = 0 if container_type == "40HQ/GP" else 1
+        matched_regions = self._find_compre_matching_regions(
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
+        )
+
+        # 判断是否混区，False表示满足混区条件
+        is_mix = await self.is_mixed_region(
+            matched_regions["matching_regions"], warehouse, vessel_etd
+        )
+        if is_mix:
+            container.account_order_type = "一件代发"
+            container.non_combina_reason = "混区不符合标准"
+            await sync_to_async(container.save)()
+            is_combina = False
+        # 非组合柜区域
+        non_combina_region_count = matched_regions["non_combina_dests"]
+        # 组合柜区域
+        combina_region_count = matched_regions["combina_dests"]
+
+        if len(non_combina_region_count) + len(combina_region_count) > uncombina_threshold:
+            # 当非组合柜的区域数量超出时，不能按转运组合
+            container.account_order_type = "一件代发"
+            container.non_combina_reason = "总仓点的数量不符合标准"
+            await sync_to_async(container.save)()
+            is_combina = False
+        if is_combina:
+            container.account_order_type = "一件代发"
+            container.non_combina_reason = ""
+            await sync_to_async(container.save)()
+
+        return {
+            "combina_dests": combina_region_count,
+            "non_combina_dests": non_combina_region_count,
+            "is_combina": is_combina,
+            "quotation_file": quotation_file,
+        }
+
+    def _find_compre_matching_regions(
+            self,
+            plts_by_destination: dict,
+            combina_fee: dict,
+            container_type,
+            total_cbm_sum: float,
+            combina_threshold: int,
+    ) -> dict:
+        matching_regions = defaultdict(float)  # 各区的cbm总和
+        destination_matches = set()  # 组合柜的仓点
+        non_combina_dests = set()  # 非组合柜的仓点
+        dest_cbm_list = []  # 临时存储初筛组合柜内的cbm和匹配信息
+        sum_des = set()
+        price_display = defaultdict(set)
+        for plts in plts_by_destination:
+            sum_des.add(plts["dropshipping_item_model_number"])
+            if "UPS" in plts["dropshipping_item_model_number"]:
+                non_combina_dests.add("UPS")
+                continue
+
+            destination_str = plts["dropshipping_item_model_number"]
+            destination_origin, destination = self._process_destination(destination_str)
+            dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
+
+            cbm = plts["total_cbm"]
+            if cbm == 0:
+                non_combina_dests.add(dest)
+                continue
+            matched = False
+
+            # 遍历所有区域和location
+            for region, fee_data_list in combina_fee.items():
+                for fee_data in fee_data_list:
+                    if dest in fee_data["location"]:
+                        price_display[region].add(dest)
+                        matching_regions[region] += cbm
+                        matched = True
+                        # 记录下来，方便后续排序
+                        dest_cbm_list.append({"dest": dest, "cbm": cbm})
+                        destination_matches.add(dest)
+
+            if not matched:
+                non_combina_dests.add(dest)
+        # 阈值处理：如果组合柜仓点超过限制，就只保留前 N 个 cbm 最大的
+        if len(destination_matches) > combina_threshold:
+            sorted_dests = sorted(dest_cbm_list, key=lambda x: x["cbm"], reverse=True)
+            destination_matches = {item["dest"] for item in sorted_dests[:combina_threshold]}
+            for item in sorted_dests[combina_threshold:]:
+                non_combina_dests.add(item["dest"])
+        combina_dests = {}
+        for region, dests_in_region in price_display.items():
+            # 取交集：只保留既在该区域又在 destination_matches 中的仓点
+            matched_dests = dests_in_region.intersection(destination_matches)
+            if matched_dests:  # 只添加非空的区域
+                combina_dests[region] = list(matched_dests)
+        # 返回精简后的结构
+        return {
+            "matching_regions": matching_regions,  # 各区的CBM总和
+            "combina_dests": combina_dests,  # 组合柜仓点 set
+            "non_combina_dests": non_combina_dests,  # 非组合柜仓点 set
+        }
+
+    def _process_destination(self, destination_origin):
+        """处理目的地字符串"""
+
+        def clean_all_spaces(s):
+            if not s:  # 处理None/空字符串
+                return ""
+            # 匹配所有空格类型：
+            # \xa0 非中断空格 | \u3000 中文全角空格 | \s 普通空格/制表符/换行等
+            import re
+            cleaned = re.sub(r'[\xa0\u3000\s]+', '', str(s))
+            return cleaned
+
+        destination_origin = str(destination_origin)
+
+        # 匹配模式：按"改"或"送"分割，分割符放在第一组的末尾
+        if "改" in destination_origin or "送" in destination_origin:
+            # 找到第一个"改"或"送"的位置
+            first_change_pos = min(
+                (destination_origin.find(char) for char in ["改", "送"]
+                 if destination_origin.find(char) != -1),
+                default=-1
+            )
+
+            if first_change_pos != -1:
+                # 第一部分：到第一个"改"或"送"（包含分隔符）
+                first_part = destination_origin[:first_change_pos + 1]
+                # 第二部分：剩下的部分
+                second_part = destination_origin[first_change_pos + 1:]
+
+                # 处理第一部分：按"-"分割取后面的部分
+                if "-" in first_part:
+                    first_result = first_part.split("-", 1)[1]
+                else:
+                    first_result = first_part
+
+                # 处理第二部分：按"-"分割取后面的部分
+                if "-" in second_part:
+                    second_result = second_part.split("-", 1)[1]
+                else:
+                    second_result = second_part
+
+                return clean_all_spaces(first_result), clean_all_spaces(second_result)
+            else:
+                raise ValueError(first_change_pos)
+
+        # 如果不包含"改"或"送"或者没有找到
+        # 只处理第二部分（假设第一部分为空）
+        if "-" in destination_origin:
+            second_result = destination_origin.split("-", 1)[1]
+        else:
+            second_result = destination_origin
+
+        return None, clean_all_spaces(second_result)
+
+    async def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:
+        regions = list(matched_regions.keys())
+        # LA仓库的特殊规则：CDEF区不能混
+        if warehouse == "LA":
+            if vessel_etd.year > 2025:
+                return False
+            if vessel_etd.month > 7 or (
+                vessel_etd.month == 7 and vessel_etd.day >= 15
+            ):  # 715之后没有混区限制
+                return False
+            if len(regions) <= 1:  # 只有一个区，就没有混区的情况
+                return False
+            if set(regions) == {"A区", "B区"}:  # 如果只有A区和B区，也满足混区规则
+                return False
+            return True
+        # 其他仓库无限制
+        return False
 
     async def add_t49_order(
             self, request: HttpRequest
@@ -145,6 +597,22 @@ class Dropshipping(View):
         )(add_to_t49=True)
         return await self.repeat_t49_all()
 
+    async def handle_cancel_notification(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        # 查询order表的contain_number
+        order = await sync_to_async(Order.objects.get)(
+            models.Q(container_number__container_number=container_number)
+        )
+        order.cancel_notification = True
+        order.cancel_time = datetime.now()
+        await sync_to_async(order.save)()
+        mutable_get = request.GET.copy()
+        mutable_get["container_number"] = container_number
+        mutable_get["step"] = "cancel_notification"
+        request.GET = mutable_get
+        return await self.handle_order_management_container_get(request)
+
+
     async def handle_update_order_retrieval_info_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -152,9 +620,8 @@ class Dropshipping(View):
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             container_number__container_number=container_number
         )
-        destination = request.POST.get("retrieval_destination_precise")
-        order_type = order.order_type
-        warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=destination)
+        retrieval_destination_precise = request.POST.get("retrieval_destination_precise")
+        warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=retrieval_destination_precise)
         order.warehouse = warehouse
         await sync_to_async(order.save)()
         retrieval = await sync_to_async(Retrieval.objects.get)(
@@ -162,9 +629,7 @@ class Dropshipping(View):
         )
         tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier")
-        retrieval.retrieval_destination_precise = request.POST.get(
-            "retrieval_destination_precise"
-        )
+        retrieval.retrieval_destination_precise = retrieval_destination_precise
         target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         retrieval.target_retrieval_timestamp = (
             self._parse_ts(target_retrieval_timestamp, tzinfo)
@@ -384,7 +849,6 @@ class Dropshipping(View):
         customer = await sync_to_async(Customer.objects.get)(id=customer_id)
         order_type = request.POST.get("order_type")
         area = request.POST.get("area")
-        destination = request.POST.get("destination")
         container_number = request.POST.get("container_number")
         mbl = request.POST.get("mbl")
         etd_str = request.POST.get("etd")  # 原始字符串
@@ -463,9 +927,7 @@ class Dropshipping(View):
         # 保存其他关联表
         retrieval_data = {
             "retrieval_id": retrieval_id,
-            "retrieval_destination_area": (
-                area if order_type in ("一件代发") else destination
-            ),
+            "retrieval_destination_area": area
         }
         retrieval = Retrieval(**retrieval_data)
         await sync_to_async(retrieval.save)()
@@ -1051,81 +1513,6 @@ class Dropshipping(View):
         packing_list = await sync_to_async(list)(
             PackingList.objects.filter(container_number__container_number=container)
         )
-        po_checks = await sync_to_async(list)(
-            PoCheckEtaSeven.objects.filter(container_number__container_number=container)
-        )
-        #如果这个柜子的pl都删了，那么pocheck也要都删掉
-        if len(po_checks) == 0:
-            # po_check没有这个柜子，直接新建
-            for pl in packing_list:
-                po_check_dict = {
-                    "container_number": container,
-                    "vessel_eta": order.vessel_id.vessel_eta,
-                    "packing_list": pl,
-                    "time_status": True,
-                    "destination": pl.destination,
-                    "fba_id": pl.fba_id,
-                    "ref_id": pl.ref_id,
-                    "shipping_mark": pl.shipping_mark,
-                    # 其他的字段用默认值
-                }
-                new_obj = PoCheckEtaSeven(**po_check_dict)
-                await sync_to_async(new_obj.save)()
-        else:
-            for pl in packing_list:
-                # flag_num用来表示该pl是否在po_check中找到相同的记录，如果没找到，就在po_check新建这条，如果找到，就让po指向pl
-                flag_num = 0
-                for po in po_checks:
-                    if (
-                        (pl.shipping_mark == po.shipping_mark)
-                        and (pl.fba_id == po.fba_id)
-                        and (pl.ref_id == po.ref_id)
-                        and (pl.fba_id == po.fba_id)
-                        and (pl.destination == po.destination)
-                    ):
-                        flag_num = 1
-                        # 这里的判断是因为，pl和po判断相同的标准是唛头fba和目的地ref，可能pl中有多条这三个条件相同给的
-                        # 但是对于po_check表来说，是用来验证po的ref的，而且po_check只存了这三个关键信息表示pl，所以po_check无所谓指向具体的哪一条pl
-                        # 只要唛头fba目的地ref相同就行了，所以这里，每次遇到第一个po和pl相同且po没有指向pl，就令po指向这条pl
-                        check_packing_list = sync_to_async(
-                            lambda: bool(po.packing_list) == 0
-                        )
-                        is_empty = await check_packing_list()
-                        if is_empty:
-                            po.packing_list = pl
-                            await sync_to_async(po.save)()
-                            break
-                if flag_num == 0:
-                    # 如果po_check表没有这条po，新建这一条
-                    po_check_dict = {
-                        "container_number": container,
-                        "vessel_eta": (
-                            order.vessel_id.vessel_eta.date()
-                            if order.vessel_id.vessel_eta
-                            else None
-                        ),
-                        "packing_list": pl,
-                        "time_status": True,
-                        "destination": pl.destination,
-                        "fba_id": pl.fba_id,
-                        "ref_id": pl.ref_id,
-                        "shipping_mark": pl.shipping_mark,
-                        # 其他的字段用默认值
-                    }
-                    new_obj = PoCheckEtaSeven(**po_check_dict)
-                    await sync_to_async(new_obj.save)()
-
-            try:
-                criteria = models.Q(container_number__container_number=container)
-                if packing_list:
-                    criteria &= models.Q(packing_list=None)
-                # 对于po_check没有指向pl的，就删除
-                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(criteria)
-                for obj in await sync_to_async(list)(queryset):
-                    # 对每个对象执行删除操作
-                    await sync_to_async(obj.delete)()
-            except PoCheckEtaSeven.DoesNotExist:
-                raise ValueError("不存在")
         # 更新完pl之后，更新container的delivery_type
         # await self._confirm_delivery_type(container_number)
         types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
@@ -1297,7 +1684,7 @@ class Dropshipping(View):
                 lambda: list(
                     PackingList.objects.filter(
                         container_number__container_number=container_number
-                    ).values("destination")
+                    ).values("dropshipping_item_model_number")
                 )
             )()
             matched_regions = self.find_matching_regions(
@@ -1309,13 +1696,13 @@ class Dropshipping(View):
             ups_total_pcs = await sync_to_async(
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number,
-                    destination__icontains="UPS",
+                    dropshipping_item_model_number__icontains="UPS",
                 ).aggregate(total=Sum("pcs"))["total"]
             )()
             fxdex_total_pcs = await sync_to_async(
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number,
-                    destination__icontains="FEDEX",
+                    dropshipping_item_model_number__icontains="FEDEX",
                 ).aggregate(total=Sum("pcs"))["total"]
             )()
             results.append(
