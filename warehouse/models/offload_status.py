@@ -19,6 +19,7 @@ class AbnormalOffloadStatus(models.Model):
     is_resolved = models.BooleanField(default=False)
     confirmed_by_warehouse = models.BooleanField(default=False)
     destination = models.CharField(max_length=255, null=True, blank=True)
+    dropshipping_item_model_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发货物型号")
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
     delivery_type = models.CharField(max_length=255, null=True, blank=True)
     pcs_reported = models.IntegerField(null=True, blank=True)
