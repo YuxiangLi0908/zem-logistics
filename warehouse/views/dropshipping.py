@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from itertools import zip_longest
 from pathlib import Path
 import random
-from typing import Any, Coroutine
+from typing import Any
 import re
 
 import chardet
@@ -42,7 +42,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER, \
-    PACKING_LIST_TEMP_COL_MAPPING, DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE
+    DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE
 from warehouse.views.export_file import export_do
 
 
@@ -59,6 +59,7 @@ class Dropshipping(View):
     template_schedule_container_pickup = "dropshipping/03_schedule_container_pickup.html"
     template_batch_update_container_pickup_schedule = "dropshipping/04_batch_update_container_pickup_schedule.html"
     template_batch_schedule_container = "dropshipping/03_batch_schedule_container_pickup.html"
+    template_status_summary = "dropshipping/01_container_status_summary.html"
 
     container_type = {
         "": "",
@@ -91,13 +92,16 @@ class Dropshipping(View):
             )
             return await sync_to_async(render)(request, template, context)
         elif step == "terminal_all":
-            template, context = await self.handle_all_get()
+            template, context = await self.handle_all_get_terminal()
             return await sync_to_async(render)(request, template, context)
         elif step == "update_pickup_schedule":
             template, context = await self.hanlde_update_pickup_schedule_get(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "schedule_container_pickup":
             template, context = await self.handle_schedule_container_pickup_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "contaier_pickup_status_all":
+            template, context = await self.handle_all_get_contaier_pickup_status()
             return await sync_to_async(render)(request, template, context)
 
 
@@ -201,6 +205,168 @@ class Dropshipping(View):
         elif step == "batch_pickup_schedule_confirmation":
             template, context = await self.handle_batch_pickup_schedule_confirmation(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "arrive_at_destination":
+            template, context = await self.handle_arrive_at_destination_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_arrive_at_destination":
+            template, context = await self.handle_batch_arrive_at_destination_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "empty_return":
+            template, context = await self.handle_empty_return_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_empty_return":
+            template, context = await self.handle_batch_empty_return_post(request)
+            return await sync_to_async(render)(request, template, context)
+
+    async def handle_empty_return_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        empty_returned_at = request.POST.get("empty_returned_at")
+        retrieval = await sync_to_async(Retrieval.objects.get)(
+            order__container_number__container_number=container_number
+        )
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        empty_returned_at = self._parse_ts(empty_returned_at, tzinfo)
+        retrieval.empty_returned = True
+        retrieval.empty_returned_at = empty_returned_at
+        await sync_to_async(retrieval.save)()
+        return await self.handle_all_get_contaier_pickup_status()
+
+    async def handle_batch_empty_return_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        """
+        批量修改还空时间
+        """
+        container_numbers = request.POST.get("batch_container_numbers", "").split(',')
+        empty_returned_at = request.POST.get("batch_empty_returned_at")
+        for container_number in container_numbers:
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=container_number.strip()
+            )
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            parsed_empty_returned_at = self._parse_ts(empty_returned_at, tzinfo)
+            retrieval.empty_returned = True
+            retrieval.empty_returned_at = parsed_empty_returned_at
+            await sync_to_async(retrieval.save)()
+        return await self.handle_all_get_contaier_pickup_status()
+
+    async def handle_batch_arrive_at_destination_post(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        """
+        批量修改到仓时间
+        """
+        container_numbers = request.POST.get("batch_container_numbers", "").split(',')
+        arrive_at = request.POST.get("batch_arrive_at")
+        for container_number in container_numbers:
+            order = await sync_to_async(
+                Order.objects.select_related("retrieval_id", "offload_id").get
+            )(container_number__container_number=container_number.strip())
+            retrieval = order.retrieval_id
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            parsed_arrive_at = self._parse_ts(arrive_at, tzinfo)
+            retrieval.arrive_at = parsed_arrive_at
+            retrieval.arrive_at_destination = True
+            await sync_to_async(retrieval.save)()
+        return await self.handle_all_get_contaier_pickup_status()
+
+    async def handle_arrive_at_destination_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        arrive_at = request.POST.get("arrive_at")
+        order = await sync_to_async(
+            Order.objects.select_related("retrieval_id", "offload_id").get
+        )(container_number__container_number=container_number)
+        retrieval = order.retrieval_id
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        arrive_at = self._parse_ts(arrive_at, tzinfo)
+        retrieval.arrive_at = arrive_at
+        retrieval.arrive_at_destination = True
+        await sync_to_async(retrieval.save)()
+        return await self.handle_all_get_contaier_pickup_status()
+
+    async def handle_all_get_contaier_pickup_status(self) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        orders_pickup_scheduled = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id", "container_number", "customer_name", "retrieval_id"
+            )
+            .filter(
+                (
+                    models.Q(add_to_t49=True)
+                    & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+                    & models.Q(retrieval_id__arrive_at_destination=False)
+                    & models.Q(cancel_notification=False)
+                    & models.Q(order_type="一件代发")
+                )
+                & (
+                    models.Q(created_at__gte="2024-08-19")
+                    | models.Q(
+                        container_number__container_number__in=ADDITIONAL_CONTAINER
+                    )
+                )
+            )
+            .order_by("retrieval_id__actual_retrieval_timestamp")
+        )
+        orders_at_warehouse = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "offload_id",
+            )
+            .filter(
+                (
+                    models.Q(container_number__orders__order_type="一件代发")
+                    & models.Q(add_to_t49=True)
+                    & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+                    & models.Q(retrieval_id__arrive_at_destination=True)
+                    & models.Q(offload_id__offload_at__isnull=True)
+                    & models.Q(cancel_notification=False)
+                )
+                & (
+                    models.Q(created_at__gte="2024-08-19")
+                    | models.Q(
+                        container_number__container_number__in=ADDITIONAL_CONTAINER
+                    )
+                )
+            )
+            .order_by("retrieval_id__arrive_at")
+        )
+        orders_palletized = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "offload_id",
+            )
+            .filter(
+                (
+                    models.Q(add_to_t49=True)
+                    & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+                    & models.Q(retrieval_id__arrive_at_destination=True)
+                    & models.Q(offload_id__offload_at__isnull=False)
+                    & models.Q(retrieval_id__empty_returned=False)
+                    & models.Q(cancel_notification=False)
+                    & models.Q(order_type="一件代发")
+                )
+                & (
+                    models.Q(created_at__gte="2024-08-19")
+                    | models.Q(
+                        container_number__container_number__in=ADDITIONAL_CONTAINER
+                    )
+                )
+            )
+            .order_by("offload_id__offload_at")
+        )
+        context = {
+            "orders_pickup_scheduled": orders_pickup_scheduled,
+            "orders_at_warehouse": orders_at_warehouse,
+            "orders_palletized": orders_palletized,
+            "current_date": current_date,
+        }
+        return self.template_status_summary, context
 
     async def handle_batch_pickup_schedule_confirmation(
             self, request: HttpRequest
@@ -238,7 +404,7 @@ class Dropshipping(View):
             order.retrieval_id.scheduled_at = datetime.now()
 
             await sync_to_async(order.retrieval_id.save)()
-        return await self.handle_all_get()
+        return await self.handle_all_get_terminal()
 
     async def handle_batch_confirm_pickup_submit_post_appointment_time(
             self, request: HttpRequest
@@ -264,7 +430,7 @@ class Dropshipping(View):
             retrieval.target_retrieval_timestamp = appointment_time_end_ts
             retrieval.planned_release_time = planned_release_time_ts
             await sync_to_async(retrieval.save)()
-        return await self.handle_all_get()
+        return await self.handle_all_get_terminal()
 
     async def handle_batch_confirm_pickup_submit_post(
             self, request: HttpRequest
@@ -292,7 +458,7 @@ class Dropshipping(View):
             if not retrieval.target_retrieval_timestamp_lower:
                 retrieval.target_retrieval_timestamp_lower = actual_retrieval_ts
             await sync_to_async(retrieval.save)()
-        return await self.handle_all_get()
+        return await self.handle_all_get_terminal()
 
     async def handle_confirm_pickup_post_appointment_time(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -308,7 +474,7 @@ class Dropshipping(View):
         retrieval.target_retrieval_timestamp = appointment_time_end_ts
 
         await sync_to_async(retrieval.save)()
-        return await self.handle_all_get()
+        return await self.handle_all_get_terminal()
 
     async def handle_confirm_pickup_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -325,7 +491,7 @@ class Dropshipping(View):
         if not retrieval.target_retrieval_timestamp_lower:
             retrieval.target_retrieval_timestamp_lower = actual_retrieval_ts
         await sync_to_async(retrieval.save)()
-        return await self.handle_all_get()
+        return await self.handle_all_get_terminal()
 
     async def handle_pickup_schedule_confirmation_post(
         self, request: HttpRequest
@@ -386,7 +552,7 @@ class Dropshipping(View):
             else:
                 retrieval.target_retrieval_timestamp_lower = None
         await sync_to_async(retrieval.save)()
-        return await self.handle_all_get()
+        return await self.handle_all_get_terminal()
 
     async def handle_batch_schedule_container_get(
             self, request: HttpRequest
@@ -407,7 +573,7 @@ class Dropshipping(View):
             )(container_number__container_number=cn)
             selected_orders.append(order)
 
-        _, context = await self.handle_all_get()
+        _, context = await self.handle_all_get_terminal()
         context["selected_orders"] = selected_orders
         context["warehouse_options"] = [("", "")] + await sync_to_async(list)(
             ZemWarehouse.objects
@@ -442,7 +608,7 @@ class Dropshipping(View):
             except Order.DoesNotExist:
                 continue
 
-        _, context = await self.handle_all_get()
+        _, context = await self.handle_all_get_terminal()
         context["selected_orders"] = selected_orders
         context["warehouse_options"] = [("", "")] + await sync_to_async(list)(
             ZemWarehouse.objects
@@ -462,7 +628,7 @@ class Dropshipping(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
-        _, context = await self.handle_all_get()
+        _, context = await self.handle_all_get_terminal()
         order = await sync_to_async(
             Order.objects.select_related(
                 "container_number", "customer_name", "vessel_id", "retrieval_id"
@@ -489,7 +655,7 @@ class Dropshipping(View):
         _, context = await self.handle_schedule_container_pickup_get(request)
         return self.template_update_container_pickup_schedule, context
 
-    async def handle_all_get(self) -> tuple[Any, Any]:
+    async def handle_all_get_terminal(self) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         orders_not_scheduled = await sync_to_async(list)(
             Order.objects.select_related(
