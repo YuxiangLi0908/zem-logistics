@@ -13,7 +13,7 @@ from .shipment import Shipment
 class PackingList(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     product_name = models.CharField(max_length=255, null=True, blank=True)
-    dropshipping_item_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发c")
+    dropshipping_item_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发货物名称")
     dropshipping_item_model_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发货物型号")
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
     delivery_type = models.CharField(max_length=255, null=True, blank=True)
