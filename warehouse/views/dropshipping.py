@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import string
@@ -18,7 +19,7 @@ import pytz
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Sum, Count, FloatField, IntegerField
+from django.db.models import Sum, Count, FloatField, IntegerField, Min
 from django.db.models.functions import Coalesce, Round, Cast
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render
@@ -29,6 +30,7 @@ from simple_history.utils import bulk_update_with_history, bulk_create_with_hist
 from warehouse.forms.upload_file import UploadFileForm
 from django.utils import timezone
 
+from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.container import Container
 from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
@@ -60,6 +62,7 @@ class Dropshipping(View):
     template_batch_update_container_pickup_schedule = "dropshipping/04_batch_update_container_pickup_schedule.html"
     template_batch_schedule_container = "dropshipping/03_batch_schedule_container_pickup.html"
     template_status_summary = "dropshipping/01_container_status_summary.html"
+    template_palletization_main = "dropshipping/palletization.html"
 
     container_type = {
         "": "",
@@ -103,6 +106,9 @@ class Dropshipping(View):
         elif step == "contaier_pickup_status_all":
             template, context = await self.handle_all_get_contaier_pickup_status()
             return await sync_to_async(render)(request, template, context)
+        elif step == "palletize_all":
+            template, context = await self.handle_all_get_palletize(request)
+            return render(request, template, context)
 
 
     async def post(self, request: HttpRequest, **kwargs) -> None | HttpResponse | tuple[Any, Any] | Any:
@@ -217,6 +223,142 @@ class Dropshipping(View):
         elif step == "batch_empty_return":
             template, context = await self.handle_batch_empty_return_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "warehouse_palletize":
+            template, context = await self.handle_warehouse_post_palletize(request)
+            return render(request, template, context)
+
+    async def handle_warehouse_post_palletize(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("name", "").strip()
+        template, context = await self.handle_all_get_palletize(request, warehouse)
+        return template, context
+
+    async def handle_all_get_palletize(self, request, warehouse: str = None, error_msg: str = []) -> tuple[str, dict[str, Any]]:
+        @sync_to_async
+        def check_perm():
+            if not request.user.is_authenticated:
+                return False
+            return request.user.groups.filter(name="unpacking_personnel").exists()
+
+        unpacking_personnel = await check_perm()
+
+        if warehouse:
+            warehouse = None if warehouse == "Empty" else warehouse
+            order_not_palletized, order_palletized, order_with_shipment = (
+                await asyncio.gather(
+                    self._get_order_not_palletized(warehouse),
+                    self._get_order_palletized(warehouse),
+                    self._get_order_shipment(warehouse),
+                )
+            )
+
+            order_with_shipment = {
+                o.get("container_number__container_number"): o.get(
+                    "shipment_scheduled_time"
+                )
+                for o in order_with_shipment
+            }
+            order_not_palletized = (
+                [o for o in order_not_palletized if isinstance(o, dict)]
+                + [
+                    o
+                    for o in order_not_palletized
+                    if not isinstance(o, dict)
+                    and o.container_number.container_number in order_with_shipment
+                ]
+                + [
+                    o
+                    for o in order_not_palletized
+                    if not isinstance(o, dict)
+                    and o.container_number.container_number not in order_with_shipment
+                ]
+            )
+            context = {
+                "order_not_palletized": order_not_palletized,
+                "order_palletized": order_palletized,
+                "order_with_shipment": order_with_shipment,
+                "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                "warehouse": warehouse,
+                "unpacking_personnel": unpacking_personnel,
+                "error_msg": error_msg,
+            }
+        else:
+            context = {
+                "warehouse_form": ZemWarehouseForm(),
+                "unpacking_personnel": unpacking_personnel,
+                "error_msg": error_msg,
+            }
+        return self.template_palletization_main, context
+
+    async def _get_order_shipment(self, warehouse: str) -> Order:
+        return await sync_to_async(list)(
+            PackingList.objects.prefetch_related(
+                "container_number",
+                "container_number__orders",
+                "container_number__orders__warehouse",
+                "shipment_batch_number",
+            )
+            .filter(
+                models.Q(
+                    container_number__orders__warehouse__name=warehouse,
+                    shipment_batch_number__isnull=False,
+                    delivery_type="一件代发"
+                )
+            )
+            .values("container_number__container_number")
+            .annotate(
+                shipment_scheduled_time=Min(
+                    "shipment_batch_number__shipment_appointment"
+                )
+            )
+        )
+
+    async def _get_order_palletized(self, warehouse: str) -> Order:
+        return await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            )
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    order_type="一件代发",
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=False,
+                    cancel_notification=False,
+                    created_at__gte=timezone.now() - timedelta(days=120),  #最近3个月的柜子
+                )
+            )
+            .order_by("offload_id__offload_at")
+        )
+
+    async def _get_order_not_palletized(self, warehouse: str) -> Order:
+        # 查未打板的，在pallet表
+        packinglist = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            )
+            .filter(
+                models.Q(
+                    warehouse__name=warehouse,
+                    order_type="一件代发",
+                    offload_id__offload_required=True,
+                    offload_id__offload_at__isnull=True,
+                    created_at__gte="2024-07-01",
+                    cancel_notification=False,
+                )
+            )
+            .order_by("retrieval_id__arrive_at")
+        )
+        return packinglist
 
     async def handle_empty_return_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
