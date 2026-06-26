@@ -1,0 +1,96 @@
+<!-- 消息模态框 -->
+<div id="messageModal" class="message-modal" {% if success_messages or error_messages %}style="display:block;"{% endif %}>
+    <div class="message-modal-content">
+        <div class="message-modal-icon">
+            {% if success_messages %}
+            <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
+            {% elif error_messages %}
+            <i class="fas fa-exclamation-circle" style="color: var(--danger-color);"></i>
+            {% endif %}
+        </div>
+        <h4 class="message-modal-title">
+            {% if success_messages %}操作成功{% elif error_messages %}操作失败{% endif %}
+        </h4>
+        <p class="message-modal-text">
+            {{ success_messages }}{{ error_messages }}
+        </p>
+        <button type="button" class="action-btn btn-primary message-modal-button" onclick="closeMessageModal()">
+            <i class="fas fa-check"></i> 确认
+        </button>
+    </div>
+</div>
+
+<style>
+    .message-modal {
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .message-modal-content {
+        background: #fff;
+        border-radius: 14px;
+        width: 400px;
+        margin: 5% auto;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        animation: messageModalIn 0.3s ease-out;
+    }
+
+    @keyframes messageModalIn {
+        from {transform: translateY(-30px); opacity: 0;}
+        to {transform: translateY(0); opacity: 1;}
+    }
+
+    .message-modal-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+
+    .message-modal-title {
+        margin-bottom: 15px;
+        color: var(--secondary-color);
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .message-modal-text {
+        margin-bottom: 20px;
+        line-height: 1.5;
+        color: #666;
+    }
+
+    .message-modal-button {
+        min-width: 100px;
+        padding: 10px 20px;
+    }
+</style>
+
+<script>
+// 消息模态框的JavaScript
+function closeMessageModal() {
+    document.getElementById('messageModal').style.display = 'none';
+}
+
+// 点击弹窗外部关闭
+document.getElementById('messageModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeMessageModal();
+    }
+});
+
+// ESC键关闭
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('messageModal').style.display === 'block') {
+        closeMessageModal();
+    }
+});
+
+</script>
