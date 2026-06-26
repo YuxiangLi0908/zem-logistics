@@ -20,6 +20,7 @@ from warehouse.views.pod import POD
 from warehouse.views.home import Home
 from warehouse.views.post_port.power_automate_webhook import PowerAutomateWebhook
 from warehouse.views.post_port.post_nsop import PostNsop
+from warehouse.views.post_port.post_drop import PostDrop
 from warehouse.views.post_port.posport_dash import PostportDash
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
@@ -58,6 +59,7 @@ urlpatterns = [
     ),
     path("create_order/", OrderCreation.as_view(), name="create_order"),
     path("dropshipping/", Dropshipping.as_view(), name="dropshipping"),
+    path("post_drop/", PostDrop.as_view(), name="postdrop"),
     path("pre_port_tracking/", PrePortTracking.as_view(), name="pre_port_tracking"),
     path("terminal_dispatch/", TerminalDispatch.as_view(), name="terminal_dispatch"),
     path(

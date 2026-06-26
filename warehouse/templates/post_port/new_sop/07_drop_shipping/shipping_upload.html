@@ -1,0 +1,448 @@
+<style>
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .search-row input, .search-row select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    .table-input {
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .table-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-success-small {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-success-small:hover {
+        background: #218838;
+    }
+
+    .btn-warning-small {
+        background: #ffc107;
+        color: #212529;
+    }
+
+    .btn-warning-small:hover {
+        background: #e0a800;
+    }
+
+    .status-select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .status-select:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+
+    .search-select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    .search-select:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+
+    .shipping-link {
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .shipping-link:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<!-- 批量操作工具栏 -->
+<div class="batch-toolbar">
+    <div class="batch-label"><i class="fas fa-tasks"></i> 批量操作:</div>
+    <!-- 批量上传出库单表单 -->
+    <form id="batchShippingForm" method="post" action="" class="batch-group" onsubmit="return handleBatchShippingSubmit(this)" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="batch_shipping_order_upload">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="active_tab" value="shipping">
+        <button type="submit" class="table-btn btn-success-small">批量上传出库单</button>
+    </form>
+    <!-- 批量不回传按钮 -->
+    <form id="batchNoLinkForm" method="post" action="" class="batch-group" onsubmit="return handleBatchNoLinkSubmit(this)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="batch_set_shipping_no_link">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="active_tab" value="shipping">
+        <button type="submit" class="table-btn btn-warning-small">批量不回传</button>
+    </form>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th style="width: 40px; text-align: center;">
+                <input type="checkbox" id="selectAllShipping" onchange="toggleAllShippingCheckboxes(this)">
+            </th>
+            <th style="width:160px;">出库批次</th>
+            <th style="width:150px;">预约批次</th>
+            <th style="width:300px;">详情</th>
+            <th>客户名</th>
+            <th>预约发车日期</th>
+            <th>实际发车日期</th>
+            <th style="width:80px;">板数</th> 
+            <th style="width:80px;">件数</th> 
+            <th>备注</th>
+            <th>出库单上传</th>
+        </tr>
+        <tr class="search-row">
+            <td></td> 
+            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="1"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
+            <td><input type="text" class="header-search" placeholder="搜索详情" data-column="3"></td>
+            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="4"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="5"></td>
+            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
+            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="9"></td>
+            <td></td>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in shipping_data %}
+        <tr>
+            <td style="text-align: center;">
+                <input type="checkbox" name="row_selector" value="{{ f.shipment_batch_number }}">
+            </td>
+            <td style="max-width: 120px; word-break: break-all;">
+                {{ f.fleet_number.fleet_number }}<br>
+                <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
+                {% if f.fleet_number.carrier == 'Maersk' %}
+                <br>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ f.fleet_number.fleet_number }}')" style="margin-top: 4px;">
+                    物流追踪
+                </button>
+                {% endif %}
+            </td>
+            <td>{{ f.shipment_batch_number }}</td>
+            <td style="max-width: 300px; word-break: break-all; white-space: normal; overflow-wrap: break-word;">
+                {{ f.details|default_if_none:'-'|safe }}
+            </td>
+            <td>{{ f.customer }}</td>
+            <td>{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
+            <td>{{ f.fleet_number.departured_at|date:"M-j" }}</td>
+            <td>{{ f.shipped_pallet|floatformat:0 }}</td>
+            <td>{{ f.shipped_pcs|default:0|floatformat:0 }}</td> 
+            <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+            <td>
+                {% if f.shipping_order_link and f.shipping_order_link != "No Link" %}
+                    <a href="{{ f.shipping_order_link }}" class="shipping-link" target="_blank" style="margin-right: 10px;">
+                        <i class="fas fa-eye"></i> 查看
+                    </a>
+                {% endif %}
+                {% if not f.shipping_order_link or f.shipping_order_link == "No Link" %}
+                    {% if f.shipping_order_link != "No Link" %}
+                    <!-- 单个上传和批量上传共用的表单 -->
+                    <form id="upload-form-{{ f.shipment_batch_number }}" method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center; flex-direction: column;">
+                        {% csrf_token %}
+                        <div class="drag-drop-area" data-batch="{{ f.shipment_batch_number }}" style="border: 2px dashed #ccc; border-radius: 8px; padding: 10px; text-align: center; width: 150px; cursor: pointer; transition: all 0.3s ease;">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 24px; color: #6c757d; margin-bottom: 5px;"></i>
+                            <div style="font-size: 0.7rem; color: #6c757d;">点击或拖拽文件</div>
+                            <input type="file" name="file" class="shipping-file-input" style="display: none;" data-batch="{{ f.shipment_batch_number }}">
+                        </div>
+                        <div class="file-name-display" style="font-size: 0.7rem; color: #28a745; max-width: 150px; word-break: break-all;"></div>
+                        <input type="hidden" name="step" value="shipping_order_upload">
+                        <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <input type="hidden" name="active_tab" value="shipping">
+                        <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
+                        <button type="submit" class="table-btn btn-success-small" style="font-size: 0.75rem; margin-top: 5px;">上传</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+                {% if not f.shipping_order_link or f.shipping_order_link == "No Link" %}
+                    {% if not f.shipping_order_link %}
+                    <form method="post" action="" style="margin-top: 5px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="set_shipping_no_link">
+                        <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <input type="hidden" name="active_tab" value="shipping">
+                        <button type="submit" class="table-btn btn-warning-small" style="font-size: 0.75rem;">
+                            <i class="fas fa-ban"></i> 设为不回传
+                        </button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    // 拖拽上传功能
+    function initializeDragDrop() {
+        const dragDropAreas = document.querySelectorAll('.drag-drop-area');
+        
+        dragDropAreas.forEach(area => {
+            // 点击事件
+            area.addEventListener('click', function(e) {
+                const fileInput = this.querySelector('.shipping-file-input');
+                fileInput.click();
+            });
+            
+            // 拖拽事件
+            area.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#28a745';
+                this.style.backgroundColor = '#f8fff9';
+            });
+            
+            area.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ccc';
+                this.style.backgroundColor = '';
+            });
+            
+            area.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ccc';
+                this.style.backgroundColor = '';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const fileInput = this.querySelector('.shipping-file-input');
+                    const fileDisplay = this.closest('form').querySelector('.file-name-display');
+                    
+                    // 创建新的FileList对象（因为直接赋值files不可行）
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(files[0]);
+                    fileInput.files = dataTransfer.files;
+                    
+                    // 显示文件名
+                    fileDisplay.textContent = files[0].name;
+                    fileDisplay.style.display = 'block';
+                }
+            });
+        });
+        
+        // 文件输入变化事件
+        const fileInputs = document.querySelectorAll('.shipping-file-input');
+        fileInputs.forEach(input => {
+            input.addEventListener('change', function(e) {
+                const fileDisplay = this.closest('form').querySelector('.file-name-display');
+                if (this.files.length > 0) {
+                    fileDisplay.textContent = this.files[0].name;
+                    fileDisplay.style.display = 'block';
+                } else {
+                    fileDisplay.textContent = '';
+                    fileDisplay.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    function handleBatchShippingSubmit(form) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请至少选择一行数据！");
+            return false;
+        }
+
+        // 创建 FormData 来收集文件和数据
+        const formData = new FormData(form);
+        let hasFile = false;
+        
+        // 收集所有选中的行对应的文件
+        checkboxes.forEach((cb, index) => {
+            const batchNumber = cb.value;
+            const fileInput = document.querySelector(`input.shipping-file-input[data-batch="${batchNumber}"]`);
+            
+            if (fileInput && fileInput.files.length > 0) {
+                hasFile = true;
+                // 将文件添加到 formData，用索引来区分
+                formData.append(`file_${index}`, fileInput.files[0]);
+                formData.append(`batch_${index}`, batchNumber);
+            }
+        });
+        
+        if (!hasFile) {
+            alert("请先为选中的批次选择文件！");
+            return false;
+        }
+        
+        // 提交表单
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                // 重新加载页面
+                window.location.reload();
+            }
+        };
+        xhr.send(formData);
+        
+        return false; 
+    }
+
+    function handleBatchNoLinkSubmit(form) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请至少选择一行数据！");
+            return false;
+        }
+
+        // 创建 FormData 来收集选中的批次号
+        const formData = new FormData(form);
+        
+        // 收集所有选中的批次号
+        checkboxes.forEach((cb, index) => {
+            const batchNumber = cb.value;
+            formData.append(`batch_${index}`, batchNumber);
+        });
+        
+        // 提交表单
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                // 重新加载页面
+                window.location.reload();
+            }
+        };
+        xhr.send(formData);
+        
+        return false; 
+    }
+
+    function toggleAllShippingCheckboxes(source) {
+        const checkboxes = document.getElementsByName('row_selector');
+        // 只选择当前可见的行（配合搜索功能）
+        for (let i = 0; i < checkboxes.length; i++) {
+            const row = checkboxes[i].closest('tr');
+            if (row.style.display !== 'none') {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+    }
+
+    function initializeShippingSection() {
+        // 为搜索框添加事件监听
+        const searchInputs = document.querySelectorAll('#shipping-section .header-search');
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                filterShippingTable(this);
+            });
+        });
+        
+        // 为搜索下拉框添加事件监听
+        const searchSelects = document.querySelectorAll('#shipping-section .search-select');
+        searchSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                filterShippingTable(this);
+            });
+        });
+    }
+
+    function filterShippingTable(input) {
+        const filter = input.value.toUpperCase();
+        const columnIndex = parseInt(input.getAttribute('data-column'));
+        const table = document.querySelector('#shipping-section table');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const cell = rows[i].getElementsByTagName('td')[columnIndex];
+            if (cell) {
+                let txtValue = cell.textContent || cell.innerText;
+                txtValue = txtValue.toUpperCase();
+                
+                if (filter === '' || txtValue.indexOf(filter) > -1) {
+                    rows[i].style.display = '';
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+        }
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeShippingSection();
+        initializeDragDrop();
+    });
+</script>
