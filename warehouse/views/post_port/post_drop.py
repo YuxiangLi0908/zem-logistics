@@ -207,6 +207,7 @@ class PostDrop(View):
 
         # 构建基础筛选条件
         pl_criteria = Q(
+            container_number__orders__cancel_notification=False,
             container_number__orders__offload_id__offload_at__isnull=True,
             shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__retrieval_id__retrieval_destination_precise=warehouse,
@@ -214,6 +215,7 @@ class PostDrop(View):
         )
         plt_criteria = Q(
             location=warehouse,
+            container_number__orders__cancel_notification=False,
             shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="一件代发"
@@ -236,7 +238,7 @@ class PostDrop(View):
         release_cargos, _, selfdel_cargos = await pn._get_classified_cargos(pl_criteria, plt_criteria)
 
         # 未排车
-        unschedule_fleet = await pn._ltl_unscheduled_data(request, warehouse)
+        unschedule_fleet = await self._drop_sp_unscheduled_data(request, warehouse)
         # 待出库
         ready_to_ship_data = await pn._ltl_ready_to_ship_data(warehouse, request.user)
         # 待送达
@@ -298,6 +300,64 @@ class PostDrop(View):
             context.update({'active_tab': active_tab})
         return self.template_ltl_pos_all, context
 
+    async def _drop_sp_unscheduled_data(
+            self, request: HttpRequest, warehouse: str
+    ) -> tuple[str, dict[str, Any]]:
+        
+        base_q = models.Q(
+            origin=warehouse,
+            fleet_number__isnull=True,
+            in_use=True,
+            is_canceled=False,
+            is_virtual_sp=False,
+            delivery_type="一件代发",
+        )
+
+        shipment_list = await sync_to_async(list)(
+            Shipment.objects.filter(base_q).select_related("fleet_number").order_by("pickup_time",
+                                                                                    "shipment_appointment")
+        )
+        for shipment in shipment_list:
+            shipment.fleet_display_name = None
+            if shipment.fleet_number:
+                try:
+                    shipment.fleet_display_name = shipment.fleet_number.fleet_number
+                except ObjectDoesNotExist:
+                    shipment.fleet_display_name = None
+            # 从packinglist表获取唛头
+            packinglist_marks = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    shipment_batch_number=shipment.id
+                ).values_list('shipping_mark', flat=True).distinct()
+            )
+
+            # 从pallet表获取唛头
+            pallet_marks = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    shipment_batch_number=shipment.id
+                ).values_list('shipping_mark', flat=True).distinct()
+            )
+
+            # 合并并去重唛头
+            all_marks = set(packinglist_marks + pallet_marks)
+            all_marks = [mark for mark in all_marks if mark]  # 过滤空值
+
+            # 添加唛头字段到shipment对象
+            shipment.shipping_marks = all_marks  # 列表形式
+            shipment.shipping_marks_display = "，".join(all_marks) if all_marks else "无唛头"  # 显示用
+            if shipment.pod_link:
+                shipment.status_display = "已上传POD"
+                shipment.status_class = "status-pod"  # 绿色
+            elif shipment.is_arrived:
+                shipment.status_display = "已送达"
+                shipment.status_class = "status-arrived"  # 蓝色
+            elif shipment.is_shipped:
+                shipment.status_display = "已出库"
+                shipment.status_class = "status-shipped"  # 黄色
+            else:
+                shipment.status_display = "待处理"
+                shipment.status_class = "status-pending"  # 灰色
+        return shipment_list
     async def handle_verify_ltl_cargo(
             self, request: HttpRequest, context: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -498,7 +558,6 @@ class PostDrop(View):
         # --- 7. 主循环 ---
         pending_orders = [] #待录入
         recorded_orders = []  #已录入
-        print('orders_list',orders_list)
         for order in orders_list:
             container = order.container_number
             if not container:

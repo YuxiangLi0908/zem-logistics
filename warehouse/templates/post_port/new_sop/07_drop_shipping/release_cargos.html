@@ -349,11 +349,11 @@
         <button class="action-btn btn-success" onclick="batchUpdateVerifyStatus()">
             <i class="fas fa-check-double"></i> 批量核实
         </button>
-        <button class="action-btn btn-secondary" onclick="clearAllFilters()">
-            <i class="fas fa-times"></i> 清空筛选
-        </button>
         <button class="column-toggle-btn" id="columnToggleBtn" onclick="toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
+        </button>
+        <button class="action-btn btn-secondary" onclick="clearAllFilters()">
+            <i class="fas fa-times"></i> 清空筛选
         </button>
         <button class="action-btn btn-primary" onclick="copySelectedReleaseRows()">
             <i class="fas fa-copy"></i> 复制选中行
@@ -364,7 +364,7 @@
             当前显示 <strong>{{ warehouse_name }}</strong> 入库仓库的货物，筛选条件：
             <strong>未预约出库</strong>、
             <strong>未打板</strong>、
-            <strong><u>私仓</u></strong>、
+            <strong><u>一件代发</u></strong>、
             <strong>柜子未取消</strong>、
             <strong>柜子非直送</strong>、
             <strong>柜子未放行</strong>

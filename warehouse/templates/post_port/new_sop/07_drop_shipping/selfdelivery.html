@@ -419,6 +419,26 @@
         background-color: #2980b9 !important;
     }
 
+    /* 批量保存参数按钮 */
+    .btn-save-batch {
+        background-color: #6f42c1 !important;
+        color: white !important;
+    }
+
+    .btn-save-batch:hover {
+        background-color: #5a32a3 !important;
+    }
+
+    /* 批量修改派送方式按钮 */
+    .btn-delivery-batch {
+        background-color: #fd7e14 !important;
+        color: white !important;
+    }
+
+    .btn-delivery-batch:hover {
+        background-color: #dc6502 !important;
+    }
+
     .fleet-selected-stats {
         display: flex; 
         align-items: center;
@@ -636,24 +656,23 @@
         <button class="fleet-action-btn" style="background-color: #008080 !important; color: white !important;"  onclick="fleet_batchOnePickMultiDrop()">
             <i class="fas fa-layer-group"></i> 一提多卸
         </button>
-        <button class="fleet-action-btn btn-clear-filter" onclick="fleet_clearAllFilters()">
-            <i class="fas fa-times"></i> 清空筛选
-        </button>
         <button class="fleet-action-btn" style="background-color: #28a745 !important; color: white !important;" onclick="openPickupListModal()">
             <i class="fas fa-clipboard-list"></i> 拣货单
         </button>
         <button class="fleet-column-toggle-btn" id="fleetColumnToggleBtn" onclick="fleet_toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
+        <button class="fleet-action-btn btn-clear-filter" onclick="fleet_clearAllFilters()">
+            <i class="fas fa-times"></i> 清空筛选
+        </button>
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
             <i class="fas fa-filter"></i> 
             当前显示 <strong>{{ warehouse }}</strong> 入库仓库的货物，筛选条件：
             <strong>未预约出库</strong>、
-            <strong><u>私仓</u></strong>、
+            <strong><u>一件代发</u></strong>、
             <strong>柜子未取消</strong>、
             <strong>柜子非直送</strong>、
-            <strong>柜子已放行</strong>、
-            <strong>派送方式为非自提</strong>
+            <strong>柜子已放行</strong>
         </div>
         <div style="margin-top: 10px;">
             <button type="button" class="fleet-action-btn" style="background-color: #ffc107 !important; color: #212529 !important;" onclick="fleet_toggleSortRules()">
@@ -1844,17 +1863,19 @@
         // 从控制面板切换列
         function fleet_toggleColumnFromPanel(columnIndex, element) {
             const checkbox = element.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-                const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
-                cells.forEach(cell => {
-                    // 先清除旧的类名
-                    cell.classList.remove('hidden-column');
-                    cell.classList.remove('selfpick-hidden-column');
-                    cell.classList.toggle('fleet-hidden-column', !checkbox.checked);
-                });
-                fleet_saveColumnVisibility();
+            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            cells.forEach(cell => {
+                // 先清除旧的类名
+                cell.classList.remove('hidden-column');
+                cell.classList.remove('selfpick-hidden-column');
+                cell.classList.toggle('fleet-hidden-column');
+            });
+
+            // 根据列的实际显示状态同步勾选框，避免与浏览器原生点击(label for / checkbox)切换行为冲突导致状态被切换两次而不一致
+            if (checkbox && cells.length > 0) {
+                checkbox.checked = !cells[0].classList.contains('fleet-hidden-column');
             }
+            fleet_saveColumnVisibility();
         }
 
         // 切换控制面板显示
