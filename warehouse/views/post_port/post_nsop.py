@@ -11689,6 +11689,8 @@ class PostNsop(View):
                     "ltl_state",
                     "ltl_zipcode",
                     "ltl_address_type",
+                    "dropshipping_item_name",
+                    "dropshipping_item_model_number",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F(
                         "container_number__orders__retrieval_id__retrieval_destination_precise"),
@@ -11855,6 +11857,8 @@ class PostNsop(View):
                     "ltl_state",
                     "ltl_zipcode",
                     "ltl_address_type",
+                    "dropshipping_item_name",
+                    "dropshipping_item_model_number",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
                     is_pass=F("is_pass"),
