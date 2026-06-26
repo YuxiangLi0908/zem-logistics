@@ -1027,15 +1027,17 @@
 
         function toggleColumnFromPanel(columnIndex, element) {
             const checkbox = element.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-            }
-            
+
             const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
             cells.forEach(cell => {
                 cell.classList.toggle('hidden-column');
             });
-            
+
+            // 根据列的实际显示状态同步勾选框，避免与浏览器原生点击(label for / checkbox)切换行为冲突导致状态被切换两次而不一致
+            if (checkbox && cells.length > 0) {
+                checkbox.checked = !cells[0].classList.contains('hidden-column');
+            }
+
             // 保存列显示状态到localStorage
             saveColumnVisibility();
         }
