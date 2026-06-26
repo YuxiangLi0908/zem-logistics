@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import io
 import json
 import os
 import string
@@ -12,21 +14,31 @@ import random
 from typing import Any
 import re
 
+import barcode
 import chardet
 import numpy as np
+import openpyxl
 import pandas as pd
 import pytz
 from asgiref.sync import sync_to_async
+from barcode.writer import ImageWriter
+from django.contrib.postgres.aggregates import StringAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Sum, Count, FloatField, IntegerField, Min
-from django.db.models.functions import Coalesce, Round, Cast
+from django.db.models import Sum, Count, FloatField, IntegerField, Min, Case, When, Q, Value, F, CharField, Prefetch
+from django.db.models.functions import Coalesce, Round, Cast, Concat
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render
+from django.template.loader import get_template
 from django.utils.dateparse import parse_date
 from django.views import View
+from openpyxl.styles import Border, Side, Alignment, Font
+from openpyxl.utils import get_column_letter
+from openpyxl.utils.dataframe import dataframe_to_rows
 from simple_history.utils import bulk_update_with_history, bulk_create_with_history
+from xhtml2pdf import pisa
 
+from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
 from django.utils import timezone
 
@@ -36,17 +48,22 @@ from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.offload import Offload
+from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.shipment import Shipment
+from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER, \
     DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE
 from warehouse.views.export_file import export_do
-
+from warehouse.views.pre_port.pre_port_dash import PrePortDash
+from io import BytesIO
+from openpyxl.worksheet.page import PageMargins
 
 class Dropshipping(View):
     template_order_create_supplement = "dropshipping/03_order_creation.html"
@@ -63,6 +80,8 @@ class Dropshipping(View):
     template_batch_schedule_container = "dropshipping/03_batch_schedule_container_pickup.html"
     template_status_summary = "dropshipping/01_container_status_summary.html"
     template_palletization_main = "dropshipping/palletization.html"
+    template_pallet_label = "export_file/pallet_label_template.html"
+    template_palletize = "dropshipping/palletization_packing_list.html"
 
     container_type = {
         "": "",
@@ -77,6 +96,7 @@ class Dropshipping(View):
 
     async def get(self, request: HttpRequest, **kwargs) -> Any | None:
         step = request.GET.get("step", None)
+        pk = kwargs.get("pk", None)
         if step == "all":
             template, context = await self.handle_order_basic_info_get()
             return await sync_to_async(render)(request, template, context)
@@ -108,6 +128,11 @@ class Dropshipping(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "palletize_all":
             template, context = await self.handle_all_get_palletize(request)
+            return render(request, template, context)
+        elif step == "container_palletization":
+            template, context = await self.handle_container_palletization_get(
+                request, pk
+            )
             return render(request, template, context)
 
 
@@ -226,6 +251,1094 @@ class Dropshipping(View):
         elif step == "warehouse_palletize":
             template, context = await self.handle_warehouse_post_palletize(request)
             return render(request, template, context)
+        elif step == "trans_arrival":
+            template, context = await self.handle_trans_arrival_post(request)
+            return render(request, template, context)
+        elif step == "export_pallet_label":
+            return await self._export_pallet_label(request)
+        elif step == "export_palletization_list":
+            return await self.export_palletization_list(request)
+        elif step == "new_export_palletization_list":
+            return await self.export_palletization_list_v2(request)
+        elif step == "cancel":
+            template, context = await self.handle_cancel_post(request)
+            return render(request, template, context)
+
+    async def handle_cancel_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        container_number = request.POST.get("container_number")
+        order = await sync_to_async(
+            Order.objects.select_related("offload_id", "warehouse").get
+        )(container_number__container_number=container_number)
+        offload = order.offload_id
+        offload.total_pallet = None
+        offload.offload_at = None
+        try:
+            offload.devanning_company = None
+            offload.devanning_fee = None
+        except:
+            pass
+        pallet = await sync_to_async(list)(
+            Pallet.objects.select_related("shipment_batch_number").filter(
+                container_number__container_number=container_number
+            )
+        )
+        shipment = set()
+        shipment.update([p.shipment_batch_number for p in pallet if p])
+        await sync_to_async(
+            Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).delete
+        )()
+        await sync_to_async(
+            AbnormalOffloadStatus.objects.filter(
+                container_number__container_number=container_number
+            ).delete
+        )()
+        await sync_to_async(offload.save)()
+        await self._update_shipment_abnormal_palletization(shipment)
+        mutable_post = request.POST.copy()
+        mutable_post["name"] = order.warehouse.name
+        request.POST = mutable_post
+        return await self.handle_warehouse_post_palletize(request)
+
+    async def _update_shipment_abnormal_palletization(
+        self, shipment: set[Shipment]
+    ) -> None:
+        abnormal_shipment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                shipment_batch_number__in=[
+                    p.shipment_batch_number for p in shipment if p
+                ],
+                pallet__abnormal_palletization=True,
+            )
+        )
+        abnormal_shipment = set(s.shipment_batch_number for s in abnormal_shipment)
+        updated_shipment = []
+        for s in list(shipment - abnormal_shipment):
+            if s:
+                s.abnormal_palletization = False
+                updated_shipment.append(s)
+        await sync_to_async(bulk_update_with_history)(
+            updated_shipment,
+            Shipment,
+            fields=["abnormal_palletization"],
+        )
+
+    async def export_palletization_list_v2(self, request: HttpRequest) -> HttpResponse:
+        """
+        (新)拆柜单导出
+        """
+        status = request.POST.get("status")
+        warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
+        container_number = request.POST.get("container_number")
+        offload_id = request.POST.get("offload_id")
+
+        WAREHOUSE_TIMEZONE = {
+            "NJ": "America/New_York",
+            "SAV": "America/New_York",
+            "LA": "America/Los_Angeles",
+        }
+
+        warehouse_unpacking_time = None
+
+        try:
+            tz_name = WAREHOUSE_TIMEZONE.get(warehouse, "UTC")
+            tz = pytz.timezone(tz_name)
+
+            warehouse_unpacking_time = (
+                datetime.now(tz)
+                .strftime("%Y-%m-%d")
+            )
+        except:
+            pass
+
+        if warehouse_unpacking_time and offload_id:
+            try:
+                # 异步获取单条记录
+                offload = await sync_to_async(
+                    Offload.objects.get, thread_sensitive=True
+                )(id=offload_id)
+
+                # 只有原来没有时间，才覆盖（避免重复更新）
+                if not offload.warehouse_unpacking_time:
+                    offload.warehouse_unpacking_time = warehouse_unpacking_time
+                    await sync_to_async(offload.save, thread_sensitive=True)()
+
+            except Offload.DoesNotExist:
+                pass
+
+        TARGET_WAREHOUSES = {"GEU3", "GYR2", "GYR3", "LAX9", "LGB8", "SBD1"}
+        UTC_TZ = pytz.UTC
+        BASE_ETA = UTC_TZ.localize(datetime(2026, 1, 19))
+
+        if status == "non_palletized":
+            vessel_prefetch_queryset = Vessel.objects.all()
+            retrieval_prefetch_queryset = Retrieval.objects.all()
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet", "shipment_batch_number")
+                .prefetch_related(
+                    Prefetch(
+                        "container_number__orders__vessel_id",
+                        queryset=vessel_prefetch_queryset
+                    )
+                )
+                .prefetch_related(
+                    Prefetch(
+                        "container_number__orders__retrieval_id",
+                        queryset=retrieval_prefetch_queryset
+                    )
+                )
+                .filter(container_number__container_number=container_number)
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method", Value("-"), "fba_id", Value("-"), "id"
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") & ~Q(dropshipping_item_model_number="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "dropshipping_item_model_number",
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "dropshipping_item_model_number",
+                                Value("-"),
+                                "shipping_mark",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                    vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
+                    retrieval_destination_area=F(
+                        "container_number__orders__retrieval_id__retrieval_destination_area"
+                    ),
+                )
+                .values(
+                    "container_number__container_number",
+                    "dropshipping_item_model_number",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "custom_delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                    "delivery_type",
+                    "shipment_batch_number__load_type",
+                    "vessel_eta",
+                    "retrieval_destination_area",
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        else:
+            packing_list = []
+
+        data = [i for i in packing_list]
+        df = pd.DataFrame.from_records(data)
+        df["拆柜备注"] = ""
+
+        if not df.empty:
+            df["vessel_eta_dt"] = pd.to_datetime(df["vessel_eta"], errors="coerce", utc=True)
+            mask = (
+                    (df["shipment_batch_number__load_type"] != "卡板")
+                    & (df["vessel_eta_dt"] >= BASE_ETA)
+                    & (df["dropshipping_item_model_number"].isin(TARGET_WAREHOUSES))
+            )
+            df.loc[mask, "拆柜备注"] = "100 height"
+
+            df["note"] = df["note"].fillna("").astype(str)
+
+            # ===================== ✅ 只加这里：暂扣留仓(HOLD) 追加 唛头 + FBA =====================
+            def merge_note_to_remark(row):
+                remark = str(row["拆柜备注"] or "").strip()
+                note = str(row["note"] or "").strip()
+                delivery_method = str(row["custom_delivery_method"] or "").strip()
+                shipping_mark = str(row["shipping_marks"] or "").strip()
+                fba_id = str(row["fba_ids"] or "").strip()
+
+                # 原有逻辑：拼接note
+                if note.strip():
+                    if remark == "100 height":
+                        remark = f"{remark}, {note.strip()}"
+                    else:
+                        remark = note.strip()
+
+                # ✅ 只对 暂扣留仓(HOLD) 追加唛头 + FBA
+                if "暂扣留仓(HOLD)" in delivery_method:
+                    parts = []
+                    if remark:
+                        parts.append(remark)
+                    if shipping_mark:
+                        parts.append(f"唛头:{shipping_mark}")
+                    if fba_id:
+                        parts.append(f"FBA:{fba_id}")
+                    remark = ", ".join(parts)
+
+                return remark
+
+            df["拆柜备注"] = df.apply(merge_note_to_remark, axis=1)
+            df["note"] = ""
+
+        if not df.empty:
+            df = df.rename(
+                {
+                    "container_number__container_number": "container_number",
+                    "custom_delivery_method": "delivery_method",
+                    "shipping_marks": "shipping_mark",
+                    "n_pallet": "pl"
+                },
+                axis=1,
+            )
+            df["delivery_method"] = df["delivery_method"].apply(
+                lambda x: x.split("-")[0] if isinstance(x, str) else x
+            )
+            df["pcs_original"] = df["pcs"].astype(str)
+            df["pcs"] = df["pcs_original"].copy()
+
+            mask_base = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
+
+            def extract_original_note(remark):
+                if not isinstance(remark, str) or remark.strip() == "":
+                    return ""
+                note_part = remark.replace("100 height, ", "").replace("100 height", "")
+                return note_part.strip()
+
+            df["original_note_from_remark"] = df["拆柜备注"].apply(extract_original_note)
+
+            mask_tecao = df["original_note_from_remark"].apply(
+                lambda x: "特操" in x if x else False
+            )
+
+            mask_not_la = (
+                df["retrieval_destination_area"]
+                .fillna("")
+                .str.upper()
+                .ne("LA")
+            )
+
+            mask_clear_pcs = (
+                    mask_base
+                    & (~mask_tecao)
+                    & mask_not_la
+            )
+
+            df.loc[mask_clear_pcs, "pcs"] = ""
+
+            mask_note_empty = (df["original_note_from_remark"] == "")
+            mask_clear_mark = mask_base & mask_note_empty
+            df.loc[mask_clear_mark, "shipping_mark"] = ""
+
+            df = df.drop("original_note_from_remark", axis=1)
+
+            df["pl"] = ""  # 清空打板数字段
+
+            df = df[["dropshipping_item_model_number", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"]]
+        else:
+            df = pd.DataFrame(
+                columns=["dropshipping_item_model_number", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"])
+
+        df = df[["dropshipping_item_model_number", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]]
+
+        buffer = BytesIO()
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "拆柜单"
+
+        # 纸张设为 Letter
+        ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
+        # 纵向打印（已修改）
+        ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+        # 缩放到 1页宽，保证不超出
+        ws.page_setup.fitToPage = True
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+
+        # 缩小边距，给内容更多空间
+        ws.page_margins = PageMargins(
+            left=0.4, right=0.4, top=0.4, bottom=0.4,
+            header=0.2, footer=0.2
+        )
+
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        header1_font = Font(size=15, bold=True)
+        header2_font = Font(size=11, bold=True)
+        data_font = Font(size=12, bold=True)
+        center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        UNIFIED_ROW_HEIGHT = 30
+
+        # 第一行合并单元格（柜号）
+        ws.merge_cells('A1:C1')
+        for col_idx in range(1, 4):
+            ws.cell(1, col_idx).border = thin_border
+        ws['A1'] = container_number or "未指定柜号"
+        ws['A1'].font = header1_font
+        ws['A1'].alignment = left_alignment
+        ws.row_dimensions[1].height = UNIFIED_ROW_HEIGHT
+
+        # 第一行合并单元格（拆柜时间）
+        ws.merge_cells('D1:E1')
+        for col_idx in range(4, 6):
+            ws.cell(1, col_idx).border = thin_border
+        ws['D1'] = warehouse_unpacking_time
+        ws['D1'].font = header1_font
+        ws['D1'].alignment = center_alignment
+
+        # 第一行合并单元格（dock）
+        ws.merge_cells('F1:G1')
+        for col_idx in range(6, 8):
+            ws.cell(1, col_idx).border = thin_border
+        ws['F1'] = 'dock'
+        ws['F1'].font = header1_font
+        ws['F1'].alignment = center_alignment
+
+        # 表头行（第二行）
+        column_names = ["dropshipping_item_model_number", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]
+        for col_idx, name in enumerate(column_names, 1):
+            cell = ws.cell(2, col_idx, name)
+            cell.font = header2_font
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        ws.row_dimensions[2].height = UNIFIED_ROW_HEIGHT
+
+        # 数据行
+        for row_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), 3):
+            ws.row_dimensions[row_idx].height = UNIFIED_ROW_HEIGHT
+            for col_idx, value in enumerate(row, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=value if pd.notna(value) else "")
+                cell.font = data_font
+                cell.border = thin_border
+                cell.alignment = left_alignment if col_idx == 6 else center_alignment
+
+        for col_idx in range(1, len(column_names) + 1):
+            letter = get_column_letter(col_idx)
+            max_len = max(len(str(ws.cell(row, col_idx).value or "")) for row in range(1, ws.max_row + 1))
+
+            if col_idx == 5:  # pcs
+                ws.column_dimensions[letter].width = 15
+            elif col_idx == 6:  # pl
+                ws.column_dimensions[letter].width = 10
+            elif col_idx == 7:  # note
+                ws.column_dimensions[letter].width = 30
+            else:
+                ws.column_dimensions[letter].width = min(max_len + 2, 22)
+
+        wb.save(buffer)
+        buffer.seek(0)
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        filename = f"{container_number if container_number else '拆柜单'}.xlsx"
+        response["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+
+    async def export_palletization_list(self, request: HttpRequest) -> HttpResponse:
+        status = request.POST.get("status")
+        container_number = request.POST.get("container_number")
+        warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
+        offload_id = request.POST.get("offload_id")
+
+        WAREHOUSE_TIMEZONE = {
+            "NJ": "America/New_York",
+            "SAV": "America/New_York",
+            "LA": "America/Los_Angeles",
+        }
+
+        warehouse_unpacking_time = None
+
+        try:
+            tz_name = WAREHOUSE_TIMEZONE.get(warehouse, "UTC")
+            tz = pytz.timezone(tz_name)
+
+            warehouse_unpacking_time = (
+                datetime.now(tz)
+                .strftime("%Y-%m-%d")
+            )
+        except:
+            pass
+
+        if warehouse_unpacking_time and offload_id:
+            try:
+                # 异步获取单条记录
+                offload = await sync_to_async(
+                    Offload.objects.get, thread_sensitive=True
+                )(id=offload_id)
+
+                # 只有原来没有时间，才覆盖（避免重复更新）
+                if not offload.warehouse_unpacking_time:
+                    offload.warehouse_unpacking_time = warehouse_unpacking_time
+                    await sync_to_async(offload.save, thread_sensitive=True)()
+
+            except Offload.DoesNotExist:
+                pass
+        if status == "non_palletized":
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(container_number__container_number=container_number)
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method", Value("-"), "fba_id", Value("-"), "id"
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "dropshipping_item_model_number",
+                                Value("-"),
+                                "shipping_mark",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "dropshipping_item_model_number",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "custom_delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                    # "delivery_window_start",
+                    # "delivery_window_end",
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        elif status == "palletized":
+            packing_list = await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(container_number__container_number=container_number)
+                .values(
+                    "container_number__container_number",
+                    "delivery_method",
+                    "dropshipping_item_model_number",
+                    "fba_id",
+                    "ref_id",
+                    "shipping_mark",
+                    "note",
+                    "PO_ID",
+                )
+                .annotate(
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
+                    n_pallet=Count("pallet_id", distinct=True),
+                )
+                .order_by("-cbm")
+            )
+            packing_list_complement = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(container_number__container_number=container_number)
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method", Value("-"), "fba_id", Value("-"), "id"
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "dropshipping_item_model_number",
+                                Value("-"),
+                                "shipping_mark",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "dropshipping_item_model_number",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "custom_delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+            existing_po = {
+                (plt["container_number__container_number"], plt["dropshipping_item_model_number"])
+                for plt in packing_list
+            }
+            for pl in packing_list_complement:
+                po = (pl["container_number__container_number"], pl["dropshipping_item_model_number"])
+                if po not in existing_po:
+                    packing_list.append(
+                        {
+                            "container_number__container_number": pl[
+                                "container_number__container_number"
+                            ],
+                            "delivery_method": pl["custom_delivery_method"],
+                            "dropshipping_item_model_number": pl["dropshipping_item_model_number"],
+                            "fba_id": pl["fba_ids"],
+                            "ref_id": pl["ref_ids"],
+                            "shipping_mark": pl["shipping_marks"],
+                            "note": pl["note"],
+                            "PO_ID": pl["PO_ID"],
+                            "cbm": 0,
+                            "pcs": 0,
+                            "n_pallet": 0,
+                        }
+                    )
+        else:
+            raise ValueError(f"Unknown container status: {status}\n{request.POST}")
+
+        data = [i for i in packing_list]
+        df = pd.DataFrame.from_records(data)
+        df = df.rename(
+            {
+                "container_number__container_number": "container_number",
+                "custom_delivery_method": "delivery_method",
+                "fba_ids": "fba_id",
+                "ref_ids": "ref_id",
+                "shipping_marks": "shipping_mark",
+            },
+            axis=1,
+        )
+        df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
+        df = df[
+            [
+                "container_number",
+                "dropshipping_item_model_number",
+                "delivery_method",
+                "fba_id",
+                "ref_id",
+                "shipping_mark",
+                "pcs",
+                "cbm",
+                "n_pallet",
+                "PO_ID",
+                "note",
+            ]
+        ]
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = f"attachment; filename={container_number}.xlsx"
+        df.to_excel(excel_writer=response, index=False, columns=df.columns)
+        return response
+
+    async def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
+        data = []
+        container_number = request.POST.get("container_number")
+        customerInfo = request.POST.get("customerInfo")
+
+        # ======================
+        # 内置：唛头自动截断（最多 3 行，多余省略）
+        # ======================
+        def truncate_marks(marks_str, max_lines=3, max_chars=80):
+            if not marks_str:
+                return marks_str
+            # 分离 TTT 后缀（保留不删）
+            ttt_part = ""
+            if "TTT" in marks_str:
+                idx = marks_str.index("TTT")
+                ttt_part = marks_str[idx:]
+                marks_str = marks_str[:idx]
+            # 按行切割
+            lines = [line.strip() for line in marks_str.split("\n") if line.strip()]
+            # 保留前 N 行
+            keep_lines = lines[:max_lines]
+            # 每行超长截断
+            final = []
+            for line in keep_lines:
+                if len(line) > max_chars:
+                    final.append(line[:max_chars] + "...")
+                else:
+                    final.append(line)
+            # 拼接回去
+            return "\n".join(final) + ttt_part
+
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            packing_list = []
+            for row in customer_info:
+                if len(row) > 10:
+                    is_hold = row[10].strip()
+                else:
+                    is_hold = row[8].strip()
+                date_str = row[7].strip()
+                parts = date_str.split("-")
+                month_day = f"{parts[1]}-{parts[2]}"
+
+                dropshipping_item_model_number = f"{row[4].strip()}"
+                shipping_marks = row[2].strip()
+                new_marks = None
+
+                if "客户自提" in dropshipping_item_model_number or "自提" in dropshipping_item_model_number:
+                    dropshipping_item_model_number = "S/P"
+                    marks = row[2].strip()
+                    if marks:
+                        array = marks.split(",")
+                        if len(array) > 2:
+                            parts = []
+                            for i in range(0, len(array), 2):
+                                part = ",".join(array[i: i + 2])
+                                parts.append(part)
+                            new_marks = "\n".join(parts)
+                            newline_count = new_marks.count("\n") + 1
+                            new_marks = new_marks + "TTT" + str(newline_count)
+                        else:
+                            new_marks = shipping_marks + "TTT1"
+                elif is_hold == "是":
+                    new_marks = shipping_marks
+                else:
+                    dropshipping_item_model_number = dropshipping_item_model_number.replace("Walmart", "WMT-").replace("沃尔玛", "WMT-").replace("WALMART",
+                                                                                                           "WMT-")
+                    new_marks = None
+
+                # ======================
+                # ✅ 关键：生成后 强制截断唛头
+                # ======================
+                if new_marks:
+                    new_marks = truncate_marks(new_marks)
+
+                for num in range(int(row[6])):
+                    num += 1
+                    # 生成条形码
+                    barcode_type = "code128"
+                    barcode_class = barcode.get_barcode_class(barcode_type)
+                    barcode_content = f"{row[0].strip()}|{dropshipping_item_model_number}-{num}"
+                    my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    buffer = io.BytesIO()
+                    my_barcode.write(buffer, options={"dpi": 600})
+                    buffer.seek(0)
+                    barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+
+                    if is_hold == "是":
+                        fba_ids = row[3].strip()
+                    else:
+                        fba_ids = None
+
+                    new_data = {
+                        "container_number": row[0].strip(),
+                        "dropshipping_item_model_number": f"{dropshipping_item_model_number}-{num}",
+                        "date": month_day,
+                        "customer": row[1].strip(),
+                        "hold": (is_hold == "是"),
+                        "fba_ids": fba_ids,
+                        "barcode": barcode_base64,
+                        "shipping_marks": new_marks,
+                    }
+                    if len(row) > 10:
+                        new_data.update({
+                            "has_delivery_window": True,
+                            "dw_st": row[8].split("-", 1)[1] if row[8] else None,
+                            "dw_end": row[9].split("-", 1)[1] if row[8] else None,
+                        })
+                    else:
+                        new_data.update({
+                            "has_delivery_window": False,
+                            "dw_st": None,
+                            "dw_end": None,
+                        })
+                    for i in range(4):
+                        data.append(new_data)
+        else:
+            customer_name = request.POST.get("customer_name")
+            status = request.POST.get("status")
+            n_label = int(request.POST.get("n_label", 4))
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=container_number
+            )
+            retrieval_date = retrieval.target_retrieval_timestamp
+            retrieval_destination_area = retrieval.retrieval_destination_area
+            # 转换成当地时间
+            preportdash = PrePortDash()
+            retrieval_date = preportdash._convert_utc_to_local(retrieval_date, retrieval_destination_area)
+            if retrieval_date:
+                # 如果是字符串，先转成 datetime
+                if isinstance(retrieval_date, str):
+                    retrieval_date = datetime.strptime(retrieval_date, "%Y-%m-%d %H:%M:%S")
+                # 现在一定是 datetime，直接格式化
+                retrieval_date = retrieval_date.strftime("%m/%d")
+            else:
+                # 空值，取当前时间
+                retrieval_date = datetime.now().strftime("%m/%d")
+            packing_list = await self._get_packing_list(
+                container_number=container_number, status=status
+            )
+            for pl in packing_list:
+                delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
+                cbm = pl.get("cbm")
+                remainder = cbm % 1
+                cbm = int(cbm)
+                if cbm % 2:
+                    cbm += cbm % 2
+                elif remainder:
+                    cbm += 2
+                if customer_name == "准时达" and retrieval_destination_area == "LA":
+                    cbm /= 1.5
+                else:
+                    cbm /= 2
+                cbm *= n_label
+                cbm = int(cbm)
+                if (    customer_name == "JINYU"
+                        or "客户自提" in pl.get("dropshipping_item_model_number")
+                        or "自提" in pl.get("dropshipping_item_model_number")
+                        or "客户自提" in delivery_method
+                        or "other" in pl.get("delivery_type")
+                        or "暂扣留仓" in delivery_method.split("-")[0]
+                        or "特操" in pl.get("note", "")
+                ):
+                    if ("客户自提" in pl.get("dropshipping_item_model_number") or "自提" in pl.get("dropshipping_item_model_number")):
+                        dropshipping_item_model_number = "S/P"
+                    else:
+                        dropshipping_item_model_number = pl.get("dropshipping_item_model_number")
+                    marks = pl.get("shipping_marks") or pl.get("shipping_mark")
+                    new_marks = None
+                    if marks:
+                        array = marks.split(",")
+                        if len(array) > 2:
+                            parts = []
+                            for i in range(0, len(array), 2):
+                                part = ",".join(array[i: i + 2])
+                                parts.append(part)
+                            new_marks = "\n".join(parts)
+                            newline_count = new_marks.count("\n") + 1
+                            new_marks = new_marks + "TTT" + str(newline_count)
+                        else:
+                            new_marks = marks + "TTT1"
+                else:
+                    dropshipping_item_model_number = pl.get("dropshipping_item_model_number").replace("沃尔玛", "WMT-").replace("Walmart", "WMT-").replace(
+                        "WALMART", "WMT-")
+                    new_marks = None
+
+                # ======================
+                # ✅ 关键：生成后 强制截断唛头
+                # ======================
+                if new_marks:
+                    new_marks = truncate_marks(new_marks)
+
+                dw_st = pl.get("delivery_window_start").strftime("%m/%d") if pl.get("delivery_window_start") else None
+                dw_end = pl.get("delivery_window_end").strftime("%m/%d") if pl.get("delivery_window_end") else None
+                for num in range(cbm):
+                    i = num // n_label + 1
+                    barcode_type = "code128"
+                    barcode_class = barcode.get_barcode_class(barcode_type)
+                    dropshipping_item_model_number = dropshipping_item_model_number.replace('\xa0', ' ')
+                    barcode_content = f"{pl.get('container_number__container_number')}|{dropshipping_item_model_number}-{i}"
+                    try:
+                        my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    except:
+                        barcode_content = barcode_content.encode("ascii", "ignore").decode()
+                        my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    buffer = io.BytesIO()
+                    my_barcode.write(buffer, options={"dpi": 600})
+                    buffer.seek(0)
+                    barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+
+                    new_data = {
+                        "container_number": pl.get("container_number__container_number"),
+                        "dropshipping_item_model_number": f"{dropshipping_item_model_number}-{i}",
+                        "date": retrieval_date,
+                        "customer": customer_name,
+                        "hold": ("暂扣留仓" in delivery_method.split("-")[0]),
+                        "barcode": barcode_base64,
+                        "shipping_marks": new_marks,
+                        "pcs": pl.get("pcs"),
+                        "has_delivery_window": bool(dw_st and dw_end),
+                        "dw_st": dw_st,
+                        "dw_end": dw_end,
+                    }
+                    data.append(new_data)
+
+        context = {"data": data}
+        template = get_template(self.template_pallet_label)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="pallet_label_{container_number}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            raise ValueError(
+                "Error during PDF generation: %s" % pisa_status.err,
+                content_type="text/plain",
+            )
+        return response
+
+    async def handle_container_palletization_get(
+        self, request: HttpRequest, pk: int
+    ) -> tuple[str, dict[str, Any]]:
+
+        order_selected = await sync_to_async(
+            Order.objects.select_related(
+                "container_number", "warehouse", "offload_id"
+            ).get
+        )(pk=pk)
+
+        container = order_selected.container_number
+        offload = order_selected.offload_id
+        order_packing_list = []
+
+        # 获取参数（增加安全获取，防止为空报错）
+        warehouse = request.GET.get("warehouse", "")
+        if warehouse:
+            warehouse = warehouse.split("-")[0].strip()
+
+        step = request.GET.get("step", "")
+
+        # 默认值，防止未进入条件导致 packing_list 未定义
+        packing_list = []
+        context = {"status": "palletized"}
+
+        if step == "container_palletization":
+            # 未拆柜
+            if offload.offload_at is None:
+                packing_list = await self._get_packing_list(
+                    container_number=container.container_number, status="non_palletized"
+                )
+                context = {"status": "non_palletized"}
+
+            # 已拆柜
+            else:
+                packing_list = await self._get_packing_list(
+                    container_number=container.container_number, status="palletized"
+                )
+                context = {"status": "palletized"}
+
+        # 组装列表
+        for pl in packing_list:
+            pl["PO_ID"] = pl.get("PO_ID", "")
+            pl_form = PackingListForm(initial={"n_pallet": pl.get("n_pallet", 0)})
+            order_packing_list.append((pl, pl_form))
+
+        # 上下文
+        context.update({
+            "warehouse": request.GET.get("warehouse"),
+            "order_packing_list": order_packing_list,
+            "delivery_method_options": DELIVERY_METHOD_OPTIONS,
+            "container_number": container.container_number,
+            "pk": pk
+        })
+
+        return self.template_palletize, context
+
+    async def _get_packing_list(
+        self, container_number: str, status: str
+    ) -> PackingList:
+        if status == "non_palletized":
+            return await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(container_number__container_number=container_number)
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "fba_id",
+                                Value("-"),
+                                "id",
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "dropshipping_item_model_number",
+                                Value("-"),
+                                "shipping_mark",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "dropshipping_item_model_number",
+                    "address",
+                    "zipcode",
+                    "contact_name",
+                    "custom_delivery_method",
+                    "note",
+                    "shipment_batch_number__shipment_batch_number",
+                    "master_shipment_batch_number__shipment_batch_number",
+                    "PO_ID",
+                    "delivery_type",
+                )
+                .annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet__pallet_id", distinct=True),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        elif status == "palletized":
+            return await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(container_number__container_number=container_number)
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_length=Cast("length", CharField()),
+                    str_width=Cast("width", CharField()),
+                    str_height=Cast("height", CharField()),
+                    str_pcs=Cast("pcs", CharField()),
+                    str_number=Cast("sequence_number", CharField()),
+                    str_weight=Cast("weight_lbs", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "delivery_method",
+                    "dropshipping_item_model_number",
+                    "fba_id",
+                    "ref_id",
+                    "shipping_mark",
+                    "note",
+                    "PO_ID",
+                    "delivery_type",
+                    "slot",
+                )
+                .annotate(
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet_id", distinct=True),
+                    ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    length=StringAgg(
+                        "str_length", delimiter=",", ordering="str_length"
+                    ),
+                    width=StringAgg("str_width", delimiter=",", ordering="str_width"),
+                    height=StringAgg(
+                        "str_height", delimiter=",", ordering="str_height"
+                    ),
+                    n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
+                    number=StringAgg(
+                        "str_number", delimiter=",", ordering="str_number"
+                    ),
+                    weight=StringAgg(
+                        "str_weight", delimiter=",", ordering="str_weight"
+                    ),
+                )
+                .order_by("-cbm")
+            )
+        else:
+            raise ValueError(f"invalid status: {status}")
+
+    async def handle_trans_arrival_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        batch_id = request.POST.get("batch_id")
+        trans = await sync_to_async(TransferLocation.objects.get)(id=batch_id)
+        trans.arrival_time = timezone.now()
+        await sync_to_async(trans.save)()
+        warehouse = request.POST.get("warehouse")
+        mutable_post = request.POST.copy()
+        mutable_post["name"] = warehouse
+        request.POST = mutable_post
+        return await self.handle_warehouse_post_palletize(request)
 
     async def handle_warehouse_post_palletize(
         self, request: HttpRequest
@@ -2433,6 +3546,36 @@ class Dropshipping(View):
         )
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
+
+    def find_matching_regions(
+        self, plts_by_destination: list, combina_fee: dict
+    ) -> dict:
+        non_combina_dests = set()
+        price_display = defaultdict(set)
+
+        for plts in plts_by_destination:
+            if "UPS" in plts["dropshipping_item_model_number"]:
+                # 如果包含UPS，不需要显示细节，就显示UPS就可以了，张楠提
+                non_combina_dests.add("UPS")
+                continue
+            dest = plts["dropshipping_item_model_number"]
+            dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
+            matched = False
+            # 遍历所有区域和location
+            for region, fee_data_list in combina_fee.items():
+                for fee_data in fee_data_list:
+                    if dest in fee_data["location"]:
+                        price_display[region].add(dest)
+                        matched = True
+
+            # 记录匹配结果
+            if not matched:
+                non_combina_dests.add(dest)  # 未匹配的仓点
+        combina_dests = {k: list(v) for k, v in price_display.items()}
+        return  {
+            "combina_dests": combina_dests,
+            "non_combina_dests": non_combina_dests,
+        }
 
     async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))

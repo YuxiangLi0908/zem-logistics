@@ -59,6 +59,7 @@ urlpatterns = [
     ),
     path("create_order/", OrderCreation.as_view(), name="create_order"),
     path("dropshipping/", Dropshipping.as_view(), name="dropshipping"),
+    path("dropshipping/<str:pk>/", Dropshipping.as_view(), name="dropshipping_container"),
     path("post_drop/", PostDrop.as_view(), name="postdrop"),
     path("pre_port_tracking/", PrePortTracking.as_view(), name="pre_port_tracking"),
     path("terminal_dispatch/", TerminalDispatch.as_view(), name="terminal_dispatch"),
