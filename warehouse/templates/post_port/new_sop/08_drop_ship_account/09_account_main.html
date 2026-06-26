@@ -479,6 +479,9 @@
                         {% endfor %}
                     </select>
                 </div>
+                <b style="margin-right: 5px;">柜号:</b>
+                    <input type="text" name="container_number_filter" value="{{ container_number_filter }}" placeholder="输入柜号" style="border: 1px solid #ced4da; width:130px; min-width:130px;">
+                    </b>
                 <div class="filter-group">
                     <label for="start_date"><i class="fas fa-calendar-alt"></i> ETD开始:</label>
                     <input type="date" name="start_date" id="start_date" value="{{ start_date }}">
@@ -572,7 +575,11 @@
                                         <td class="td" data-column="pickup">
                                             <div class="fee-cell">
                                                 <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    <i class="fas fa-edit"></i> 录入提拆
+                                                    {% if item.preport_amount is not None %}
+                                                        ${{ item.preport_amount|floatformat:2 }}
+                                                    {% else %}
+                                                        <i class="fas fa-edit"></i> 录入提拆
+                                                    {% endif %}
                                                 </a>
                                                 {% if item.preport_status %}
                                                     <span class="status-badge {{ item.preport_status }}">{{ item.preport_status_display|default:item.preport_status }}</span>
@@ -584,7 +591,11 @@
                                         <td class="td" data-column="warehouse-fee">
                                             <div class="fee-cell">
                                                 <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    <i class="fas fa-edit"></i> 录入库内
+                                                    {% if item.wh_other_amount is not None %}
+                                                        ${{ item.wh_other_amount|floatformat:2 }}
+                                                    {% else %}
+                                                        <i class="fas fa-edit"></i> 录入库内
+                                                    {% endif %}
                                                 </a>
                                                 {% if item.warehouse_status %}
                                                     <span class="status-badge {{ item.warehouse_status }}">{{ item.warehouse_status_display|default:item.warehouse_status }}</span>
@@ -628,7 +639,7 @@
                                     <th class="th" data-column="warehouse">仓库</th>
                                     <th class="th" data-column="pickup">提拆费</th>
                                     <th class="th" data-column="warehouse-fee">库内费</th>
-                                    <th class="th" data-column="reject-reason">驳回原因</th>
+                                    <th class="th" data-column="finance-status">财务状态</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -662,7 +673,11 @@
                                         </select>
                                     </th>
                                     <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'recorded-table')">
+                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'finance_status', 'recorded-table')">
+                                            <option value="">全部状态</option>
+                                            <option value="completed">已完成</option>
+                                            <option value="unconfirmed">未确认</option>
+                                        </select>
                                     </th>
                                 </tr>
                             </thead>
@@ -674,7 +689,7 @@
                                         data-warehouse="{{ item.warehouse|default:''|lower }}"
                                         data-pickup="{{ item.preport_status|default:'unstarted' }}"
                                         data-warehouse_fee="{{ item.warehouse_status|default:'unstarted' }}"
-                                        data-reject_reason="{{ item.preport_reason|default:''|lower }}"
+                                        data-finance_status="{{ item.finance_status_value|default:'unconfirmed' }}"
                                         {% if item.preport_status == 'rejected' or item.warehouse_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
                                         <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
@@ -682,7 +697,11 @@
                                         <td class="td" data-column="pickup">
                                             <div class="fee-cell">
                                                 <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    <i class="fas fa-edit"></i> 查看提拆
+                                                    {% if item.preport_amount is not None %}
+                                                        ${{ item.preport_amount|floatformat:2 }}
+                                                    {% else %}
+                                                        <i class="fas fa-edit"></i> 查看提拆
+                                                    {% endif %}
                                                 </a>
                                                 {% if item.preport_status %}
                                                     <span class="status-badge {{ item.preport_status }}">{{ item.preport_status_display|default:item.preport_status }}</span>
@@ -694,7 +713,11 @@
                                         <td class="td" data-column="warehouse-fee">
                                             <div class="fee-cell">
                                                 <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    <i class="fas fa-edit"></i> 查看库内
+                                                    {% if item.wh_other_amount is not None %}
+                                                        ${{ item.wh_other_amount|floatformat:2 }}
+                                                    {% else %}
+                                                        <i class="fas fa-edit"></i> 查看库内
+                                                    {% endif %}
                                                 </a>
                                                 {% if item.warehouse_status %}
                                                     <span class="status-badge {{ item.warehouse_status }}">{{ item.warehouse_status_display|default:item.warehouse_status }}</span>
@@ -703,8 +726,12 @@
                                                 {% endif %}
                                             </div>
                                         </td>
-                                        <td class="td" data-column="reject-reason">
-                                            {{ item.preport_reason|default_if_none:"-" }}
+                                        <td class="td" data-column="finance-status">
+                                            {% if item.finance_status_value == 'completed' %}
+                                                <span class="status-badge completed">已完成</span>
+                                            {% else %}
+                                                <span class="status-badge unstarted">未确认</span>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -761,13 +788,13 @@
     // 全局变量存储每个表格的筛选状态
     const tableFilters = {
         'pending-table': { customer: '', container: '', warehouse: '', pickup: '', warehouse_fee: '' },
-        'recorded-table': { customer: '', container: '', warehouse: '', pickup: '', warehouse_fee: '', reject_reason: '' }
+        'recorded-table': { customer: '', container: '', warehouse: '', pickup: '', warehouse_fee: '', finance_status: '' }
     };
 
     // 列名映射
     const columnMaps = {
         'pending-table': ['customer', 'container', 'warehouse', 'pickup', 'warehouse_fee'],
-        'recorded-table': ['customer', 'container', 'warehouse', 'pickup', 'warehouse_fee', 'reject_reason']
+        'recorded-table': ['customer', 'container', 'warehouse', 'pickup', 'warehouse_fee', 'finance_status']
     };
 
     // 通用文本搜索函数
@@ -798,7 +825,7 @@
             for (const [filterKey, filterValue] of Object.entries(filters)) {
                 if (filterValue) {
                     const rowValue = row.getAttribute(`data-${filterKey}`) || '';
-                    if (filterKey === 'pickup' || filterKey === 'warehouse_fee') {
+                    if (filterKey === 'pickup' || filterKey === 'warehouse_fee' || filterKey === 'finance_status') {
                         // 状态筛选需要精确匹配
                         if (rowValue !== filterValue) {
                             showRow = false;

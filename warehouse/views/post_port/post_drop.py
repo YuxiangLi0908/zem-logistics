@@ -2,6 +2,7 @@ import json
 import os
 import string
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
@@ -31,6 +32,7 @@ from warehouse.models.container import Container
 from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
+from warehouse.models.invoicev2 import Invoicev2, InvoiceStatusv2
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
@@ -155,15 +157,18 @@ class PostDrop(View):
         step = request.POST.get("step")
         if step == "ltl_post_warehouse":
             template, context = await self.handle_ltl_unscheduled_pos_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "verify_ltl_cargo":
             template, context = await self.handle_verify_ltl_cargo(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "export_ltl_unscheduled":
             return await self.export_ltl_unscheduled(request)
         elif step == "save_releaseCommand":
             template, context = await self.handle_save_releaseCommand(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "account_search":
+            template, context = await self.handle_account_search(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             raise ValueError('wrong step',step)
         
@@ -341,6 +346,198 @@ class PostDrop(View):
             num += 1
         context = {'success_messages': f'保存成功{num}组数据!'}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+    async def handle_account_search(
+            self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """一件代发应收账单查询：根据筛选条件查询订单(主查order表)，
+        按柜号分组，并查询 Invoicev2 / InvoiceStatusv2，
+        将柜子分为 待录入 / 已录入 两类。"""
+        # 1. 读取筛选条件
+        warehouse_filter = request.POST.get("warehouse_filter", "").strip()
+        start_date = request.POST.get("start_date", "").strip()
+        end_date = request.POST.get("end_date", "").strip()
+        container_number_filter = request.POST.get("container_number_filter", "").strip()
+
+        # --- 1. 日期处理 ---
+        if container_number_filter:
+            start_date = None
+            end_date = None
+        else:
+            current_date = datetime.now().date()
+            start_date = (
+                (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+                if not start_date
+                else start_date
+            )
+            end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        # --- 2. 构建查询条件 ---
+        if container_number_filter:
+            criteria = Q(container_number__container_number=container_number_filter)
+        else:
+            criteria = (
+                Q(cancel_notification=False)
+                & Q(order_type="一件代发") 
+                & Q(vessel_id__vessel_etd__gte=start_date)
+                & Q(vessel_id__vessel_etd__lte=end_date)
+                & Q(offload_id__offload_at__isnull=False)
+            )
+            if warehouse_filter and warehouse_filter != 'None':
+                if "LA" in warehouse_filter:
+                    criteria &= Q(retrieval_id__retrieval_destination_precise__contains='LA')
+                else:
+                    criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse_filter)
+
+        # 3. 查询符合条件的订单（按柜号去重），主查 order 表
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+
+        orders_list = list(base_orders)
+        # 提取 Container IDs
+        container_ids = set()
+        for order in orders_list:
+            if order.container_number_id:
+                container_ids.add(order.container_number_id)
+        container_ids = list(container_ids)
+
+        # --- 4. 批量获取 Invoice 和 InvoiceStatus ---
+        status_prefetch = Prefetch(
+            'invoicestatusv2_set',
+            queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+            to_attr='receivable_status_list'
+        )
+
+        all_invoices = Invoicev2.objects.filter(
+            container_number_id__in=container_ids
+        ).prefetch_related(status_prefetch)
+
+         # --- 5. [安全机制] 批量创建缺失的 InvoiceStatus ---
+        missing_statuses = []
+        invoices_needing_update = []
+
+        for inv in all_invoices:
+            # 如果预查询列表为空，说明缺数据
+            if not (hasattr(inv, 'receivable_status_list') and inv.receivable_status_list):
+                new_status = InvoiceStatusv2(
+                    invoice=inv,
+                    container_number_id=inv.container_number_id, # 使用ID赋值更轻量
+                    invoice_type="receivable",
+                    # 默认状态
+                    warehouse_public_status="completed",
+                    warehouse_other_status="unstarted",
+                    preport_status="unstarted",
+                    delivery_public_status="completed",
+                    delivery_other_status="completed",
+                    finance_status="unstarted"
+                )
+                missing_statuses.append(new_status)
+                invoices_needing_update.append(inv)
+
+        if missing_statuses:
+            InvoiceStatusv2.objects.bulk_create(missing_statuses)
+            # 手动回填内存，避免重新查询
+            for i, inv in enumerate(invoices_needing_update):
+                inv.receivable_status_list = [missing_statuses[i]]
+        
+        # --- 6. 内存分组 & 统计预计算 ---
+        container_invoice_map = defaultdict(list)
+        for inv in all_invoices:
+            container_invoice_map[inv.container_number_id].append(inv)
+
+        # --- 7. 主循环 ---
+        pending_orders = [] #待录入
+        recorded_orders = []  #已录入
+        print('orders_list',orders_list)
+        for order in orders_list:
+            container = order.container_number
+            if not container:
+                continue
+            
+            c_id = container.id
+
+            container_invoices = container_invoice_map.get(c_id, [])
+
+            # 定义构建函数
+            def build_order_data(inv=None, status_obj=None):
+                created_at = None
+                # 只有多账单才去拿时间，且只拿 created_at，不碰 history 以免 N+1
+                if inv and len(container_invoices) > 1 and not inv.is_master_bill:
+                    created_at = inv.created_at 
+                
+                return {
+                    'order': order,
+                    'container_number': order.container_number,
+                    'invoice_number': inv.invoice_number if inv else None,
+                    'invoice_id': inv.id if inv else None,
+                    'invoice_created_at': created_at,
+                    # 注意：这里取的是 warehouse 相关的状态
+                    'preport_status': status_obj.preport_status if status_obj else None,
+                    'warehouse_status': status_obj.warehouse_other_status if status_obj else None,
+                    'finance_status': status_obj.finance_status if status_obj else None,
+                    'has_invoice': bool(inv),
+                    'offload_time': order.offload_time,
+                    'actual_retrieval_timestamp': order.actual_retrieval_timestamp,
+                    'cusotmer_name': order.customer_name,
+                }
+
+            if not container_invoices:
+                # === 场景 A: 无账单 ===
+                base_data = build_order_data(None, None)
+                pending_orders.append(base_data)
+                
+            else:
+                # === 场景 B: 有账单 ===
+                for invoice in container_invoices:
+                    status_obj = None
+                    if hasattr(invoice, 'receivable_status_list') and invoice.receivable_status_list:
+                        for status in invoice.receivable_status_list:
+                            if status.invoice_id == invoice.id:
+                                status_obj = status
+                                break
+                        # 如果没有找到匹配的，才取第一个
+                        if not status_obj and invoice.receivable_status_list:
+                            raise ValueError('账单没有状态表')
+                    
+                    base_data = build_order_data(invoice, status_obj)
+                    p_item = base_data.copy()
+                    preport_status = p_item['preport_status']
+                    warehouse_status = p_item['warehouse_other_status']
+
+                    if preport_status == "completed" and warehouse_status == "completed":
+                        recorded_orders.append(base_data)
+                    else:
+                        pending_orders.append(base_data)
+                        
+
+        if not context:
+            context = {}
+
+        context = {
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects.order_by("name").values_list("name", "name")
+            ),
+            "warehouse_filter": warehouse_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "pending_orders": pending_orders,
+            "recorded_orders": recorded_orders,
+        }
+        return self.template_account_rec, context
 
     async def export_ltl_unscheduled(
             self, request: HttpRequest
