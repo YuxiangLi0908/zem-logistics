@@ -1,0 +1,613 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="padding: 10px 0;">
+    <div style="font-size: 18px; font-weight: 600; color: #2c3e50; margin-bottom: 16px;">
+        拆柜入库
+    </div>
+    {% if error_msg %}
+        {% for msg in error_msg %}
+            {% if "失败" in msg or "错误" in msg or "上传失败" in msg %}
+                <div style="color:red; margin:5px 0;">{{ msg }}</div>
+            {% else %}
+                <div style="color:green; margin:5px 0;">{{ msg }}</div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" action="" onsubmit="showLoadingBar()" style="margin-bottom: 20px;">
+        {% csrf_token %}
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
+            <b style="font-weight: 600; color: #333;">选择仓库:</b>
+            <input type="hidden" name="step" value="warehouse">
+            {{ warehouse_form.name }}
+
+            <button type="submit" style="padding: 6px 14px; background-color: #165DFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                确认
+            </button>
+        </div>
+    </form>
+
+    <div id="loading-bar" style="display: none; text-align: center; padding: 10px;">
+        <div class="spinner"></div>
+        <p style="font-size: 12px; color: #666;">Loading, please wait...</p>
+    </div>
+
+    <div style="display: flex; gap: 12px; max-height: 780px; margin-top: 10px;">
+        <div style="flex: 1; max-height: 100%; border: 1px solid #d0d0d0; border-radius: 12px; padding: 12px; background: #fff; display: flex; flex-direction: column;">
+            <div style="margin-bottom: 8px;">
+                <b style="background-color: #f1f1f1; border-radius: 20px; font-size: 12px; color: #444; padding: 6px 10px; display: inline-block;">
+                    待拆柜 - {{ order_not_palletized|length }}
+                </b>
+            </div>
+            <div style="overflow-y: auto; flex: 1;">
+                <table id="container-table" class="table" style="font-size: 12px; width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="th">货柜</th>
+                            <th class="th">客户</th>
+                            <th class="th">柜型</th>
+                            <th class="th">到仓时间</th>
+                            <th class="th">预约情况</th>
+                            <th class="th">导出</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px; background: #fff;">
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" style="font-size: 12px; padding: 4px; border-radius: 4px; border: 1px solid #ddd; width: 100%;"></th>
+                            <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()" style="font-size: 12px; padding: 4px; border-radius: 4px; border: 1px solid #ddd; width: 100%;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order_not_palletized %}
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            {% if c.batch_number %}
+                            <tr>
+                                <td class="td" style="width:100px;">
+                                    {{ c.container_number }}
+                                </td>
+                                <td class="td">{{ c.batch_number }}</td>
+                                <td class="td">{{ c.total_pallet }}板</td>
+                                <td class="td">
+                                    <span class="status-span-red">{{ c.ETA|date:"M-j" }}</span>
+                                </td>
+                                <td class="td">
+
+                                </td>
+                                <td class="td">
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="trans_arrival">
+                                        <input type="hidden" name="batch_id" value="{{ c.id }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
+                                            <small>确认送达</small>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td class="td">
+                                    <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
+                                </td>
+                                <td class="td">{{ c.customer_name }}</td>
+                                <td class="td">{{ c.container_number.container_type }}</td>
+                                <td class="td">
+                                    {% if c.retrieval_id.offload_status == "past_due" %}
+                                    <span class="status-span-red">{{ c.retrieval_id.arrive_at|date:"M-j" }}</span>
+                                    {% elif c.retrieval_id.offload_status == "need_attention" %}
+                                    <span class="status-span-yellow">{{ c.retrieval_id.arrive_at|date:"M-j" }}</span>
+                                    {% else %}
+                                    {{ c.retrieval_id.arrive_at|date:"M-j" }}
+                                    {% endif %}
+                                </td>
+                                <td class="td">
+                                    {% if c.container_number.container_number in order_with_shipment %}
+                                    <span class="status-span-red">
+                                        {{ order_with_shipment|get:c.container_number.container_number|date:"M-j" }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="td">
+                                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="n_label" value="3">
+                                            <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                                <small>托盘标(3张)</small>
+                                                <i class="bi bi-cloud-arrow-down-fill"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="n_label" value="4">
+                                            <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                                <small>托盘标(4张)</small>
+                                                <i class="bi bi-cloud-arrow-down-fill"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_palletization_list">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                                <small>拆柜单</small>
+                                                <i class="bi bi-cloud-arrow-down-fill"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="new_export_palletization_list">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="first_time_download" value="{% now 'Y-m-d H:i:s' %}">
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                                <small>(新)拆柜单</small>
+                                                <i class="bi bi-cloud-arrow-down-fill"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this, '{{ c.container_number }}', '{{ c.customer_name.zem_code }}')" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">托盘标手动打印</button>
+                                            <div class="popup" style="display: none; z-index: 9999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); width: 90%; max-width: 1200px; max-height: 85vh; overflow: hidden;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                                    <h4 style="margin: 0; color: #2c3e50; font-weight: 600;">
+                                                        <i class="fas fa-print"></i> 托盘标手动打印编辑
+                                                    </h4>
+                                                    <button type="button" class="btn-close" onclick="closePopup()" style="background: none; border: none; font-size: 20px; color: #888; cursor: pointer;">&times;</button>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                                    <div>
+                                                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 32px; font-size: 12px;" onclick="addRowBelow()">
+                                                            <i class="bi bi-plus-lg"></i> 添加行
+                                                        </button>
+                                                        <button type="button" class="btn btn-warning" style="height: 32px; font-size: 12px; margin-left: 6px;" onclick="editTable(true)">
+                                                            <i class="bi bi-pencil"></i> 编辑模式
+                                                        </button>
+                                                    </div>
+                                                    <div>
+                                                        <button type="button" class="btn btn-secondary" style="height: 32px; font-size: 12px; margin-right: 6px;" onclick="clearAllRows()">
+                                                            <i class="bi bi-trash"></i> 清空
+                                                        </button>
+                                                        <button id="confirmButton" type="button" class="btn btn-primary" style="height: 32px; font-size: 12px;" onclick="editTable(false)">
+                                                            <i class="bi bi-check-lg"></i> 确认打印
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+                                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                                        <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">柜号</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">客户</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">唛头</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">FBA</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">目的地</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">派送方式</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">板号</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">日期</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">是否扣货</th>
+                                                            <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">操作</th>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr id="lable-row">
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                        <option value="卡车派送">卡车派送</option>
+                                                                        <option value="客户自提">客户自提</option>
+                                                                        <option value="暂扣留仓">暂扣留仓</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <input type="date" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                        <option value="否">否</option>
+                                                                        <option value="是">是</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size: 10px; padding: 3px 6px; border-radius: 3px;">
+                                                                        <i class="bi bi-trash"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div style="margin-top: 12px; padding: 8px; background: #f0f7ff; border-radius: 6px; border-left: 3px solid #4a90e2;">
+                                                    <small style="color: #333;">
+                                                        <i class="bi bi-info-circle"></i> 提示：编辑模式可修改所有字段，添加多行后确认打印
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </form>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="flex: 1; max-height: 100%; border: 1px solid #d0d0d0; border-radius: 12px; padding: 12px; background: #fff; display: flex; flex-direction: column;">
+            <div style="margin-bottom: 8px;">
+                <b style="background-color: #f1f1f1; border-radius: 20px; font-size: 12px; color: #444; padding: 6px 10px; display: inline-block;">
+                    拆柜完成 - {{ order_palletized|length }}
+                </b>
+            </div>
+            <div style="overflow-y: auto; flex: 1;">
+                <table class="table" id="_container-table" style="font-size: 12px; width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="th">货柜</th>
+                            <th class="th">客户</th>
+                            <th class="th">柜型</th>
+                            <th class="th">拆柜时间</th>
+                            <th class="th">打板数</th>
+                            <th class="th">导出</th>
+                            <th class="th">撤销拆柜</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px; background: #fff;">
+                            <th class="th"><input type="text" id="_containerSearchInput" placeholder="搜索柜号..." oninput="filterTable2()" style="font-size: 12px; padding: 4px; border-radius: 4px; border: 1px solid #ddd; width: 100%;"></th>
+                            <th class="th"><input type="text" id="_customerSearchInput" placeholder="搜索客户..." oninput="filterTable2()" style="font-size: 12px; padding: 4px; border-radius: 4px; border: 1px solid #ddd; width: 100%;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order_palletized %}
+                        <tr>
+                            <td class="td">
+                                <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
+                            </td>
+                            <td class="td">{{ c.customer_name }}</td>
+                            <td class="td">{{ c.container_number.container_type }}</td>
+                            <td class="td">{{ c.offload_id.offload_at|date:"M-j" }}</td>
+                            <td class="td">{{ c.offload_id.total_pallet }}</td>
+                            <td class="td">
+                                <form method="post" action="" style="display: inline-block;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="export_palletization_list">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="status" value="palletized">
+                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                    <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                        <small>拆柜单</small>
+                                        <i class="bi bi-cloud-arrow-down-fill"></i>
+                                    </button>
+                                </form>
+                                <form method="post" action="" style="display: inline-block;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="export_pallet_label">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="status" value="palletized">
+                                    <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
+                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                    <input type="hidden" name="n_label" value="4">
+                                    <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                        <small>托盘标</small>
+                                        <i class="bi bi-cloud-arrow-down-fill"></i>
+                                    </button>
+                                </form>
+                                <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="export_pallet_label">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this, '{{ c.container_number }}', '{{ c.customer_name.zem_code }}')" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">托盘标手动打印</button>
+                                    <div class="popup" style="display: none; z-index: 9999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); width: 90%; max-width: 1200px; max-height: 85vh; overflow: hidden;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                            <h4 style="margin: 0; color: #2c3e50; font-weight: 600;">
+                                                <i class="fas fa-print"></i> 托盘标手动打印编辑
+                                            </h4>
+                                            <button type="button" class="btn-close" onclick="closePopup()" style="background: none; border: none; font-size: 20px; color: #888; cursor: pointer;">&times;</button>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                            <div>
+                                                <button type="button" id="add-more-btn" class="btn btn-success" style="height: 32px; font-size: 12px;" onclick="addRowBelow()">
+                                                    <i class="bi bi-plus-lg"></i> 添加行
+                                                </button>
+                                                <button type="button" class="btn btn-warning" style="height: 32px; font-size: 12px; margin-left: 6px;" onclick="editTable(true)">
+                                                    <i class="bi bi-pencil"></i> 编辑模式
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <button type="button" class="btn btn-secondary" style="height: 32px; font-size: 12px; margin-right: 6px;" onclick="clearAllRows()">
+                                                    <i class="bi bi-trash"></i> 清空
+                                                </button>
+                                                <button id="confirmButton" type="button" class="btn btn-primary" style="height: 32px; font-size: 12px;" onclick="editTable(false)">
+                                                    <i class="bi bi-check-lg"></i> 确认打印
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                                <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">柜号</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">客户</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">唛头</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">FBA</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">目的地</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">派送方式</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">板号</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">日期</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">是否扣货</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">操作</th>
+                                                </thead>
+                                                <tbody>
+                                                    <tr id="lable-row">
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                <option value="卡车派送">卡车派送</option>
+                                                                <option value="客户自提">客户自提</option>
+                                                                <option value="暂扣留仓">暂扣留仓</option>
+                                                            </select>
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <input type="date" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 4px; font-size: 12px;">
+                                                                <option value="否">否</option>
+                                                                <option value="是">是</option>
+                                                            </select>
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                                                            <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size: 10px; padding: 3px 6px; border-radius: 3px;">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div style="margin-top: 12px; padding: 8px; background: #f0f7ff; border-radius: 6px; border-left: 3px solid #4a90e2;">
+                                            <small style="color: #333;">
+                                                <i class="bi bi-info-circle"></i> 提示：编辑模式可修改所有字段，添加多行后确认打印
+                                            </small>
+                                        </div>
+                                    </div>
+                                </form>
+                            </td>
+                            <td class="td">
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="cancel">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                    <button type="submit" class="btn btn-danger" style="font-size: 12px; padding: 4px 8px; border-radius: 4px;">
+                                        <i class="bi bi-x-octagon"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function filterTable() {
+        var containerInput = document.getElementById("containerSearchInput");
+        var customerInput = document.getElementById("customerSearchInput");
+        var containerFilter = containerInput.value.toUpperCase();
+        var customerFilter = customerInput.value.toUpperCase();
+        var table = document.getElementById("container-table");
+        var tr = table.getElementsByTagName("tr");
+
+        for (var i = 0; i < tr.length; i++) {
+            var containerTd = tr[i].getElementsByTagName("td")[0];
+            var customerTd = tr[i].getElementsByTagName("td")[1];
+            if (containerTd && customerTd) {
+                var containerTxt = containerTd.textContent || containerTd.innerText;
+                var customerTxt = customerTd.textContent || customerTd.innerText;
+                var containerMatch = containerTxt.toUpperCase().indexOf(containerFilter) > -1;
+                var customerMatch = customerTxt.toUpperCase().indexOf(customerFilter) > -1;
+                tr[i].style.display = (containerMatch && customerMatch) ? "" : "none";
+            }
+        }
+    }
+
+    function filterTable2() {
+        var containerInput = document.getElementById("_containerSearchInput");
+        var customerInput = document.getElementById("_customerSearchInput");
+        var containerFilter = containerInput.value.toUpperCase();
+        var customerFilter = customerInput.value.toUpperCase();
+        var table = document.getElementById("_container-table");
+        var tr = table.getElementsByTagName("tr");
+
+        for (var i = 0; i < tr.length; i++) {
+            var containerTd = tr[i].getElementsByTagName("td")[0];
+            var customerTd = tr[i].getElementsByTagName("td")[1];
+            if (containerTd && customerTd) {
+                var containerTxt = containerTd.textContent || containerTd.innerText;
+                var customerTxt = customerTd.textContent || customerTd.innerText;
+                var containerMatch = containerTxt.toUpperCase().indexOf(containerFilter) > -1;
+                var customerMatch = customerTxt.toUpperCase().indexOf(customerFilter) > -1;
+                tr[i].style.display = (containerMatch && customerMatch) ? "" : "none";
+            }
+        }
+    }
+
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    }
+    function hideLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'none';
+    }
+
+    window.onload = function() {
+        hideLoadingBar();
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+
+                // ✅ 修复：导出类按钮提交后 1 秒自动关闭 loading
+                setTimeout(() => {
+                    hideLoadingBar();
+                }, 1000);
+            });
+        });
+    });
+
+    function closePopup() {
+        var popups = document.querySelectorAll('.popup');
+        popups.forEach(p => p.style.display = 'none');
+    }
+
+    function removeRow(button) {
+        var row = button.closest('tr');
+        var table = document.getElementById('edit_pallet_label');
+        var rows = table.getElementsByTagName('tr');
+        if (rows.length > 2) {
+            row.remove();
+        } else {
+            alert('至少保留一行');
+        }
+    }
+
+    function clearAllRows() {
+        if (!confirm('确定清空所有数据？')) return;
+        var tbody = document.querySelector('#edit_pallet_label tbody');
+        tbody.innerHTML = `
+            <tr id="lable-row">
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                    <select style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;">
+                        <option>卡车派送</option><option>客户自提</option><option>暂扣留仓</option>
+                    </select>
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="date" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                    <select style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;">
+                        <option>否</option><option>是</option>
+                    </select>
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size:10px; padding:3px 6px;"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    }
+
+    function print_label(button, containerNumber, customerCode) {
+        var popup = button.nextElementSibling;
+        var firstInput = popup.querySelector('input[type="text"]');
+        var customerInput = popup.querySelector('td:nth-child(2) input');
+        if (firstInput) firstInput.value = containerNumber;
+        if (customerInput) customerInput.value = customerCode;
+        popup.style.display = 'block';
+    }
+
+    function editTable(flag) {
+        var customerInfo = [];
+        var table = document.getElementById('edit_pallet_label');
+        var rows = table.getElementsByTagName('tr');
+
+        for (var i = 1; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName('td');
+            var rowData = [];
+            for (var j = 0; j < cells.length - 1; j++) {
+                var input = cells[j].querySelector('input');
+                var select = cells[j].querySelector('select');
+                if (input) rowData.push(input.value);
+                else if (select) rowData.push(select.value);
+            }
+            if (rowData.length > 0) customerInfo.push(rowData);
+        }
+
+        if (!flag) {
+            var form = document.activeElement.closest('form');
+            var existing = form.querySelector('input[name="customerInfo"]');
+            if (existing) existing.remove();
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'customerInfo';
+            inp.value = JSON.stringify(customerInfo);
+            form.appendChild(inp);
+            form.closest('.popup').style.display = 'none';
+            form.submit();
+        }
+    }
+
+    function addRowBelow() {
+        var proto = document.querySelector('#lable-row').cloneNode(true);
+        proto.id = 'lable-row-' + Date.now();
+        document.querySelector('#edit_pallet_label tbody').appendChild(proto);
+    }
+</script>
+{% endblock %}
