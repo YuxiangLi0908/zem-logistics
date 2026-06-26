@@ -96,58 +96,11 @@
         padding: 25px;
     }
 
-    .content-tabs {
-        display: flex;
-        margin-bottom: 25px;
-        border-bottom: 2px solid #eaecef;
-        gap: 5px;
-    }
-
-    .content-tab {
-        padding: 15px 30px;
-        cursor: pointer;
-        border-bottom: 3px solid transparent;
-        transition: all 0.3s;
-        font-weight: 500;
-        position: relative;
-        background: var(--light-bg);
-        border-radius: 8px 8px 0 0;
-    }
-
-    .content-tab.active {
-        background: white;
-        color: var(--primary-color);
-        border-bottom: 3px solid var(--primary-color);
-        font-weight: 600;
-    }
-
-    .content-tab .tab-badge {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: var(--primary-color);
-        color: white;
-        border-radius: 12px;
-        padding: 2px 8px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .tab-content {
-        display: none;
-        background: white;
-        border-radius: 0 0 var(--border-radius) var(--border-radius);
-        min-height: 500px;
-    }
-
-    .tab-content.active {
-        display: block;
-    }
-
     .tables-grid {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
         gap: 25px;
+        align-items: start;
     }
 
     .container-section {
@@ -237,14 +190,19 @@
         width: 12%;
     }
 
-    .th[data-column="pickup"],
-    .td[data-column="pickup"] {
-        width: 20%;
+    .th[data-column="preport-fee"],
+    .td[data-column="preport-fee"] {
+        width: 18%;
     }
 
-    .th[data-column="warehouse-fee"],
-    .td[data-column="warehouse-fee"] {
-        width: 20%;
+    .th[data-column="wh-fee"],
+    .td[data-column="wh-fee"] {
+        width: 18%;
+    }
+
+    .th[data-column="finance-status"],
+    .td[data-column="finance-status"] {
+        width: 18%;
     }
 
     .th[data-column="status"],
@@ -454,6 +412,10 @@
             max-width: 100%;
             margin: 10px;
         }
+
+        .tables-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
@@ -499,253 +461,165 @@
     </form>
 
     <div class="finance-main">
-        <div class="content-tabs">
-            <div class="content-tab active" data-tab="pending" id="tab-pending">
-                待录入 <span class="tab-badge">{{ pending_orders|length }}</span>
-            </div>
-            <div class="content-tab" data-tab="recorded" id="tab-recorded">
-                已录入 <span class="tab-badge">{{ recorded_orders|length }}</span>
-            </div>
-        </div>
-
-        <!-- 待录入标签页 -->
-        <div class="tab-content active" id="pending-section">
-            <div class="tables-grid">
-                <div class="container-section">
-                    <div class="section-header">
-                        <h3>待录入
-                            <span class="section-count">{{ pending_orders|length }}</span>
-                        </h3>
-                    </div>
-                    <div class="table-container">
-                        <table class="table" id="pending-table">
-                            <thead>
+        <div class="tables-grid">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>待录入
+                        <span class="section-count">{{ pending_orders|length }}</span>
+                    </h3>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="pending-table">
+                        <thead>
+                            <tr>
+                                <th class="th" data-column="customer">客户</th>
+                                <th class="th" data-column="container">柜号</th>
+                                <th class="th" data-column="warehouse">仓库</th>
+                                <th class="th" data-column="preport-fee">提拆费</th>
+                                <th class="th" data-column="wh-fee">库内费</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'pending-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'pending-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'pending-table')">
+                                </th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if pending_orders %}
+                                {% for item in pending_orders %}
+                                <tr data-customer="{{ item.customer_name|default:''|lower }}"
+                                    data-container="{{ item.container_number|default:''|lower }}"
+                                    data-warehouse="{{ item.warehouse|default:''|lower }}"
+                                    {% if item.preport_status == 'rejected' or item.warehouse_status == 'rejected' %}class="status-rejected-row"{% endif %}>
+                                    <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
+                                    <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
+                                    <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
+                                    <td class="td" data-column="preport-fee">
+                                        <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
+                                            {% if item.preport_amount is not None %}
+                                                ${{ item.preport_amount|floatformat:2 }}
+                                            {% else %}
+                                                <i class="fas fa-edit"></i> 录入
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                    <td class="td" data-column="wh-fee">
+                                        <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
+                                            {% if item.wh_other_amount is not None %}
+                                                ${{ item.wh_other_amount|floatformat:2 }}
+                                            {% else %}
+                                                <i class="fas fa-edit"></i> 录入
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
                                 <tr>
-                                    <th class="th" data-column="customer">客户</th>
-                                    <th class="th" data-column="container">柜号</th>
-                                    <th class="th" data-column="warehouse">仓库</th>
-                                    <th class="th" data-column="pickup">提拆费</th>
-                                    <th class="th" data-column="warehouse-fee">库内费</th>
+                                    <td colspan="5" class="empty-row">
+                                        <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                                        <p>暂无待录入订单</p>
+                                    </td>
                                 </tr>
-                                <tr class="search-row">
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'pending-table')">
-                                    </th>
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'pending-table')">
-                                    </th>
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'pending-table')">
-                                    </th>
-                                    <th class="th">
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'pickup', 'pending-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="unstarted">未录入</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="save">暂存</option>
-                                            <option value="pending_review">待组长审核</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="rejected">已驳回</option>
-                                        </select>
-                                    </th>
-                                    <th class="th">
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'warehouse_fee', 'pending-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="unstarted">未录入</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="rejected">已驳回</option>
-                                            <option value="financials_completed">财务已完成</option>
-                                        </select>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if pending_orders %}
-                                    {% for item in pending_orders %}
-                                    <tr data-customer="{{ item.customer_name|default:''|lower }}"
-                                        data-container="{{ item.container_number|default:''|lower }}"
-                                        data-warehouse="{{ item.warehouse|default:''|lower }}"
-                                        data-pickup="{{ item.preport_status|default:'unstarted' }}"
-                                        data-warehouse_fee="{{ item.warehouse_status|default:'unstarted' }}"
-                                        {% if item.preport_status == 'rejected' or item.warehouse_status == 'rejected' %}class="status-rejected-row"{% endif %}>
-                                        <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
-                                        <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
-                                        <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
-                                        <td class="td" data-column="pickup">
-                                            <div class="fee-cell">
-                                                <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    {% if item.preport_amount is not None %}
-                                                        ${{ item.preport_amount|floatformat:2 }}
-                                                    {% else %}
-                                                        <i class="fas fa-edit"></i> 录入提拆
-                                                    {% endif %}
-                                                </a>
-                                                {% if item.preport_status %}
-                                                    <span class="status-badge {{ item.preport_status }}">{{ item.preport_status_display|default:item.preport_status }}</span>
-                                                {% else %}
-                                                    <span class="status-badge unstarted">未录入</span>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td class="td" data-column="warehouse-fee">
-                                            <div class="fee-cell">
-                                                <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    {% if item.wh_other_amount is not None %}
-                                                        ${{ item.wh_other_amount|floatformat:2 }}
-                                                    {% else %}
-                                                        <i class="fas fa-edit"></i> 录入库内
-                                                    {% endif %}
-                                                </a>
-                                                {% if item.warehouse_status %}
-                                                    <span class="status-badge {{ item.warehouse_status }}">{{ item.warehouse_status_display|default:item.warehouse_status }}</span>
-                                                {% else %}
-                                                    <span class="status-badge unstarted">未录入</span>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="5" class="empty-row">
-                                            <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
-                                            <p>暂无待录入订单</p>
-                                        </td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
 
-        <!-- 已录入标签页 -->
-        <div class="tab-content" id="recorded-section">
-            <div class="tables-grid">
-                <div class="container-section">
-                    <div class="section-header">
-                        <h3>已录入
-                            <span class="section-count">{{ recorded_orders|length }}</span>
-                        </h3>
-                    </div>
-                    <div class="table-container">
-                        <table class="table" id="recorded-table">
-                            <thead>
-                                <tr>
-                                    <th class="th" data-column="customer">客户</th>
-                                    <th class="th" data-column="container">柜号</th>
-                                    <th class="th" data-column="warehouse">仓库</th>
-                                    <th class="th" data-column="pickup">提拆费</th>
-                                    <th class="th" data-column="warehouse-fee">库内费</th>
-                                    <th class="th" data-column="finance-status">财务状态</th>
-                                </tr>
-                                <tr class="search-row">
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'recorded-table')">
-                                    </th>
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'recorded-table')">
-                                    </th>
-                                    <th class="th">
-                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'recorded-table')">
-                                    </th>
-                                    <th class="th">
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'pickup', 'recorded-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="unstarted">未录入</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="save">暂存</option>
-                                            <option value="pending_review">待组长审核</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="rejected">已驳回</option>
-                                        </select>
-                                    </th>
-                                    <th class="th">
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'warehouse_fee', 'recorded-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="unstarted">未录入</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="rejected">已驳回</option>
-                                            <option value="financials_completed">财务已完成</option>
-                                        </select>
-                                    </th>
-                                    <th class="th">
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'finance_status', 'recorded-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="unconfirmed">未确认</option>
-                                        </select>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if recorded_orders %}
-                                    {% for item in recorded_orders %}
-                                    <tr data-customer="{{ item.customer_name|default:''|lower }}"
-                                        data-container="{{ item.container_number|default:''|lower }}"
-                                        data-warehouse="{{ item.warehouse|default:''|lower }}"
-                                        data-pickup="{{ item.preport_status|default:'unstarted' }}"
-                                        data-warehouse_fee="{{ item.warehouse_status|default:'unstarted' }}"
-                                        data-finance_status="{{ item.finance_status_value|default:'unconfirmed' }}"
-                                        {% if item.preport_status == 'rejected' or item.warehouse_status == 'rejected' %}class="status-rejected-row"{% endif %}>
-                                        <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
-                                        <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
-                                        <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
-                                        <td class="td" data-column="pickup">
-                                            <div class="fee-cell">
-                                                <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    {% if item.preport_amount is not None %}
-                                                        ${{ item.preport_amount|floatformat:2 }}
-                                                    {% else %}
-                                                        <i class="fas fa-edit"></i> 查看提拆
-                                                    {% endif %}
-                                                </a>
-                                                {% if item.preport_status %}
-                                                    <span class="status-badge {{ item.preport_status }}">{{ item.preport_status_display|default:item.preport_status }}</span>
-                                                {% else %}
-                                                    <span class="status-badge unstarted">未录入</span>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td class="td" data-column="warehouse-fee">
-                                            <div class="fee-cell">
-                                                <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
-                                                    {% if item.wh_other_amount is not None %}
-                                                        ${{ item.wh_other_amount|floatformat:2 }}
-                                                    {% else %}
-                                                        <i class="fas fa-edit"></i> 查看库内
-                                                    {% endif %}
-                                                </a>
-                                                {% if item.warehouse_status %}
-                                                    <span class="status-badge {{ item.warehouse_status }}">{{ item.warehouse_status_display|default:item.warehouse_status }}</span>
-                                                {% else %}
-                                                    <span class="status-badge unstarted">未录入</span>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td class="td" data-column="finance-status">
-                                            {% if item.finance_status_value == 'completed' %}
-                                                <span class="status-badge completed">已完成</span>
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>已录入
+                        <span class="section-count">{{ recorded_orders|length }}</span>
+                    </h3>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="recorded-table">
+                        <thead>
+                            <tr>
+                                <th class="th" data-column="customer">客户</th>
+                                <th class="th" data-column="container">柜号</th>
+                                <th class="th" data-column="warehouse">仓库</th>
+                                <th class="th" data-column="preport-fee">提拆费</th>
+                                <th class="th" data-column="wh-fee">库内费</th>
+                                <th class="th" data-column="finance-status">财务状态</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'recorded-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'recorded-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'recorded-table')">
+                                </th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th">
+                                    <select class="status-filter-select" onchange="filterTableByStatus(this, 'finance_status', 'recorded-table')">
+                                        <option value="">全部状态</option>
+                                        <option value="completed">已完成</option>
+                                        <option value="unconfirmed">未确认</option>
+                                    </select>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if recorded_orders %}
+                                {% for item in recorded_orders %}
+                                <tr data-customer="{{ item.customer_name|default:''|lower }}"
+                                    data-container="{{ item.container_number|default:''|lower }}"
+                                    data-warehouse="{{ item.warehouse|default:''|lower }}"
+                                    data-finance_status="{{ item.finance_status_value|default:'unconfirmed' }}">
+                                    <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
+                                    <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
+                                    <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
+                                    <td class="td" data-column="preport-fee">
+                                        <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
+                                            {% if item.preport_amount is not None %}
+                                                ${{ item.preport_amount|floatformat:2 }}
                                             {% else %}
-                                                <span class="status-badge unstarted">未确认</span>
+                                                <i class="fas fa-eye"></i> 查看
                                             {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="6" class="empty-row">
-                                            <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
-                                            <p>暂无已录入订单</p>
-                                        </td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
+                                        </a>
+                                    </td>
+                                    <td class="td" data-column="wh-fee">
+                                        <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
+                                            {% if item.wh_other_amount is not None %}
+                                                ${{ item.wh_other_amount|floatformat:2 }}
+                                            {% else %}
+                                                <i class="fas fa-eye"></i> 查看
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                    <td class="td" data-column="finance-status">
+                                        {% if item.finance_status_value == 'completed' %}
+                                            <span class="status-badge completed">已完成</span>
+                                        {% else %}
+                                            <span class="status-badge unstarted">未确认</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="empty-row">
+                                        <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                                        <p>暂无已录入订单</p>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -754,24 +628,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 标签页切换
-        const tabs = document.querySelectorAll('.content-tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', function() {
-                const tabName = this.getAttribute('data-tab');
-                tabs.forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                tabContents.forEach(content => {
-                    content.classList.remove('active');
-                    if (content.id === tabName + '-section') {
-                        content.classList.add('active');
-                    }
-                });
-            });
-        });
-
         // 表单提交加载状态
         const filterForm = document.querySelector('.filter-controls');
         if (filterForm) {
@@ -787,22 +643,24 @@
 
     // 全局变量存储每个表格的筛选状态
     const tableFilters = {
-        'pending-table': { customer: '', container: '', warehouse: '', pickup: '', warehouse_fee: '' },
-        'recorded-table': { customer: '', container: '', warehouse: '', pickup: '', warehouse_fee: '', finance_status: '' }
+        'pending-table': { customer: '', container: '', warehouse: '' },
+        'recorded-table': { customer: '', container: '', warehouse: '', finance_status: '' }
     };
 
     // 列名映射
     const columnMaps = {
-        'pending-table': ['customer', 'container', 'warehouse', 'pickup', 'warehouse_fee'],
-        'recorded-table': ['customer', 'container', 'warehouse', 'pickup', 'warehouse_fee', 'finance_status']
+        'pending-table': ['customer', 'container', 'warehouse', '', ''],
+        'recorded-table': ['customer', 'container', 'warehouse', '', '', 'finance_status']
     };
 
     // 通用文本搜索函数
     function filterTable(input, columnIndex, tableId) {
         const filterValue = input.value.toLowerCase();
         const columnName = columnMaps[tableId][columnIndex] || '';
-        tableFilters[tableId][columnName] = filterValue;
-        applyFilters(tableId);
+        if (columnName) {
+            tableFilters[tableId][columnName] = filterValue;
+            applyFilters(tableId);
+        }
     }
 
     // 状态筛选函数
@@ -825,7 +683,7 @@
             for (const [filterKey, filterValue] of Object.entries(filters)) {
                 if (filterValue) {
                     const rowValue = row.getAttribute(`data-${filterKey}`) || '';
-                    if (filterKey === 'pickup' || filterKey === 'warehouse_fee' || filterKey === 'finance_status') {
+                    if (filterKey === 'finance_status') {
                         // 状态筛选需要精确匹配
                         if (rowValue !== filterValue) {
                             showRow = false;
