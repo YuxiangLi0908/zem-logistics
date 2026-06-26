@@ -247,7 +247,7 @@
 <div id="bindShipmentModal" class="modal">
     <div class="modal-content" style="width: 100%; max-width: 1200px; max-height: 700px;">
         <div class="modal-header">
-            <h3><i class="fas fa-link"></i> 私仓预约出库</h3>
+            <h3><i class="fas fa-link"></i> 一件代发预约出库</h3>
             <span class="close">&times;</span>
         </div>
         <div class="modal-body" style="padding: 20px;">
@@ -569,8 +569,7 @@
         let allPltIds = [];
         let allCargoIds = [];
         
-        // 用于收集选中记录的信息，用于自动填充预约信息
-        const destinations = new Set();
+        // 用于收集选中记录的信息，用于自动填充预约信息（目的地不自动填充，需手动输入）
         const addresses = new Set();
         const bols = new Set();
         const pros = new Set();
@@ -579,9 +578,6 @@
         
         selectedCargos.forEach(cargo => {
             // 收集信息用于自动填充
-            if (cargo.destination && cargo.destination.trim() !== '') {
-                destinations.add(cargo.destination);
-            }
             if (cargo.address && cargo.address.trim() !== '') {
                 addresses.add(cargo.address);
             }
@@ -682,10 +678,7 @@
             }
         });
         
-        // 自动填充预约信息
-        if (destinations.size > 0 && destinationInput) {
-            destinationInput.value = Array.from(destinations).join('-');
-        }
+        // 自动填充预约信息（目的地保持为空，需用户手动输入）
         
         if (addresses.size > 0 && addressInput) {
             addressInput.value = Array.from(addresses).join('-');
