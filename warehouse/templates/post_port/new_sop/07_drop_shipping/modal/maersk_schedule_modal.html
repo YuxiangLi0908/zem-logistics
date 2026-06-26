@@ -1,0 +1,653 @@
+<style>
+    #fleet_maerskScheduleModal .modal-body{
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+    }
+</style>
+<!-- Maersk 预约出库模态框 -->
+<div class="modal fade" id="fleet_maerskScheduleModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1080;">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-shipping-fast me-2"></i>预约出库 - Maersk 排约排车</h5>
+                <button type="button" class="btn btn-link text-white text-decoration-none" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; padding: 0; opacity: 0.9;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body bg-light">
+                <form id="fleet_maerskScheduleForm">
+                    <input type="hidden" id="maersk_quote_index">
+                    <input type="hidden" id="maersk_cargo_id">
+                    <input type="hidden" id="maersk_warehouse_type" value="public">
+                    
+                    <!-- 1. 预约基础信息 -->
+                    <div class="card mb-3 shadow-sm">
+                    <div class="card-header bg-white fw-bold text-primary">
+                            <i class="fas fa-calendar-check text-primary me-2"></i>预约信息
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- 第一行 (5列) -->
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">目的地</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" id="maersk_destination" readonly>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">承运公司</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" value="Maersk" readonly>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">提货时间</label>
+                                    <input type="date" class="form-control form-control-sm" id="maersk_pickup_time" required>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">车次成本</label>
+                                    <input type="number" class="form-control form-control-sm" id="maersk_cost" step="0.01">
+                                    <div class="form-text text-danger" style="font-size: 10px; margin-top: 2px;">* 预估价，以实际账单为准</div>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">BOL 号</label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_bol">
+                                </div>
+
+                                <!-- 强制换行 -->
+                                <div class="w-100 d-none d-md-block"></div>
+
+                                <!-- 第二行 (5列) -->
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">PRO 号</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" id="maersk_pro" placeholder="等待下单后生成" readonly>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">Label</label>
+                                    <select class="form-select form-select-sm" id="maersk_print_label">
+                                        <option value="否" selected>否</option>
+                                        <option value="是">是</option>
+                                    </select>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">类型</label>
+                                    <select class="form-select form-select-sm" id="maersk_shipment_type">
+                                        <option value="LTL" selected>LTL</option>
+                                        <option value="FTL">FTL</option>
+                                    </select>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">自动排车</label>
+                                    <select class="form-select form-select-sm bg-light" id="maersk_auto_schedule" disabled>
+                                        <option value="是" selected>是</option>
+                                    </select>
+                                </div>
+                                <div class="col-md">
+                                    <label class="form-label small text-muted">备注 (Note)</label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_note" placeholder="可选备注">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 收货人详细信息 (Maersk 必填) -->
+                    <div class="card mb-3 shadow-sm border-primary">
+                        <div class="card-header bg-white fw-bold text-primary">
+                            <i class="fas fa-user-tag me-2"></i>收货人详细信息 (Maersk 下单必填)
+                            <small class="text-muted fw-normal ms-2">- 请仔细核对自动解析结果</small>
+                        </div>
+                        <div class="card-body bg-white">
+                            <div class="row g-3">
+                                <div class="col-md-12 mb-2">
+                                    <label class="form-label small text-muted">预报地址信息</label>
+                                    <textarea class="form-control form-control-sm bg-light" id="maersk_raw_address" rows="2" readonly style="font-size: 0.85rem; color: #666;"></textarea>
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold">公司名称 (Company)</label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_company">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold">联系人 (Name) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_name" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold">电话 (Phone)</label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_phone">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold">邮箱 (Email)</label>
+                                    <input type="email" class="form-control form-control-sm" id="maersk_consignee_email">
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">地址 (Address) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_address1" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold">城市 (City) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_city" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold">州 (State) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_state" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold">邮编 (Zip) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm bg-light" id="maersk_consignee_zip" readonly>
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label small fw-bold">国家</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" value="US" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 货物信息预览 -->
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-header bg-white fw-bold text-primary">
+                            <i class="fas fa-boxes me-2 text-primary"></i>货物信息预览
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-sm table-striped mb-0 text-center" style="font-size: 0.85rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>长 (in)</th>
+                                        <th>宽 (in)</th>
+                                        <th>高 (in)</th>
+                                        <th>件数</th>
+                                        <th>重量 (lbs)</th>
+                                        <th>包装</th>
+                                        <th>描述</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="maersk_cargo_tbody">
+                                    <!-- 动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 4. 特殊服务 -->
+                    <div class="card shadow-sm border-warning">
+                    <div class="card-header bg-white fw-bold text-primary">
+                            <i class="fas fa-star me-2"></i>特殊服务 & 附加选项
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <!-- 服务类型提示 -->
+                                <div class="col-12 mb-2">
+                                    <div class="alert alert-info py-2 px-3 mb-0 small" id="maersk_service_info">
+                                        <i class="fas fa-info-circle me-1"></i> 请先选择报价方案
+                                    </div>
+                                </div>
+
+                                <!-- Liftgate -->
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="maersk_liftgate">
+                                        <label class="form-check-label small fw-bold" for="maersk_liftgate">
+                                            Liftgate Service
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Insurance -->
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="maersk_insurance" onchange="fleet_toggleInsuranceInput()">
+                                        <label class="form-check-label small fw-bold" for="maersk_insurance">
+                                            购买保险 (Insurance)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Insurance Amount -->
+                                <div class="col-md-4">
+                                    <div class="input-group input-group-sm" id="div_maersk_insurance_amount" style="display: none;">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="maersk_insurance_amount" placeholder="保险金额" step="0.01">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary px-4" id="btn_maersk_submit" onclick="fleet_submitMaerskSchedule()">
+                    <i class="fas fa-check-circle me-1"></i> 确认预约并下单
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Maersk 下单成功模态框 -->
+<div class="modal fade" id="fleet_maerskSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1090;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>下单成功</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="mb-4">预约及下单已完成！</h4>
+                
+                <div class="card bg-light border-0">
+                    <div class="card-body text-start">
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">PRO 号码:</div>
+                            <div class="col-7 fw-bold" id="maersk_success_pro"></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">批次号:</div>
+                            <div class="col-7 fw-bold" id="maersk_success_batch"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-5 text-muted">预估费用:</div>
+                            <div class="col-7 fw-bold text-danger" id="maersk_success_cost"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-success px-5" onclick="window.location.reload()">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 将模态框移动到 body 标签下
+        const modal = document.getElementById('fleet_maerskScheduleModal');
+        const successModal = document.getElementById('fleet_maerskSuccessModal');
+        if (document.body) {
+            if (modal) document.body.appendChild(modal);
+            if (successModal) document.body.appendChild(successModal);
+        }
+    });
+
+    // 打开 Maersk 预约出库模态框
+    function fleet_openMaerskScheduleModal(index, warehouseType = 'public') {
+        // 尝试关闭询价模态框 (如果有)
+        const quoteModalEl = document.getElementById('fleet_quoteModal');
+        if (quoteModalEl) {
+            const quoteModal = bootstrap.Modal.getInstance(quoteModalEl);
+            if (quoteModal) {
+                quoteModal.hide();
+            }
+        }
+
+        if (!currentQuoteData || !currentQuoteData.quotes || !currentQuoteData.quotes[index]) {
+            alert('报价数据失效，请重新询价');
+            return;
+        }
+
+        const quote = currentQuoteData.quotes[index];
+        const rating = currentQuoteData.rating;
+        const cargoId = document.getElementById('quote_current_cargo_id').value;
+        
+        // 查找对应的行
+        let row = null;
+        const checkbox = document.querySelector(`.fleet-cargo-checkbox[value="${cargoId}"]`);
+        if (checkbox) {
+            row = checkbox.closest('tr');
+        }
+
+        // 保存索引、ID 和 仓库类型
+        document.getElementById('maersk_quote_index').value = index;
+        document.getElementById('maersk_cargo_id').value = cargoId;
+        document.getElementById('maersk_warehouse_type').value = warehouseType;
+
+        // 1. 填充预约信息
+        const quoteDestInput = document.getElementById('quote_dest_zip');
+        const quoteDestValue = quoteDestInput ? (quoteDestInput.value || '').trim() : '';
+        const destinationText = row
+            ? (row.dataset.destination || '')
+            : (quoteDestValue || `${(currentQuoteData.consignee?.Zipcode || '')}${currentQuoteData.consignee?.State ? ` (${currentQuoteData.consignee.State})` : ''}`);
+        document.getElementById('maersk_destination').value = destinationText;
+        const rawAddress = row ? (row.querySelector('.fleet-address-input')?.value.trim() || '') : '';
+        document.getElementById('maersk_raw_address').value = rawAddress;
+        
+        // 提货时间默认使用发货日期 (优先使用请求时的日期格式 YYYY-MM-DD)
+        const shipDate = currentQuoteData.requestShipDate || rating.ShipDate;
+        
+        // 简单处理日期格式，确保符合 input type="date" 的要求 (YYYY-MM-DD)
+        let formattedDate = shipDate;
+        if (shipDate && shipDate.indexOf('/') > -1) {
+            // 假设格式为 MM/DD/YYYY，尝试转换为 YYYY-MM-DD
+            const parts = shipDate.split('/');
+            if (parts.length === 3) {
+                formattedDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            }
+        }
+        document.getElementById('maersk_pickup_time').value = formattedDate;
+        
+        // 车次成本
+        document.getElementById('maersk_cost').value = quote.TotalQuote.toFixed(2);
+        
+        // 清空 PRO
+        document.getElementById('maersk_pro').value = '';
+
+        // 2. 解析并填充收货人信息
+        const parsed = fleet_parseAddress(rawAddress);
+        document.getElementById('maersk_consignee_company').value = parsed.company || '';
+        document.getElementById('maersk_consignee_name').value = parsed.name || '';
+        document.getElementById('maersk_consignee_phone').value = parsed.phone || '';
+        document.getElementById('maersk_consignee_address1').value = parsed.address || '';
+        document.getElementById('maersk_consignee_city').value = parsed.city || currentQuoteData.consignee.City || '';
+        document.getElementById('maersk_consignee_state').value = parsed.state || currentQuoteData.consignee.State || '';
+        document.getElementById('maersk_consignee_zip').value = parsed.zip || currentQuoteData.consignee.Zipcode || '';
+
+        // 3. 填充货物信息
+        const tbody = document.getElementById('maersk_cargo_tbody');
+        tbody.innerHTML = '';
+        currentQuoteData.lineItems.forEach(item => {
+            const tr = document.createElement('tr');
+            const selectedPkg = (item.packaging || item.Packaging || 'Pallet');
+            const options = [
+                'Bundle','Bin','Box','Basket','Case','Crate','Cartons','Container','Drum','Eaches','Envelope','Letter','Pails','Pieces','Pallet','Roll','Skid','Tube','ToolBox','Tote','Truckload'
+            ].map(v => `<option ${selectedPkg===v?'selected':''}>${v}</option>`).join('');
+            tr.innerHTML = `
+                <td>${item.length || item.Length}</td>
+                <td>${item.width || item.Width}</td>
+                <td>${item.height || item.Height}</td>
+                <td>${item.pieces || item.Pieces}</td>
+                <td>${item.weight || item.Weight}</td>
+                <td>
+                    <select class="form-select form-select-sm msk-item-packaging">
+                        ${options}
+                    </select>
+                </td>
+                <td>${item.description || 'Pallet'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // 4. 更新特殊服务提示
+        const serviceCode = quote.Service; // 72, E0, BR, BA
+        const serviceInfoEl = document.getElementById('maersk_service_info');
+        let serviceText = '';
+        
+        switch (serviceCode) {
+            case 'BR':
+                serviceText = '当前服务: B2C (无需签收)';
+                break;
+            case 'BA':
+                serviceText = '当前服务: B2C (需签收)';
+                break;
+            case '72':
+                serviceText = '当前服务: B2B (无需预约)';
+                break;
+            case 'E0':
+                serviceText = '当前服务: B2B (需预约)';
+                break;
+            default:
+                serviceText = `当前服务代码: ${serviceCode}`;
+        }
+        serviceInfoEl.innerHTML = `<i class="fas fa-info-circle me-1"></i> ${serviceText}`;
+
+        // 重置并设置复选框（Liftgate 由询价阶段传入，仅展示，不允许用户修改）
+        const liftgateEl = document.getElementById('maersk_liftgate');
+        const needLiftgate = !!(currentQuoteData && currentQuoteData.need_liftgate === true);
+        liftgateEl.checked = needLiftgate;
+        liftgateEl.disabled = true;
+        document.getElementById('maersk_insurance').checked = false;
+        document.getElementById('maersk_insurance_amount').value = '';
+        document.getElementById('div_maersk_insurance_amount').style.display = 'none';
+
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('fleet_maerskScheduleModal'));
+        modal.show();
+    }
+
+    // 切换保险金额输入框显示
+    function fleet_toggleInsuranceInput() {
+        const isChecked = document.getElementById('maersk_insurance').checked;
+        const div = document.getElementById('div_maersk_insurance_amount');
+        div.style.display = isChecked ? 'flex' : 'none';
+        if (!isChecked) {
+            document.getElementById('maersk_insurance_amount').value = '';
+        }
+    }
+
+    // 地址解析函数
+    function fleet_parseAddress(text) {
+        if (!text) return {};
+        
+        const result = {};
+        
+        // 字段映射定义
+        const fieldMap = {
+            name: ['联系人', '姓名', '收件人'],
+            company: ['公司名称', '收件人公司', '公司'],
+            phone: ['电话', '收件人电话', '手机', '收件人手机', '联系方式'],
+            email: ['邮箱', 'Email', '邮件'],
+            address: ['地址', '收件人地址', '详细地址'],
+            city: ['城市', '收件人城市', 'City'],
+            state: ['州', '收件人州', 'State', '省'],
+            zip: ['邮编', '收件人邮编', 'Zip', 'Zipcode'],
+            country: ['国家', 'Country']
+        };
+
+        // 获取所有可能的关键字
+        const allKeys = Object.values(fieldMap).flat();
+        // 按长度降序排序
+        allKeys.sort((a, b) => b.length - a.length);
+        
+        // 分离中文和英文关键字，用于构建不同的正则匹配规则
+        // 中文关键字可以直接匹配，英文关键字需要单词边界以避免误匹配（如 City 匹配到 Electricity）
+        const cnKeys = allKeys.filter(k => /[\u4e00-\u9fa5]/.test(k));
+        const enKeys = allKeys.filter(k => !/[\u4e00-\u9fa5]/.test(k));
+        
+        // 构造 Lookahead 正则部分
+        const lookaheadParts = [];
+        if (cnKeys.length > 0) {
+            lookaheadParts.push(cnKeys.join('|'));
+        }
+        if (enKeys.length > 0) {
+            // 对英文关键字添加单词边界 \b
+            lookaheadParts.push(`\\b(?:${enKeys.join('|')})\\b`);
+        }
+        
+        const lookaheadPattern = lookaheadParts.length > 0 ? `(?:${lookaheadParts.join('|')})` : '$';
+
+        // 辅助提取函数
+        const extract = (targetField) => {
+            const possibleKeys = fieldMap[targetField];
+            for (const key of possibleKeys) {
+                // 构造正则：
+                // 1. 匹配关键字 key (英文加前边界)
+                // 2. 可选的冒号 [:：]?
+                // 3. 可选的空白 \s*
+                // 4. 捕获内容 (.*?)
+                // 5. Lookahead: 遇到其他关键字、换行、句末符号或字符串结尾停止
+                
+                let keyPattern = key;
+                if (!/[\u4e00-\u9fa5]/.test(key)) {
+                    keyPattern = `\\b${key}`; 
+                }
+                // 遇到下一个关键字 | 行结束 | 文本结尾 | 分隔符（；;。,.）
+                const stopPattern = `(?:${lookaheadPattern}|\\r?\\n|[；;。,.]|$)`;
+                const pattern = new RegExp(`${keyPattern}[:：]?\\s*([\\s\\S]*?)(?=${stopPattern})`, 'i');
+                const match = text.match(pattern);
+                if (match && match[1].trim()) {
+                    let val = match[1].trim();
+                    // 截断到首个换行前
+                    val = val.split(/\\r?\\n/)[0].trim();
+                    // 去掉尾部分隔符
+                    val = val.replace(/[；;。,.]+$/, '').trim();
+                    return val;
+                }
+            }
+            return null;
+        };
+
+        // 执行提取
+        result.name = extract('name');
+        result.company = extract('company');
+        result.phone = extract('phone');
+        result.email = extract('email');
+        result.address = extract('address');
+        result.city = extract('city');
+        result.state = extract('state');
+        result.zip = extract('zip');
+        
+        // 特殊处理：如果 zip 提取包含非数字，简单清洗
+        if (result.zip) {
+            result.zip = result.zip.replace(/[^\d-]/g, '');
+        }
+
+        return result;
+    }
+
+    // 提交预约并下单
+    function fleet_submitMaerskSchedule() {
+        const form = document.getElementById('fleet_maerskScheduleForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const index = document.getElementById('maersk_quote_index').value;
+        const quote = currentQuoteData.quotes[index];
+        const rating = currentQuoteData.rating;
+        const cargoId = document.getElementById('maersk_cargo_id').value;
+        const warehouseType = document.getElementById('maersk_warehouse_type').value;
+
+        // 收集 Consignee 信息
+        const consignee = {
+            name: document.getElementById('maersk_consignee_name').value.trim(),
+            company: document.getElementById('maersk_consignee_company').value.trim(),
+            phone: document.getElementById('maersk_consignee_phone').value.trim(),
+            email: document.getElementById('maersk_consignee_email').value.trim(),
+            address1: document.getElementById('maersk_consignee_address1').value.trim(),
+            city: document.getElementById('maersk_consignee_city').value.trim(),
+            state: document.getElementById('maersk_consignee_state').value.trim(),
+            zipcode: document.getElementById('maersk_consignee_zip').value.trim(),
+            country: 'US'
+        };
+
+        // 收集 Schedule 信息
+        const isInsurance = document.getElementById('maersk_insurance').checked;
+        const insuranceAmount = document.getElementById('maersk_insurance_amount').value;
+        
+        if (isInsurance && (!insuranceAmount || parseFloat(insuranceAmount) <= 0)) {
+            alert('请输入有效的保险金额');
+            return;
+        }
+
+        const schedule = {
+            pickup_time: document.getElementById('maersk_pickup_time').value,
+            cost: document.getElementById('maersk_cost').value,
+            bol: document.getElementById('maersk_bol').value.trim(),
+            print_label: document.getElementById('maersk_print_label').value,
+            shipment_type: document.getElementById('maersk_shipment_type').value,
+            auto_schedule: document.getElementById('maersk_auto_schedule').value,
+            destination: document.getElementById('maersk_destination').value,
+            note: document.getElementById('maersk_note').value.trim(),
+            // 特殊服务
+            is_liftgate: !!(currentQuoteData && currentQuoteData.need_liftgate === true),
+            is_insurance: isInsurance,
+            insurance_amount: insuranceAmount
+        };
+
+        const btn = document.getElementById('btn_maersk_submit');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 下单排车中...';
+
+        const formData = new FormData();
+        formData.append('step', 'maersk_schedule_post');
+        
+        const selectedCargoIds = (currentQuoteData && currentQuoteData.selected_cargo_ids) ? String(currentQuoteData.selected_cargo_ids).trim() : '';
+        const selectedPltIds = (currentQuoteData && currentQuoteData.selected_plt_ids) ? String(currentQuoteData.selected_plt_ids).trim() : '';
+
+        if (selectedCargoIds || selectedPltIds) {
+            formData.append('cargo_ids', selectedCargoIds);
+            formData.append('plt_ids', selectedPltIds);
+        } else {
+            // 区分 cargo_ids 和 plt_ids（保留 selfdelivery 原逻辑）
+            if (cargoId.startsWith('plt_')) {
+                formData.append('plt_ids', cargoId.replace('plt_', ''));
+                formData.append('cargo_ids', '');
+            } else {
+                formData.append('cargo_ids', cargoId);
+                formData.append('plt_ids', '');
+            }
+        }
+        
+        formData.append('quote_id', rating.QuoteID);
+        formData.append('service_code', quote.Service);
+        formData.append('consignee_json', JSON.stringify(consignee));
+        // 从预览表采集行项目（包含包装）
+        const previewItems = [];
+        document.querySelectorAll('#maersk_cargo_tbody tr').forEach(tr => {
+            const tds = tr.querySelectorAll('td');
+            const length = parseInt(tds[0].textContent.trim()) || 0;
+            const width = parseInt(tds[1].textContent.trim()) || 0;
+            const height = parseInt(tds[2].textContent.trim()) || 0;
+            const pieces = parseInt(tds[3].textContent.trim()) || 1;
+            const weight = parseFloat(tds[4].textContent.trim()) || 0;
+            const packaging = tr.querySelector('.msk-item-packaging')?.value || 'Pallet';
+            const description = (tds[6]?.textContent || '').trim() || 'Pallet';
+            previewItems.push({
+                length, width, height, pieces, weight, description, packaging
+            });
+        });
+        formData.append('line_items_json', JSON.stringify(previewItems));
+        formData.append('schedule_json', JSON.stringify(schedule));
+        formData.append('warehouse_type', warehouseType);
+        
+        // 传递当前主页面的 warehouse 参数
+        const mainWarehouse = "{{ warehouse }}"; 
+        formData.append('warehouse', mainWarehouse);
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        formData.append('csrfmiddlewaretoken', csrfToken);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 关闭下单模态框
+                const modalEl = document.getElementById('fleet_maerskScheduleModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+
+                // 填充成功信息
+                document.getElementById('maersk_success_pro').innerText = data.pro_number || 'N/A';
+                document.getElementById('maersk_success_batch').innerText = data.batch_number || 'N/A';
+                
+                // 格式化费用
+                let costDisplay = 'N/A';
+                if (data.cost !== undefined && data.cost !== null) {
+                     costDisplay = '$' + parseFloat(data.cost).toFixed(2);
+                }
+                document.getElementById('maersk_success_cost').innerText = costDisplay;
+
+                // 显示成功模态框
+                const successModal = new bootstrap.Modal(document.getElementById('fleet_maerskSuccessModal'));
+                successModal.show();
+            } else {
+                alert('操作失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('请求出错，请检查网络');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    }
+</script>

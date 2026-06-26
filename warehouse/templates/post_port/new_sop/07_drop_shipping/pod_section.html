@@ -1,0 +1,553 @@
+<!-- post_port/new_sop/03_fleet_schedule/pod_section.html -->
+<style>
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .search-row input, .search-row select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    .table-input {
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .table-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .btn-success-small {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success-small:hover {
+        background: #27ae60;
+    }
+
+    .status-span-red {
+        color: #e74c3c;
+        font-weight: 600;
+    }
+
+    .status-span-yellow {
+        color: #f39c12;
+        font-weight: 600;
+    }
+
+    /* 状态选择框样式 */
+    .status-select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .status-select:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+
+    /* 不同状态的背景色 */
+    .status-select.true {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    .status-select.false {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+        color: #856404;
+    }
+
+    /* 搜索下拉框样式 */
+    .search-select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    .search-select:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+
+    /* 新增：操作栏样式 */
+    .batch-toolbar {
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border: 1px solid #eaecef;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .batch-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-right: 20px;
+        border-right: 1px solid #ddd;
+    }
+    
+    .batch-group:last-child {
+        border-right: none;
+    }
+
+    .batch-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--secondary-color);
+    }
+
+    /* POD上传区域样式 */
+    .pod-drop-zone {
+        border: 3px dashed #dce1e6;
+        border-radius: 8px;
+        padding: 20px 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f9fafb;
+        margin-bottom: 8px;
+        width: 150px;
+    }
+
+    .pod-drop-zone:hover,
+    .pod-drop-zone.drag-over {
+        border-color: #2ecc71;
+        background: #e8f8f0;
+    }
+
+    .pod-drop-zone i {
+        font-size: 24px;
+        color: #95a5a6;
+        margin-bottom: 5px;
+    }
+
+    .pod-drop-zone:hover i {
+        color: #2ecc71;
+    }
+
+    .pod-drop-text {
+        font-size: 0.7rem;
+        color: #7f8c8d;
+    }
+
+    .pod-file-preview {
+        font-size: 0.7rem;
+        color: #27ae60;
+        margin-bottom: 8px;
+        word-break: break-all;
+        min-height: 18px;
+        max-width: 150px;
+    }
+</style>
+
+<!-- 1. 新增：批量操作工具栏 -->
+<div class="batch-toolbar">
+    <div class="batch-label"><i class="fas fa-tasks"></i> 批量操作:</div>
+    <!-- 批量修改状态表单 -->
+    <form method="post" action="" class="batch-group" onsubmit="return handleBatchSubmit(this)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="update_pod_status">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="active_tab" value="pod">
+        <!-- 这个隐藏域将由JS填充选中的ID -->
+        <input type="hidden" name="batch_ids_json" class="batch-ids-input">
+        
+        <select name="pod_to_customer" class="status-select" style="width: 100px;">
+            <option value="True">设为: 是</option>
+            <option value="False">设为: 否</option>
+        </select>
+        <button type="submit" class="table-btn btn-success-small">批量更新状态</button>
+    </form>
+    <div class="batch-group">
+        <button type="button" class="table-btn btn-success-small" id="batchPodUploadBtn" onclick="submitBatchPodUpload()" style="background-color: #27ae60;">
+            <i class="fas fa-upload"></i> 批量上传POD
+        </button>
+        <span id="batchPodUploadInfo" style="font-size: 0.85rem; color: #7f8c8d;"></span>
+    </div>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th style="width: 40px; text-align: center;">
+                <input type="checkbox" id="selectAll" onchange="toggleAllCheckboxes(this)">
+            </th>
+            <th style="width:160px;">出库批次</th>
+            <th style="width:150px;">预约批次</th>
+            <th style="width:300px;">详情</th>
+            <th>客户名</th>
+            <th>预约发车日期</th>
+            <th>实际发车日期</th>
+            <th style="width:80px;">板数</th> 
+            <th style="width:80px;">件数</th> 
+            <th style="width:100px;">POD回传</th> 
+            <th>备注</th>
+            <th>POD上传</th>
+        </tr>
+        <tr class="search-row">
+            <td></td> 
+            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="1"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
+            <td><input type="text" class="header-search" placeholder="搜索详情" data-column="3"></td>
+            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="4"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="5"></td>
+            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
+            <td>
+                <select class="search-select" data-column="9" onchange="filterPodTable(this)">
+                    <option value="">全部</option>
+                    <option value="是">是</option>
+                    <option value="否">否</option>
+                </select>
+            </td>
+            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="9"></td>
+            <td></td>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in pod_data %}
+        <tr>
+            <td style="text-align: center;">
+                <input type="checkbox" name="row_selector" value="{{ f.shipment_batch_number }}">
+            </td>
+            <td style="max-width: 120px; word-break: break-all;">
+                {{ f.fleet_number.fleet_number }}<br>
+                <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
+            </td>
+            <td>{{ f.shipment_batch_number }}</td>
+            <td style="max-width: 300px; word-break: break-all; white-space: normal; overflow-wrap: break-word;">
+                {{ f.details|default_if_none:'-'|safe }}
+            </td>
+            <td>{{ f.customer }}</td>
+            <td>{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
+            <td>
+                {% if f.arrival_status == "past_due" %}
+                <span class="status-span-red">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                {% elif f.arrival_status == "need_attention" %}
+                <span class="status-span-yellow">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                {% else %}
+                {{ f.fleet_number.departured_at|date:"M-j" }}
+                {% endif %}
+            </td>
+
+            <td>{{ f.shipped_pallet|floatformat:0 }}</td>
+            <td>{{ f.shipped_pcs|default:0|floatformat:0 }}</td> 
+            <td>
+                <!-- POD送达状态下拉框表单 -->
+                <form method="post" class="pod-status-form" action="" style="margin: 0;">
+                    {% csrf_token %}
+                    <select name="pod_to_customer" 
+                            class="status-select {{ f.pod_to_customer|yesno:"true,false" }}" 
+                            onchange="this.closest('form').submit()">
+                        <option value="True" {% if f.pod_to_customer %}selected{% endif %}>是</option>
+                        <option value="False" {% if not f.pod_to_customer %}selected{% endif %}>否</option>
+                    </select>
+                    <input type="hidden" name="step" value="update_pod_status">
+                    <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="active_tab" value="pod">
+                </form>
+            </td>
+            <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+            <td>
+                <div class="pod-upload-container">
+                    <input type="hidden" class="pod-shipment-batch" value="{{ f.shipment_batch_number }}">
+                    <div class="pod-drop-zone" id="dropZone-{{ f.shipment_batch_number }}" onclick="document.getElementById('podFileInput-{{ f.shipment_batch_number }}').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <div class="pod-drop-text">点击或拖拽文件</div>
+                    </div>
+                    <input type="file" name="file" id="podFileInput-{{ f.shipment_batch_number }}" class="pod-file-input" accept="image/*,.pdf" style="display: none;">
+                    <div class="pod-file-preview" id="filePreview-{{ f.shipment_batch_number }}"></div>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- 批量上传表单 -->
+<form method="post" enctype="multipart/form-data" id="batchPodUploadForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="batch_pod_upload">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="page" value="ltl_pod_section">
+    <input type="hidden" name="active_tab" value="pod">
+    <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
+    <div id="batchPodInputs"></div>
+</form>
+
+<script>
+    let podFiles = []; // 存储已选择的文件对象数组，每个元素包含 shipmentBatchNumber 和 file
+
+    // 拖拽上传功能
+    function initializePodDragDrop() {
+        {% for f in pod_data %}
+        initPodUpload('{{ f.shipment_batch_number }}');
+        {% endfor %}
+        updateBatchUploadInfo();
+    }
+
+    function initPodUpload(shipmentBatchNumber) {
+        const dropZone = document.getElementById('dropZone-' + shipmentBatchNumber);
+        const fileInput = document.getElementById('podFileInput-' + shipmentBatchNumber);
+        const filePreview = document.getElementById('filePreview-' + shipmentBatchNumber);
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]);
+        }
+        
+        function handleFileSelect(file) {
+            if (file) {
+                removePodFile(shipmentBatchNumber);
+                podFiles.push({
+                    shipmentBatchNumber: shipmentBatchNumber,
+                    file: file
+                });
+                filePreview.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+                dropZone.style.borderColor = '#27ae60';
+                dropZone.style.backgroundColor = '#e8f8f0';
+                dropZone.querySelector('i').style.color = '#27ae60';
+                updateBatchUploadInfo();
+            }
+        }
+        
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        dropZone.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+        
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(files[0]);
+                fileInput.files = dataTransfer.files;
+                handleFileSelect(files[0]);
+            }
+        });
+    }
+
+    function removePodFile(shipmentBatchNumber) {
+        podFiles = podFiles.filter(item => item.shipmentBatchNumber !== shipmentBatchNumber);
+    }
+
+    function updateBatchUploadInfo() {
+        const count = podFiles.length;
+        const infoEl = document.getElementById('batchPodUploadInfo');
+        if (count > 0) {
+            infoEl.textContent = '已选择 ' + count + ' 个文件';
+            infoEl.style.color = '#27ae60';
+        } else {
+            infoEl.textContent = '';
+        }
+    }
+
+    function submitBatchPodUpload() {
+        if (podFiles.length === 0) {
+            alert('请至少选择一个文件');
+            return;
+        }
+        
+        const form = document.getElementById('batchPodUploadForm');
+        const batchPodInputs = document.getElementById('batchPodInputs');
+        
+        batchPodInputs.innerHTML = '';
+        
+        podFiles.forEach(function(item) {
+            const shipmentInput = document.createElement('input');
+            shipmentInput.type = 'hidden';
+            shipmentInput.name = 'shipment_batch_number';
+            shipmentInput.value = item.shipmentBatchNumber;
+            batchPodInputs.appendChild(shipmentInput);
+            
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(item.file);
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = 'file';
+            fileInput.files = dataTransfer.files;
+            fileInput.style.display = 'none';
+            batchPodInputs.appendChild(fileInput);
+        });
+        
+        form.submit();
+    }
+
+    function toggleAllCheckboxes(source) {
+        const checkboxes = document.getElementsByName('row_selector');
+        // 只选择当前可见的行（配合搜索功能）
+        for (let i = 0; i < checkboxes.length; i++) {
+            const row = checkboxes[i].closest('tr');
+            if (row.style.display !== 'none') {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+    }
+
+    function handleBatchSubmit(form) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请至少选择一行数据！");
+            return false;
+        }
+
+        // 收集所有选中的 shipment_batch_number
+        const ids = [];
+        checkboxes.forEach(cb => {
+            ids.push(cb.value);
+        });
+
+        // 将ID数组转换为JSON字符串存入隐藏域
+        form.querySelector('.batch-ids-input').value = JSON.stringify(ids);
+
+        return true; 
+    }
+
+    function initializePodSection() {
+        // 为搜索框添加事件监听
+        const searchInputs = document.querySelectorAll('.header-search');
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                filterPodTable(this);
+            });
+        });
+        
+        // 为搜索下拉框添加事件监听
+        const searchSelects = document.querySelectorAll('.search-select');
+        searchSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                filterPodTable(this);
+            });
+        });
+    }
+
+    function filterPodTable(input) {
+        const filter = input.value.toUpperCase();
+        const columnIndex = parseInt(input.getAttribute('data-column'));
+        const table = document.querySelector('table');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const cell = rows[i].getElementsByTagName('td')[columnIndex];
+            if (cell) {
+                let txtValue = '';
+                
+                // 特殊处理POD送达状态列（第9列）
+                if (columnIndex === 9) {
+                    const select = cell.querySelector('.status-select');
+                    if (select) {
+                        const selectedOption = select.options[select.selectedIndex];
+                        txtValue = selectedOption.text.toUpperCase();
+                    }
+                } else {
+                    txtValue = cell.textContent || cell.innerText;
+                    txtValue = txtValue.toUpperCase();
+                }
+                
+                if (filter === '' || txtValue.indexOf(filter) > -1) {
+                    rows[i].style.display = '';
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+        }
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePodSection();
+        initializePodDragDrop();
+    });
+</script>
