@@ -2833,19 +2833,36 @@ class Palletization(View):
             )
             for pl in packing_list:
                 delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
-                cbm = pl.get("cbm")
-                remainder = cbm % 1
-                cbm = int(cbm)
-                if cbm % 2:
-                    cbm += cbm % 2
-                elif remainder:
-                    cbm += 2
-                if customer_name == "准时达" and retrieval_destination_area == "LA":
-                    cbm /= 1.5
+                if customer_name == "JINYU":
+                    pcs = pl.get("pcs") or 0
+
+                    remainder = pcs % 1
+                    pcs = int(pcs)
+                    if pcs % 2:
+                        pcs += pcs % 2
+                    elif remainder:
+                        pcs += 2
+
+                    pcs /= 25
+                    pcs *= n_label
+                    label_count = int(pcs)
                 else:
-                    cbm /= 2
-                cbm *= n_label
-                cbm = int(cbm)
+                    cbm = pl.get("cbm")
+                    remainder = cbm % 1
+                    cbm = int(cbm)
+
+                    if cbm % 2:
+                        cbm += cbm % 2
+                    elif remainder:
+                        cbm += 2
+
+                    if customer_name == "准时达" and retrieval_destination_area == "LA":
+                        cbm /= 1.2
+                    else:
+                        cbm /= 2
+
+                    cbm *= n_label
+                    label_count = int(cbm)
                 if (    customer_name == "JINYU"
                         or "客户自提" in pl.get("destination")
                         or "自提" in pl.get("destination")
@@ -2885,7 +2902,7 @@ class Palletization(View):
 
                 dw_st = pl.get("delivery_window_start").strftime("%m/%d") if pl.get("delivery_window_start") else None
                 dw_end = pl.get("delivery_window_end").strftime("%m/%d") if pl.get("delivery_window_end") else None
-                for num in range(cbm):
+                for num in range(label_count):
                     i = num // n_label + 1
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
