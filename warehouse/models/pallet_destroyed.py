@@ -15,6 +15,8 @@ class PalletDestroyed(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
 
     destination = models.CharField(max_length=255, null=True, blank=True)
+    dropshipping_item_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发货物名称")
+    dropshipping_item_model_number = models.CharField(max_length=255, null=True, blank=True,verbose_name="一件代发货物型号")
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
     delivery_method = models.CharField(max_length=255, null=True, blank=True)

@@ -675,12 +675,12 @@ class OrderCreation(View):
         criteria = None
         if start_date_eta and end_date_eta:
             criteria = (
-                    models.Q(vessel_id__vessel_eta__gte=start_date_eta, vessel_id__vessel_eta__lte=end_date_eta) |
-                    models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta)
+                    models.Q(vessel_id__vessel_eta__gte=start_date_eta, vessel_id__vessel_eta__lte=end_date_eta, order_type="一件代发") |
+                    models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta, order_type="一件代发")
             )
 
         if start_date_etd and end_date_etd:
-            etd_q = models.Q(vessel_id__vessel_etd__gte=start_date_etd, vessel_id__vessel_etd__lte=end_date_etd)
+            etd_q = models.Q(vessel_id__vessel_etd__gte=start_date_etd, vessel_id__vessel_etd__lte=end_date_etd, order_type="一件代发")
             criteria = criteria & etd_q if criteria else etd_q
 
         # 查询订单
