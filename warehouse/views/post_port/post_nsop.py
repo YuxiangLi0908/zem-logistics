@@ -16924,11 +16924,72 @@ class PostNsop(View):
         if pallets_to_delete > 0:
             # 获取前pallets_to_delete个pallet的ID
             pallet_ids_to_delete = pallet_ids[:pallets_to_delete]
+            # 查询将要删除的pallet（在清除 shipment_batch_number 前查询，以保留信息用于后续分组和日志）
+            pallets_info = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    id__in=pallet_ids_to_delete
+                ).select_related('container_number', 'shipment_batch_number')
+            )
             # 将这些pallet的shipment_batch_number设置为空
             await sync_to_async(Pallet.objects.filter(id__in=pallet_ids_to_delete).update)(
                 shipment_batch_number=None,
                 is_dropped_pallet=True
             )
+            # pallet删除完之后，如果是把板子全删除了，那么对应的packinglist也要删除shipment_batch_number外键
+            if len(pallet_ids) == actual_pallets:
+                # 按 container_number、PO_ID、delivery_type 分组
+                pallet_groups = {}
+                for pallet in pallets_info:
+                    container_num = pallet.container_number.container_number if pallet.container_number else None
+                    po_id = pallet.PO_ID
+                    deliv_type = pallet.delivery_type
+                    key = (container_num, po_id, deliv_type)
+
+                    if key not in pallet_groups:
+                        pallet_groups[key] = {
+                            'container_number': container_num,
+                            'PO_ID': po_id,
+                            'delivery_type': deliv_type
+                        }
+
+                # 遍历每一组，找到对应的packinglist并清除shipment_batch_number
+                all_packinglists_to_log = []
+                for group_data in pallet_groups.values():
+                    if group_data['delivery_type'] =="public":
+                        packinglists = await sync_to_async(list)(
+                            PackingList.objects.filter(
+                                PO_ID=group_data['PO_ID'],
+                                container_number__container_number=group_data['container_number'],
+                                delivery_type=group_data['delivery_type'],
+                            ).select_related('container_number', 'shipment_batch_number')
+                        )
+
+                        if packinglists:
+                            pl_ids = [pl.id for pl in packinglists]
+                            await sync_to_async(PackingList.objects.filter(id__in=pl_ids).update)(
+                                shipment_batch_number=None
+                            )
+                            all_packinglists_to_log.extend(packinglists)
+
+                # 记录日志：pallet 和 packinglist 清除 shipment_batch_number 外键
+                if pallets_info or all_packinglists_to_log:
+                    shipment_bn_str = None
+                    if pallet_groups:
+                        first_group = next(iter(pallet_groups.values()))
+                        shipment_bn_str = first_group['shipment_batch_number']
+                    elif shipment_batch_number:
+                        shipment_bn_str = shipment_batch_number
+
+                    packinglist_ids_to_log = [pl.id for pl in all_packinglists_to_log]
+                    await ShipmentBindingLogger.log_shipment_operation(
+                        operator=request.user,
+                        pallet_ids=pallet_ids_to_delete,
+                        packinglist_ids=packinglist_ids_to_log,
+                        shipment_batch_number=shipment_bn_str,
+                        operation_button='工作一览 实际货物核对的解扣约',
+                        operation_type='bind',
+                        shipment_type='actual',
+                    )
 
             context['success_messages'] = f'成功删除{pallets_to_delete}个托盘记录'
         else:
