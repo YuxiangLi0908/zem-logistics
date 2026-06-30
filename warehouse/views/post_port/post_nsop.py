@@ -16920,7 +16920,6 @@ class PostNsop(View):
 
         # 计算需要删除的pallet数量
         pallets_to_delete = len(pallet_ids) - actual_pallets
-
         if pallets_to_delete > 0:
             # 获取前pallets_to_delete个pallet的ID
             pallet_ids_to_delete = pallet_ids[:pallets_to_delete]
@@ -16936,7 +16935,7 @@ class PostNsop(View):
                 is_dropped_pallet=True
             )
             # pallet删除完之后，如果是把板子全删除了，那么对应的packinglist也要删除shipment_batch_number外键
-            if len(pallet_ids) == actual_pallets:
+            if actual_pallets == 0:
                 # 按 container_number、PO_ID、delivery_type 分组
                 pallet_groups = {}
                 for pallet in pallets_info:
@@ -16949,7 +16948,8 @@ class PostNsop(View):
                         pallet_groups[key] = {
                             'container_number': container_num,
                             'PO_ID': po_id,
-                            'delivery_type': deliv_type
+                            'delivery_type': deliv_type,
+                            'shipment_batch_number': pallet.shipment_batch_number
                         }
 
                 # 遍历每一组，找到对应的packinglist并清除shipment_batch_number
@@ -16970,7 +16970,6 @@ class PostNsop(View):
                                 shipment_batch_number=None
                             )
                             all_packinglists_to_log.extend(packinglists)
-                raise ValueError("packinglist_to_log",all_packinglists_to_log)
 
                 # 记录日志：pallet 和 packinglist 清除 shipment_batch_number 外键
                 if pallets_info or all_packinglists_to_log:
