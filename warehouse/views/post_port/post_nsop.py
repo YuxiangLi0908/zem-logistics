@@ -16970,6 +16970,7 @@ class PostNsop(View):
                                 shipment_batch_number=None
                             )
                             all_packinglists_to_log.extend(packinglists)
+                raise ValueError("packinglist_to_log",all_packinglists_to_log)
 
                 # 记录日志：pallet 和 packinglist 清除 shipment_batch_number 外键
                 if pallets_info or all_packinglists_to_log:
