@@ -25,7 +25,8 @@
         <thead>
             <th class="th">客户</th>
             <th class="th">柜号</th>
-            <th class="th">目的地</th>
+            <th class="th">货物名称</th>
+            <th class="th">货物型号</th>
             <th class="th">地址</th>
             <th class="th">邮编</th>
             <th class="th">派送方式</th>
@@ -40,7 +41,8 @@
         <tbody>
             <td class="td">{{ pallet.customer_name }}</td>
             <td class="td">{{ pallet.container }}</td>
-            <td class="td"><input name="destination" value="{{ pallet.destination }}" required></td>
+            <td class="td"><input name="dropshipping_item_name" value="{{ pallet.dropshipping_item_name }}" required></td>
+            <td class="td"><input name="dropshipping_item_model_number" value="{{ pallet.dropshipping_item_model_number }}" required></td>
             <td class="td"><input name="address" value="{{ pallet.address }}"></td>
             <td class="td"><input name="zipcode" value="{{ pallet.zipcode }}"></td>
             <td class="td">

@@ -25,7 +25,8 @@ from barcode.writer import ImageWriter
 from django.contrib.postgres.aggregates import StringAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
-from django.db.models import Sum, Count, FloatField, IntegerField, Min, Case, When, Q, Value, F, CharField, Prefetch
+from django.db.models import Sum, Count, FloatField, IntegerField, Min, Case, When, Q, Value, F, CharField, Prefetch, \
+    Subquery, OuterRef
 from django.db.models.functions import Coalesce, Round, Cast, Concat
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render
@@ -88,6 +89,10 @@ class Dropshipping(View):
     template_inventory_management_main = "dropshipping/01_inventory_management_main.html"
     template_inventory_po_update = "dropshipping/02_inventory_po_update.html"
     template_counting_main = "dropshipping/01_inventory_count_main.html"
+    template_pallet_abnormal_records_display = "dropshipping/palletization_abnormal_records_display.html"
+    template_pallet_abnormal = "dropshipping/palletization_abnormal.html"
+    template_pallet_abnormal_records_search = "dropshipping/palletization_abnormal_records_search.html"
+    template_pallet_daily_operation = "dropshipping/daily_operation.html"
 
     container_type = {
         "": "",
@@ -151,6 +156,11 @@ class Dropshipping(View):
         elif step == "counting":
             template, context = await self.handle_counting_get()
             return await sync_to_async(render)(request, template, context)
+        elif step == "abnormal":
+            template, context = await self.handle_palletization_abnormal_get()
+            return await sync_to_async(render)(request, template, context)
+        elif step == "abnormal_records":
+            return await sync_to_async(render)(request, self.template_pallet_abnormal_records_search, {})
 
 
 
@@ -302,6 +312,307 @@ class Dropshipping(View):
         elif step == "update_po":
             template, context = await self.handle_update_po_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "warehouse_abnormal":
+            template, context = await self.handle_warehosue_abnormal_post(request)
+            return render(request, template, context)
+        elif step == "amend_abnormal":
+            template, context = await self.handle_amend_abnormal_post(request)
+            return render(request, template, context)
+        elif step == "warehouse_daily":
+            template, context = await self.handle_warehouse_daily_post(request)
+            return render(request, template, context)
+
+    async def handle_amend_abnormal_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        selected = request.POST.getlist("is_case_selected")
+        abnormal_pl_ids = request.POST.getlist("ids")
+        abnormal_reasons = request.POST.getlist("abnormal_reason")
+        notes = request.POST.getlist("note")
+        confirmed_by_warehouse = request.POST.getlist("confirmed_by_warehouse")
+
+        abnormal_pl_ids = [
+            abnormal_pl_ids[i] for i in range(len(selected)) if selected[i] == "on"
+        ]
+        abnormal_records = await sync_to_async(list)(
+            AbnormalOffloadStatus.objects.select_related("container_number").filter(
+                id__in=abnormal_pl_ids, delivery_type="一件代发"
+            )
+        )
+        updated_records = []
+        if confirmed_by_warehouse:
+            shipment = set()
+            for record in abnormal_records:
+                pallet = await sync_to_async(list)(
+                    Pallet.objects.select_related(
+                        "container_number", "shipment_batch_number"
+                    ).filter(
+                        dropshipping_item_model_number=record.dropshipping_item_model_number,
+                        container_number__container_number=record.container_number.container_number,
+                        delivery_method=record.delivery_method,
+                        delivery_type="一件代发"
+                    )
+                )
+                shipment.update([p.shipment_batch_number for p in pallet])
+                for p in pallet:
+                    p.abnormal_palletization = False
+                record.confirmed_by_warehouse = True
+                updated_records.append(record)
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["abnormal_palletization"],
+                )
+            await sync_to_async(bulk_update_with_history)(
+                updated_records,
+                AbnormalOffloadStatus,
+                fields=["confirmed_by_warehouse"],
+            )
+            await self._update_shipment_abnormal_palletization(shipment)
+            return await self.handle_daily_operation_get()
+        else:
+            abnormal_reasons = [
+                abnormal_reasons[i] for i in range(len(selected)) if selected[i] == "on"
+            ]
+            notes = [notes[i] for i in range(len(selected)) if selected[i] == "on"]
+            for record, reason, note in zip(abnormal_records, abnormal_reasons, notes):
+                record.note = note
+                record.abnormal_reason = reason
+                record.is_resolved = True
+                updated_records.append(record)
+            await sync_to_async(bulk_update_with_history)(
+                updated_records,
+                AbnormalOffloadStatus,
+                fields=["is_resolved", "abnormal_reason", "note"],
+            )
+            if warehouse == "None":
+                warehouse = ""
+            return await self.handle_palletization_abnormal_get(warehouse)
+
+    async def handle_daily_operation_get(
+        self, warehouse: str = None, include_all: bool = False
+    ) -> tuple[str, dict[str, Any]]:
+        # 拆柜异常，客服已解决货物
+        retrieval_precise_subquery = Subquery(
+            Retrieval.objects.filter(
+                id=OuterRef("container_number__orders__retrieval_id")
+            ).values("retrieval_destination_precise")[:1],
+            output_field=CharField(),
+        )
+        query = (
+            AbnormalOffloadStatus.objects.select_related("container_number")
+            .annotate(
+                retrieval_destination_precise=Subquery(retrieval_precise_subquery)
+            )
+            .filter(is_resolved=True, confirmed_by_warehouse=False, delivery_method="一件代发")
+            .order_by("created_at")
+        )
+        if warehouse:
+            query = query.filter(retrieval_destination_precise=warehouse)
+        all_status = await sync_to_async(list)(query)
+        abnormal = []
+        for status in all_status:
+            status_dict = {
+                "id": status.id,
+                "container_number": status.container_number.container_number,
+                "created_at": (
+                    status.created_at.strftime("%b-%d") if status.created_at else None
+                ),
+                "resolved_at": status.resolved_at,
+                "confirmed_by_warehouse": (
+                    True if status.confirmed_by_warehouse else False
+                ),
+                "dropshipping_item_model_number": status.dropshipping_item_model_number,
+                "delivery_method": status.delivery_method,
+                "pcs_reported": status.pcs_reported,
+                "pcs_actual": status.pcs_actual,
+                "abnormal_reason": status.abnormal_reason,
+                "note": status.note,
+                "ddl_status": status.abnormal_status,
+            }
+            abnormal.append(status_dict)
+
+        cn = pytz.timezone("Asia/Shanghai")
+        current_time_cn = datetime.now(cn)
+        today = current_time_cn.date()
+
+        # 当日+下一天的预约信息
+        query = Shipment.objects.prefetch_related(
+            "packinglist",
+            "packinglist__container_number",
+            "packinglist__container_number__orders",
+            "packinglist__container_number__orders__warehouse",
+            "order",
+        ).filter(shipment_schduled_at__date=today, packinglist__delivery_type="一件代发")
+        if warehouse:
+            query = query.filter(
+                packinglist__container_number__orders__retrieval_id__retrieval_destination_precise=warehouse
+            ).distinct()
+        shipment = await sync_to_async(list)(query)
+
+        # 当日+下一天的预约信息
+        query = Fleet.objects.prefetch_related(
+            "shipment",
+            "shipment__packinglist",
+            "shipment__packinglist__container_number",
+            "shipment__packinglist__container_number__orders",
+            "shipment__packinglist__container_number__orders__retrieval_id",
+        ).filter(scheduled_at__date=today, shipment__packinglist__delivery_type="一件代发")
+        if warehouse:
+            query = query.filter(
+                shipment__packinglist__container_number__orders__retrieval_id__retrieval_destination_precise=warehouse
+            ).distinct()
+        fleet = await sync_to_async(list)(query)
+
+        # 当日到港货柜
+        query = Order.objects.select_related(
+            "vessel_id", "container_number", "customer_name", "retrieval_id"
+        ).filter(
+            (
+                models.Q(retrieval_id__target_retrieval_timestamp__date=today)
+                & models.Q(cancel_notification=False)
+                & models.Q(delivery_type="一件代发")
+            )
+        )
+        if warehouse:
+            query = query.filter(retrieval_id__retrieval_destination_precise=warehouse)
+        containers = await sync_to_async(list)(query)
+        arrived_containers = []
+        for o in containers:
+            con_dict = {
+                "id": o.id,
+                "container_number": o.container_number.container_number,
+                "order_type": o.order_type,
+                "vessel_id": o.vessel_id,
+                "temp_t49_pod_arrive_at": o.retrieval_id.temp_t49_pod_arrive_at,
+            }
+            arrived_containers.append(con_dict)
+        context = {
+            "abnormal": abnormal,
+            "shipment": shipment,
+            "fleet": fleet,
+            "arrived_containers": arrived_containers,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "warehouse_filter": warehouse,
+        }
+        return self.template_pallet_daily_operation, context
+
+    async def handle_warehouse_daily_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse_filter")
+        template, context = await self.handle_daily_operation_get(warehouse)
+        return template, context
+
+    async def handle_warehosue_abnormal_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        template, context = await self.handle_palletization_abnormal_get(warehouse)
+        return template, context
+
+    async def handle_palletization_abnormal_get(
+        self, warehouse: str = None, include_all: bool = False
+    ) -> tuple[str, dict[str, Any]]:
+        retrieval_precise_subquery = Subquery(
+            Retrieval.objects.filter(
+                id=OuterRef("container_number__orders__retrieval_id")
+            ).values("retrieval_destination_precise")[:1],
+            output_field=CharField(),
+        )
+        if include_all:
+            all_status = await sync_to_async(list)(
+                AbnormalOffloadStatus.objects.select_related(
+                    "container_number", "offload"
+                )
+                .filter(delivery_type="一件代发")
+                .annotate(
+                    retrieval_destination_precise=Subquery(retrieval_precise_subquery)
+                )
+                .all()
+                .order_by("created_at")
+            )
+        else:
+            all_status = await sync_to_async(list)(
+                AbnormalOffloadStatus.objects.select_related(
+                    "container_number", "offload"
+                )
+                .filter(is_resolved=False, delivery_type="一件代发")
+                .annotate(
+                    retrieval_destination_precise=Subquery(retrieval_precise_subquery)
+                )
+                .all()
+                .order_by("created_at")
+            )
+        abnormal = []
+        for status in all_status:
+            if warehouse:
+                if warehouse in status.retrieval_destination_precise:
+                    status_dict = {
+                        "id": status.id,
+                        "offload": status.offload.offload_id,
+                        "container_number": status.container_number.container_number,
+                        "created_at": (
+                            status.created_at.strftime("%b-%d")
+                            if status.created_at
+                            else None
+                        ),
+                        "resolved_at": status.resolved_at,
+                        "is_resolved": True if status.is_resolved else False,
+                        "dropshipping_item_model_number": status.dropshipping_item_model_number,
+                        "delivery_method": status.delivery_method,
+                        "pcs_reported": status.pcs_reported,
+                        "pcs_actual": status.pcs_actual,
+                        "abnormal_reason": status.abnormal_reason,
+                        "note": status.note,
+                        "retrieval_destination_precise": status.retrieval_destination_precise,
+                        "ddl_status": status.abnormal_status,
+                    }
+                    abnormal.append(status_dict)
+            else:
+                status_dict = {
+                    "id": status.id,
+                    "offload": status.offload.offload_id,
+                    "container_number": status.container_number.container_number,
+                    "created_at": (
+                        status.created_at.strftime("%b-%d")
+                        if status.created_at
+                        else None
+                    ),
+                    "resolved_at": status.resolved_at,
+                    "is_resolved": True if status.is_resolved else False,
+                    "dropshipping_item_model_number": status.dropshipping_item_model_number,
+                    "delivery_method": status.delivery_method,
+                    "pcs_reported": status.pcs_reported,
+                    "pcs_actual": status.pcs_actual,
+                    "abnormal_reason": status.abnormal_reason,
+                    "note": status.note,
+                    "retrieval_destination_precise": status.retrieval_destination_precise,
+                    "ddl_status": status.abnormal_status,
+                }
+                abnormal.append(status_dict)
+        context = {
+            "abnormal": abnormal,
+            "warehouse": warehouse,
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+        }
+        if include_all:
+            return self.template_pallet_abnormal_records_display, context
+        else:
+            return self.template_pallet_abnormal, context
+
+    @staticmethod
+    def _is_hold_delivery_method(delivery_method: str | None) -> bool:
+        return "暂扣留仓(HOLD)" in str(delivery_method)
 
     async def handle_update_po_post(
             self, request: HttpRequest
@@ -317,7 +628,7 @@ class Dropshipping(View):
             pallets_to_destroy = await sync_to_async(list)(
                 Pallet.objects.filter(id__in=plt_ids).select_related(
                     "container_number", "packing_list"
-                )
+                ).filter(delivery_type="一件代发")
             )
 
             destroyed_pallets = []
@@ -354,14 +665,15 @@ class Dropshipping(View):
             @sync_to_async
             def async_transaction():
                 with transaction.atomic():
-                    Pallet.objects.filter(id__in=plt_ids).delete()
+                    Pallet.objects.filter(id__in=plt_ids, delivery_type="一件代发").delete()
                     PalletDestroyed.objects.bulk_create(destroyed_pallets)
 
             await async_transaction()
             return await self.handle_warehouse_post_inventory(request)
 
         # ===================== 修改板数的逻辑 =====================
-        destination_new = request.POST.get("destination").strip()
+        dropshipping_item_name = request.POST.get("dropshipping_item_name").strip()
+        dropshipping_item_model_number_new = request.POST.get("dropshipping_item_model_number").strip()
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
@@ -386,7 +698,7 @@ class Dropshipping(View):
         def adjust_pallets():
             with transaction.atomic():
                 # 1. 获取当前这批 Pallet
-                old_pallets = list(Pallet.objects.filter(id__in=plt_ids))
+                old_pallets = list(Pallet.objects.filter(id__in=plt_ids, delivery_type="一件代发"))
                 if not old_pallets:
                     return []
 
@@ -400,7 +712,7 @@ class Dropshipping(View):
                 )
 
                 # 2. 删除旧的
-                Pallet.objects.filter(id__in=plt_ids).delete()
+                Pallet.objects.filter(id__in=plt_ids, delivery_type="一件代发").delete()
 
                 # 3. 创建新 Pallet（数量 = n_pallet_new）
                 new_pallets = []
@@ -413,7 +725,8 @@ class Dropshipping(View):
                         ),
                         packing_list=template.packing_list,
                         container_number=container,
-                        destination=destination_new,
+                        dropshipping_item_name=dropshipping_item_name,
+                        dropshipping_item_model_number=dropshipping_item_model_number_new,
                         address=address_new,
                         zipcode=zipcode_new,
                         delivery_method=delivery_method_new,
@@ -477,11 +790,11 @@ class Dropshipping(View):
 
         # 更新 PackingList
         packing_list = await sync_to_async(list)(
-            PackingList.objects.filter(id__in=pl_ids)
+            PackingList.objects.filter(id__in=pl_ids, delivery_type="一件代发")
         )
 
         for pl in packing_list:
-            pl.destination = destination_new
+            pl.dropshipping_item_model_number = dropshipping_item_model_number_new
             pl.address = address_new
             pl.zipcode = zipcode_new
             pl.delivery_method = delivery_method_new
@@ -491,7 +804,7 @@ class Dropshipping(View):
             packing_list,
             PackingList,
             fields=[
-                "destination",
+                "dropshipping_item_model_number",
                 "address",
                 "zipcode",
                 "delivery_method",
@@ -520,7 +833,7 @@ class Dropshipping(View):
             pallet,
             Pallet,
             fields=[
-                "destination",
+                "dropshipping_item_model_number",
                 "address",
                 "zipcode",
                 "delivery_method",
@@ -541,7 +854,7 @@ class Dropshipping(View):
 
         # 更新柜子派送类型
         pallets = await sync_to_async(list)(
-            Pallet.objects.filter(container_number__container_number=container_number)
+            Pallet.objects.filter(container_number__container_number=container_number, delivery_type="一件代发")
         )
         types = {plt.delivery_type for plt in pallets if plt.delivery_type}
         if not types:
@@ -552,7 +865,7 @@ class Dropshipping(View):
         co.delivery_type = new_type
         await sync_to_async(co.save)()
 
-        return await self.handle_warehouse_post(request)
+        return await self.handle_warehouse_post_inventory(request)
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
         context = {

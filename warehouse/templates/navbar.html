@@ -160,6 +160,13 @@
                                 <a href="{% url 'dropshipping' %}?step=order_management_list" target="_blank">订单列表</a>
                                 <a href="{% url 'dropshipping' %}?step=palletize_all" target="_blank">拆柜入库</a>
                                 <a href="{% url 'dropshipping' %}?step=inventory_all" target="_blank">库存管理</a>
+                                <div class="nested-dropdown">
+                                    <a>异常拆柜</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'dropshipping' %}?step=abnormal" target="_blank">待处理异常</a>
+                                        <a href="{% url 'dropshipping' %}?step=abnormal_records" target="_blank">异常拆柜记录</a>
+                                    </div>
+                                </div>
                                 <a href="{% url 'postdrop' %}?step=postport_delivery" target="_blank">港后派送</a>
                                 <a href="{% url 'postdrop' %}?step=account_rec" target="_blank">应收账单</a>
                             </div>

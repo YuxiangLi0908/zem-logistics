@@ -33,8 +33,7 @@
                     <tr>
                         <th class="th">客户</th>
                         <th class="th">订单类型</th>
-                        <th class="th" id="td-order-area-th" {% if selected_order.order_type == "直送" %}style="display: none;"{% endif %}>所属仓</th>
-                        <th class="th" id="dd-order-destination-th" {% if selected_order.order_type == "转运" %}style="display: none;"{% endif %}>直送地址</th>
+                        <th class="th" id="td-order-area-th">所属仓</th>
                         <th class="th">柜号</th>
                         <th class="th">柜型</th>
                         <th class="th">柜重</th>
@@ -59,15 +58,12 @@
                                 {% endif %}{% endfor %}
                             </select>
                         </td>
-                        <td class="td" id="td-order-area" {% if selected_order.order_type == "直送" %}style="display: none;"{% endif %}>
+                        <td class="td" id="td-order-area">
                             <select name="area">
                                 {% for k, v in area.items %}
                                 <option value="{{ v }}" {% if k == selected_order.retrieval_id.retrieval_destination_area %}selected{% endif %}>{{ k }}</option>
                                 {% endfor %}
                             </select>
-                        </td>
-                        <td class="td" id="dd-order-destination" {% if selected_order.order_type == "转运" %}style="display: none;"{% endif %}>
-                            <input type="text" name="destination" id="infoOrderDestination" value="{{ packing_list.0.destination }}">
                         </td>
                         <td class="td">
                             <input type="text" name="container_number" id="infoContainerNumber" value="{{ selected_order.container_number.container_number }}" required>

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>{% if warehouse %}{{ warehouse }}{% endif %}异常拆柜记录</b></div>
+</div>
+
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓点区域:</b>
+        <input type="hidden" name="step" value="abnormal_records">
+        <select name="warehouse">
+            <option value="" {% if not warehouse %}selected{% endif %}></option>
+            <option value="NJ" {% if warehouse == "NJ" %}selected{% endif %}>NJ</option>
+            <option value="SAV" {% if warehouse == "SAV" %}selected{% endif %}>SAV</option>
+            <option value="LA" {% if warehouse == "LA" %}selected{% endif %}>LA</option>
+            <option value="MO" {% if warehouse == "MO" %}selected{% endif %}>MO</option>
+            <option value="TX" {% if warehouse == "TX s" %}selected{% endif %}>TX s</option>
+            <option value="CA" {% if warehouse == "CA" %}selected{% endif %}>CA</option>
+        </select>
+        <button type="submit">确认</button>
+    </div>
+</form>
+
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
+
+{% block abnormal_records %}
+        
+{% endblock %}
+
+{% endblock %}
