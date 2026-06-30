@@ -160,7 +160,7 @@ class Dropshipping(View):
             template, context = await self.handle_palletization_abnormal_get()
             return await sync_to_async(render)(request, template, context)
         elif step == "abnormal_records":
-            return await sync_to_async(render)(request, self.template_pallet_abnormal_records_search, {})
+            return await sync_to_async(render)(request, self.template_pallet_abnormal_records_search, {"page_title": "异常拆柜记录",})
 
 
 
@@ -314,13 +314,13 @@ class Dropshipping(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "warehouse_abnormal":
             template, context = await self.handle_warehosue_abnormal_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "amend_abnormal":
             template, context = await self.handle_amend_abnormal_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "warehouse_daily":
             template, context = await self.handle_warehouse_daily_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
 
     async def handle_amend_abnormal_post(
         self, request: HttpRequest
@@ -604,6 +604,7 @@ class Dropshipping(View):
                 .order_by("name")
                 .values_list("name", "name")
             ),
+            "page_title": "待处理异常",
         }
         if include_all:
             return self.template_pallet_abnormal_records_display, context
@@ -1385,7 +1386,9 @@ class Dropshipping(View):
                 .order_by("name")
                 .values_list("name", "name")
             ),
-            "is_shipment_batch_numbers": self.is_shipment_batch_numbers}
+            "is_shipment_batch_numbers": self.is_shipment_batch_numbers,
+            "page_title": "库存管理",
+        }
         return self.template_inventory_management_main, context
 
     async def handle_packing_list_post(
@@ -3508,12 +3511,14 @@ class Dropshipping(View):
                 "warehouse": warehouse,
                 "unpacking_personnel": unpacking_personnel,
                 "error_msg": error_msg,
+                "page_title": "拆柜入库",
             }
         else:
             context = {
                 "warehouse_form": ZemWarehouseForm(),
                 "unpacking_personnel": unpacking_personnel,
                 "error_msg": error_msg,
+                "page_title": "拆柜入库",
             }
         return self.template_palletization_main, context
 
@@ -3733,6 +3738,7 @@ class Dropshipping(View):
             "orders_at_warehouse": orders_at_warehouse,
             "orders_palletized": orders_palletized,
             "current_date": current_date,
+            "page_title": "货柜追踪提醒",
         }
         return self.template_status_summary, context
 
@@ -4074,6 +4080,7 @@ class Dropshipping(View):
             "orders_not_scheduled": orders_not_scheduled,
             "orders_not_pickup": orders_not_pickup,
             "current_date": current_date,
+            "page_title": "港口调度",
         }
         return self.template_terminal_dispatch, context
 
@@ -4719,6 +4726,7 @@ class Dropshipping(View):
             "area": self.area,
             "container_type": self.container_type,
             "unfinished_orders": unfinished_orders,
+            "page_title": "创建订单",
         }
         return self.template_order_create_base, context
 
@@ -5538,6 +5546,7 @@ class Dropshipping(View):
             "end_date_eta": end_date_eta,
             "start_date_etd": start_date_etd,
             "end_date_etd": end_date_etd,
+            "page_title": "订单列表",
         }
 
         return self.template_order_list, context
@@ -5748,6 +5757,7 @@ class Dropshipping(View):
         context = {
             "t49_pending_orders": t49_pending_orders,
             "t49_pending_count": len(t49_pending_orders),
+            "page_title": "T49待追踪",
         }
 
         return self.template_repeat_t49_all, context
