@@ -82,6 +82,7 @@ from warehouse.utils.constants import (
 )
 from warehouse.views.post_port.post_nsop import PostNsop
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
+from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.receivable_accounting import ReceivableAccounting
 
     
@@ -222,6 +223,63 @@ class PostDrop(View):
             # 导出Maersk BOL
             pn = PostNsop()
             return await pn.handle_export_maersk_bol(request)
+        elif step == "confirm_delivery":
+            # 确认送达
+            fm = FleetManagement()
+            context = await fm.handle_confirm_delivery_post(request, 'post_nsop')
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": '确认送达成功!'})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_confirm_delivery":
+            # 批量确认送达
+            fm = FleetManagement()
+            count = await fm.handle_batch_confirm_delivery_post(request)
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": f'已成功确认 {count} 个批次送达!'})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "abnormal_fleet":
+            # 车次异常处理
+            fm = FleetManagement()
+            await fm.handle_abnormal_fleet_post(request, 'post_nsop')
+            sm = ShippingManagement()
+            await sm.handle_cancel_abnormal_appointment_post(request, 'post_nsop')
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": '异常处理成功!'})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "set_shipping_no_link" or step == "batch_set_shipping_no_link":
+            # 设置出库单不回传（单个或批量）
+            pn = PostNsop()
+            _, pn_ctx = await pn.handle_set_shipping_no_link(request)
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": pn_ctx.get('success_messages', '操作成功!')})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "shipping_order_upload" or step == "batch_shipping_order_upload":
+            # 回传出库单（单个或批量）
+            pn = PostNsop()
+            _, pn_ctx = await pn.handle_shipping_order_upload(request)
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": pn_ctx.get('success_messages', '出库单上传成功!')})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_pod_upload":
+            # 批量POD上传
+            fm = FleetManagement()
+            await fm.handle_pod_upload_post(request, 'post_nsop')
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": '批量POD上传成功!'})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "save_shipping_tracking":
+            # 保存物流跟踪信息
+            pn = PostNsop()
+            await pn.handle_save_shipping_tracking(request)
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_pod_status":
+            # 更新POD回传状态
+            pn = PostNsop()
+            _, pn_ctx = await pn.handle_update_pod_status(request)
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": pn_ctx.get('success_messages', 'POD状态更新成功!')})
+            return await sync_to_async(render)(request, template, context)
         else:
             raise ValueError('wrong step',step)
         
@@ -720,6 +778,47 @@ class PostDrop(View):
             context['error_messages'] = f"未知的费用类型：{fee_type}！"
             return template, context
 
+        # 自动初始化费用项：如果账单状态未录入，自动创建默认费用
+        status_obj = await sync_to_async(InvoiceStatusv2.objects.filter(
+            invoice=invoice, invoice_type="receivable"
+        ).first)()
+        if fee_type == "preport" and status_obj and status_obj.preport_status != "completed":
+            existing = await sync_to_async(InvoiceItemv2.objects.filter(
+                invoice_number=invoice, item_category="preport"
+            ).exists)()
+            if not existing:
+                await sync_to_async(InvoiceItemv2.objects.create)(
+                    container_number=invoice.container_number,
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="preport",
+                    description="提拆费",
+                    amount=950,
+                    rate=950,
+                    qty=1,
+                )
+        elif fee_type == "warehouse" and status_obj and status_obj.warehouse_other_status != "completed":
+            existing = await sync_to_async(InvoiceItemv2.objects.filter(
+                invoice_number=invoice, item_category="warehouse_other"
+            ).exists)()
+            if not existing:
+                warehouse_fees = [
+                    {"description": "出库费TBR", "rate": 3, "amount": 3},
+                    {"description": "出库费PCR", "rate": 1, "amount": 1},
+                    {"description": "仓储费TBR", "rate": 3.5, "amount": 3.5},
+                    {"description": "仓储费PCR", "rate": 3.5, "amount": 3.5},
+                ]
+                for fee in warehouse_fees:
+                    await sync_to_async(InvoiceItemv2.objects.create)(
+                        container_number=invoice.container_number,
+                        invoice_number=invoice,
+                        invoice_type="receivable",
+                        item_category="warehouse_other",
+                        description=fee["description"],
+                        amount=fee["amount"],
+                        rate=fee["rate"],
+                    )
+
         # 查询已录费用
         items = await sync_to_async(list)(
             InvoiceItemv2.objects.filter(
@@ -898,7 +997,7 @@ class PostDrop(View):
                                 invoice=invoice, invoice_type="receivable"
                             ).update)(warehouse_other_status="completed")
                             invoice.receivable_wh_other_amount = total_amount
-                        invoice.save()
+                        await sync_to_async(invoice.save)()
 
                         messages['info_messages'] = (
                             f"账单号 {invoice_number_str} 的 {fee_type_display} "
