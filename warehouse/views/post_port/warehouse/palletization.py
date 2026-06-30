@@ -2863,13 +2863,32 @@ class Palletization(View):
 
                     cbm *= n_label
                     label_count = int(cbm)
-                if (    customer_name == "JINYU"
-                        or "客户自提" in pl.get("destination")
-                        or "自提" in pl.get("destination")
-                        or "客户自提" in delivery_method
-                        or "other" in pl.get("delivery_type")
-                        or "暂扣留仓" in delivery_method.split("-")[0]
-                        or "特操" in pl.get("note", "")
+                if customer_name == "JINYU":
+                    if ("客户自提" in pl.get("dropshipping_item_model_number") or "自提" in pl.get(
+                            "dropshipping_item_model_number")):
+                        destination = "S/P"
+                    else:
+                        destination = pl.get("dropshipping_item_model_number")
+                    marks = pl.get("shipping_marks") or pl.get("shipping_mark")
+                    new_marks = None
+                    if marks:
+                        array = marks.split(",")
+                        if len(array) > 2:
+                            parts = []
+                            for i in range(0, len(array), 2):
+                                part = ",".join(array[i: i + 2])
+                                parts.append(part)
+                            new_marks = "\n".join(parts)
+                            newline_count = new_marks.count("\n") + 1
+                            new_marks = new_marks + "TTT" + str(newline_count)
+                        else:
+                            new_marks = marks + "TTT1"
+                elif ("客户自提" in pl.get("destination")
+                      or "自提" in pl.get("destination")
+                      or "客户自提" in delivery_method
+                      or "other" in pl.get("delivery_type")
+                      or "暂扣留仓" in delivery_method.split("-")[0]
+                      or "特操" in pl.get("note", "")
                 ):
                     if ("客户自提" in pl.get("destination") or "自提" in pl.get("destination")):
                         destination = "S/P"

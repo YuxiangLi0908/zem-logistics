@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
+<div style="text-align: center; margin-bottom: 15px;">
+    <h3>库存管理——PO更新</h3>
+</div>
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="update_po">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
+    <input type="hidden" name="plt_ids" value="{{ plt_ids }}">
+    <input type="hidden" name="container_number" value="{{ pallet.container }}">
+    <input type="hidden" name="is_destroyed" id="is_destroyed" value="False">
+    <div style="display: flex; justify-content: space-between; width: 100%;">
+        <button type="submit" class="btn btn-success" style="font-size: 11px;">更新PO</button>
+        <button type="submit" class="btn btn-danger" style="font-size: 11px;" 
+                onclick="setDestroyedAndSubmit(this.form)">销毁PO</button>
+    </div>
+    <table class="table" id="pallets-info" style="font-size: 11px; width: 100%;">
+        <thead>
+            <th class="th">客户</th>
+            <th class="th">柜号</th>
+            <th class="th">目的地</th>
+            <th class="th">地址</th>
+            <th class="th">邮编</th>
+            <th class="th">派送方式</th>
+            <th class="th">派送类型</th>
+            <th class="th">weight(lbs)</th>
+            <th class="th">pcs</th>
+            <th class="th">cbm</th>
+            <th class="th">卡板数</th>
+            <th class="th">仓库</th>
+            <th class="th">备注</th>
+        </thead>
+        <tbody>
+            <td class="td">{{ pallet.customer_name }}</td>
+            <td class="td">{{ pallet.container }}</td>
+            <td class="td"><input name="destination" value="{{ pallet.destination }}" required></td>
+            <td class="td"><input name="address" value="{{ pallet.address }}"></td>
+            <td class="td"><input name="zipcode" value="{{ pallet.zipcode }}"></td>
+            <td class="td">
+                <select name="delivery_method">
+                    {% for k, v in delivery_method_options %}
+                    <option value="{{ v }}" {%if k == pallet.delivery_method %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td class="td">
+                <select name="delivery_type_new">
+                    {% for k, v in delivery_types %}
+                    <option value="{{ v }}" {%if v == pallet.delivery_type %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td class="td"><input name="weight" value="{{ pallet.weight }}"></td>
+            <td class="td"><input name="pcs" value="{{ pallet.pcs }}"></td>
+            <td class="td"><input name="cbm" value="{{ pallet.cbm }}"></td>
+            <td class="td"><input name="n_pallet" value="{{ pallet.n_pallet }}"></td>
+            <td class="td"><input name="location" value="{{ pallet.location }}"></td>
+            <td class="td"><input name="note" value="{{ pallet.note }}"></td>
+        </tbody>
+    </table>
+    <table class="table" id="po-info" style="font-size: 11px; width: 100%;">
+        <thead>
+            <th class="th">唛头</th>
+            <th class="th">FBA</th>
+            <th class="th">REF</th>
+        </thead>
+        <tbody>
+            {% for pl in packing_list%}
+            <tr>
+                <input type="hidden" name="pl_ids" value="{{ pl.id }}">
+                <td class="td">
+                    <input name="shipping_mark_new" value="{{ pl.shipping_mark|default_if_none:"" }}">
+                    <input type="hidden" name="shipping_mark" value="{{ pl.shipping_mark|default_if_none:"" }}">
+                </td>
+                <td class="td">
+                    <input name="fba_id_new" value="{{ pl.fba_id|default_if_none:"" }}">
+                    <input type="hidden" name="fba_id" value="{{ pl.fba_id|default_if_none:"" }}">
+                </td>
+                <td class="td">
+                    <input name="ref_id_new" value="{{ pl.ref_id }}">
+                    <input type="hidden" name="ref_id" value="{{ pl.ref_id|default_if_none:"" }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</form>
+
+<script>
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+    function setDestroyedAndSubmit(form) {
+        document.getElementById('is_destroyed').value = "True";
+    }
+</script>
+{% endblock %}

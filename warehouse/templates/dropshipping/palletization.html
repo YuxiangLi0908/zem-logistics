@@ -20,7 +20,7 @@
         {% csrf_token %}
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
             <b style="font-weight: 600; color: #333;">选择仓库:</b>
-            <input type="hidden" name="step" value="warehouse">
+            <input type="hidden" name="step" value="warehouse_palletize">
             {{ warehouse_form.name }}
 
             <button type="submit" style="padding: 6px 14px; background-color: #165DFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
