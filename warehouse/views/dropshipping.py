@@ -138,19 +138,19 @@ class Dropshipping(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "palletize_all":
             template, context = await self.handle_all_get_palletize(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "container_palletization":
             template, context = await self.handle_container_palletization_get(
                 request, pk
             )
             await sync_to_async(lambda: request.user.is_authenticated)()
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "inventory_all":
             template, context = await self.handle_inventory_management_get()
-            return render(request, template, context)
+            return await sync_to_async(render)(request,template,context)
         elif step == "counting":
             template, context = await self.handle_counting_get()
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
 
 
 
@@ -268,10 +268,10 @@ class Dropshipping(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "warehouse_palletize":
             template, context = await self.handle_warehouse_post_palletize(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "trans_arrival":
             template, context = await self.handle_trans_arrival_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "export_pallet_label":
             return await self._export_pallet_label(request)
         elif step == "export_palletization_list":
@@ -280,28 +280,28 @@ class Dropshipping(View):
             return await self.export_palletization_list_v2(request)
         elif step == "cancel":
             template, context = await self.handle_cancel_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "back":
             template, context = await self.handle_warehouse_post_palletize(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "palletize":
             pk = kwargs.get("pk")
             template, context = await self.handle_packing_list_post(request, pk)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "warehouse_inventory":
             template, context = await self.handle_warehouse_post_inventory(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "export_inventory":
             return await self.handle_export_inventory(request)
         elif step == "update_po_page":
             template, context = await self.handle_update_po_page_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "repalletize":
             template, context = await self.handle_repalletize_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
         elif step == "update_po":
             template, context = await self.handle_update_po_post(request)
-            return render(request, template, context)
+            return await sync_to_async(render)(request, template, context)
 
     async def handle_update_po_post(
             self, request: HttpRequest
