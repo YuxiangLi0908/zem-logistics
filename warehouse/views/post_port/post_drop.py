@@ -81,6 +81,7 @@ from warehouse.utils.constants import (
     DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE
 )
 from warehouse.views.post_port.post_nsop import PostNsop
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.receivable_accounting import ReceivableAccounting
 
     
@@ -194,6 +195,33 @@ class PostDrop(View):
         elif step == "ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "cancel_fleet":
+            # 删除车次后返回一件代发待出库界面
+            fm = FleetManagement()
+            await fm.handle_cancel_fleet_post(request, 'post_nsop')
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context.update({"success_messages": '取消批次成功!'})
+            return await sync_to_async(render)(request, template, context)
+        elif step == "upload_self_pickup_file":
+            # 客户自提BOL文件下载
+            pn = PostNsop()
+            return await pn.handle_bol_upload_post(request)
+        elif step == "export_ltl_label":
+            # 导出LTL Label
+            pn = PostNsop()
+            return await pn.export_ltl_label(request)
+        elif step == "export_ltl_bol":
+            # 导出LTL BOL
+            pn = PostNsop()
+            return await pn.export_ltl_bol(request)
+        elif step == "export_maersk_label":
+            # 导出Maersk Label
+            pn = PostNsop()
+            return await pn.handle_export_maersk_label(request)
+        elif step == "export_maersk_bol":
+            # 导出Maersk BOL
+            pn = PostNsop()
+            return await pn.handle_export_maersk_bol(request)
         else:
             raise ValueError('wrong step',step)
         
