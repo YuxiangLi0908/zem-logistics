@@ -13,8 +13,8 @@
     }
 
     :root {
-        --primary-color: #1b5e20;
-        --secondary-color: #0d3d14;
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
         --success-color: #2e7d32;
         --warning-color: #ff6f00;
         --danger-color: #b71c1c;
@@ -24,7 +24,7 @@
     }
 
     .finance-header {
-        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
         color: white;
         padding: 25px 30px;
         display: flex;
@@ -88,7 +88,7 @@
     }
 
     .filter-controls button:hover {
-        background: #219652;
+        background: #7a1a1a;
         transform: translateY(-1px);
     }
 
@@ -301,9 +301,12 @@
         font-weight: 600;
         transition: all 0.3s ease;
         padding: 3px 6px;
+        border: none;
+        background: transparent;
         border-radius: 4px;
         font-size: 14px;
         display: inline-block;
+        cursor: pointer;
     }
 
     .fee-link:hover {
@@ -420,6 +423,16 @@
 </style>
 
 <div class="finance-system">
+    {% if info_messages %}
+    <div style="background:#d4edda;color:#155724;padding:10px 16px;border:1px solid #c3e6cb;border-radius:6px;margin:10px 0;">
+        <i class="fas fa-info-circle"></i> {{ info_messages }}
+    </div>
+    {% endif %}
+    {% if error_messages %}
+    <div style="background:#f8d7da;color:#721c24;padding:10px 16px;border:1px solid #f5c6cb;border-radius:6px;margin:10px 0;">
+        <i class="fas fa-exclamation-circle"></i> {{ error_messages }}
+    </div>
+    {% endif %}
     <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
         {% csrf_token %}
         <div class="finance-header">
@@ -475,6 +488,7 @@
                                 <th class="th" data-column="customer">客户</th>
                                 <th class="th" data-column="container">柜号</th>
                                 <th class="th" data-column="warehouse">仓库</th>
+                                <th class="th" data-column="invoice-number">账单号</th>
                                 <th class="th" data-column="preport-fee">提拆费</th>
                                 <th class="th" data-column="wh-fee">库内费</th>
                             </tr>
@@ -488,6 +502,9 @@
                                 <th class="th">
                                     <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'pending-table')">
                                 </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索账单号..." oninput="filterTable(this, 3, 'pending-table')">
+                                </th>
                                 <th class="th"></th>
                                 <th class="th"></th>
                             </tr>
@@ -498,33 +515,49 @@
                                 <tr data-customer="{{ item.customer_name|default:''|lower }}"
                                     data-container="{{ item.container_number|default:''|lower }}"
                                     data-warehouse="{{ item.warehouse|default:''|lower }}"
+                                    data-invoice_number="{{ item.invoice_number|default:''|lower }}"
                                     {% if item.preport_status == 'rejected' or item.warehouse_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                     <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
                                     <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
                                     <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
+                                    <td class="td" data-column="invoice-number">{{ item.invoice_number|default:"-" }}</td>
                                     <td class="td" data-column="preport-fee">
-                                        <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
-                                            {% if item.preport_amount is not None %}
-                                                ${{ item.preport_amount|floatformat:2 }}
-                                            {% else %}
-                                                <i class="fas fa-edit"></i> 录入
-                                            {% endif %}
-                                        </a>
+                                        <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="account_edit_fee">
+                                            <input type="hidden" name="invoice_number" value="{{ item.invoice_number }}">
+                                            <input type="hidden" name="container_number" value="{{ item.container_number }}">
+                                            <input type="hidden" name="fee_type" value="preport">
+                                            <button type="submit" class="fee-link">
+                                                {% if item.preport_amount is not None %}
+                                                    ${{ item.preport_amount|floatformat:2 }}
+                                                {% else %}
+                                                    <i class="fas fa-edit"></i> 录入
+                                                {% endif %}
+                                            </button>
+                                        </form>
                                     </td>
                                     <td class="td" data-column="wh-fee">
-                                        <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
-                                            {% if item.wh_other_amount is not None %}
-                                                ${{ item.wh_other_amount|floatformat:2 }}
-                                            {% else %}
-                                                <i class="fas fa-edit"></i> 录入
-                                            {% endif %}
-                                        </a>
+                                        <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="account_edit_fee">
+                                            <input type="hidden" name="invoice_number" value="{{ item.invoice_number }}">
+                                            <input type="hidden" name="container_number" value="{{ item.container_number }}">
+                                            <input type="hidden" name="fee_type" value="warehouse">
+                                            <button type="submit" class="fee-link">
+                                                {% if item.wh_other_amount is not None %}
+                                                    ${{ item.wh_other_amount|floatformat:2 }}
+                                                {% else %}
+                                                    <i class="fas fa-edit"></i> 录入
+                                                {% endif %}
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="5" class="empty-row">
+                                    <td colspan="6" class="empty-row">
                                         <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
                                         <p>暂无待录入订单</p>
                                     </td>
@@ -548,6 +581,7 @@
                                 <th class="th" data-column="customer">客户</th>
                                 <th class="th" data-column="container">柜号</th>
                                 <th class="th" data-column="warehouse">仓库</th>
+                                <th class="th" data-column="invoice-number">账单号</th>
                                 <th class="th" data-column="preport-fee">提拆费</th>
                                 <th class="th" data-column="wh-fee">库内费</th>
                                 <th class="th" data-column="finance-status">财务状态</th>
@@ -561,6 +595,9 @@
                                 </th>
                                 <th class="th">
                                     <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'recorded-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索账单号..." oninput="filterTable(this, 3, 'recorded-table')">
                                 </th>
                                 <th class="th"></th>
                                 <th class="th"></th>
@@ -579,27 +616,41 @@
                                 <tr data-customer="{{ item.customer_name|default:''|lower }}"
                                     data-container="{{ item.container_number|default:''|lower }}"
                                     data-warehouse="{{ item.warehouse|default:''|lower }}"
+                                    data-invoice_number="{{ item.invoice_number|default:''|lower }}"
                                     data-finance_status="{{ item.finance_status_value|default:'unconfirmed' }}">
                                     <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
                                     <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
                                     <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
+                                    <td class="td" data-column="invoice-number">{{ item.invoice_number|default:"-" }}</td>
                                     <td class="td" data-column="preport-fee">
-                                        <a href="{% url 'postdrop' %}?step=preport_fee&container_number={{ item.container_number }}" class="fee-link">
-                                            {% if item.preport_amount is not None %}
-                                                ${{ item.preport_amount|floatformat:2 }}
-                                            {% else %}
-                                                <i class="fas fa-eye"></i> 查看
-                                            {% endif %}
-                                        </a>
+                                        <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="account_edit_fee">
+                                            <input type="hidden" name="invoice_number" value="{{ item.invoice_number }}">
+                                            <input type="hidden" name="fee_type" value="preport">
+                                            <button type="submit" class="fee-link">
+                                                {% if item.preport_amount is not None %}
+                                                    ${{ item.preport_amount|floatformat:2 }}
+                                                {% else %}
+                                                    <i class="fas fa-eye"></i> 查看
+                                                {% endif %}
+                                            </button>
+                                        </form>
                                     </td>
                                     <td class="td" data-column="wh-fee">
-                                        <a href="{% url 'postdrop' %}?step=warehouse_fee&container_number={{ item.container_number }}" class="fee-link">
-                                            {% if item.wh_other_amount is not None %}
-                                                ${{ item.wh_other_amount|floatformat:2 }}
-                                            {% else %}
-                                                <i class="fas fa-eye"></i> 查看
-                                            {% endif %}
-                                        </a>
+                                        <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="account_edit_fee">
+                                            <input type="hidden" name="invoice_number" value="{{ item.invoice_number }}">
+                                            <input type="hidden" name="fee_type" value="warehouse">
+                                            <button type="submit" class="fee-link">
+                                                {% if item.wh_other_amount is not None %}
+                                                    ${{ item.wh_other_amount|floatformat:2 }}
+                                                {% else %}
+                                                    <i class="fas fa-eye"></i> 查看
+                                                {% endif %}
+                                            </button>
+                                        </form>
                                     </td>
                                     <td class="td" data-column="finance-status">
                                         {% if item.finance_status_value == 'completed' %}
@@ -612,7 +663,7 @@
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="6" class="empty-row">
+                                    <td colspan="7" class="empty-row">
                                         <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
                                         <p>暂无已录入订单</p>
                                     </td>
@@ -643,14 +694,14 @@
 
     // 全局变量存储每个表格的筛选状态
     const tableFilters = {
-        'pending-table': { customer: '', container: '', warehouse: '' },
-        'recorded-table': { customer: '', container: '', warehouse: '', finance_status: '' }
+        'pending-table': { customer: '', container: '', warehouse: '', invoice_number: '' },
+        'recorded-table': { customer: '', container: '', warehouse: '', invoice_number: '', finance_status: '' }
     };
 
     // 列名映射
     const columnMaps = {
-        'pending-table': ['customer', 'container', 'warehouse', '', ''],
-        'recorded-table': ['customer', 'container', 'warehouse', '', '', 'finance_status']
+        'pending-table': ['customer', 'container', 'warehouse', 'invoice_number', '', ''],
+        'recorded-table': ['customer', 'container', 'warehouse', 'invoice_number', '', '', 'finance_status']
     };
 
     // 通用文本搜索函数
