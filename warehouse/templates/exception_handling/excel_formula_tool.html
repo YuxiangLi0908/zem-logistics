@@ -82,9 +82,195 @@
   tr:hover {
     background-color: #eef3f7;
   }
+
+  /* PDF合并模态框样式 */
+  .pdf-merge-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+  }
+  .pdf-merge-overlay.show { display: flex; }
+
+  .pdf-merge-modal {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 600px;
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pdf-merge-header {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    color: white;
+    padding: 16px 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .pdf-merge-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .pdf-merge-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .pdf-drop-zone {
+    border: 3px dashed #bbb;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: #fafafa;
+    color: #888;
+  }
+  .pdf-drop-zone:hover {
+    border-color: #e74c3c;
+    background: #fdf2f1;
+    color: #e74c3c;
+  }
+  .pdf-drop-zone.dragover {
+    border-color: #e74c3c;
+    background: #fceae8;
+    transform: scale(1.01);
+  }
+  .pdf-drop-zone .drop-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+  }
+
+  .pdf-file-list {
+    margin-top: 15px;
+    list-style: none;
+    padding: 0;
+  }
+  .pdf-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #e9ecef;
+    font-size: 0.9rem;
+  }
+  .pdf-file-item .file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .pdf-file-item .file-index {
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .pdf-file-item .file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pdf-file-item .file-remove {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+  .pdf-file-item .file-move {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .pdf-file-item .file-move button {
+    background: #dee2e6;
+    border: none;
+    border-radius: 4px;
+    width: 24px; height: 24px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #495057;
+    padding: 0;
+  }
+  .pdf-file-item .file-move button:hover { background: #adb5bd; }
+
+  .pdf-merge-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .pdf-merge-btn {
+    padding: 9px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .pdf-merge-btn-cancel {
+    background: #e9ecef;
+    color: #495057;
+  }
+  .pdf-merge-btn-cancel:hover { background: #dee2e6; }
+  .pdf-merge-btn-do {
+    background: #e74c3c;
+    color: white;
+  }
+  .pdf-merge-btn-do:hover { background: #c0392b; }
+  .pdf-merge-btn-do:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+
+  .pdf-merge-trigger {
+    background-color: #e74c3c !important;
+  }
+  .pdf-merge-trigger:hover {
+    background-color: #c0392b !important;
+  }
+
 </style>
 
 <h2>📊 Excel 粘贴与批量公式计算</h2>
+
+<div style="margin-bottom: 20px;">
+  <button class="pdf-merge-trigger" onclick="openPdfMergeModal()">📄 PDF 合并工具</button>
+</div>
+
+<hr style="border: none; border-top: 2px solid #e9ecef; margin: 20px 0;">
 
 <textarea id="excel-input" placeholder="从 Excel 复制后在此粘贴 (Ctrl+V)..."></textarea>
 
@@ -105,6 +291,29 @@
 </div>
 
 <div id="table-container"></div>
+
+<!-- PDF合并模态框 -->
+<div class="pdf-merge-overlay" id="pdfMergeOverlay">
+  <div class="pdf-merge-modal">
+    <div class="pdf-merge-header">
+      <span>📄 PDF 合并工具</span>
+      <button class="pdf-merge-close" onclick="closePdfMergeModal()">&times;</button>
+    </div>
+    <div class="pdf-merge-body">
+      <div class="pdf-drop-zone" id="pdfDropZone" onclick="document.getElementById('pdfFileInput').click()">
+        <div class="drop-icon">☁️</div>
+        <div>将多个 PDF 文件拖拽到此处，或点击选择文件</div>
+        <div style="font-size: 0.8rem; margin-top: 6px;">合并顺序为文件添加顺序，可用箭头调整</div>
+      </div>
+      <input type="file" id="pdfFileInput" accept="application/pdf" multiple style="display:none;">
+      <ul class="pdf-file-list" id="pdfFileList"></ul>
+    </div>
+    <div class="pdf-merge-footer">
+      <button class="pdf-merge-btn pdf-merge-btn-cancel" onclick="closePdfMergeModal()">取消</button>
+      <button class="pdf-merge-btn pdf-merge-btn-do" id="pdfMergeDoBtn" onclick="doMergePdfs()" disabled>合并并下载</button>
+    </div>
+  </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -197,5 +406,175 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
 });
+
+// ==================== PDF合并功能 ====================
+let pdfMergeFiles = []; // 存储待合并的PDF文件
+
+function openPdfMergeModal() {
+  document.getElementById('pdfMergeOverlay').classList.add('show');
+}
+
+function closePdfMergeModal() {
+  document.getElementById('pdfMergeOverlay').classList.remove('show');
+}
+
+function renderPdfFileList() {
+  const listEl = document.getElementById('pdfFileList');
+  const doBtn = document.getElementById('pdfMergeDoBtn');
+  listEl.innerHTML = '';
+
+  if (pdfMergeFiles.length === 0) {
+    doBtn.disabled = true;
+    return;
+  }
+  doBtn.disabled = false;
+
+  pdfMergeFiles.forEach((file, index) => {
+    const li = document.createElement('li');
+    li.className = 'pdf-file-item';
+    li.innerHTML = `
+      <div class="file-info">
+        <span class="file-index">${index + 1}</span>
+        <span class="file-name" title="${file.name}">${file.name}</span>
+      </div>
+      <div class="file-move">
+        <button onclick="movePdfFile(${index}, -1)" title="上移" ${index === 0 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>&#9650;</button>
+        <button onclick="movePdfFile(${index}, 1)" title="下移" ${index === pdfMergeFiles.length - 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>&#9660;</button>
+      </div>
+      <button class="file-remove" onclick="removePdfFile(${index})" title="移除">&times;</button>
+    `;
+    listEl.appendChild(li);
+  });
+}
+
+function addPdfFiles(files) {
+  const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+  if (pdfFiles.length === 0) {
+    alert('请选择 PDF 格式的文件');
+    return;
+  }
+  pdfMergeFiles = pdfMergeFiles.concat(pdfFiles);
+  renderPdfFileList();
+}
+
+function removePdfFile(index) {
+  pdfMergeFiles.splice(index, 1);
+  renderPdfFileList();
+}
+
+function movePdfFile(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= pdfMergeFiles.length) return;
+  [pdfMergeFiles[index], pdfMergeFiles[newIndex]] = [pdfMergeFiles[newIndex], pdfMergeFiles[index]];
+  renderPdfFileList();
+}
+
+async function doMergePdfs() {
+  if (pdfMergeFiles.length < 2) {
+    alert('至少需要 2 个 PDF 文件才能合并');
+    return;
+  }
+
+  const doBtn = document.getElementById('pdfMergeDoBtn');
+  const originalText = doBtn.textContent;
+  doBtn.disabled = true;
+  doBtn.textContent = '合并中...';
+
+  try {
+    const formData = new FormData();
+    formData.append('step', 'merge_pdfs');
+    pdfMergeFiles.forEach(file => formData.append('pdfs', file));
+
+    // 从 cookie 取 CSRF 令牌并通过 header 发送（Django AJAX 标准做法）
+    const csrfToken = (function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    })('csrftoken');
+
+    const headers = {};
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+
+    const response = await fetch('/exception_handling/', {
+      method: 'POST',
+      headers: headers,
+      credentials: 'same-origin',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      // 尝试解析 JSON 错误信息，否则显示 HTTP 状态码 + 截断的响应文本
+      let errorMsg = `服务器返回 ${response.status}`;
+      const text = await response.text();
+      try {
+        const errData = JSON.parse(text);
+        errorMsg = errData.error || errorMsg;
+      } catch {
+        if (text) errorMsg = `服务器返回 ${response.status}: ${text.substring(0, 300)}`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'merged_' + new Date().toISOString().slice(0, 10) + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // 合并完成后清空列表
+    pdfMergeFiles = [];
+    renderPdfFileList();
+    closePdfMergeModal();
+    alert('PDF 合并完成，已开始下载');
+  } catch (err) {
+    console.error('PDF合并失败:', err);
+    alert('PDF 合并失败: ' + err.message);
+  } finally {
+    doBtn.disabled = false;
+    doBtn.textContent = originalText;
+  }
+}
+
+// 拖拽 & 文件选择事件绑定
+(function initPdfMergeEvents() {
+  const dropZone = document.getElementById('pdfDropZone');
+  const fileInput = document.getElementById('pdfFileInput');
+
+  fileInput.addEventListener('change', function() {
+    if (this.files.length > 0) addPdfFiles(this.files);
+    this.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+
+  dropZone.addEventListener('drop', function(e) {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) addPdfFiles(files);
+  });
+
+  // 点击遮罩层外部关闭
+  document.getElementById('pdfMergeOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closePdfMergeModal();
+  });
+})();
 </script>
 {% endblock %}

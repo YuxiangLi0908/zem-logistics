@@ -81,12 +81,14 @@ from warehouse.utils.constants import (
     DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE
 )
 from warehouse.views.post_port.post_nsop import PostNsop
+from warehouse.views.receivable_accounting import ReceivableAccounting
 
     
 
 class PostDrop(View):
     template_ltl_pos_all = "post_port/new_sop/07_drop_shipping/07_ltl_main.html"
     template_account_rec = "post_port/new_sop/08_drop_ship_account/09_account_main.html"
+    template_account_edit = "post_port/new_sop/08_drop_ship_account/account_detail.html"
 
 
     container_type = {
@@ -173,6 +175,12 @@ class PostDrop(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "account_search":
             template, context = await self.handle_account_search(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "account_edit_fee":
+            template, context = await self.handle_account_edit_fee(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "account_save_fee":
+            template, context = await self.handle_account_save_fee(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "save_selfdel_cargo":
             template, context = await self.handle_save_selfdel_cargo(request)
@@ -642,6 +650,237 @@ class PostDrop(View):
             "recorded_orders": recorded_orders,
         }
         return self.template_account_rec, context
+
+    async def handle_account_edit_fee(
+            self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """一件代发应收账单：提拆费/库内费录入页面。
+        前端通过表单提交 invoice_number 和 fee_type(preport/warehouse)。
+        根据 invoice_number 查询账单和已录费用，显示到 template_account_edit 页面。"""
+        invoice_number = request.POST.get("invoice_number", "").strip()
+        container_number = request.POST.get("container_number", "").strip()
+        fee_type = request.POST.get("fee_type", "").strip()
+
+        if not invoice_number or invoice_number.lower() == "none":
+            ra = ReceivableAccounting()
+            invoice, invoice_status, invoice_status_payable = await sync_to_async(
+                ra._create_invoice_and_status
+            )(container_number)
+            invoice_number = invoice.invoice_number
+            
+
+        # 查询账单
+        invoice = await sync_to_async(
+            Invoicev2.objects.select_related("container_number")
+            .filter(invoice_number=invoice_number).first
+        )()
+
+        if not invoice:
+            template, context = await self.handle_account_search(request)
+            context['error_messages'] = f"未找到账单号 {invoice_number} 对应的账单！"
+            return template, context
+
+        # 确定 item_category
+        if fee_type == "preport":
+            item_category = "preport"
+            fee_type_display = "提拆费"
+        elif fee_type == "warehouse":
+            item_category = "warehouse_other"
+            fee_type_display = "库内费"
+        else:
+            template, context = await self.handle_account_search(request)
+            context['error_messages'] = f"未知的费用类型：{fee_type}！"
+            return template, context
+
+        # 查询已录费用
+        items = await sync_to_async(list)(
+            InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                item_category=item_category,
+            ).order_by("id")
+        )
+
+        # 查询柜号
+        container_number_str = (
+            invoice.container_number.container_number
+            if invoice.container_number else None
+        )
+
+        # 查询仓库（订单 retrieval_id.retrieval_destination_precise）
+        warehouse_name = None
+        warehouse_precise = None
+        if invoice.container_number:
+            order = await sync_to_async(Order.objects.select_related(
+                "retrieval_id", "warehouse"
+            ).filter(container_number=invoice.container_number).first)()
+            if order:
+                if order.retrieval_id:
+                    warehouse_precise = order.retrieval_id.retrieval_destination_precise
+                if order.warehouse:
+                    warehouse_name = order.warehouse.name
+
+        # 查询财务状态
+        finance_status_value = None
+        finance_status_display = "财务未确认，可编辑"
+        is_editable = True
+        status_obj = await sync_to_async(InvoiceStatusv2.objects.filter(
+            invoice=invoice, invoice_type="receivable"
+        ).first)()
+        if status_obj:
+            finance_status_value = status_obj.finance_status
+            if finance_status_value == "completed":
+                finance_status_display = "财务已确认，不可编辑"
+                is_editable = False
+            else:
+                finance_status_display = "财务未确认，可编辑"
+                is_editable = True
+
+        # 计算当前总价
+        total_amount = sum((item.amount or 0) for item in items)
+
+        context = {
+            "invoice_number": invoice_number,
+            "invoice_id": invoice.id,
+            "fee_type": fee_type,
+            "item_category": item_category,
+            "fee_type_display": fee_type_display,
+            "container_number": container_number_str,
+            "warehouse_name": warehouse_name,
+            "warehouse_precise": warehouse_precise,
+            "finance_status_value": finance_status_value,
+            "finance_status_display": finance_status_display,
+            "is_editable": is_editable,
+            "items": items,
+            "total_amount": total_amount,
+            "delivery_type_display": "一件代发",
+        }
+        return self.template_account_edit, context
+
+    async def handle_account_save_fee(
+            self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """一件代发应收账单：保存提拆费/库内费明细到 InvoiceItemv2 表。
+        保存后返回 template_account_rec 界面。"""
+        invoice_number_str = request.POST.get("invoice_number", "").strip()
+        fee_type = request.POST.get("fee_type", "").strip()
+
+        messages: dict[str, Any] = {}
+
+        if not invoice_number_str:
+            messages['error_messages'] = "缺少账单号，保存失败！"
+        else:
+            # 查询账单（预加载 container_number 关联，避免异步上下文里懒加载报错）
+            invoice = await sync_to_async(
+                Invoicev2.objects.select_related("container_number")
+                .filter(invoice_number=invoice_number_str).first
+            )()
+            if not invoice:
+                messages['error_messages'] = f"未找到账单号 {invoice_number_str} 对应的账单，保存失败！"
+            else:
+                # 确定 item_category
+                if fee_type == "preport":
+                    item_category = "preport"
+                    fee_type_display = "提拆费"
+                elif fee_type == "warehouse":
+                    item_category = "warehouse_other"
+                    fee_type_display = "库内费"
+                else:
+                    item_category = None
+                    fee_type_display = fee_type
+
+                if item_category:
+                    # 校验财务状态，completed 不可保存
+                    status_obj = await sync_to_async(InvoiceStatusv2.objects.filter(
+                        invoice=invoice, invoice_type="receivable"
+                    ).first)()
+                    if status_obj and status_obj.finance_status == "completed":
+                        messages['error_messages'] = "财务已确认，不可编辑！"
+                    else:
+                        # 收集表单数据
+                        total_amount = 0
+                        item_ids = request.POST.getlist("item_id[]")
+                        descriptions = request.POST.getlist("description[]")
+                        warehouse_codes = request.POST.getlist("warehouse_code[]")
+                        rates = request.POST.getlist("rate[]")
+                        qtys = request.POST.getlist("qty[]")
+                        surcharges_list = request.POST.getlist("surcharges[]")
+                        amounts = request.POST.getlist("amount[]")
+                        notes = request.POST.getlist("note[]")
+
+                        # 删除现有该分类下的所有明细，再重新创建
+                        await sync_to_async(InvoiceItemv2.objects.filter(
+                            invoice_number=invoice,
+                            item_category=item_category,
+                        ).delete)()
+
+                        # 获取关联的 container
+                        container = invoice.container_number
+
+                        # 创建新的明细
+                        new_items = []
+                        for i in range(len(descriptions)):
+                            if not descriptions[i].strip():
+                                continue
+                            try:
+                                rate_val = float(rates[i]) if rates[i] else 0
+                            except (ValueError, TypeError):
+                                rate_val = 0
+                            try:
+                                qty_val = float(qtys[i]) if qtys[i] else 0
+                            except (ValueError, TypeError):
+                                qty_val = 0
+                            try:
+                                surcharge_val = float(surcharges_list[i]) if surcharges_list[i] else 0
+                            except (ValueError, TypeError):
+                                surcharge_val = 0
+                            try:
+                                amount_val = float(amounts[i]) if amounts[i] else 0
+                            except (ValueError, TypeError):
+                                amount_val = 0
+                            
+                            total_amount += amount_val
+
+                            new_items.append(InvoiceItemv2(
+                                container_number=container,
+                                invoice_number=invoice,
+                                invoice_type="receivable",
+                                item_category=item_category,
+                                description=descriptions[i].strip(),
+                                warehouse_code=warehouse_codes[i].strip() if warehouse_codes[i] else None,
+                                rate=rate_val,
+                                qty=qty_val,
+                                surcharges=surcharge_val,
+                                amount=amount_val,
+                                note=notes[i].strip() if notes[i] else None,
+                            ))
+
+                        if new_items:
+                            await sync_to_async(bulk_create_with_history)(
+                                new_items, InvoiceItemv2
+                            )
+
+                        # 保存成功后，更新对应状态表字段为 completed
+                        if fee_type == "preport":
+                            await sync_to_async(InvoiceStatusv2.objects.filter(
+                                invoice=invoice, invoice_type="receivable"
+                            ).update)(preport_status="completed")
+                            invoice.receivable_preport_amount = total_amount
+                        elif fee_type == "warehouse":
+                            await sync_to_async(InvoiceStatusv2.objects.filter(
+                                invoice=invoice, invoice_type="receivable"
+                            ).update)(warehouse_other_status="completed")
+                            invoice.receivable_wh_other_amount = total_amount
+                        invoice.save()
+
+                        messages['info_messages'] = (
+                            f"账单号 {invoice_number_str} 的 {fee_type_display} "
+                            f"已保存 {len(new_items)} 条明细！"
+                        )
+
+        # 返回账单主页面
+        template, context = await self.handle_account_search(request)
+        context.update(messages)
+        return template, context
 
     async def export_ltl_unscheduled(
             self, request: HttpRequest

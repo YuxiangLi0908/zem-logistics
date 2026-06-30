@@ -1,0 +1,499 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .account-detail-container {
+        max-width: 1400px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    .account-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 25px 30px;
+    }
+
+    .account-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .account-title i {
+        font-size: 1.8rem;
+    }
+
+    .account-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-top: 15px;
+    }
+
+    .account-info-item {
+        background: rgba(255, 255, 255, 0.12);
+        padding: 12px 18px;
+        border-radius: 8px;
+    }
+
+    .account-info-label {
+        font-size: 0.85rem;
+        opacity: 0.85;
+        margin-bottom: 4px;
+    }
+
+    .account-info-value {
+        font-size: 1.05rem;
+        font-weight: 600;
+        word-break: break-word;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .status-completed {
+        background: #f4d7d7;
+        color: #7a1a1a;
+    }
+
+    .status-editable {
+        background: #fff3e0;
+        color: #e65100;
+    }
+
+    .account-body {
+        padding: 25px 30px;
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #4a6491;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #f4d7d7;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .fee-table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .fee-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+
+    .fee-table th {
+        background: #4a6491;
+        color: white;
+        padding: 12px 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+
+    .fee-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.88rem;
+        vertical-align: middle;
+    }
+
+    .fee-table tbody tr:hover {
+        background: #f5f5f5;
+    }
+
+    .fee-input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+
+    .fee-input:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .fee-input:disabled {
+        background: #f8f9fa;
+        color: #495057;
+        cursor: not-allowed;
+    }
+
+    .fee-input-number {
+        text-align: right;
+    }
+
+    .fee-amount-cell {
+        text-align: right;
+        font-weight: 600;
+        color: #a52828;
+    }
+
+    .delete-btn {
+        background: #b71c1c;
+        color: white;
+        border: none;
+        padding: 5px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: background 0.2s;
+    }
+
+    .delete-btn:hover {
+        background: #8b1414;
+    }
+
+    .delete-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .total-display {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #a52828;
+    }
+
+    .total-display span {
+        color: #b71c1c;
+        font-size: 1.3rem;
+    }
+
+    .btn {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+
+    .btn-add {
+        background: #a52828;
+        color: white;
+    }
+
+    .btn-add:hover {
+        background: #7a1a1a;
+    }
+
+    .btn-save {
+        background: #1565c0;
+        color: white;
+    }
+
+    .btn-save:hover {
+        background: #0d47a1;
+    }
+
+    .btn-back {
+        background: #6c757d;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-back:hover {
+        background: #5a6268;
+        color: white;
+    }
+
+    .empty-row {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+    }
+</style>
+
+<div class="account-detail-container">
+    <!-- 头部信息 -->
+    <div class="account-header">
+        <div class="account-title">
+            <i class="fas fa-file-invoice-dollar"></i>
+            {{ delivery_type_display }} - {{ fee_type_display }} 录入
+        </div>
+        <div class="account-info-grid">
+            <div class="account-info-item">
+                <div class="account-info-label">柜号</div>
+                <div class="account-info-value">{{ container_number|default:"-" }}</div>
+            </div>
+            <div class="account-info-item">
+                <div class="account-info-label">账单号</div>
+                <div class="account-info-value">{{ invoice_number|default:"-" }}</div>
+            </div>
+            <div class="account-info-item">
+                <div class="account-info-label">仓库</div>
+                <div class="account-info-value">
+                    {{ warehouse_name|default:"-" }}
+                    {% if warehouse_precise %}（{{ warehouse_precise }}）{% endif %}
+                </div>
+            </div>
+            <div class="account-info-item">
+                <div class="account-info-label">状态</div>
+                <div class="account-info-value">
+                    {% if finance_status_value == 'completed' %}
+                        <span class="status-badge status-completed">{{ finance_status_display }}</span>
+                    {% else %}
+                        <span class="status-badge status-editable">{{ finance_status_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 费用明细 -->
+    <div class="account-body">
+        <div class="section-title">
+            <i class="fas fa-list-ul"></i> 费用明细
+        </div>
+
+        <form method="post" action="{% url 'postdrop' %}" id="feeForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="account_save_fee">
+            <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+            <input type="hidden" name="fee_type" value="{{ fee_type }}">
+
+            <div class="fee-table-container">
+                <table class="fee-table" id="feeTable">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 180px;">费用名称</th>
+                            <th style="min-width: 140px;">仓点</th>
+                            <th style="min-width: 110px;">实际单价</th>
+                            <th style="min-width: 90px;">数量</th>
+                            <th style="min-width: 110px;">附加费</th>
+                            <th style="min-width: 120px;">总价</th>
+                            <th style="min-width: 180px;">备注</th>
+                            <th style="min-width: 80px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feeTableBody">
+                        {% for item in items %}
+                        <tr class="fee-row">
+                            <td>
+                                <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                                <input type="text" name="description[]" class="fee-input" value="{{ item.description|default:'' }}" {% if not is_editable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="text" name="warehouse_code[]" class="fee-input" value="{{ item.warehouse_code|default:'' }}" {% if not is_editable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" name="rate[]" class="fee-input fee-input-number rate-input" value="{{ item.rate|default:'' }}" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" {% if not is_editable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" name="qty[]" class="fee-input fee-input-number qty-input" value="{{ item.qty|default:'' }}" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" {% if not is_editable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" name="surcharges[]" class="fee-input fee-input-number surcharge-input" value="{{ item.surcharges|default:0 }}" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" {% if not is_editable %}disabled{% endif %}>
+                            </td>
+                            <td class="fee-amount-cell">
+                                <input type="hidden" name="amount[]" class="amount-hidden" value="{{ item.amount|default:0 }}">
+                                <span class="amount-display">{{ item.amount|default:0|floatformat:2 }}</span>
+                            </td>
+                            <td>
+                                <input type="text" name="note[]" class="fee-input" value="{{ item.note|default:'' }}" {% if not is_editable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <button type="button" class="delete-btn" onclick="removeRow(this)" {% if not is_editable %}disabled{% endif %}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not items %}
+                        <tr id="emptyRow">
+                            <td colspan="8" class="empty-row">
+                                <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                                <p>暂无费用明细{% if is_editable %}，点击下方"添加费用项目"开始录入{% endif %}</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="action-bar">
+                <div class="total-display">
+                    实时总价: <span id="grandTotal">{{ total_amount|default:0|floatformat:2 }}</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    {% if is_editable %}
+                    <button type="button" class="btn btn-add" onclick="addFeeRow()">
+                        <i class="fas fa-plus"></i> 添加费用项目
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'postdrop' %}" class="btn btn-back">
+                        <i class="fas fa-arrow-left"></i> 返回
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // 计算单行总价 = 单价 * 数量 + 附加费（附加费可为负数）
+    function calcRowTotal(row) {
+        const rate = parseFloat(row.querySelector('.rate-input')?.value) || 0;
+        const qty = parseFloat(row.querySelector('.qty-input')?.value) || 0;
+        const surcharge = parseFloat(row.querySelector('.surcharge-input')?.value) || 0;
+        const total = rate * qty + surcharge;
+        const totalRounded = Math.round(total * 100) / 100;
+        row.querySelector('.amount-hidden').value = totalRounded;
+        row.querySelector('.amount-display').textContent = totalRounded.toFixed(2);
+    }
+
+    // 计算所有行的总价合计
+    function calcGrandTotal() {
+        let grandTotal = 0;
+        document.querySelectorAll('.amount-hidden').forEach(input => {
+            grandTotal += parseFloat(input.value) || 0;
+        });
+        document.getElementById('grandTotal').textContent = (Math.round(grandTotal * 100) / 100).toFixed(2);
+    }
+
+    // 重新计算单行及总价
+    function recalcRow(row) {
+        calcRowTotal(row);
+        calcGrandTotal();
+    }
+
+    // 添加费用行
+    function addFeeRow() {
+        const tbody = document.getElementById('feeTableBody');
+        // 移除空行提示
+        const emptyRow = document.getElementById('emptyRow');
+        if (emptyRow) {
+            emptyRow.remove();
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'fee-row';
+        tr.innerHTML = `
+            <td>
+                <input type="hidden" name="item_id[]" value="">
+                <input type="text" name="description[]" class="fee-input" placeholder="请输入费用名称">
+            </td>
+            <td>
+                <input type="text" name="warehouse_code[]" class="fee-input" placeholder="请输入仓点">
+            </td>
+            <td>
+                <input type="number" step="0.01" name="rate[]" class="fee-input fee-input-number rate-input" value="0" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'">
+            </td>
+            <td>
+                <input type="number" step="0.01" name="qty[]" class="fee-input fee-input-number qty-input" value="0" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'">
+            </td>
+            <td>
+                <input type="number" step="0.01" name="surcharges[]" class="fee-input fee-input-number surcharge-input" value="0" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'">
+            </td>
+            <td class="fee-amount-cell">
+                <input type="hidden" name="amount[]" class="amount-hidden" value="0">
+                <span class="amount-display">0.00</span>
+            </td>
+            <td>
+                <input type="text" name="note[]" class="fee-input" placeholder="备注">
+            </td>
+            <td>
+                <button type="button" class="delete-btn" onclick="removeRow(this)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        // 给新行绑定输入事件
+        [tr.querySelector('.rate-input'), tr.querySelector('.qty-input'), tr.querySelector('.surcharge-input')].forEach(input => {
+            input.addEventListener('input', () => recalcRow(tr));
+        });
+        calcGrandTotal();
+    }
+
+    // 删除费用行
+    function removeRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        calcGrandTotal();
+        // 如果删空了，显示空行提示
+        const tbody = document.getElementById('feeTableBody');
+        if (tbody.querySelectorAll('.fee-row').length === 0) {
+            tbody.innerHTML = `
+                <tr id="emptyRow">
+                    <td colspan="8" class="empty-row">
+                        <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                        <p>暂无费用明细，点击下方"添加费用项目"开始录入</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    // 页面加载时绑定已有行的输入事件
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.fee-row').forEach(row => {
+            const rateInput = row.querySelector('.rate-input');
+            const qtyInput = row.querySelector('.qty-input');
+            const surchargeInput = row.querySelector('.surcharge-input');
+            if (rateInput) rateInput.addEventListener('input', () => recalcRow(row));
+            if (qtyInput) qtyInput.addEventListener('input', () => recalcRow(row));
+            if (surchargeInput) surchargeInput.addEventListener('input', () => recalcRow(row));
+        });
+        calcGrandTotal();
+    });
+</script>
+{% endblock %}

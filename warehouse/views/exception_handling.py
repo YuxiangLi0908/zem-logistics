@@ -82,6 +82,8 @@ from django.db.models import (
     When,
 )
 from warehouse.views.receivable_accounting import ReceivableAccounting
+from pypdf import PdfReader, PdfWriter
+from io import BytesIO
 
 class ExceptionHandling(View):
     template_container_pallet = "exception_handling/shipment_actual.html"
@@ -386,6 +388,8 @@ class ExceptionHandling(View):
         elif step == "overweight_single_save":
             template, context = await self.handle_overweight_single_save(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "merge_pdfs":
+            return await self.handle_merge_pdfs(request)
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
@@ -6023,6 +6027,51 @@ class ExceptionHandling(View):
             'migration_log': [log_entry],
         }
         return self.template_recaculate_combine, context
+
+    async def handle_merge_pdfs(self, request):
+        """后端合并多个 PDF 文件，使用 pypdf 解析能力更强。"""
+        from django.http import HttpResponse as _HttpResponse
+
+        files = request.FILES.getlist("pdfs")
+        if len(files) < 2:
+            return _HttpResponse(
+                json.dumps({"error": "至少需要 2 个 PDF 文件才能合并"}),
+                content_type="application/json",
+                status=400,
+            )
+
+        writer = PdfWriter()
+        errors = []
+        for i, f in enumerate(files):
+            try:
+                reader = PdfReader(f)
+                for page in reader.pages:
+                    writer.add_page(page)
+            except Exception as e:
+                errors.append(f"第 {i + 1} 个文件「{f.name}」解析失败：{e}")
+                logger.warning(f"PDF合并 - 文件 {f.name} 解析失败: {e}", exc_info=True)
+
+        if errors:
+            return _HttpResponse(
+                json.dumps({"error": "; ".join(errors)}),
+                content_type="application/json",
+                status=400,
+            )
+
+        output_buffer = BytesIO()
+        writer.write(output_buffer)
+        output_buffer.seek(0)
+
+        response = _HttpResponse(
+            output_buffer.getvalue(),
+            content_type="application/pdf",
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="merged_'
+            + datetime.now().strftime("%Y%m%d")
+            + '.pdf"'
+        )
+        return response
 
     def _sync_update_invoice_combine_amount(self, invoice, container):
         """更新账单总费用"""
