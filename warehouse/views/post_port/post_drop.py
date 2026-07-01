@@ -871,7 +871,7 @@ class PostDrop(View):
             pallets = await sync_to_async(list)(
                 Pallet.objects.filter(
                     container_number=invoice.container_number
-                ).values("shipping_mark", "pcs")
+                ).values("shipping_mark", "pcs","PO_ID")
             )
             if pallets:
                 grouped = {}
