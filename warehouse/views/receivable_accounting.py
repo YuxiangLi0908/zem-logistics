@@ -7887,6 +7887,26 @@ class ReceivableAccounting(View):
         else:
             status_field = f"warehouse_{delivery_type}_status"
             current_status = getattr(invoice_status, status_field, 'unstarted')
+
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category=item_category
+        )
+
+        # 构建费用数据
+        fee_data = []
+        for item in existing_items:
+            fee_data.append({
+                'id': item.id,
+                'description': item.description,
+                'qty': item.qty or 0,
+                'rate': item.rate or 0,
+                'surcharges': item.surcharges or 0,
+                'amount': item.amount or 0,
+                'note': item.note or '',
+                'warehouse_code': item.warehouse_code or '',
+            })
         context.update({
             "invoice_number": invoice.invoice_number,
             "warehouse": order.retrieval_id.retrieval_destination_area,
@@ -7903,6 +7923,7 @@ class ReceivableAccounting(View):
             "item_category": item_category,
             "receivable_is_locked": invoice.receivable_is_locked,     
             "container_number_filter": container_number_filter,
+            "fee_data": fee_data,   
         })
         # 获取报价表的相关信息
         quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
@@ -7942,25 +7963,6 @@ class ReceivableAccounting(View):
             "重复操作费": fee_detail.details.get("重复操作费", "N/A"),
         }
         
-        # 获取现有的费用项目
-        existing_items = InvoiceItemv2.objects.filter(
-            invoice_number=invoice,
-            item_category=item_category
-        )
-        
-        # 构建费用数据
-        fee_data = []
-        for item in existing_items:
-            fee_data.append({
-                'id': item.id,
-                'description': item.description,
-                'qty': item.qty or 0,
-                'rate': item.rate or 0,
-                'surcharges': item.surcharges or 0,
-                'amount': item.amount or 0,
-                'note': item.note or '',
-                'warehouse_code': item.warehouse_code or '',
-            })
         # 如果是第一次录入且没有费用记录，添加所有标准费用项目为默认
         if not existing_items.exists():
             status_field = f"warehouse_{delivery_type}_status"
@@ -7989,8 +7991,7 @@ class ReceivableAccounting(View):
         
 
         context.update({          
-            "FS": FS,             
-            "fee_data": fee_data,         
+            "FS": FS,                   
             "quotation_info": {
                 "quotation_id": quotation.quotation_id,
                 "version": quotation.version,
@@ -8001,11 +8002,7 @@ class ReceivableAccounting(View):
             },
             "standard_fee_items": standard_fee_items,
             "available_standard_items": available_standard_items,
-            "existing_descriptions": existing_descriptions,
-            "existing_items": existing_items,
-            "invoice": invoice,
-            "item_category": item_category,
-            
+            "existing_descriptions": existing_descriptions,  
         })
         
         return context
