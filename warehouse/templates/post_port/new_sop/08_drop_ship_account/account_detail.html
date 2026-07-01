@@ -257,6 +257,26 @@
         padding: 30px;
         color: #999;
     }
+
+    .piece-detail-link {
+        margin-left: auto;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #2e7d32;
+        text-decoration: none;
+        padding: 4px 12px;
+        border: 1px solid #2e7d32;
+        border-radius: 6px;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .piece-detail-link:hover {
+        background: #a52828;
+        color: #fff;
+    }
 </style>
 
 <div class="account-detail-container">
@@ -299,6 +319,11 @@
     <div class="account-body">
         <div class="section-title">
             <i class="fas fa-list-ul"></i> 费用明细
+            {% if fee_type == 'warehouse' and piece_details %}
+            <a href="javascript:void(0)" class="piece-detail-link" onclick="openPieceDetailModal()">
+                <i class="fas fa-info-circle"></i> 件数详情
+            </a>
+            {% endif %}
         </div>
 
         <form method="post" action="{% url 'postdrop' %}" id="feeForm">
@@ -483,6 +508,10 @@
         }
     }
 
+    // 初始化件数详情数据
+    {% if piece_details_json %}
+    pieceDetailData = {{ piece_details_json|safe }};
+    {% endif %}
     // 页面加载时绑定已有行的输入事件
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.fee-row').forEach(row => {
@@ -496,4 +525,5 @@
         calcGrandTotal();
     });
 </script>
+{% include 'post_port/new_sop/08_drop_ship_account/modal/piece_detail_modal.html' %}
 {% endblock %}

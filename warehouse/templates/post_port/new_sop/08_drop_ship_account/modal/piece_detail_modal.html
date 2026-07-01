@@ -1,0 +1,266 @@
+<!-- 件数详情弹框 -->
+<div id="pieceDetailModal" class="piece-detail-modal">
+    <div class="piece-detail-modal-content">
+        <div class="piece-detail-modal-header">
+            <h3><i class="fas fa-boxes"></i> 件数详情</h3>
+            <button type="button" class="piece-detail-modal-close" onclick="closePieceDetailModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="piece-detail-modal-body">
+            <div class="piece-detail-search-bar">
+                <input type="text" id="pieceDetailSearch" class="piece-detail-search-input" placeholder="搜索唛头或件数..." oninput="filterPieceDetail()">
+                <i class="fas fa-search piece-detail-search-icon"></i>
+            </div>
+            <div class="piece-detail-table-wrapper">
+                <table class="piece-detail-table">
+                    <thead>
+                        <tr>
+                            <th>唛头 (Shipping Mark)</th>
+                            <th style="width: 120px;">件数 (PCS)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pieceDetailTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div class="piece-detail-footer">
+                <span id="pieceDetailCount">共 0 条记录</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .piece-detail-modal {
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .piece-detail-modal-content {
+        background: #fff;
+        border-radius: 14px;
+        width: 650px;
+        max-height: 80vh;
+        margin: 5% auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: pieceDetailModalIn 0.3s ease-out;
+        display: flex;
+        flex-direction: column;
+    }
+
+    @keyframes pieceDetailModalIn {
+        from { transform: translateY(-30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    .piece-detail-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid #e0e0e0;
+        background: linear-gradient(135deg, #a52828, #7a1a1a);
+        color: #fff;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .piece-detail-modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .piece-detail-modal-close {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .piece-detail-modal-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .piece-detail-modal-body {
+        padding: 20px 24px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+
+    .piece-detail-search-bar {
+        position: relative;
+        margin-bottom: 16px;
+    }
+
+    .piece-detail-search-input {
+        width: 100%;
+        padding: 10px 14px 10px 38px;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        box-sizing: border-box;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .piece-detail-search-input:focus {
+        outline: none;
+        border-color: #a52828;
+        box-shadow: 0 0 0 0.2rem rgba(165, 40, 40, 0.15);
+    }
+
+    .piece-detail-search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+    }
+
+    .piece-detail-table-wrapper {
+        overflow-y: auto;
+        max-height: 50vh;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+    }
+
+    .piece-detail-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .piece-detail-table th {
+        background: #f8f9fa;
+        padding: 10px 14px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #495057;
+        border-bottom: 2px solid #e0e0e0;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .piece-detail-table td {
+        padding: 8px 14px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.88rem;
+        color: #333;
+    }
+
+    .piece-detail-table tbody tr:hover {
+        background: #fdf2f2;
+    }
+
+    .piece-detail-table tbody tr.hidden-row {
+        display: none;
+    }
+
+    .piece-detail-table td:last-child {
+        text-align: right;
+        font-weight: 600;
+        color: #a52828;
+    }
+
+    .piece-detail-footer {
+        margin-top: 12px;
+        font-size: 0.85rem;
+        color: #888;
+        text-align: right;
+    }
+</style>
+
+<script>
+    // 件数详情数据，由页面模板注入
+    let pieceDetailData = [];
+
+    function openPieceDetailModal() {
+        const modal = document.getElementById('pieceDetailModal');
+        if (modal) {
+            renderPieceDetailTable(pieceDetailData);
+            document.getElementById('pieceDetailSearch').value = '';
+            modal.style.display = 'block';
+        }
+    }
+
+    function closePieceDetailModal() {
+        const modal = document.getElementById('pieceDetailModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function renderPieceDetailTable(data) {
+        const tbody = document.getElementById('pieceDetailTableBody');
+        const countEl = document.getElementById('pieceDetailCount');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>';
+            if (countEl) countEl.textContent = '共 0 条记录';
+            return;
+        }
+
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${escapeHtml(item.shipping_mark)}</td><td>${item.pcs}</td>`;
+            tbody.appendChild(tr);
+        });
+
+        if (countEl) countEl.textContent = `共 ${data.length} 条记录`;
+    }
+
+    function filterPieceDetail() {
+        const keyword = (document.getElementById('pieceDetailSearch')?.value || '').toLowerCase();
+        const rows = document.querySelectorAll('#pieceDetailTableBody tr');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            if (!keyword || text.includes(keyword)) {
+                row.classList.remove('hidden-row');
+                visibleCount++;
+            } else {
+                row.classList.add('hidden-row');
+            }
+        });
+
+        const countEl = document.getElementById('pieceDetailCount');
+        if (countEl) {
+            countEl.textContent = keyword
+                ? `显示 ${visibleCount} / ${pieceDetailData.length} 条`
+                : `共 ${pieceDetailData.length} 条记录`;
+        }
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // 点击弹框外部区域关闭
+    window.addEventListener('click', function(e) {
+        const modal = document.getElementById('pieceDetailModal');
+        if (e.target === modal) {
+            closePieceDetailModal();
+        }
+    });
+</script>
