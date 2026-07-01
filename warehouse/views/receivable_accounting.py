@@ -8002,6 +8002,7 @@ class ReceivableAccounting(View):
             "standard_fee_items": standard_fee_items,
             "available_standard_items": available_standard_items,
             "existing_descriptions": existing_descriptions,
+            "existing_items": existing_items,
             
         })
         
