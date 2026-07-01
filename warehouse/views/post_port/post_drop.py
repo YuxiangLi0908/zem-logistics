@@ -865,6 +865,40 @@ class PostDrop(View):
         # 计算当前总价
         total_amount = sum((item.amount or 0) for item in items)
 
+        # 件数详情：库内费时读取 Pallet/PackingList，按唛头分组统计件数
+        piece_details = []
+        if fee_type == "warehouse" and invoice.container_number:
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    container_number=invoice.container_number
+                ).values("shipping_mark", "pcs")
+            )
+            if pallets:
+                grouped = {}
+                for p in pallets:
+                    mark = p["shipping_mark"] or "无唛头"
+                    grouped[mark] = grouped.get(mark, 0) + (p["pcs"] or 0)
+                piece_details = [
+                    {"shipping_mark": mark, "pcs": pcs}
+                    for mark, pcs in grouped.items()
+                ]
+            else:
+                packing_items = await sync_to_async(list)(
+                    PackingList.objects.filter(
+                        container_number=invoice.container_number
+                    ).values("shipping_mark", "pcs")
+                )
+                if packing_items:
+                    grouped = {}
+                    for p in packing_items:
+                        mark = p["shipping_mark"] or "无唛头"
+                        grouped[mark] = grouped.get(mark, 0) + (p["pcs"] or 0)
+                    piece_details = [
+                        {"shipping_mark": mark, "pcs": pcs}
+                        for mark, pcs in grouped.items()
+                    ]
+        piece_details_json = json.dumps(piece_details, ensure_ascii=False)
+
         context = {
             "invoice_number": invoice_number,
             "invoice_id": invoice.id,
@@ -880,6 +914,8 @@ class PostDrop(View):
             "items": items,
             "total_amount": total_amount,
             "delivery_type_display": "一件代发",
+            "piece_details": piece_details,
+            "piece_details_json": piece_details_json,
         }
         return self.template_account_edit, context
 
