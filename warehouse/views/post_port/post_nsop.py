@@ -4532,7 +4532,15 @@ class PostNsop(View):
                 all_destinations.append(dest_str)
         group_destination = format_two_per_line(all_destinations)
         pickup_attachments, pickup_pdfs = extract_pickup_attachments(arm_pickup)
-        notes_str = "<br>".join(filter(None, notes))
+        processed_notes = []
+        for note in filter(None, notes):
+            parts = [p.strip() for p in note.split(';') if p.strip()]
+            for part in parts:
+                if len(part) > 40:
+                    processed_notes.append(wrap_text_by_length(part, length=40))
+                else:
+                    processed_notes.append(escape(part))
+        notes_str = mark_safe("<br>".join(processed_notes))
         # 拼接预约信息详情
         appointment_info_str = "\n".join(appointment_info_details)
         barcode_type = "code128"
@@ -5071,7 +5079,15 @@ class PostNsop(View):
                                     v = row.get("shipment_batch_number__note") or ""
                                     if v:
                                         notes.add(v)
-                                notes_str = "<br>".join(filter(None, notes))
+                                processed_notes = []
+                                for note in filter(None, notes):
+                                    parts = [p.strip() for p in note.split(';') if p.strip()]
+                                    for part in parts:
+                                        if len(part) > 40:
+                                            processed_notes.append(wrap_text_by_length(part, length=40))
+                                        else:
+                                            processed_notes.append(escape(part))
+                                notes_str = mark_safe("<br>".join(processed_notes))
                                 pickup_time = datetime.now().strftime("%Y-%m-%d")
                                 context = {
                                     "warehouse": origin or "",
