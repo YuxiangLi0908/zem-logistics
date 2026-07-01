@@ -4539,17 +4539,20 @@ class PostNsop(View):
         barcode_class = barcode.get_barcode_class(barcode_type)
 
         def generate_barcode_base64(content: str) -> str:
-            my_barcode = barcode_class(content, writer=ImageWriter())
-            buffer = io.BytesIO()
-            my_barcode.write(buffer, options={"dpi": 600})
-            buffer.seek(0)
-            image = Image.open(buffer)
-            width, height = image.size
-            new_height = int(height * 0.7)
-            cropped_image = image.crop((0, 0, width, new_height))
-            new_buffer = io.BytesIO()
-            cropped_image.save(new_buffer, format="PNG")
-            return base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+            try:
+                my_barcode = barcode_class(content, writer=ImageWriter())
+                buffer = io.BytesIO()
+                my_barcode.write(buffer, options={"dpi": 600})
+                buffer.seek(0)
+                image = Image.open(buffer)
+                width, height = image.size
+                new_height = int(height * 0.7)
+                cropped_image = image.crop((0, 0, width, new_height))
+                new_buffer = io.BytesIO()
+                cropped_image.save(new_buffer, format="PNG")
+                return base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+            except Exception as e:
+                raise ValueError(f"生成条码失败，内容: '{content}', 错误: {str(e)}")
 
         def wrap_text_by_length(text, length=20):
             """
@@ -4681,6 +4684,10 @@ class PostNsop(View):
                 barcode_content = f"{container_number}|{group_destination}"
             else:
                 barcode_content = f"{arm_pro}"
+            
+            barcode_content = barcode_content.replace('\xa0', ' ').replace('\u2002', ' ').replace('\u2003', ' ')
+            barcode_content = ''.join(c for c in barcode_content if ord(c) < 128)
+            
             barcode_base64 = generate_barcode_base64(barcode_content)
 
             if not carrier or carrier == "None" or carrier == "":
