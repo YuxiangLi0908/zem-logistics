@@ -8003,6 +8003,8 @@ class ReceivableAccounting(View):
             "available_standard_items": available_standard_items,
             "existing_descriptions": existing_descriptions,
             "existing_items": existing_items,
+            "invoice": invoice,
+            "item_category": item_category,
             
         })
         
