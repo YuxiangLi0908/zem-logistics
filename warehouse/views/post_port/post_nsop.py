@@ -7857,19 +7857,52 @@ class PostNsop(View):
             })
         shipment = await sync_to_async(Shipment.objects.create)(**shipment_data)
 
-        if packinglist_ids:
+        if pallet_ids:
             # 直接使用update()方法批量更新
             await sync_to_async(
-                PackingList.objects.filter(id__in=packinglist_ids).update
+                Pallet.objects.filter(id__in=pallet_ids).update
             )(
                 shipment_batch_number=shipment,
                 master_shipment_batch_number=shipment
             )
 
-        if pallet_ids:
-            # 直接使用update()方法批量更新
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(id__in=pallet_ids)
+                .select_related("container_number")
+                .values("PO_ID", "container_number", "container_number__container_number", "shipping_mark")
+            )
+
+            pallet_groups = {}
+            for p in pallets:
+                po_id = p["PO_ID"]
+                container_num = p["container_number__container_number"] if p["container_number"] else None
+                shipping_mark = p["shipping_mark"] or ""
+                key = (po_id, container_num, shipping_mark)
+                if key not in pallet_groups:
+                    pallet_groups[key] = {
+                        "PO_ID": po_id,
+                        "container_number": p["container_number"],
+                        "shipping_mark": shipping_mark,
+                    }
+
+            query = Q()
+            for group_data in pallet_groups.values():
+                query |= Q(
+                    PO_ID=group_data["PO_ID"],
+                    container_number=group_data["container_number"],
+                    shipping_mark=group_data["shipping_mark"],
+                )
+
+            packinglist_ids = await sync_to_async(list)(
+                PackingList.objects.filter(query)
+                .values_list("id", flat=True)
+                .distinct()
+            )
+
+        if packinglist_ids:
+            #直接使用update()方法批量更新
             await sync_to_async(
-                Pallet.objects.filter(id__in=pallet_ids).update
+                PackingList.objects.filter(id__in=packinglist_ids).update
             )(
                 shipment_batch_number=shipment,
                 master_shipment_batch_number=shipment
