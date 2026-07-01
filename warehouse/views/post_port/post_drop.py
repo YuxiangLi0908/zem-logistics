@@ -35,6 +35,7 @@ from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet import Fleet
 from warehouse.models.invoicev2 import Invoicev2, InvoiceStatusv2, InvoiceItemv2
+from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
@@ -782,42 +783,154 @@ class PostDrop(View):
         status_obj = await sync_to_async(InvoiceStatusv2.objects.filter(
             invoice=invoice, invoice_type="receivable"
         ).first)()
+        
         if fee_type == "preport" and status_obj and status_obj.preport_status != "completed":
             existing = await sync_to_async(InvoiceItemv2.objects.filter(
                 invoice_number=invoice, item_category="preport"
             ).exists)()
             if not existing:
-                await sync_to_async(InvoiceItemv2.objects.create)(
-                    container_number=invoice.container_number,
-                    invoice_number=invoice,
-                    invoice_type="receivable",
-                    item_category="preport",
-                    description="提拆费",
-                    amount=950,
-                    rate=950,
-                    qty=1,
-                )
+                dropship_quote = await sync_to_async(
+                    QuotationMaster.objects.filter(
+                        quote_type="receivable",
+                        effective_date__isnull=False,
+                    ).order_by("-effective_date").first
+                )()
+                
+                if dropship_quote:
+                    preport_fee_detail = await sync_to_async(
+                        FeeDetail.objects.filter(
+                            quotation_id=dropship_quote,
+                            fee_type="preport"
+                        ).first
+                    )()
+                    
+                    if preport_fee_detail and preport_fee_detail.details:
+                        for fee_code, fee_data in preport_fee_detail.details.items():
+                            await sync_to_async(InvoiceItemv2.objects.create)(
+                                container_number=invoice.container_number,
+                                invoice_number=invoice,
+                                invoice_type="receivable",
+                                item_category="preport",
+                                description=fee_data.get("description", fee_code),
+                                amount=fee_data.get("rate", 0),
+                                rate=fee_data.get("rate", 0),
+                                qty=1,
+                            )
+                    else:
+                        await sync_to_async(InvoiceItemv2.objects.create)(
+                            container_number=invoice.container_number,
+                            invoice_number=invoice,
+                            invoice_type="receivable",
+                            item_category="preport",
+                            description="提拆费",
+                            amount=950,
+                            rate=950,
+                            qty=1,
+                        )
+                else:
+                    await sync_to_async(InvoiceItemv2.objects.create)(
+                        container_number=invoice.container_number,
+                        invoice_number=invoice,
+                        invoice_type="receivable",
+                        item_category="preport",
+                        description="提拆费",
+                        amount=950,
+                        rate=950,
+                        qty=1,
+                    )
+                    
         elif fee_type == "warehouse" and status_obj and status_obj.warehouse_other_status != "completed":
             existing = await sync_to_async(InvoiceItemv2.objects.filter(
                 invoice_number=invoice, item_category="warehouse_other"
             ).exists)()
             if not existing:
-                warehouse_fees = [
-                    {"description": "出库费TBR", "rate": 3, "amount": 3},
-                    {"description": "出库费PCR", "rate": 1, "amount": 1},
-                    {"description": "仓储费TBR", "rate": 3.5, "amount": 3.5},
-                    {"description": "仓储费PCR", "rate": 3.5, "amount": 3.5},
-                ]
-                for fee in warehouse_fees:
-                    await sync_to_async(InvoiceItemv2.objects.create)(
-                        container_number=invoice.container_number,
-                        invoice_number=invoice,
-                        invoice_type="receivable",
-                        item_category="warehouse_other",
-                        description=fee["description"],
-                        amount=fee["amount"],
-                        rate=fee["rate"],
+                total_pcs = 0
+                if invoice.container_number:
+                    pallets = await sync_to_async(list)(
+                        Pallet.objects.filter(
+                            container_number=invoice.container_number
+                        ).values("pcs")
                     )
+                    if pallets:
+                        total_pcs = sum(p["pcs"] or 0 for p in pallets)
+                    else:
+                        packing_items = await sync_to_async(list)(
+                            PackingList.objects.filter(
+                                container_number=invoice.container_number
+                            ).values("pcs")
+                        )
+                        if packing_items:
+                            total_pcs = sum(p["pcs"] or 0 for p in packing_items)
+                
+                dropship_quote = await sync_to_async(
+                    QuotationMaster.objects.filter(
+                        quote_type="receivable",
+                        effective_date__isnull=False,
+                    ).order_by("-effective_date").first
+                )()
+                
+                if dropship_quote:
+                    warehouse_fee_detail = await sync_to_async(
+                        FeeDetail.objects.filter(
+                            quotation_id=dropship_quote,
+                            fee_type="warehouse"
+                        ).first
+                    )()
+                    
+                    if warehouse_fee_detail and warehouse_fee_detail.details:
+                        for fee_code, fee_data in warehouse_fee_detail.details.items():
+                            rate = fee_data.get("rate", 0)
+                            description = fee_data.get("description", fee_code)
+                            if "出库费" in description:
+                                amount = rate * total_pcs
+                            elif "仓储费" in description:
+                                amount = 0
+                            else:
+                                amount = 0
+                            
+                            await sync_to_async(InvoiceItemv2.objects.create)(
+                                container_number=invoice.container_number,
+                                invoice_number=invoice,
+                                invoice_type="receivable",
+                                item_category="warehouse_other",
+                                description=description,
+                                amount=amount,
+                                rate=rate,
+                            )
+                    else:
+                        warehouse_fees = [
+                            {"description": "出库费TBR", "rate": 3, "amount": 3 * total_pcs},
+                            {"description": "出库费PCR", "rate": 1, "amount": 1 * total_pcs},
+                            {"description": "仓储费TBR", "rate": 3.5, "amount": 0},
+                            {"description": "仓储费PCR", "rate": 3.5, "amount": 0},
+                        ]
+                        for fee in warehouse_fees:
+                            await sync_to_async(InvoiceItemv2.objects.create)(
+                                container_number=invoice.container_number,
+                                invoice_number=invoice,
+                                invoice_type="receivable",
+                                item_category="warehouse_other",
+                                description=fee["description"],
+                                amount=fee["amount"],
+                                rate=fee["rate"],
+                            )
+                else:
+                    warehouse_fees = [
+                        {"description": "出库费TBR", "rate": 3, "amount": 3 * total_pcs},
+                        {"description": "出库费PCR", "rate": 1, "amount": 1 * total_pcs},
+                        {"description": "仓储费TBR", "rate": 3.5, "amount": 0},
+                        {"description": "仓储费PCR", "rate": 3.5, "amount": 0},
+                    ]
+                    for fee in warehouse_fees:
+                        await sync_to_async(InvoiceItemv2.objects.create)(
+                            container_number=invoice.container_number,
+                            invoice_number=invoice,
+                            invoice_type="receivable",
+                            item_category="warehouse_other",
+                            description=fee["description"],
+                            amount=fee["amount"],
+                            rate=fee["rate"],
+                        )
 
         # 查询已录费用
         items = await sync_to_async(list)(
@@ -869,34 +982,67 @@ class PostDrop(View):
         piece_details = []
         if fee_type == "warehouse" and invoice.container_number:
             pallets = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    container_number=invoice.container_number
-                ).values("shipping_mark", "pcs","PO_ID")
+                Pallet.objects.select_related("shipment_batch_number")
+                .filter(container_number=invoice.container_number)
+                .values("shipping_mark", "pcs", "PO_ID", "shipment_batch_number__shipped_at")
             )
             if pallets:
                 grouped = {}
                 for p in pallets:
                     mark = p["shipping_mark"] or "无唛头"
-                    grouped[mark] = grouped.get(mark, 0) + (p["pcs"] or 0)
+                    if mark not in grouped:
+                        grouped[mark] = {"pcs": 0, "shipped_at": p.get("shipment_batch_number__shipped_at")}
+                    grouped[mark]["pcs"] += (p["pcs"] or 0)
+                    if p.get("shipment_batch_number__shipped_at"):
+                        if not grouped[mark]["shipped_at"] or p["shipment_batch_number__shipped_at"] > grouped[mark]["shipped_at"]:
+                            grouped[mark]["shipped_at"] = p["shipment_batch_number__shipped_at"]
                 piece_details = [
-                    {"shipping_mark": mark, "pcs": pcs}
-                    for mark, pcs in grouped.items()
+                    {"shipping_mark": mark, "pcs": data["pcs"], "shipped_at": data["shipped_at"]}
+                    for mark, data in grouped.items()
                 ]
             else:
                 packing_items = await sync_to_async(list)(
-                    PackingList.objects.filter(
-                        container_number=invoice.container_number
-                    ).values("shipping_mark", "pcs")
+                    PackingList.objects.select_related("shipment_batch_number")
+                    .filter(container_number=invoice.container_number)
+                    .values("shipping_mark", "pcs", "shipment_batch_number__shipped_at")
                 )
                 if packing_items:
                     grouped = {}
                     for p in packing_items:
                         mark = p["shipping_mark"] or "无唛头"
-                        grouped[mark] = grouped.get(mark, 0) + (p["pcs"] or 0)
+                        if mark not in grouped:
+                            grouped[mark] = {"pcs": 0, "shipped_at": p.get("shipment_batch_number__shipped_at")}
+                        grouped[mark]["pcs"] += (p["pcs"] or 0)
+                        if p.get("shipment_batch_number__shipped_at"):
+                            if not grouped[mark]["shipped_at"] or p["shipment_batch_number__shipped_at"] > grouped[mark]["shipped_at"]:
+                                grouped[mark]["shipped_at"] = p["shipment_batch_number__shipped_at"]
                     piece_details = [
-                        {"shipping_mark": mark, "pcs": pcs}
-                        for mark, pcs in grouped.items()
+                        {"shipping_mark": mark, "pcs": data["pcs"], "shipped_at": data["shipped_at"]}
+                        for mark, data in grouped.items()
                     ]
+
+            if piece_details:
+                orders = await sync_to_async(list)(
+                    Order.objects.select_related("offload_id")
+                    .filter(container_number=invoice.container_number)
+                    .values("offload_id__offload_other_at")
+                )
+                offload_at = None
+                if orders:
+                    for o in orders:
+                        if o.get("offload_id__offload_other_at"):
+                            offload_at = o["offload_id__offload_other_at"]
+                            break
+
+                for detail in piece_details:
+                    detail["offload_at"] = offload_at
+                    if offload_at and detail["shipped_at"]:
+                        storage_days = (detail["shipped_at"] - offload_at).days
+                        detail["storage_days"] = max(0, storage_days)
+                        detail["storage_months"] = max(1, (storage_days + 29) // 30)
+                    else:
+                        detail["storage_days"] = None
+                        detail["storage_months"] = None
         piece_details_json = json.dumps(piece_details, ensure_ascii=False)
 
         context = {

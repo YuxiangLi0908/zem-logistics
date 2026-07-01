@@ -37,6 +37,7 @@ class QuoteManagement(View):
     template_edit = "quote/quote_edit.html"
     template_quote_master = "accounting/quote_master.html"
     template_receivable_quote_detail = "accounting/receivable_quote_detail.html"
+    template_dropship_quote_detail = "accounting/dropship_quote_detail.html"
     template_payable_quote_master = "accounting/payable_quote_master.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -59,6 +60,9 @@ class QuoteManagement(View):
             return render(request, template, context)
         elif step == "receivable_quote_detail":
             context = self.handle_quote_detail_get(request)
+            quote = context.get("quote")
+            if quote and "一件代发" in (quote.filename or ""):
+                return render(request, self.template_dropship_quote_detail, context)
             return render(request, self.template_receivable_quote_detail, context)
         context = {}
         return render(request, self.template_create, context)
@@ -251,6 +255,124 @@ class QuoteManagement(View):
             details=result,
         )
         fee_detail.save()
+
+    def process_dropship_sheet(self, df, quote):
+        preport_result = {}
+        warehouse_result = {}
+
+        print(f"dropship sheet: shape={df.shape}, columns={list(df.columns)}")
+
+        current_fee_type = ""
+        current_formula = ""
+
+        for index, row in df.iterrows():
+            cols = []
+            for i in range(len(df.columns)):
+                cols.append(str(row.iloc[i]).strip() if not pd.isna(row.iloc[i]) else "")
+            print(f"Raw row {index}: cols={cols}")
+
+            fee_type_raw = ""
+            description = ""
+            rate_str = ""
+            unit = ""
+            formula = ""
+
+            for i in range(len(cols)):
+                if cols[i] == "提拆":
+                    fee_type_raw = "提拆"
+                    current_fee_type = "提拆"
+                    if i + 1 < len(cols):
+                        description = cols[i + 1]
+                    if i + 2 < len(cols):
+                        rate_str = str(cols[i + 2]) if cols[i + 2] else ""
+                    if i + 3 < len(cols):
+                        unit = cols[i + 3]
+                    if len(cols) > 6:
+                        row_formula = cols[6] if cols[6] else ""
+                        if row_formula:
+                            current_formula = row_formula
+                        formula = current_formula
+                    break
+                elif cols[i] == "库内":
+                    fee_type_raw = "库内"
+                    current_fee_type = "库内"
+                    if i + 1 < len(cols):
+                        description = cols[i + 1]
+                    if i + 2 < len(cols):
+                        rate_str = str(cols[i + 2]) if cols[i + 2] else ""
+                    if i + 3 < len(cols):
+                        unit = cols[i + 3]
+                    if len(cols) > 6:
+                        row_formula = cols[6] if cols[6] else ""
+                        if row_formula:
+                            current_formula = row_formula
+                        formula = current_formula
+                    break
+                elif current_fee_type and cols[i] and cols[i] not in ["提拆", "库内"]:
+                    fee_type_raw = current_fee_type
+                    description = cols[i]
+                    if i + 1 < len(cols):
+                        rate_str = str(cols[i + 1]) if cols[i + 1] else ""
+                    if i + 2 < len(cols):
+                        unit = cols[i + 2]
+                    if len(cols) > 6:
+                        row_formula = cols[6] if cols[6] else ""
+                        if row_formula:
+                            current_formula = row_formula
+                        formula = current_formula
+                    else:
+                        formula = current_formula
+                    break
+
+            print(f"  -> fee_type='{current_fee_type}', desc='{description}', rate='{rate_str}', unit='{unit}', formula='{formula}'")
+
+            if not current_fee_type or not description:
+                continue
+
+            fee_type = "preport" if current_fee_type == "提拆" else ("warehouse" if current_fee_type == "库内" else "")
+            if not fee_type:
+                continue
+
+            fee_code = description
+
+            rate = float(rate_str.replace('$', '').strip()) if rate_str.replace('$', '').strip() else 0
+
+            item_data = {
+                "description": description,
+                "rate": rate,
+                "unit": unit,
+                "formula": formula,
+            }
+
+            if fee_type == "preport":
+                preport_result[fee_code] = item_data
+            elif fee_type == "warehouse":
+                warehouse_result[fee_code] = item_data
+
+        print(f"preport_result: {preport_result}")
+        print(f"warehouse_result: {warehouse_result}")
+
+        if preport_result:
+            fee_detail = FeeDetail(
+                quotation_id=quote,
+                fee_detail_id=str(uuid.uuid4())[:4].upper(),
+                fee_type="preport",
+                warehouse="",
+                details=preport_result,
+            )
+            fee_detail.save()
+            print(f"Created preport FeeDetail: {fee_detail.id}")
+
+        if warehouse_result:
+            fee_detail = FeeDetail(
+                quotation_id=quote,
+                fee_detail_id=str(uuid.uuid4())[:4].upper(),
+                fee_type="warehouse",
+                warehouse="",
+                details=warehouse_result,
+            )
+            fee_detail.save()
+            print(f"Created warehouse FeeDetail: {fee_detail.id}")
 
     def process_nj_local_sheet(self, df, file, quote):
         # NJ本地派送也没有合并的问题，一行一行读
@@ -1352,6 +1474,13 @@ class QuoteManagement(View):
 
             file = request.FILES["file"]
             excel_file = pd.ExcelFile(file)
+
+            if "一件代发" in excel_file.sheet_names:
+                df = excel_file.parse("一件代发")
+                self.process_dropship_sheet(df, quote)
+                quotes = QuotationMaster.objects.filter(quote_type="receivable")
+                context = {"quotes": quotes}
+                return self.template_quote_master, context
 
             # 因为7/15之后的组合柜报价格式变了，所以需要判断一下
             la_combina_handler = self.process_la_combina_sheet
