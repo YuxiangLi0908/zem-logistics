@@ -1036,7 +1036,8 @@ class PostDrop(View):
                         await sync_to_async(invoice.save)()
 
                         messages['success_messages'] = (
-                            f"账单号 {invoice_number_str} 的 {fee_type_display} "
+                            f"账单号 {invoice_number_str}<br>"
+                            f"{fee_type_display}<br>"
                             f"已保存 {len(new_items)} 条明细！"
                         )
 

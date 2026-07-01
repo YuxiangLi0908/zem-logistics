@@ -12,7 +12,7 @@
             {% if success_messages %}操作成功{% elif error_messages %}操作失败{% endif %}
         </h4>
         <p class="message-modal-text">
-            {{ success_messages }}{{ error_messages }}
+            {{ success_messages|safe }}{{ error_messages|safe }}
         </p>
         <button type="button" class="action-btn btn-primary message-modal-button" onclick="closeMessageModal()">
             <i class="fas fa-check"></i> 确认
