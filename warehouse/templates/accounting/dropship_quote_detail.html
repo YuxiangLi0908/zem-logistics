@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="max-width: 1200px; margin: 20px auto;">
+    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #2c3e50; font-weight: 600;">📊 一件代发报价表详情</h3>
+            <a href="?step=quote_master" class="btn btn-secondary" style="padding: 10px 24px; background: #9ca3af; border-color: #9ca3af; border-radius: 6px; color: white; text-decoration: none; font-weight: 500;">
+                ← 返回列表
+            </a>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger" style="padding: 15px; border-radius: 8px; background: #fecdd3; color: #8b0000; border: 1px solid #fda4af;">
+            {{ error }}
+        </div>
+        {% else %}
+        <!-- 基本信息区 -->
+        <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 10px; margin-bottom: 25px; color: #5c4832;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px;">
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">📁 文件名</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.filename }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">📅 生效日期</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.effective_date|date:"Y-m-d" }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">⏰ 上传时间</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.upload_date|date:"Y-m-d" }}</div>
+                </div>
+                <div>
+                    <strong style="display: block; font-size: 12px; opacity: 0.9; margin-bottom: 4px;">🏷️ 版本</strong>
+                    <div style="font-size: 16px; font-weight: 500;">{{ quote.version }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 费用明细 -->
+        <div>
+            {% for fee_detail in fee_details %}
+            {% with fee_type=fee_detail.fee_type %}
+            <div style="margin-bottom: 30px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #e5e7eb;">
+                <div style="
+                    background: linear-gradient(135deg, #4a6491 0%, #2c3e50 100%);
+                    padding: 16px 24px;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 17px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;">
+                    <span style="font-size: 22px;">
+                        {% if fee_type == 'preport' %}📦
+                        {% elif fee_type == 'warehouse' %}🏠
+                        {% else %}📋
+                        {% endif %}
+                    </span>
+                    {% if fee_type == "preport" %}提拆费
+                    {% elif fee_type == "warehouse" %}库内费用
+                    {% else %}{{ fee_type }}{% endif %}
+                </div>
+                <div style="padding: 24px; background: white;">
+                    {% with details=fee_detail.details %}
+                        {% if details %}
+                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">费用名称</th>
+                                    <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">单价</th>
+                                    <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">单位</th>
+                                    <th style="padding: 12px 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">计算公式</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fee_code, fee_data in details.items %}
+                                <tr style="border-bottom: 1px solid #e9ecef;">
+                                    <td style="padding: 12px 15px; text-align: center; color: #2c3e50;">{{ fee_data.description }}</td>
+                                    <td style="padding: 12px 15px; text-align: center; font-weight: 600; color: #a52828;">${{ fee_data.rate|floatformat:2 }}</td>
+                                    <td style="padding: 12px 15px; text-align: center; color: #6c757d;">{{ fee_data.unit }}</td>
+                                    <td style="padding: 12px 15px; color: #6c757d; font-style: italic;">{{ fee_data.formula|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="text-align: center; padding: 40px; color: #9ca3af; font-size: 16px;">
+                            <span style="font-size: 40px; display: block; margin-bottom: 10px;">📭</span>
+                            暂无数据
+                        </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endwith %}
+            {% empty %}
+            <div style="text-align: center; padding: 60px; color: #9ca3af;">
+                <span style="font-size: 60px; display: block; margin-bottom: 20px;">📭</span>
+                <div style="font-size: 18px; font-weight: 500;">暂无费用详情数据</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

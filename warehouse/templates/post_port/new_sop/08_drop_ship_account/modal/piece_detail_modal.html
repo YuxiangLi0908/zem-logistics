@@ -9,7 +9,7 @@
         </div>
         <div class="piece-detail-modal-body">
             <div class="piece-detail-search-bar">
-                <input type="text" id="pieceDetailSearch" class="piece-detail-search-input" placeholder="搜索唛头或件数..." oninput="filterPieceDetail()">
+                <input type="text" id="pieceDetailSearch" class="piece-detail-search-input" placeholder="搜索唛头..." oninput="filterPieceDetail()">
                 <i class="fas fa-search piece-detail-search-icon"></i>
             </div>
             <div class="piece-detail-table-wrapper">
@@ -17,7 +17,11 @@
                     <thead>
                         <tr>
                             <th>唛头 (Shipping Mark)</th>
-                            <th style="width: 120px;">件数 (PCS)</th>
+                            <th style="width: 100px;">件数 (PCS)</th>
+                            <th style="width: 130px;">入库时间</th>
+                            <th style="width: 130px;">出库时间</th>
+                            <th style="width: 100px;">仓储天数</th>
+                            <th style="width: 100px;">有效月数</th>
                         </tr>
                     </thead>
                     <tbody id="pieceDetailTableBody">
@@ -47,7 +51,7 @@
     .piece-detail-modal-content {
         background: #fff;
         border-radius: 14px;
-        width: 650px;
+        width: 950px;
         max-height: 80vh;
         margin: 5% auto;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -162,20 +166,11 @@
         border-bottom: 1px solid #eaecef;
         font-size: 0.88rem;
         color: #333;
+        text-align: center;
     }
 
-    .piece-detail-table tbody tr:hover {
-        background: #e8edf5;
-    }
-
-    .piece-detail-table tbody tr.hidden-row {
-        display: none;
-    }
-
-    .piece-detail-table td:last-child {
-        text-align: right;
-        font-weight: 600;
-        color: #a52828;
+    .piece-detail-table td:first-child {
+        text-align: left;
     }
 
     .piece-detail-footer {
@@ -214,18 +209,42 @@
 
         tbody.innerHTML = '';
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>';
             if (countEl) countEl.textContent = '共 0 条记录';
             return;
         }
 
         data.forEach(item => {
+            const offloadAt = item.offload_at ? formatDateTime(item.offload_at) : '-';
+            const shippedAt = item.shipped_at ? formatDateTime(item.shipped_at) : '-';
+            const storageDays = item.storage_days !== null ? item.storage_days : '-';
+            const storageMonths = item.storage_months !== null ? item.storage_months : '-';
+            
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${escapeHtml(item.shipping_mark)}</td><td>${item.pcs}</td>`;
+            tr.innerHTML = `
+                <td>${escapeHtml(item.shipping_mark)}</td>
+                <td>${item.pcs}</td>
+                <td>${offloadAt}</td>
+                <td>${shippedAt}</td>
+                <td>${storageDays}</td>
+                <td>${storageMonths}</td>
+            `;
             tbody.appendChild(tr);
         });
 
         if (countEl) countEl.textContent = `共 ${data.length} 条记录`;
+    }
+
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '-';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
     }
 
     function filterPieceDetail() {
