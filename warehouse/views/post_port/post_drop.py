@@ -882,7 +882,7 @@ class PostDrop(View):
                             rate = fee_data.get("rate", 0)
                             description = fee_data.get("description", fee_code)
                             if "出库费" in description:
-                                amount = rate * total_pcs
+                                amount = 0
                             elif "仓储费" in description:
                                 amount = 0
                             else:
@@ -899,8 +899,8 @@ class PostDrop(View):
                             )
                     else:
                         warehouse_fees = [
-                            {"description": "出库费TBR", "rate": 3, "amount": 3 * total_pcs},
-                            {"description": "出库费PCR", "rate": 1, "amount": 1 * total_pcs},
+                            {"description": "出库费TBR", "rate": 3, "amount": 0},
+                            {"description": "出库费PCR", "rate": 1, "amount": 0},
                             {"description": "仓储费TBR", "rate": 3.5, "amount": 0},
                             {"description": "仓储费PCR", "rate": 3.5, "amount": 0},
                         ]
@@ -916,8 +916,8 @@ class PostDrop(View):
                             )
                 else:
                     warehouse_fees = [
-                        {"description": "出库费TBR", "rate": 3, "amount": 3 * total_pcs},
-                        {"description": "出库费PCR", "rate": 1, "amount": 1 * total_pcs},
+                        {"description": "出库费TBR", "rate": 3, "amount": 0},
+                        {"description": "出库费PCR", "rate": 1, "amount": 0},
                         {"description": "仓储费TBR", "rate": 3.5, "amount": 0},
                         {"description": "仓储费PCR", "rate": 3.5, "amount": 0},
                     ]
