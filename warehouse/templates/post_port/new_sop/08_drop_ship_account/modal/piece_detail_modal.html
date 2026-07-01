@@ -67,7 +67,7 @@
         align-items: center;
         padding: 18px 24px;
         border-bottom: 1px solid #e0e0e0;
-        background: linear-gradient(135deg, #a52828, #7a1a1a);
+        background: linear-gradient(135deg, #4a6491, #2c3e50);
         color: #fff;
         border-radius: 14px 14px 0 0;
     }
@@ -120,8 +120,8 @@
 
     .piece-detail-search-input:focus {
         outline: none;
-        border-color: #a52828;
-        box-shadow: 0 0 0 0.2rem rgba(165, 40, 40, 0.15);
+        border-color: #4a6491;
+        box-shadow: 0 0 0 0.2rem rgba(74, 100, 145, 0.15);
     }
 
     .piece-detail-search-icon {
@@ -145,13 +145,13 @@
     }
 
     .piece-detail-table th {
-        background: #f8f9fa;
+        background: #4a6491;
+        color: white;
         padding: 10px 14px;
         text-align: left;
         font-weight: 600;
         font-size: 0.85rem;
-        color: #495057;
-        border-bottom: 2px solid #e0e0e0;
+        border-bottom: 2px solid #2c3e50;
         position: sticky;
         top: 0;
         z-index: 1;
@@ -165,7 +165,7 @@
     }
 
     .piece-detail-table tbody tr:hover {
-        background: #fdf2f2;
+        background: #e8edf5;
     }
 
     .piece-detail-table tbody tr.hidden-row {
@@ -187,8 +187,9 @@
 </style>
 
 <script>
-    // 件数详情数据，由页面模板注入
-    let pieceDetailData = [];
+    if (typeof pieceDetailData === 'undefined') {
+        var pieceDetailData = [];
+    }
 
     function openPieceDetailModal() {
         const modal = document.getElementById('pieceDetailModal');

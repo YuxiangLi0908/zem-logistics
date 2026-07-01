@@ -510,7 +510,7 @@
 
     // 初始化件数详情数据
     {% if piece_details_json %}
-    pieceDetailData = {{ piece_details_json|safe }};
+    var pieceDetailData = {{ piece_details_json|safe }};
     {% endif %}
     // 页面加载时绑定已有行的输入事件
     document.addEventListener('DOMContentLoaded', function() {
