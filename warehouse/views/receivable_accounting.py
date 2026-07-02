@@ -1064,7 +1064,10 @@ class ReceivableAccounting(View):
         
         if item_id:
             # 更新现有记录
-            InvoiceItemv2.objects.filter(id=item_id).update(**delivery_data)
+            item = InvoiceItemv2.objects.get(id=item_id)
+            for key, value in delivery_data.items():
+                setattr(item, key, value)
+            item.save()
         else:
             # 创建新记录
             InvoiceItemv2.objects.create(**delivery_data)
@@ -1085,7 +1088,10 @@ class ReceivableAccounting(View):
         }
         
         if item_id:
-            InvoiceItemv2.objects.filter(id=item_id).update(**other_data)
+            item = InvoiceItemv2.objects.get(id=item_id)
+            for key, value in other_data.items():
+                setattr(item, key, value)
+            item.save()
         else:
             InvoiceItemv2.objects.create(**other_data)
             
@@ -1704,11 +1710,10 @@ class ReceivableAccounting(View):
             return self.handle_confirm_entry_post(request,context)
 
         with transaction.atomic():
-            invoice_updated = Invoicev2.objects.filter(
-                id__in=invoice_id_list
-            ).update(
-                is_invoice_delivered=True
-            )
+            invoices = Invoicev2.objects.filter(id__in=invoice_id_list)
+            for invoice in invoices:
+                invoice.is_invoice_delivered = True
+                invoice.save()
         context = {'success_messages':'账单通知客户成功！'}
         return self.handle_confirm_entry_post(request,context)
     
@@ -1990,7 +1995,9 @@ class ReceivableAccounting(View):
 
         # 如果有 invoice_item，绑定到当前 invoice_id，并更新主账单
         if invoice_items.exists():
-            invoice_items.update(invoice_number_id=invoice_id)
+            for item in invoice_items:
+                item.invoice_number_id = invoice_id
+                item.save()
             # 更新主账单（直接复用之前已经获取的 current_invoice）
             self._update_invoice_total(current_invoice, container, True)
 
@@ -4116,7 +4123,12 @@ class ReceivableAccounting(View):
             marks_list = [mark.strip() for mark in shipping_marks.split() if mark.strip()]
             qs = qs.filter(shipping_mark__in=marks_list)
 
-        updated = qs.update(delivery_type=to_delivery_type)
+        pallets = list(qs)
+        updated = 0
+        for pallet in pallets:
+            pallet.delivery_type = to_delivery_type
+            pallet.save()
+            updated += 1
         unique_destinations = list(qs.values_list('destination', flat=True).distinct())
         destinations = ', '.join(unique_destinations)
         operation_messages = []
@@ -4631,7 +4643,12 @@ class ReceivableAccounting(View):
             filter_kwargs["shipping_mark"] = shipping_mark
         
         qs = Pallet.objects.filter(**filter_kwargs)
-        updated = qs.update(delivery_method=delivery_method)
+        pallets = list(qs)
+        updated = 0
+        for pallet in pallets:
+            pallet.delivery_method = delivery_method
+            pallet.save()
+            updated += 1
         
         # 构造新的 GET 查询参数
         get_params = QueryDict(mutable=True)
@@ -5025,11 +5042,16 @@ class ReceivableAccounting(View):
         invoice_ids = request.POST.getlist("invoice_ids")
         reviewed_count = 0
         if invoice_ids:
-            updated = InvoiceStatusv2.objects.filter(
+            statuses = InvoiceStatusv2.objects.filter(
                 invoice_id__in=invoice_ids,
                 invoice_type="receivable",
                 preport_status="pending_review"
-            ).update(preport_status="completed")
+            )
+            updated = 0
+            for status in statuses:
+                status.preport_status = "completed"
+                status.save()
+                updated += 1
             reviewed_count = updated
         context = self.handle_preport_entry_post(request)
         context['success_messages'] = f'{reviewed_count} 条账单已审核成功'
@@ -12427,19 +12449,19 @@ class ReceivableAccounting(View):
                     continue
                     
                 # 找到记录并更新
-                InvoiceItemv2.objects.filter(id=item_id, invoice_number=invoice).update(
-                    item_category=item.get('item_category'),
-                    description=item.get('description'),
-                    warehouse_code=item.get('warehouse_code'),
-                    delivery_type=item.get('delivery_type'),
-                    rate=float(item.get('rate') or 0),
-                    qty=float(item.get('qty') or 0),
-                    cbm=float(item.get('cbm') or 0),
-                    weight=float(item.get('weight') or 0),
-                    surcharges=float(item.get('surcharges') or 0),
-                    amount=float(item.get('amount') or 0),
-                    note=item.get('note'),
-                )
+                invoice_item = InvoiceItemv2.objects.get(id=item_id, invoice_number=invoice)
+                invoice_item.item_category = item.get('item_category')
+                invoice_item.description = item.get('description')
+                invoice_item.warehouse_code = item.get('warehouse_code')
+                invoice_item.delivery_type = item.get('delivery_type')
+                invoice_item.rate = float(item.get('rate') or 0)
+                invoice_item.qty = float(item.get('qty') or 0)
+                invoice_item.cbm = float(item.get('cbm') or 0)
+                invoice_item.weight = float(item.get('weight') or 0)
+                invoice_item.surcharges = float(item.get('surcharges') or 0)
+                invoice_item.amount = float(item.get('amount') or 0)
+                invoice_item.note = item.get('note')
+                invoice_item.save()
 
         container = Container.objects.get(container_number=container_number)
         invoice_item_data = []
