@@ -2025,12 +2025,13 @@ class ReceivableAccounting(View):
             return self.handle_confirm_entry_post(request, context)
 
         with transaction.atomic():
-            status_updated = InvoiceStatusv2.objects.filter(
+            statuses = InvoiceStatusv2.objects.filter(
                 invoice_id__in=invoice_id_list,
                 invoice_type="receivable",
-            ).update(
-                finance_status="tobeconfirmed"
             )
+            for status in statuses:
+                status.finance_status = "tobeconfirmed"
+                status.save()
 
             # 如果是从fix_account_entry来的，先检查并删除另一条invoice
             if source_page == "fix_account_entry":
@@ -2043,12 +2044,13 @@ class ReceivableAccounting(View):
                 item_category='combina_extra_fee'
             ).delete()
 
-            invoice_updated = Invoicev2.objects.filter(
+            invoices = Invoicev2.objects.filter(
                 id__in=invoice_id_list
-            ).update(
-                #is_invoice_delivered=False,   # 财务4.24说，有的账单开给客户了，但是退回到待开后他就不记得是不是给客户通知了，所以重开也不改变这个状态了
-                receivable_is_locked=False
             )
+            for invoice in invoices:
+                #is_invoice_delivered=False,   # 财务4.24说，有的账单开给客户了，但是退回到待开后他就不记得是不是给客户通知了，所以重开也不改变这个状态了
+                invoice.receivable_is_locked = False
+                invoice.save()
 
 
         context = {'success_messages':'账单退回状态成功！'}
@@ -6150,7 +6152,7 @@ class ReceivableAccounting(View):
                 criteria &= (Q(retrieval_id__retrieval_destination_precise=warehouse) | Q(cancel_notification=True))
             if customer:
                 criteria &= Q(customer_name__zem_name=customer)
-    
+
         # --- 3. 获取基础订单数据 ---
         base_orders = (
             Order.objects
@@ -6217,7 +6219,7 @@ class ReceivableAccounting(View):
         # --- 6. 循环处理 ---
         order_data_list = []      # 公仓待录入
         previous_order_data_list = [] # 公仓已录入 
-        
+
         for o in base_orders:
             container = o.container_number
             
@@ -6287,7 +6289,6 @@ class ReceivableAccounting(View):
                         'has_invoice': True,
                         'cancel_notification': o.cancel_notification,
                     }
-
                     if finance_status != "completed":
                         # === 待录入 (Order List) ===
                         # 检查是否有暂扣 (直接查 Set，O(1)复杂度)
@@ -6301,7 +6302,6 @@ class ReceivableAccounting(View):
                         # 计算剩余金额
                         rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
                         rec_offset = getattr(invoice, 'remain_offset', 0) or 0
-                        
                         # 只保留待核销费用不为0的账单
                         if rec_offset != 0:
                             # 处理 Statement 关联
@@ -6332,7 +6332,8 @@ class ReceivableAccounting(View):
                 .distinct()
             )
             order_data_list = [item for item in order_data_list if item['invoice_id'] in invoices_with_items]
-        
+        print('order_data_list',order_data_list)
+        print('previous_order_data_list',previous_order_data_list)
         context.update({
             'start_date': start_date,
             'end_date': end_date,
