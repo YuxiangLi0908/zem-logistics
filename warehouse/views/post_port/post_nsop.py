@@ -7389,18 +7389,24 @@ class PostNsop(View):
             return await self.handle_td_shipment_post(request, context)
         # 更新 PackingList
         if cargo_id_list:
-            updated_count = await sync_to_async(
-                lambda: PackingList.objects.filter(id__in=cargo_id_list).update(note_sp=note_sp)
-            )()
+            updated_count = 0
+            pls = await sync_to_async(list)(PackingList.objects.filter(id__in=cargo_id_list))
+            for pl in pls:
+                pl.note_sp = note_sp
+                pl.save()
+                updated_count += 1
             if updated_count == 0:
                 context.update({'error_messages': "更新备注失败！"})
                 return await self.handle_td_shipment_post(request, context)
 
         # 更新 Pallet
         if plt_id_list:
-            updated_count = await sync_to_async(
-                lambda: Pallet.objects.filter(id__in=plt_id_list).update(note_sp=note_sp)
-            )()
+            updated_count = 0
+            pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_id_list))
+            for pallet in pallets:
+                pallet.note_sp = note_sp
+                pallet.save()
+                updated_count += 1
             if updated_count == 0:
                 context.update({'error_messages': "更新备注失败！"})
                 return await self.handle_td_shipment_post(request, context)
@@ -10365,21 +10371,21 @@ class PostNsop(View):
             if ds == "PACKINGLIST" and i < len(pl_ids_str):
                 ids = [x.strip() for x in pl_ids_str[i].split(",") if x.strip().isdigit()]
                 if ids:
-                    cnt = await sync_to_async(
-                        lambda: PackingList.objects.filter(id__in=[int(x) for x in ids]).update(
-                            delivery_est_start=est_start, delivery_est_end=est_end
-                        )
-                    )()
-                    updated += cnt
+                    pls = await sync_to_async(list)(PackingList.objects.filter(id__in=[int(x) for x in ids]))
+                    for pl in pls:
+                        pl.delivery_est_start = est_start
+                        pl.delivery_est_end = est_end
+                        pl.save()
+                        updated += 1
             elif ds == "PALLET" and i < len(plt_ids_str):
                 ids = [x.strip() for x in plt_ids_str[i].split(",") if x.strip().isdigit()]
                 if ids:
-                    cnt = await sync_to_async(
-                        lambda: Pallet.objects.filter(id__in=[int(x) for x in ids]).update(
-                            delivery_est_start=est_start, delivery_est_end=est_end
-                        )
-                    )()
-                    updated += cnt
+                    pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=[int(x) for x in ids]))
+                    for pallet in pallets:
+                        pallet.delivery_est_start = est_start
+                        pallet.delivery_est_end = est_end
+                        pallet.save()
+                        updated += 1
 
         context = await self.handle_td_shipment_post(request)
         context = context[1] if isinstance(context, tuple) else context
@@ -10397,21 +10403,19 @@ class PostNsop(View):
             if ds == "PACKINGLIST" and i < len(pl_ids_str):
                 ids = [x.strip() for x in pl_ids_str[i].split(",") if x.strip().isdigit()]
                 if ids:
-                    cnt = await sync_to_async(
-                        lambda: PackingList.objects.filter(id__in=[int(x) for x in ids]).update(
-                            notify_cus_del_time=True
-                        )
-                    )()
-                    updated += cnt
+                    pls = await sync_to_async(list)(PackingList.objects.filter(id__in=[int(x) for x in ids]))
+                    for pl in pls:
+                        pl.notify_cus_del_time = True
+                        pl.save()
+                        updated += 1
             elif ds == "PALLET" and i < len(plt_ids_str):
                 ids = [x.strip() for x in plt_ids_str[i].split(",") if x.strip().isdigit()]
                 if ids:
-                    cnt = await sync_to_async(
-                        lambda: Pallet.objects.filter(id__in=[int(x) for x in ids]).update(
-                            notify_cus_del_time=True
-                        )
-                    )()
-                    updated += cnt
+                    pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=[int(x) for x in ids]))
+                    for pallet in pallets:
+                        pallet.notify_cus_del_time = True
+                        pallet.save()
+                        updated += 1
 
         context = await self.handle_td_shipment_post(request)
         context = context[1] if isinstance(context, tuple) else context

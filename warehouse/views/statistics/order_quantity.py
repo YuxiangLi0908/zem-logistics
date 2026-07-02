@@ -593,7 +593,18 @@ class OrderQuantity(View):
                         .order_by("-history_date")
                     )
             else:
-                filter_kwargs = {search_field: search_value}
+                if search_field == "invoice_number":
+                    # 检查模型是否有 invoice_number 外键
+                    try:
+                        field = original_model._meta.get_field("invoice_number")
+                        if hasattr(field, 'remote_field') and field.remote_field:
+                            filter_kwargs = {"invoice_number__invoice_number": search_value}
+                        else:
+                            filter_kwargs = {"invoice_number": search_value}
+                    except Exception:
+                        filter_kwargs = {"invoice_number": search_value}
+                else:
+                    filter_kwargs = {search_field: search_value}
                 history_records = (
                     original_model.objects.filter(**filter_kwargs)
                     .select_related("history_user")
