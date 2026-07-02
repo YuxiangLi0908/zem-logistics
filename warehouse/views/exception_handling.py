@@ -1958,18 +1958,21 @@ class ExceptionHandling(View):
                         orders__vessel_id__vessel_etd__lte=target_date
                     ).values_list('id', flat=True).distinct()
                     
-                    # 批量更新
-                    updated_count = InvoiceStatusv2.objects.filter(
+                    # 逐条更新以记录历史
+                    statuses = InvoiceStatusv2.objects.filter(
                         container_number_id__in=container_ids,
                         invoice_type='receivable'
-                    ).update(
-                        preport_status='completed',
-                        warehouse_public_status='completed',
-                        warehouse_other_status='completed',
-                        delivery_public_status='completed',
-                        delivery_other_status='completed',
-                        finance_status='completed'
                     )
+                    updated_count = 0
+                    for status in statuses:
+                        status.preport_status = 'completed'
+                        status.warehouse_public_status = 'completed'
+                        status.warehouse_other_status = 'completed'
+                        status.delivery_public_status = 'completed'
+                        status.delivery_other_status = 'completed'
+                        status.finance_status = 'completed'
+                        status.save()
+                        updated_count += 1
                     
                     return updated_count
             
