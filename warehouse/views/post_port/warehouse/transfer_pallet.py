@@ -521,8 +521,8 @@ class TransferPallet(View):
             new_fleet_shipment_pallets.append(new_record)
 
         if new_fleet_shipment_pallets:
-            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets, batch_size=500
+            await sync_to_async(bulk_create_with_history)(
+                new_fleet_shipment_pallets, FleetShipmentPallet
             )
         await sync_to_async(fleet.save)()
         return await self.handle_transfer_history_warehouse_post(request)
