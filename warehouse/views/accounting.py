@@ -13531,6 +13531,14 @@ class Accounting(View):
             if warehouse_precise_p == "LA-91730":
                 pallet_details = {"Iris": ""}
                 palletization_carrier = "Iris"
+            else:
+                temp_pallet_details = {
+                    carrier: value
+                    for carrier, details in fee_detail.get(warehouse, {}).get(warehouse_precise, {}).items()
+                    for key in ["palletization", "arrive_warehouse"]
+                    if (value := details.get(key)) is not None and value != "/"
+                }
+                pallet_details.update(temp_pallet_details)
 
             FS = {
                 "提柜费用": "0",
