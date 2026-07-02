@@ -514,7 +514,10 @@ class PostDrop(View):
                 target_ids = c_id.split(',')
                 model = PackingList
             update_data = {'ltl_release_command': command_text}
-            await sync_to_async(model.objects.filter(id__in=target_ids).update)(**update_data)
+            objs = await sync_to_async(list)(model.objects.filter(id__in=target_ids))
+            for obj in objs:
+                obj.ltl_release_command = command_text
+                await sync_to_async(obj.save)()
             num += 1
         context = {'success_messages': f'保存成功{num}组数据!'}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
@@ -623,7 +626,7 @@ class PostDrop(View):
                 invoices_needing_update.append(inv)
 
         if missing_statuses:
-            await sync_to_async(InvoiceStatusv2.objects.bulk_create)(missing_statuses)
+            await sync_to_async(bulk_create_with_history)(missing_statuses, InvoiceStatusv2)
             # 手动回填内存，避免重新查询
             for i, inv in enumerate(invoices_needing_update):
                 inv.receivable_status_list = [missing_statuses[i]]
@@ -1500,7 +1503,11 @@ class PostDrop(View):
 
             # 批量更新通用字段
             if update_data:
-                await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
+                objs = await sync_to_async(list)(model.objects.filter(id__in=ids))
+                for obj in objs:
+                    for key, value in update_data.items():
+                        setattr(obj, key, value)
+                    await sync_to_async(obj.save)()
 
             if cargo_id.startswith('plt_') and pallet_size:
                 await pn._save_pallet_sizes(ids, pallet_size)
@@ -1749,20 +1756,18 @@ class PostDrop(View):
         shipment = await sync_to_async(Shipment.objects.create)(**shipment_data)
 
         if packinglist_ids:
-            await sync_to_async(
-                PackingList.objects.filter(id__in=packinglist_ids).update
-            )(
-                shipment_batch_number=shipment,
-                master_shipment_batch_number=shipment
-            )
+            pls = await sync_to_async(list)(PackingList.objects.filter(id__in=packinglist_ids))
+            for pl in pls:
+                pl.shipment_batch_number = shipment
+                pl.master_shipment_batch_number = shipment
+                await sync_to_async(pl.save)()
 
         if pallet_ids:
-            await sync_to_async(
-                Pallet.objects.filter(id__in=pallet_ids).update
-            )(
-                shipment_batch_number=shipment,
-                master_shipment_batch_number=shipment
-            )
+            pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=pallet_ids))
+            for pallet in pallets:
+                pallet.shipment_batch_number = shipment
+                pallet.master_shipment_batch_number = shipment
+                await sync_to_async(pallet.save)()
 
         # 记录 shipment log
         await ShipmentBindingLogger.log_shipment_operation(
