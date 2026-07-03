@@ -37,15 +37,28 @@
     }
     
     body {
-        background-color: #f5f7fb;
+        background-color: #0a0e27;
         color: var(--gray-800);
         line-height: 1.6;
     }
-    
+
+    /* 鼠标特效画布：置于最底层背景层，不拦截指针事件 */
+    #smoke-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 0;
+        pointer-events: none;
+    }
+
     .container {
         max-width: 1400px;
         margin: 0 auto;
         padding: 20px;
+        position: relative;
+        z-index: 1;
     }
     
     .header {
@@ -230,13 +243,13 @@
         align-items: center;
         margin-bottom: 25px;
         padding-bottom: 15px;
-        border-bottom: 1px solid var(--gray-200);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-    
+
     .section-title {
         font-size: 22px;
         font-weight: 700;
-        color: var(--gray-800);
+        color: #e8ecf4;
     }
     
     .section-badge {
@@ -610,18 +623,20 @@
     .no-data {
         text-align: center;
         padding: 60px 20px;
-        color: var(--gray-600);
+        color: #8a96b8;
     }
-    
+
     .no-data-icon {
         font-size: 60px;
         margin-bottom: 20px;
-        opacity: 0.5;
+        opacity: 0.4;
+        color: #6b7a9e;
     }
-    
+
     .no-data h3 {
         margin-bottom: 10px;
         font-weight: 600;
+        color: #c8d0e8;
     }
     
     .status-summary-container {
@@ -1501,7 +1516,7 @@
     <div class="post-port-table-container">
         <div class="section-header">
             <div class="section-title">涉及柜子相关信息
-                <span style="font-size: 12px; color: #666;">{{ post_port_table|length }}条记录</span>
+                <span style="font-size: 12px; color: #8a96b8;">{{ post_port_table|length }}条记录</span>
             </div>
             <input type="text" class="search-input" id="postPortSearch" placeholder="请输入关键字搜索...">
         </div>
@@ -1691,5 +1706,244 @@
             }
         });
     });
+
+    /* ============================================================
+       鼠标跟随烟雾特效
+       - Canvas 置于页面最底层背景层（z-index:0, pointer-events:none）
+       - 内容 DOM 层级高于 Canvas，自动遮挡烟雾，仅在空白背景区域可见
+       - 蓝紫渐变流体烟雾拖尾 + 中心白光晕
+       - 浅灰随机大写字母+数字浮动字符层
+       ============================================================ */
+    (function () {
+        // ---------- 可自定义配置 ----------
+        const CONFIG = {
+            maxParticles: 280,          // 最大烟雾粒子数
+            particleLife: 90,           // 粒子寿命（帧）
+            spawnPerMove: 2,            // 每次鼠标移动生成粒子数上限
+            spawnGap: 6,                // 生成粒子的最小移动距离
+            smokeMinR: 24,              // 烟雾最小半径
+            smokeMaxR: 54,              // 烟雾最大半径
+            smokeGrowth: 1.008,         // 烟雾扩散速度
+            driftX: 0.35,               // 水平飘移幅度
+            driftY: 0.45,               // 垂直飘移幅度
+            rise: 0.015,                // 上升速度
+            friction: 0.97,             // 阻尼
+            fadeSpeed: 1,               // 消散速度（每帧寿命递减）
+            smokeAlpha: 0.62,           // 烟雾整体透明度
+            charCount: 90,              // 浮动字符数量（更多以覆盖大范围）
+            charOpacityMin: 0.05,       // 字符基础透明度
+            charOpacityMax: 0.28,       // 字符最大透明度（鼠标附近）
+            charSizeMin: 10,            // 字符最小字号
+            charSizeMax: 30,            // 字符最大字号
+            charSpeedMax: 0.5,          // 字符漂浮速度上限
+            charColor: '200, 215, 240', // 字符颜色（浅灰蓝）
+            charRevealRadius: 320,      // 字符显现半径（比烟雾范围大）
+            charFadeRadius: 180         // 字符中心最清晰区域半径
+        };
+
+        // ---------- 创建画布并插入 body 最底层 ----------
+        const canvas = document.createElement('canvas');
+        canvas.id = 'smoke-canvas';
+        document.body.insertBefore(canvas, document.body.firstChild);
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // ---------- 预渲染烟雾精灵（白光晕 → 蓝紫渐变） ----------
+        function createSmokeSprite() {
+            const size = 128;
+            const s = document.createElement('canvas');
+            s.width = size; s.height = size;
+            const c = s.getContext('2d');
+            const g = c.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+            // 中心微弱柔和白光光晕
+            g.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+            g.addColorStop(0.12, 'rgba(220, 225, 255, 0.38)');
+            // 蓝紫渐变流体
+            g.addColorStop(0.35, 'rgba(130, 110, 255, 0.22)');
+            g.addColorStop(0.6, 'rgba(80, 70, 200, 0.10)');
+            g.addColorStop(1, 'rgba(40, 30, 100, 0)');
+            c.fillStyle = g;
+            c.fillRect(0, 0, size, size);
+            return s;
+        }
+        const smokeSprite = createSmokeSprite();
+
+        // ---------- 烟雾粒子 ----------
+        class Smoke {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * CONFIG.driftX;
+                this.vy = (Math.random() - 0.5) * CONFIG.driftY;
+                this.radius = CONFIG.smokeMinR + Math.random() * (CONFIG.smokeMaxR - CONFIG.smokeMinR);
+                this.maxLife = CONFIG.particleLife + Math.random() * 30;
+                this.life = this.maxLife;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= CONFIG.friction;
+                this.vy *= CONFIG.friction;
+                this.vy -= CONFIG.rise;       // 缓慢上升
+                this.radius *= CONFIG.smokeGrowth; // 弥散扩张
+                this.life -= CONFIG.fadeSpeed;
+            }
+            draw() {
+                const a = Math.max(0, this.life / this.maxLife);
+                ctx.globalAlpha = a * CONFIG.smokeAlpha;
+                const s = this.radius * 2;
+                ctx.drawImage(smokeSprite, this.x - this.radius, this.y - this.radius, s, s);
+            }
+            dead() { return this.life <= 0; }
+        }
+
+        // ---------- 浮动字符（大写字母 + 数字） ----------
+        const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        class FloatChar {
+            constructor() { this.reset(true); }
+            reset(initial) {
+                this.char = CHARS[Math.floor(Math.random() * CHARS.length)];
+                this.x = Math.random() * canvas.width;
+                this.y = initial ? Math.random() * canvas.height : -20;
+                this.size = CONFIG.charSizeMin + Math.random() * (CONFIG.charSizeMax - CONFIG.charSizeMin);
+                this.baseOpacity = CONFIG.charOpacityMin + Math.random() * (CONFIG.charOpacityMax - CONFIG.charOpacityMin);
+                this.vx = (Math.random() - 0.5) * 2 * CONFIG.charSpeedMax;
+                this.vy = (Math.random() - 0.5) * 2 * CONFIG.charSpeedMax;
+                this.phase = Math.random() * Math.PI * 2;
+                this.phaseSpeed = 0.005 + Math.random() * 0.015;
+                this.changeTimer = 200 + Math.random() * 400;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.phase += this.phaseSpeed;
+                this.changeTimer--;
+                if (this.changeTimer <= 0) {
+                    this.char = CHARS[Math.floor(Math.random() * CHARS.length)];
+                    this.changeTimer = 200 + Math.random() * 400;
+                }
+                if (this.x < -30) this.x = canvas.width + 30;
+                if (this.x > canvas.width + 30) this.x = -30;
+                if (this.y < -30) this.y = canvas.height + 30;
+                if (this.y > canvas.height + 30) this.y = -30;
+            }
+            draw(mx, my, mouseOnBg) {
+                // 根据距离鼠标位置计算显现透明度
+                const dx = this.x - mx;
+                const dy = this.y - my;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                let alpha;
+                if (!mouseOnBg) {
+                    // 鼠标不在空白背景区，字符全部隐藏
+                    alpha = 0;
+                } else if (dist < CONFIG.charFadeRadius) {
+                    // 中心区域最清晰
+                    alpha = this.baseOpacity;
+                } else if (dist < CONFIG.charRevealRadius) {
+                    // 过渡区域渐变淡出
+                    const t = (dist - CONFIG.charFadeRadius) / (CONFIG.charRevealRadius - CONFIG.charFadeRadius);
+                    alpha = this.baseOpacity * (1 - t);
+                } else {
+                    // 超出范围不可见
+                    alpha = 0;
+                }
+                if (alpha <= 0.002) return;
+
+                const float = Math.sin(this.phase) * 4;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = 'rgba(' + CONFIG.charColor + ', 1)';
+                ctx.font = this.size + "px 'Courier New', monospace";
+                ctx.fillText(this.char, this.x, this.y + float);
+            }
+        }
+
+        const particles = [];
+        const floatChars = [];
+        for (let i = 0; i < CONFIG.charCount; i++) floatChars.push(new FloatChar());
+
+        // ---------- 自动区分空白区域与内容区域 ----------
+        // 沿 DOM 树向上查找首个带不透明背景的元素；遍历到 body 为止（body 背景本身视为空白背景）
+        const bgCache = new WeakMap();
+        function hasOpaqueBg(el) {
+            if (bgCache.has(el)) return bgCache.get(el);
+            const st = getComputedStyle(el);
+            const bg = st.backgroundColor;
+            const img = st.backgroundImage;
+            const r = (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') ||
+                      (img && img !== 'none');
+            bgCache.set(el, r);
+            return r;
+        }
+        function isBackgroundArea(x, y) {
+            const el = document.elementFromPoint(x, y);
+            if (!el) return true;
+            let cur = el;
+            while (cur && cur !== document.body) {
+                if (hasOpaqueBg(cur)) return false;
+                cur = cur.parentElement;
+            }
+            return true;
+        }
+
+        // ---------- 鼠标跟随生成烟雾 / 字符显现 ----------
+        let mx = -9999, my = -9999, lx = 0, ly = 0, hasMoved = false;
+        let mouseOnBg = false;
+        document.addEventListener('mousemove', function (e) {
+            mx = e.clientX; my = e.clientY;
+            if (!hasMoved) { lx = mx; ly = my; hasMoved = true; }
+            // 判断是否在空白背景区域
+            mouseOnBg = isBackgroundArea(mx, my);
+            if (!mouseOnBg) { lx = mx; ly = my; return; }
+
+            const dx = mx - lx, dy = my - ly;
+            const dist = Math.hypot(dx, dy);
+            const count = Math.min(CONFIG.spawnPerMove + 1, Math.ceil(dist / CONFIG.spawnGap));
+            for (let i = 0; i < count; i++) {
+                if (particles.length < CONFIG.maxParticles) {
+                    const t = i / count;
+                    particles.push(new Smoke(
+                        lx + dx * t + (Math.random() - 0.5) * 5,
+                        ly + dy * t + (Math.random() - 0.5) * 5
+                    ));
+                }
+            }
+            lx = mx; ly = my;
+        });
+        document.addEventListener('mouseleave', function () {
+            mouseOnBg = false;
+            mx = -9999; my = -9999;
+        });
+
+        // ---------- 渲染主循环 ----------
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 烟雾层（加性混合 → 柔和发光流体质感）
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+                if (p.dead()) particles.splice(i, 1);
+            }
+
+            // 字符层（叠加在烟雾上层，随鼠标位置显现，显现范围大于烟雾）
+            ctx.globalCompositeOperation = 'source-over';
+            for (const c of floatChars) {
+                c.update();
+                c.draw(mx, my, mouseOnBg);
+            }
+
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(loop);
+        }
+        loop();
+    })();
 </script>
 {% endblock %}
