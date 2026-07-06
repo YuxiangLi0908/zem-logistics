@@ -6354,8 +6354,7 @@ class ReceivableAccounting(View):
                 .distinct()
             )
             order_data_list = [item for item in order_data_list if item['invoice_id'] in invoices_with_items]
-        print('order_data_list',order_data_list)
-        print('previous_order_data_list',previous_order_data_list)
+
         context.update({
             'start_date': start_date,
             'end_date': end_date,
@@ -8664,11 +8663,15 @@ class ReceivableAccounting(View):
         total_combina_cbm = 0.0
         if delivery_type == "public":
             # 获取报价表，私仓不用找报价表
+            if not order.retrieval_id.retrieval_destination_area:
+                raise ValueError("retrieval_destination_area是空的！")
             quotations = self._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
             if isinstance(quotations, dict) and quotations.get("error_messages"):
                 return {"error_messages": quotations["error_messages"]}
             
             fee_details = quotations['fees']
+            if not fee_details:
+                raise ValueError("报价表没有找到子表")
             
             quotation_info = quotations['quotation']
             if is_combina:
