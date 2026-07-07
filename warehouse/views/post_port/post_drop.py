@@ -132,16 +132,7 @@ class PostDrop(View):
         step = request.GET.get("step")
         pk = kwargs.get("pk", None)
         if step == "postport_delivery":
-            # 获取所有客户
-            customers = await sync_to_async(list)(Customer.objects.all())
-            customers_dict = {c.zem_name: str(c.id) for c in customers}
-            # 添加----选项
-            customers_dict = {"----": None, **customers_dict}
-            # 默认选中除了"new fortun"外的所有客户（使用字符串类型）
-            customer_list = [customers_dict[k] for k in customers_dict.keys() if k != "----" and k.lower() != "new fortun"]
             context = {
-                "customers": customers_dict,
-                "customer_list": customer_list,
                 "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects
                     .order_by("name")
