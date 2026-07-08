@@ -195,7 +195,7 @@
                                                     </div>
                                                 </div>
                                                 <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px;">
-                                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;" class="edit_pallet_label">
                                                         <thead style="position: sticky; top: 0; background: #f8f9fa;">
                                                             <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">柜号</th>
                                                             <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">客户</th>
@@ -365,7 +365,7 @@
                                             </div>
                                         </div>
                                         <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px;">
-                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" class="edit_pallet_label">
                                                 <thead style="position: sticky; top: 0; background: #f8f9fa;">
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">柜号</th>
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #4a90e2; color: white; font-weight: 600;">客户</th>
@@ -520,24 +520,31 @@
     });
 
     function closePopup() {
-        var popups = document.querySelectorAll('.popup');
-        popups.forEach(p => p.style.display = 'none');
+
+        if (currentPopup) {
+            currentPopup.style.display = "none";
+        }
+
     }
 
     function removeRow(button) {
-        var row = button.closest('tr');
-        var table = document.getElementById('edit_pallet_label');
-        var rows = table.getElementsByTagName('tr');
-        if (rows.length > 2) {
-            row.remove();
-        } else {
-            alert('至少保留一行');
+
+        const tbody = button.closest("tbody");
+
+        const rows = tbody.querySelectorAll("tr");
+
+        if (rows.length <= 1) {
+            alert("至少保留一行");
+            return;
         }
+
+        button.closest("tr").remove();
+
     }
 
     function clearAllRows() {
         if (!confirm('确定清空所有数据？')) return;
-        var tbody = document.querySelector('#edit_pallet_label tbody');
+        var tbody = currentPopup.querySelector("tbody");
         tbody.innerHTML = `
             <tr id="lable-row">
                 <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
@@ -564,50 +571,123 @@
         `;
     }
 
+    let currentPopup = null;
+
     function print_label(button, containerNumber, customerCode) {
-        var popup = button.nextElementSibling;
-        var firstInput = popup.querySelector('input[type="text"]');
-        var customerInput = popup.querySelector('td:nth-child(2) input');
-        if (firstInput) firstInput.value = containerNumber;
-        if (customerInput) customerInput.value = customerCode;
-        popup.style.display = 'block';
+
+        currentPopup = button.closest("form").querySelector(".popup");
+
+        currentPopup.style.display = "block";
+
+        const inputs = currentPopup.querySelectorAll("input[type='text']");
+
+        if (inputs.length > 0) {
+            inputs[0].value = containerNumber;
+        }
+
+        if (inputs.length > 1) {
+            inputs[1].value = customerCode;
+        }
     }
 
     function editTable(flag) {
-        var customerInfo = [];
-        var table = document.getElementById('edit_pallet_label');
-        var rows = table.getElementsByTagName('tr');
 
-        for (var i = 1; i < rows.length; i++) {
-            var cells = rows[i].getElementsByTagName('td');
-            var rowData = [];
-            for (var j = 0; j < cells.length - 1; j++) {
-                var input = cells[j].querySelector('input');
-                var select = cells[j].querySelector('select');
-                if (input) rowData.push(input.value);
-                else if (select) rowData.push(select.value);
+        if (!currentPopup) return;
+
+        const form = currentPopup.closest("form");
+
+        const table = currentPopup.querySelector("table");
+
+        const rows = table.querySelectorAll("tbody tr");
+
+        let customerInfo = [];
+
+        rows.forEach(row => {
+
+            let data = [];
+
+            row.querySelectorAll("td").forEach((td, index) => {
+
+                if (index == 9) return;
+
+                const input = td.querySelector("input");
+                const select = td.querySelector("select");
+
+                if (input) {
+                    data.push(input.value.trim());
+                } else if (select) {
+                    data.push(select.value.trim());
+                }
+
+            });
+
+            // 全为空就不提交
+            if (data.length && data.some(v => v !== "")) {
+                customerInfo.push(data);
             }
-            if (rowData.length > 0) customerInfo.push(rowData);
+
+        });
+
+        if (flag) {
+
+            table.querySelectorAll("input,select").forEach(e => {
+
+                e.disabled = false;
+
+            });
+
+            return;
+
         }
 
-        if (!flag) {
-            var form = document.activeElement.closest('form');
-            var existing = form.querySelector('input[name="customerInfo"]');
-            if (existing) existing.remove();
-            var inp = document.createElement('input');
-            inp.type = 'hidden';
-            inp.name = 'customerInfo';
-            inp.value = JSON.stringify(customerInfo);
-            form.appendChild(inp);
-            form.closest('.popup').style.display = 'none';
-            form.submit();
+        let hidden = form.querySelector("input[name='customerInfo']");
+
+        if (!hidden) {
+
+            hidden = document.createElement("input");
+
+            hidden.type = "hidden";
+
+            hidden.name = "customerInfo";
+
+            form.appendChild(hidden);
+
         }
+
+        hidden.value = JSON.stringify(customerInfo);
+
+        currentPopup.style.display = "none";
+
+        form.submit();
+
     }
 
     function addRowBelow() {
-        var proto = document.querySelector('#lable-row').cloneNode(true);
-        proto.id = 'lable-row-' + Date.now();
-        document.querySelector('#edit_pallet_label tbody').appendChild(proto);
+
+        if (!currentPopup) return;
+
+        const tbody = currentPopup.querySelector("tbody");
+
+        const row = currentPopup.querySelector("#lable-row").cloneNode(true);
+
+        row.removeAttribute("id");
+
+        row.querySelectorAll("input").forEach(i => {
+
+            if (i.type == "date")
+                i.value = "";
+            else
+                i.value = "";
+        });
+
+        row.querySelectorAll("select").forEach(s => {
+
+            s.selectedIndex = 0;
+
+        });
+
+        tbody.appendChild(row);
+
     }
 </script>
 {% endblock %}

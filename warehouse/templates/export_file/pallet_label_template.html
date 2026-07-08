@@ -1,204 +1,165 @@
 {% block content %}
-{% load custom_filters %}
-<style>
-    @page {
-            size: portrait; 
+    {% load custom_filters %}
+    <style>
+        @page {
+            size: portrait;
             margin: 15mm;
         }
-    body {
-        margin: 0;
-        font-family: Times New Roman;
-    }
-    
-    @media print {
-        .page-break {
-            page-break-before: always;
-            {% comment %} justify-content: left; {% endcomment %}
-            {% comment %} align-items: center; {% endcomment %}
-            {% comment %} min-height: 100%; {% endcomment %}
-            margin: 10px 0;
+
+        body {
+            margin: 0;
+            font-family: Times New Roman;
         }
 
-        .page-break.first-page {
-            page-break-before: auto;
-        }
+        @media print {
+            .page-break {
+                page-break-before: always;
+            {% comment %} justify-content: left; {% endcomment %}{% comment %} align-items: center; {% endcomment %}{% comment %} min-height: 100%; {% endcomment %} margin: 10px 0;
+            }
 
-        .text-container {           
-            {% comment %} height: 100%; {% endcomment %}
-            padding-top: 10px;
-            {% comment %} text-align:left; {% endcomment %}
-            {% comment %} padding-left: 0; {% endcomment %}
-        }
-        .smaller-text {
-            font-size: 30px;
-            line-height: 2;
-            margin-bottom: 0;
-            
-        }
-        .small-text {
-            font-size: 40px;
-            line-height: 2;
-            margin-bottom: 0;
-            
-        }
-        .small-text.center{
-            font-size: 50px;
-            margin-bottom: 0;
-            text-align: center;  
-        }
-        .medium-text {
-            font-size: 75px;      
-            margin-bottom: 0;
-            text-align: center;   
-        }  
-        .huge-text {
-            font-size: 100px;        
-            text-align: center;  
-            margin-bottom: -10px;
-            {% comment %} padding-left: 30px;    {% endcomment %}
-            padding-right: 30px;  
-        }   
-        .table {
-            border-collapse: collapse;  
-        }   
-    
-        
-    }
-</style>
+            .page-break.first-page {
+                page-break-before: auto;
+            }
 
-<body>
-{% for d in data %}
-<div class="page-break {% if forloop.first %}first-page{% endif %}">
-    <div class="text-container">       
-        <table border="none">
-            <tr>
-                <td class="small-text" style="text-align: left;">Pallet ID Barcode</td>
-            </tr>
-            <tr>
-                <td style="text-align:center;"><img style="width:600px; height: 150px; margin-bottom: 0; padding-bottom:0;" src="data:image/png;base64,{{ d.barcode }}"></td>
-            </tr>
-        </table>
-        
-        <table border="none">
-            <tr style="border-top: 1px solid black; border-bottom: 1px solid black;">
-                <td class="medium-text" style="border-right: 1px solid black; text-align: left; text-align: center;"><i>Date</i></td>
-                <td class="medium-text" style="text-align: center;"><b>{{d.date}}</b></td>
-            </tr>
-            <!--
-            <tr style="border-top: 1px solid black;">
-                <td class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Customer</i></td>
-                {% if d.has_delivery_window %}
-                <td class="small-text" style="border-right: 1px solid black; text-align: center;"><i>Date Window</i></td>
-                {% endif %}
-                <td class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Date</i></td>
-                <td class="small-text" style="text-align: center;"><b>{{d.date}}</b></td>
-            </tr>
-            <tr style="border-bottom: 1px solid black;">
-                <td class="small-text" style="border-right: 1px solid black; text-align: center;"><b>{{d.customer}}</b></td>
-                {% if d.has_delivery_window %}
-                <td class="small-text" style="border-right: 1px solid black; text-align: center;">
-                    <b>{{d.dw_st}} - {{d.dw_end}}</b>
-                </td>
-                {% endif %}
-                <td class="small-text" style="text-align: center;"><b>{{d.date}}</b></td>
-            </tr> 
-            -->
-        </table>
-        <table border="none">
-            <tr>
-                <td class="small-text" style="text-align: left;"><i>Container No.</i></td>
-            </tr>
-            <tr style="border-bottom: 1px solid black;">
-                <td class="small-text center">
-                    <span class="small-text center">{{ d.container_number|slice_string:'front' }}</span>
-                    &nbsp;&nbsp;                    
-                    <span class="huge-text"><b>{{ d.container_number|slice_string:'back' }}</b></span>
-                </td>
-            </tr>
-        </table>
+            .text-container {
+            {% comment %} height: 100%; {% endcomment %} padding-top: 10px;
+            {% comment %} text-align:left; {% endcomment %}{% comment %} padding-left: 0; {% endcomment %}
+            }
 
-        <table border="none">
-            <tr>
-                <td class="small-text"><i>Ship To</i></td>
-            </tr>
-            <tr style="border-bottom: 1px solid black;">
-                <td class="small-text center">
-                    <p style="font-size: 120px; text-align: center; font-family:Times New Roman; margin:0;"><b>
+            .smaller-text {
+                font-size: 30px;
+                line-height: 2;
+                margin-bottom: 0;
+
+            }
+
+            .small-text {
+                font-size: 40px;
+                line-height: 2;
+                margin-bottom: 0;
+
+            }
+
+            .small-text.center {
+                font-size: 50px;
+                margin-bottom: 0;
+                text-align: center;
+            }
+
+            .medium-text {
+                font-size: 75px;
+                margin-bottom: 0;
+                text-align: center;
+            }
+
+            .huge-text {
+                font-size: 100px;
+                text-align: center;
+                margin-bottom: -10px;
+            {% comment %} padding-left: 30px;    {% endcomment %} padding-right: 30px;
+            }
+
+            .table {
+                border-collapse: collapse;
+            }
+
+
+        }
+    </style>
+
+    <body>
+    {% for d in data %}
+        <div class="page-break {% if forloop.first %}first-page{% endif %}">
+        <div class="text-container">
+            <table border="none">
+                <tr>
+                    <td class="small-text" style="text-align: left;">Pallet ID Barcode</td>
+                </tr>
+                <tr>
+                    <td style="text-align:center;"><img
+                            style="width:600px; height: 150px; margin-bottom: 0; padding-bottom:0;"
+                            src="data:image/png;base64,{{ d.barcode }}"></td>
+                </tr>
+            </table>
+
+            <table border="none">
+                <tr style="border-top: 1px solid black; border-bottom: 1px solid black;">
+                    <td class="medium-text"
+                        style="border-right: 1px solid black; text-align: left; text-align: center;"><i>Date</i></td>
+                    <td class="medium-text" style="text-align: center;"><b>{{ d.date }}</b></td>
+                </tr>
+
+            </table>
+            <table border="none">
+                <tr>
+                    <td class="small-text" style="text-align: left;"><i>Container No.</i></td>
+                </tr>
+                <tr style="border-bottom: 1px solid black;">
+                    <td class="small-text center">
+                        <span class="small-text center">{{ d.container_number|slice_string:'front' }}</span>
+                        &nbsp;&nbsp;
+                        <span class="huge-text"><b>{{ d.container_number|slice_string:'back' }}</b></span>
+                    </td>
+                </tr>
+            </table>
+
+            <table border="none">
+                <tr>
+                    <td class="small-text"><i>Ship To</i></td>
+                </tr>
+                <tr style="border-bottom: 1px solid black;">
+                    <td class="small-text center">
                         {% if d.hold %}
-                            <p style="font-size: 80px;">{{ d.destination }}(HOLD)</p>
+                            <span style="font-size:80px;font-weight:bold;">
+                                {{ d.destination }}(HOLD)
+                            </span>
                         {% else %}
-                            {{ d.destination }}
-                        {% endif %}
-                        </b>
-                    </p>
-                </td>
-            </tr>
-        </table>
-        <!-- {% if d.hold %}
-            <table border="none">
-                <tr>
-                    {% if d.shipping_marks %}
-                    <td class="small-text" style="font-size:30px;"><i>FBA</i></td>
-                    {% else %}
-                    <td class="small-text"><i>FBA</i></td>
-                    {% endif %}
-                </tr>
-                <tr style="border-bottom: 1px solid black;">
-                    <td>       
-                        {% if "/" in d.fba_ids %}    
-                            {% if d.shipping_marks %}    
-                            <p class="small-text" style="overflow-wrap: break-word; text-align: center; font-size:30px;">None</p>
-                            {% else %}
-                            <p class="small-text" style="overflow-wrap: break-word; text-align: center;">None</p>
-                            {% endif %}
-                        {% else %}
-                            {% if d.shipping_marks %}    
-                            <p class="small-text" style="overflow-wrap: break-word; text-align: center; font-size:30px;">{{ d.fba_ids }}</p>
-                            {% else %}
-                            <p class="small-text" style="overflow-wrap: break-word; text-align: center; ">{{ d.fba_ids }}</p>
-                            {% endif %}
+                            <span style="font-size:120px;font-weight:bold;">
+                                {{ d.destination }}
+                            </span>
                         {% endif %}
                     </td>
                 </tr>
             </table>
-        {% endif %} -->
-        {% if d.shipping_marks %}
-            <table border="none">
-                <tr>
-                    {% if d.hold %}
-                        <td class="small-text" style="font-size:30px;"><i>Shipping Mark</i></td>
-                    {% else %}
-                        <td class="small-text"><i>Shipping Mark</i></td>
-                    {% endif %}
-                </tr>
-                <tr style="border-bottom: 1px solid black;">
-                    <td id="shippingMarkCell">               
-                        {% if "," not in d.shipping_marks %}
-                            {% if d.hold %}
-                            <p style="font-size: 40px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
-                            {% else %}
-                            <p style="font-size: 50px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
-                            {% endif %}
-                        {% elif "2" in d.shipping_marks|slice_string:'back' %}
-                            {% if d.hold %}
-                            <p style="font-size: 30px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
-                            {% else %}
-                            <p style="font-size: 45px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
-                            {% endif %}
-                        {% elif "3" in d.shipping_marks|slice_string:'back' %}
-                            {% if d.hold %}
-                            <p style="font-size: 30px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
-                            {% else %}
-                            <p style="font-size: 20px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
-                            {% endif %}    
+
+            {% if d.shipping_marks %}
+                <table border="none">
+                    <tr>
+                        {% if d.hold %}
+                            <td class="small-text" style="font-size:30px;"><i>Shipping Mark</i></td>
                         {% else %}
-                            <p style="font-size: 20px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <td class="small-text"><i>Shipping Mark</i></td>
                         {% endif %}
-                    </td>
-                </tr>
-            </table>
-        {% endif %}
-</div>
-{% endfor %}
-</body>
+                    </tr>
+                    <tr style="border-bottom: 1px solid black;">
+                        <td id="shippingMarkCell">
+                            {% if "," not in d.shipping_marks %}
+                                {% if d.hold %}
+                                    <p style="font-size: 40px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                                {% else %}
+                                    <p style="font-size: 50px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                                {% endif %}
+                            {% elif "2" in d.shipping_marks|slice_string:'back' %}
+                                {% if d.hold %}
+                                    <p style="font-size: 30px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                                {% else %}
+                                    <p style="font-size: 45px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                                {% endif %}
+                            {% elif "3" in d.shipping_marks|slice_string:'back' %}
+                                {% if d.hold %}
+                                    <p style="font-size: 30px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                                {% else %}
+                                    <p style="font-size: 20px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                                {% endif %}
+                            {% else %}
+                                <p style="font-size: 20px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            {% endif %}
+        </div>
+        </div>
+    {% endfor %}
+    </body>
 {% endblock %}

@@ -3082,7 +3082,7 @@ class Dropshipping(View):
                     barcode_content = f"{row[0].strip()}|{destination}-{num}"
                     my_barcode = barcode_class(barcode_content, writer=ImageWriter())
                     buffer = io.BytesIO()
-                    my_barcode.write(buffer, options={"dpi": 600})
+                    my_barcode.write(buffer, options={"dpi": 300})
                     buffer.seek(0)
                     barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 
@@ -3240,7 +3240,7 @@ class Dropshipping(View):
                         barcode_content = barcode_content.encode("ascii", "ignore").decode()
                         my_barcode = barcode_class(barcode_content, writer=ImageWriter())
                     buffer = io.BytesIO()
-                    my_barcode.write(buffer, options={"dpi": 600})
+                    my_barcode.write(buffer, options={"dpi": 300})
                     buffer.seek(0)
                     barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 
