@@ -168,7 +168,7 @@
 
                                         <!-- 表格容器 -->
                                         <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px;">
-                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" class="edit_pallet_label">
                                                 <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">柜号</th>
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">客户</th>
@@ -374,7 +374,7 @@
                                             <!-- 表格容器 -->
                                             <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px;">
                                                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;"
-                                                       id="edit_pallet_label">
+                                                       class="edit_pallet_label">
                                                     <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">
                                                         柜号
@@ -557,53 +557,106 @@
 </div>
 
 <script>
-let currentContainer = "";
-let currentCustomer = "";
+    let currentContainer = "";
+    let currentCustomer = "";
 
-function print_label(btn, container, customer) {
-    currentContainer = container;
-    currentCustomer = customer;
-    let row = document.querySelector(".data-row");
-    row.querySelectorAll("input")[0].value = container;
-    row.querySelectorAll("input")[1].value = customer;
-    document.getElementById("printPopup").style.display = "block";
-}
+    function closePopup() {
+        var popups = document.querySelectorAll('.popup');
+        popups.forEach(p => p.style.display = 'none');
+    }
 
-function closePopup() {
-    document.getElementById("printPopup").style.display = "none";
-}
+    function removeRow(button) {
+        var row = button.closest('tr');
+        var table = document.querySelector(".edit_pallet_label");
+        var rows = table.getElementsByTagName('tr');
+        if (rows.length > 2) {
+            row.remove();
+        } else {
+            alert('至少保留一行');
+        }
+    }
 
-function addRowBelow() {
-    let tbody = document.querySelector("tbody");
-    let clone = document.querySelector(".data-row").cloneNode(true);
-    clone.querySelectorAll("input, select").forEach(i => i.value = "");
-    tbody.appendChild(clone);
-}
+    function clearAllRows() {
+        if (!confirm('确定清空所有数据？')) return;
+        var tbody = document.querySelector('#edit_pallet_label tbody');
+        tbody.innerHTML = `
+        <tr id="lable-row">
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                <select style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;">
+                    <option>卡车派送</option><option>客户自提</option><option>暂扣留仓</option>
+                </select>
+            </td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="date" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                <select style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;">
+                    <option>否</option><option>是</option>
+                </select>
+            </td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size:10px; padding:3px 6px;"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+    `;
+    }
 
-function removeRow(btn) {
-    if (document.querySelectorAll(".data-row").length > 1) btn.closest(".data-row").remove();
-}
+    function print_label(button, containerNumber, customerCode) {
+        var popup = button.nextElementSibling;
+        var firstInput = popup.querySelector('input[type="text"]');
+        var customerInput = popup.querySelector('td:nth-child(2) input');
+        if (firstInput) firstInput.value = containerNumber;
+        if (customerInput) customerInput.value = customerCode;
+        popup.style.display = 'block';
+    }
 
-function clearAllRows() {
-    document.querySelectorAll(".data-row").forEach((r,i) => i>0&&r.remove());
-    document.querySelectorAll(".data-row input").forEach(i=>i.value="");
-}
+    function editTable(flag) {
+        var customerInfo = [];
+        var table = document.querySelector(".edit_pallet_label");
+        var rows = table.getElementsByTagName('tr');
 
-function editTable(isEdit) {
-    document.querySelectorAll(".data-row input, .data-row select").forEach(i=>i.readOnly=!isEdit);
-    if (!isEdit) closePopup();
-}
+        for (var i = 1; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName('td');
+            var rowData = [];
+            for (var j = 0; j < cells.length - 1; j++) {
+                var input = cells[j].querySelector('input');
+                var select = cells[j].querySelector('select');
+                if (input) rowData.push(input.value);
+                else if (select) rowData.push(select.value);
+            }
+            if (rowData.length > 0) customerInfo.push(rowData);
+        }
 
-function filterTable() {
-    let inputs = document.querySelectorAll("input");
-    let kw1 = inputs[0].value.toUpperCase();
-    let kw2 = inputs[1].value.toUpperCase();
-    document.querySelectorAll("tbody tr").forEach(row => {
-        let t1 = row.cells[0].textContent.toUpperCase();
-        let t2 = row.cells[1].textContent.toUpperCase();
-        row.style.display = (t1.includes(kw1) && t2.includes(kw2)) ? "" : "none";
-    });
-}
+        if (!flag) {
+            var popup = document.querySelector('.popup[style*="display: block"]');
+
+            if (!popup) {
+                alert("没有找到打印窗口");
+                return;
+            }
+
+            var form = popup.closest('form');
+            var existing = form.querySelector('input[name="customerInfo"]');
+            if (existing) existing.remove();
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'customerInfo';
+            inp.value = JSON.stringify(customerInfo);
+            form.appendChild(inp);
+            popup.style.display = 'none';
+            form.submit();
+        }
+    }
+
+    function addRowBelow() {
+        var proto = document.querySelector('#lable-row').cloneNode(true);
+        proto.id = 'lable-row-' + Date.now();
+        document.querySelector('#edit_pallet_label tbody').appendChild(proto);
+    }
 </script>
 
 <style>

@@ -168,7 +168,7 @@
 
                                         <!-- 表格容器 -->
                                         <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px;">
-                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" class="edit_pallet_label">
                                                 <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">柜号</th>
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">客户</th>
@@ -374,7 +374,7 @@
                                             <!-- 表格容器 -->
                                             <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px;">
                                                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;"
-                                                       id="edit_pallet_label">
+                                                       class="edit_pallet_label">
                                                     <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">
                                                     <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">
                                                         柜号
@@ -557,53 +557,191 @@
 </div>
 
 <script>
-let currentContainer = "";
-let currentCustomer = "";
+    let currentContainer = "";
+    let currentCustomer = "";
 
-function print_label(btn, container, customer) {
-    currentContainer = container;
-    currentCustomer = customer;
-    let row = document.querySelector(".data-row");
-    row.querySelectorAll("input")[0].value = container;
-    row.querySelectorAll("input")[1].value = customer;
-    document.getElementById("printPopup").style.display = "block";
-}
 
-function closePopup() {
-    document.getElementById("printPopup").style.display = "none";
-}
+    function closePopup() {
 
-function addRowBelow() {
-    let tbody = document.querySelector("tbody");
-    let clone = document.querySelector(".data-row").cloneNode(true);
-    clone.querySelectorAll("input, select").forEach(i => i.value = "");
-    tbody.appendChild(clone);
-}
+        if (currentPopup) {
+            currentPopup.style.display = "none";
+        }
 
-function removeRow(btn) {
-    if (document.querySelectorAll(".data-row").length > 1) btn.closest(".data-row").remove();
-}
+    }
 
-function clearAllRows() {
-    document.querySelectorAll(".data-row").forEach((r,i) => i>0&&r.remove());
-    document.querySelectorAll(".data-row input").forEach(i=>i.value="");
-}
+    function removeRow(button) {
 
-function editTable(isEdit) {
-    document.querySelectorAll(".data-row input, .data-row select").forEach(i=>i.readOnly=!isEdit);
-    if (!isEdit) closePopup();
-}
+        const tbody = button.closest("tbody");
 
-function filterTable() {
-    let inputs = document.querySelectorAll("input");
-    let kw1 = inputs[0].value.toUpperCase();
-    let kw2 = inputs[1].value.toUpperCase();
-    document.querySelectorAll("tbody tr").forEach(row => {
-        let t1 = row.cells[0].textContent.toUpperCase();
-        let t2 = row.cells[1].textContent.toUpperCase();
-        row.style.display = (t1.includes(kw1) && t2.includes(kw2)) ? "" : "none";
-    });
-}
+        const rows = tbody.querySelectorAll("tr");
+
+        if (rows.length <= 1) {
+            alert("至少保留一行");
+            return;
+        }
+
+        button.closest("tr").remove();
+
+    }
+
+    function clearAllRows() {
+        if (!confirm('确定清空所有数据？')) return;
+        var tbody = currentPopup.querySelector("tbody");
+        tbody.innerHTML = `
+        <tr id="lable-row">
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                <select style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;">
+                    <option>卡车派送</option><option>客户自提</option><option>暂扣留仓</option>
+                </select>
+            </td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="text" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;"><input type="date" style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;"></td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                <select style="width:100%; padding:4px; font-size:12px; border-radius:4px; border:1px solid #ced4da;">
+                    <option>否</option><option>是</option>
+                </select>
+            </td>
+            <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa;">
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size:10px; padding:3px 6px;"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+    `;
+    }
+
+    let currentPopup = null;
+
+    function print_label(button, containerNumber, customerCode) {
+
+        currentPopup = button.closest("form").querySelector(".popup");
+
+        currentPopup.style.display = "block";
+
+        const inputs = currentPopup.querySelectorAll("input[type='text']");
+
+        if (inputs.length > 0) {
+            inputs[0].value = containerNumber;
+        }
+
+        if (inputs.length > 1) {
+            inputs[1].value = customerCode;
+        }
+    }
+
+    function editTable(flag) {
+
+        if (!currentPopup) return;
+
+        const form = currentPopup.closest("form");
+
+        const table = currentPopup.querySelector("table");
+
+        const rows = table.querySelectorAll("tbody tr");
+
+        let customerInfo = [];
+
+        rows.forEach(row => {
+
+            let data = [];
+
+            row.querySelectorAll("td").forEach((td, index) => {
+
+                if (index == 9) return;
+
+                const input = td.querySelector("input");
+                const select = td.querySelector("select");
+
+                if (input) {
+                    data.push(input.value.trim());
+                } else if (select) {
+                    data.push(select.value.trim());
+                }
+
+            });
+
+            // 全为空就不提交
+            if (data.length && data.some(v => v !== "")) {
+                customerInfo.push(data);
+            }
+
+        });
+
+        if (flag) {
+
+            table.querySelectorAll("input,select").forEach(e => {
+
+                e.disabled = false;
+
+            });
+
+            return;
+
+        }
+
+        let hidden = form.querySelector("input[name='customerInfo']");
+
+        if (!hidden) {
+
+            hidden = document.createElement("input");
+
+            hidden.type = "hidden";
+
+            hidden.name = "customerInfo";
+
+            form.appendChild(hidden);
+
+        }
+
+        hidden.value = JSON.stringify(customerInfo);
+
+        currentPopup.style.display = "none";
+
+        form.submit();
+
+    }
+
+    function addRowBelow() {
+
+        if (!currentPopup) return;
+
+        const tbody = currentPopup.querySelector("tbody");
+
+        const row = currentPopup.querySelector("#lable-row").cloneNode(true);
+
+        row.removeAttribute("id");
+
+        row.querySelectorAll("input").forEach(i => {
+
+            if (i.type == "date")
+                i.value = "";
+            else
+                i.value = "";
+        });
+
+        row.querySelectorAll("select").forEach(s => {
+
+            s.selectedIndex = 0;
+
+        });
+
+        tbody.appendChild(row);
+
+    }
+
+    function filterTable() {
+        let inputs = document.querySelectorAll("input");
+        let kw1 = inputs[0].value.toUpperCase();
+        let kw2 = inputs[1].value.toUpperCase();
+        document.querySelectorAll("tbody tr").forEach(row => {
+            let t1 = row.cells[0].textContent.toUpperCase();
+            let t2 = row.cells[1].textContent.toUpperCase();
+            row.style.display = (t1.includes(kw1) && t2.includes(kw2)) ? "" : "none";
+        });
+    }
 </script>
 
 <style>
