@@ -36,10 +36,6 @@ class TimeoutWarning(View):
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
-        if not await self._validate_user_group(request.user):
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
         context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
             ZemWarehouse.objects
             .order_by("name")
@@ -48,10 +44,6 @@ class TimeoutWarning(View):
         return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
-        if not await self._validate_user_group(request.user):
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
@@ -294,10 +286,3 @@ class TimeoutWarning(View):
     async def _user_authenticate(self, request: HttpRequest):
         return await sync_to_async(lambda: request.user.is_authenticated)()
 
-    async def _validate_user_group(self, user: User) -> bool:
-        is_staff = await sync_to_async(lambda: user.is_staff)()
-        if is_staff:
-            return True
-        return await sync_to_async(
-            lambda: user.groups.filter(name="shipment_leader").exists()
-        )()
