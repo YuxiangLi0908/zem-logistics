@@ -3,7 +3,7 @@ from simple_history.models import HistoricalRecords
 
 
 class Container(models.Model):
-    DELIVERY_TYPE_CHOICES = [("mixed", "混合"), ("public", "公仓"), ("other", "其他")]
+    DELIVERY_TYPE_CHOICES = [("mixed", "混合"), ("public", "公仓"), ("other", "其他"),("dropship", "一件代发")]
     container_number = models.CharField(max_length=255, null=True)
     container_type = models.CharField(max_length=255, null=True, blank=True)
     weight_lbs = models.FloatField(null=True, blank=True)
