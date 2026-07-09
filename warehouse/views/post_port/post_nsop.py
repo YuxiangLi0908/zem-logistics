@@ -567,6 +567,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "batch_download_pickup_list":
             return await self.handle_batch_download_pickup_list(request)
+        elif step == "batch_save_carrier":
+            template, context = await self.handle_batch_save_carrier(request)
+            return render(request, template, context) 
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -5926,6 +5929,43 @@ class PostNsop(View):
                     shipment_batch_number__shipment_batch_number=batch_number,
                 )
             )
+
+    async def handle_batch_save_carrier(self, request: HttpRequest) -> HttpResponse:
+        'ltl 待出库批次，批量保存供应商'
+        carrier_data_str = request.POST.get("carrier_data")
+        
+        if not carrier_data_str:
+            raise ValueError("没有获取到供应商数据")
+        
+        try:
+            carrier_data = json.loads(carrier_data_str)
+        except ValueError:
+            raise ValueError("供应商数据解析错误")
+        
+        if not isinstance(carrier_data, list) or len(carrier_data) == 0:
+            raise ValueError("供应商数据列表为空")
+        
+        updated_count = 0
+        
+        for item in carrier_data:
+            batch_number = item.get('batch_number')
+            carrier = item.get('carrier')
+            
+            if not batch_number or not carrier:
+                continue
+            
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(shipment_batch_number=batch_number)
+            )
+            
+            for shipment in shipments:
+                if shipment.carrier != carrier:
+                    shipment.carrier = carrier
+                    await sync_to_async(shipment.save)()
+                    updated_count += 1
+        
+        context = {'success_messages': f"成功更新 {updated_count} 条记录的供应商"}
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def handle_export_virtual_fleet_pos_post(
             self, request: HttpRequest
@@ -11552,6 +11592,7 @@ class PostNsop(View):
                         'shipment_batch_number': shipment.shipment_batch_number or '-',
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
+                        'carrier': shipment.carrier or '',
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
@@ -13802,6 +13843,7 @@ class PostNsop(View):
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
             "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping)),
+            "private_suppliers": await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商"),
             "customers": customers_dict,
             "customer_list": customer_idlist
         })
@@ -15414,6 +15456,7 @@ class PostNsop(View):
                         'shipment_batch_number': shipment.shipment_batch_number or '-',
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
+                        'carrier': shipment.carrier or '',
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }

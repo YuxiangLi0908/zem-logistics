@@ -139,11 +139,14 @@
 </style>
 
 <div style="margin-bottom: 10px; text-align: left; padding-left: 50px;">
-    <button type="button" class="fleet-action-btn fleet-btn-primary" onclick="openBatchDepartureModal()" id="batchDepartureBtn" disabled>
+    <button type="button" class="fleet-action-btn" style="background-color: #27ae60 !important; color: white !important; margin-left: 0px;" onclick="openBatchDepartureModal()" id="batchDepartureBtn" disabled>
         <i class="fas fa-check-circle"></i> 批量出库
     </button>
     <button type="button" class="fleet-action-btn" style="background-color: #28a745 !important; color: white !important; margin-left: 10px;" onclick="batchDownloadPickupList()" id="batchDownloadPickupBtn" disabled>
         <i class="fas fa-file-download"></i> 批量下载拣货单
+    </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #17a2b8 !important; color: white !important; margin-left: 10px;" onclick="batchSaveCarrier()" id="batchSaveCarrierBtn" disabled>
+        <i class="fas fa-save"></i> 批量保存供应商
     </button>
 </div>
 
@@ -155,6 +158,7 @@
                 <th>车次号</th>
                 <th>提货时间</th>
                 <th>预约批次</th>
+                <th>供应商</th>
                 <th>目的地</th>
                 <th>柜号</th>
                 <th>唛头</th>
@@ -178,11 +182,12 @@
                     </div>
                 </td>
                 <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
-                <td><textarea class="header-search" placeholder="搜索目的地" data-column="3" rows="2"></textarea></td>
-                <td><textarea class="header-search" placeholder="搜索柜号" data-column="4" rows="2"></textarea></td>
-                <td><textarea class="header-search" placeholder="搜索唛头" data-column="5" rows="2"></textarea></td>
-                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="6"></td>
-                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索供应商" data-column="3"></td>
+                <td><textarea class="header-search" placeholder="搜索目的地" data-column="4" rows="2"></textarea></td>
+                <td><textarea class="header-search" placeholder="搜索柜号" data-column="5" rows="2"></textarea></td>
+                <td><textarea class="header-search" placeholder="搜索唛头" data-column="6" rows="2"></textarea></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -221,6 +226,7 @@
                             <td style="vertical-align: middle; background-color: #f8f9fa;">
                                 {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
                             </td>
+                            <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
@@ -285,6 +291,14 @@
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">
                                             {{ shipment.shipment_batch_number }}<br>
                                             <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
+                                        </td>
+                                        <td style="vertical-align: middle; background-color: #f8f9fa;">
+                                            <select class="carrier-select" data-batch-number="{{ shipment.shipment_batch_number }}" data-shipment-id="" style="width: 100px;">
+                                                <option value="">请选择供应商</option>
+                                                {% for supplier in private_suppliers %}
+                                                    <option value="{{ supplier }}" {% if shipment.carrier == supplier %}selected{% endif %}>{{ supplier }}</option>
+                                                {% endfor %}
+                                            </select>
                                         </td>
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
 
@@ -359,6 +373,14 @@
                                                 <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ shipment.shipment_batch_number }}<br>
                                                     <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
+                                                </td>
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    <select class="carrier-select" data-batch-number="{{ shipment.shipment_batch_number }}" data-shipment-id="" style="width: 100px;">
+                                                        <option value="">请选择供应商</option>
+                                                        {% for supplier in private_suppliers %}
+                                                            <option value="{{ supplier }}" {% if shipment.carrier == supplier %}selected{% endif %}>{{ supplier }}</option>
+                                                        {% endfor %}
+                                                    </select>
                                                 </td>
                                                 <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ shipment.destination }}
@@ -1364,8 +1386,10 @@
         const hasChecked = checked.length > 0;
         const btn = document.getElementById('batchDepartureBtn');
         const downloadBtn = document.getElementById('batchDownloadPickupBtn');
+        const carrierBtn = document.getElementById('batchSaveCarrierBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
+        if (carrierBtn) carrierBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1570,6 +1594,75 @@
         batchesInput.name = 'batch_shipment_batches';
         batchesInput.value = JSON.stringify(allShipmentBatches);
         form.appendChild(batchesInput);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    function batchSaveCarrier() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const carrierData = [];
+        const processedBatches = new Set();
+
+        fleetNumbers.forEach(fleetNumber => {
+            const fleetRows = document.querySelectorAll(`.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
+            fleetRows.forEach(cell => {
+                const tr = cell.closest('tr');
+                if (tr) {
+                    const carrierSelect = tr.querySelector('.carrier-select[data-batch-number]');
+                    if (carrierSelect && !processedBatches.has(carrierSelect.dataset.batchNumber)) {
+                        const batchNumber = carrierSelect.dataset.batchNumber;
+                        const carrier = carrierSelect.value;
+                        if (batchNumber && carrier) {
+                            carrierData.push({
+                                batch_number: batchNumber,
+                                carrier: carrier
+                            });
+                            processedBatches.add(batchNumber);
+                        }
+                    }
+                }
+            });
+        });
+
+        if (carrierData.length === 0) {
+            alert('没有选择任何供应商，请先在下拉框中选择供应商');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_save_carrier';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const carrierInput = document.createElement('input');
+        carrierInput.type = 'hidden';
+        carrierInput.name = 'carrier_data';
+        carrierInput.value = JSON.stringify(carrierData);
+        form.appendChild(carrierInput);
 
         document.body.appendChild(form);
         form.submit();
