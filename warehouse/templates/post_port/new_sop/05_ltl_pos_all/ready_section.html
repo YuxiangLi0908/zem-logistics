@@ -204,7 +204,7 @@
                     </tr>
                     {% if not fleet_group.shipments %}
                         <tr>
-                            <td><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
+                            <td style="vertical-align: middle; text-align: center;"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
                             <td class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
                                 data-fleet-number="{{ fleet_group.fleet_number }}"
                                 data-third-party-address="{{ fleet_group.third_party_address }}"
@@ -264,7 +264,7 @@
                                     <tr data-shipment-batch="{{ shipment.shipment_batch_number }}"
                                 data-destination="{{ shipment.destination }}">
                                 {% if is_first_shipment %}
-                                    <td rowspan="{{ fleet_rowspan }}"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
+                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; text-align: center;"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
                                     <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
                                                 data-fleet-number="{{ fleet_group.fleet_number }}"
                                                 data-third-party-address="{{ fleet_group.third_party_address }}"
@@ -344,7 +344,7 @@
                                             data-label="{{ cargo.label|default:'' }}"
                                             data-pcs="{{ cargo.total_pcs|default:0 }}">
                                             {% if forloop.first and forloop.parentloop.first %}
-                                                <td rowspan="{{ fleet_rowspan }}"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; text-align: center;"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
                                                     class="fleet-number-cell" 
                                                     data-fleet-number="{{ fleet_group.fleet_number }}"
