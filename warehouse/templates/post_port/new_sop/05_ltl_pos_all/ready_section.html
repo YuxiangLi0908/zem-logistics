@@ -15,6 +15,12 @@
         padding: 5px !important;
         border-bottom: 1px solid #dee2e6;
     }
+    .fleet-odd td:not(.no-bg) {
+        background-color: #f8f9fa !important;
+    }
+    .fleet-even td:not(.no-bg) {
+        background-color: #ffffff !important;
+    }
     .header-search {
         width: 100%;
         padding: 4px 8px;
@@ -151,6 +157,9 @@
     <button type="button" class="fleet-action-btn" style="background-color: #6c757d !important; color: white !important; margin-left: 10px;" onclick="batchSavePickupTime()" id="batchSavePickupTimeBtn" disabled>
         <i class="fas fa-clock"></i> 保存提货时间
     </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #ffc107 !important; color: #333 !important; margin-left: 10px;" onclick="batchSaveLabel()" id="batchSaveLabelBtn" disabled>
+        <i class="fas fa-tag"></i> 保存Label
+    </button>
 </div>
 
 <div class="table-container">
@@ -167,6 +176,7 @@
                 <th>唛头</th>
                 <th>板数</th>
                 <th>件数</th>
+                <th>Label</th>
                 <th>出库</th>
                 <th>拣货单</th> 
                 <th>下载</th>
@@ -191,6 +201,13 @@
                 <td><textarea class="header-search" placeholder="搜索唛头" data-column="6" rows="2"></textarea></td>
                 <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
                 <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
+                <td>
+                    <select class="header-search" data-column="9">
+                        <option value="">全部</option>
+                        <option value="True">需要Label</option>
+                        <option value="False">不需要Label</option>
+                    </select>
+                </td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -206,7 +223,7 @@
                                             height: 2px; padding: 0;"></td>
                     </tr>
                     {% if not fleet_group.shipments %}
-                        <tr>
+                        <tr {% if forloop.counter|divisibleby:2 %}class="fleet-even"{% else %}class="fleet-odd"{% endif %}>
                             <td style="vertical-align: middle; text-align: center;"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
                             <td class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
                                 data-fleet-number="{{ fleet_group.fleet_number }}"
@@ -235,6 +252,7 @@
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
+                            <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td colspan="4"></td> <!-- 占位：出库、拣货单、下载、费用 -->
                             <td style="vertical-align: middle;">
                                 {% if fleet_group.carrier == 'Maersk' %}
@@ -267,7 +285,7 @@
                             {% with is_first_shipment=forloop.first %}
                                 {% if shipment_rowspan == 0 %}
                                     <tr data-shipment-batch="{{ shipment.shipment_batch_number }}"
-                                data-destination="{{ shipment.destination }}">
+                                data-destination="{{ shipment.destination }}" {% if forloop.parentloop.counter|divisibleby:2 %}class="fleet-even"{% else %}class="fleet-odd"{% endif %}>
                                 {% if is_first_shipment %}
                                     <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; text-align: center;"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
                                     <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
@@ -311,6 +329,13 @@
 
                                         <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
 
+                                        <td style="vertical-align: middle; background-color: #f8f9fa;">
+                                            <select class="label-select" data-batch-number="{{ shipment.shipment_batch_number }}" style="width: 80px;">
+                                                <option value="True" {% if shipment.needLabel != False %}selected{% endif %}>需要</option>
+                                                <option value="False" {% if shipment.needLabel is False %}selected{% endif %}>不需要</option>
+                                            </select>
+                                        </td>
+
                                         {% if is_first_shipment %}
                                             <td rowspan="{{ fleet_rowspan }}" colspan="4"></td> <!-- 占位：出库、拣货单、下载、费用 -->
                                             <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
@@ -349,7 +374,8 @@
                                             data-markings="{{ cargo.shipping_marks|default:'' }}"
                                             data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
                                             data-label="{{ cargo.label|default:'' }}"
-                                            data-pcs="{{ cargo.total_pcs|default:0 }}">
+                                            data-pcs="{{ cargo.total_pcs|default:0 }}"
+                                            {% if forloop.parentloop.parentloop.counter|divisibleby:2 %}class="fleet-even"{% else %}class="fleet-odd"{% endif %}>
                                             {% if forloop.first and forloop.parentloop.first %}
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; text-align: center;"><input type="checkbox" class="readyShip-fleet-checkbox" data-fleet-number="{{ fleet_group.fleet_number }}"></td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
@@ -411,6 +437,15 @@
                                                 {% endif %}
                                             </td>
                                             <td>{{ cargo.total_pcs|default:0 }}</td>
+
+                                            {% if forloop.first %}
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    <select class="label-select" data-batch-number="{{ shipment.shipment_batch_number }}" style="width: 80px;">
+                                                        <option value="True" {% if shipment.needLabel != False %}selected{% endif %}>需要</option>
+                                                        <option value="False" {% if shipment.needLabel is False %}selected{% endif %}>不需要</option>
+                                                    </select>
+                                                </td>
+                                            {% endif %}
 
                                             {% if forloop.first and forloop.parentloop.first %}
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
@@ -1397,10 +1432,12 @@
         const downloadBtn = document.getElementById('batchDownloadPickupBtn');
         const carrierBtn = document.getElementById('batchSaveCarrierBtn');
         const pickupBtn = document.getElementById('batchSavePickupTimeBtn');
+        const labelBtn = document.getElementById('batchSaveLabelBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
         if (carrierBtn) carrierBtn.disabled = !hasChecked;
         if (pickupBtn) pickupBtn.disabled = !hasChecked;
+        if (labelBtn) labelBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1738,6 +1775,69 @@
         pickupInput.name = 'pickup_time_data';
         pickupInput.value = JSON.stringify(pickupTimeData);
         form.appendChild(pickupInput);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    function batchSaveLabel() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const labelData = [];
+        const processedBatchNumbers = new Set();
+
+        fleetNumbers.forEach(fleetNumber => {
+            const labelSelects = document.querySelectorAll(`.label-select[data-batch-number]`);
+            labelSelects.forEach(select => {
+                const batchNumber = select.dataset.batchNumber;
+                if (processedBatchNumbers.has(batchNumber)) return;
+                
+                const labelValue = select.value;
+                labelData.push({
+                    batch_number: batchNumber,
+                    need_label: labelValue === 'True'
+                });
+                processedBatchNumbers.add(batchNumber);
+            });
+        });
+
+        if (labelData.length === 0) {
+            alert('没有设置任何Label选项，请先在下拉框中选择需要或不需要');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_save_label';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const labelInput = document.createElement('input');
+        labelInput.type = 'hidden';
+        labelInput.name = 'label_data';
+        labelInput.value = JSON.stringify(labelData);
+        form.appendChild(labelInput);
 
         document.body.appendChild(form);
         form.submit();

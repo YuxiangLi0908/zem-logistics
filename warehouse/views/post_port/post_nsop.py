@@ -572,6 +572,9 @@ class PostNsop(View):
         elif step == "batch_save_pickup_time":
             template, context = await self.handle_batch_save_pickup_time(request)
             return render(request, template, context)
+        elif step == "batch_save_label":
+            template, context = await self.handle_batch_save_label(request)
+            return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -6009,6 +6012,43 @@ class PostNsop(View):
                     continue
         context = {'success_messages': f"成功更新 {updated_count} 条记录的提货时间"}
         
+        return await self.handle_ltl_unscheduled_pos_post(request,context)
+
+    async def handle_batch_save_label(self, request: HttpRequest) -> HttpResponse:
+        '''ltl 批量保存Label是否需要下载'''
+        label_data_str = request.POST.get("label_data")
+        
+        if not label_data_str:
+            raise ValueError("没有获取到Label数据")
+        
+        try:
+            label_data = json.loads(label_data_str)
+        except ValueError:
+            raise ValueError("Label数据解析错误")
+        
+        if not isinstance(label_data, list) or len(label_data) == 0:
+            raise ValueError("Label数据列表为空")
+        
+        updated_count = 0
+        
+        for item in label_data:
+            batch_number = item.get('batch_number')
+            need_label = item.get('need_label')
+            
+            if not batch_number or need_label is None:
+                continue
+            
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(shipment_batch_number=batch_number)
+            )
+            
+            for shipment in shipments:
+                if shipment.needLabel != need_label:
+                    shipment.needLabel = need_label
+                    await sync_to_async(shipment.save)()
+                    updated_count += 1
+        context = {'success_messages': f"成功更新 {updated_count} 条记录的Label设置"}
+            
         return await self.handle_ltl_unscheduled_pos_post(request,context)
 
     async def handle_export_virtual_fleet_pos_post(
@@ -11637,6 +11677,7 @@ class PostNsop(View):
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
                         'carrier': shipment.carrier or '',
+                        'needLabel': shipment.needLabel,
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
@@ -15501,6 +15542,7 @@ class PostNsop(View):
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
                         'carrier': shipment.carrier or '',
+                        'needLabel': shipment.needLabel,
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
