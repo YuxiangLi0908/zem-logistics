@@ -568,8 +568,10 @@ class PostNsop(View):
         elif step == "batch_download_pickup_list":
             return await self.handle_batch_download_pickup_list(request)
         elif step == "batch_save_carrier":
-            template, context = await self.handle_batch_save_carrier(request)
-            return render(request, template, context) 
+            return await self.handle_batch_save_carrier(request)
+        elif step == "batch_save_pickup_time":
+            template, context = await self.handle_batch_save_pickup_time(request)
+            return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -5966,6 +5968,48 @@ class PostNsop(View):
         
         context = {'success_messages': f"成功更新 {updated_count} 条记录的供应商"}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+    async def handle_batch_save_pickup_time(self, request: HttpRequest) -> HttpResponse:
+        '''ltl 批量保存提货时间'''
+        pickup_time_data_str = request.POST.get("pickup_time_data")
+        
+        if not pickup_time_data_str:
+            raise ValueError("没有获取到提货时间数据")
+        
+        try:
+            pickup_time_data = json.loads(pickup_time_data_str)
+        except ValueError:
+            raise ValueError("提货时间数据解析错误")
+        
+        if not isinstance(pickup_time_data, list) or len(pickup_time_data) == 0:
+            raise ValueError("提货时间数据列表为空")
+        
+        updated_count = 0
+        
+        for item in pickup_time_data:
+            fleet_number = item.get('fleet_number')
+            pickup_date = item.get('pickup_date')
+            
+            if not fleet_number or not pickup_date:
+                continue
+            
+            fleets = await sync_to_async(list)(
+                Fleet.objects.filter(fleet_number=fleet_number)
+            )
+            
+            for fleet in fleets:
+                from datetime import datetime
+                try:
+                    pickup_datetime = datetime.strptime(pickup_date, '%Y-%m-%d')
+                    if fleet.appointment_datetime != pickup_datetime:
+                        fleet.appointment_datetime = pickup_datetime
+                        await sync_to_async(fleet.save)()
+                        updated_count += 1
+                except ValueError:
+                    continue
+        context = {'success_messages': f"成功更新 {updated_count} 条记录的提货时间"}
+        
+        return await self.handle_ltl_unscheduled_pos_post(request,context)
 
     async def handle_export_virtual_fleet_pos_post(
             self, request: HttpRequest

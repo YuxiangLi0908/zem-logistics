@@ -148,6 +148,9 @@
     <button type="button" class="fleet-action-btn" style="background-color: #17a2b8 !important; color: white !important; margin-left: 10px;" onclick="batchSaveCarrier()" id="batchSaveCarrierBtn" disabled>
         <i class="fas fa-save"></i> 批量保存供应商
     </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #6c757d !important; color: white !important; margin-left: 10px;" onclick="batchSavePickupTime()" id="batchSavePickupTimeBtn" disabled>
+        <i class="fas fa-clock"></i> 保存提货时间
+    </button>
 </div>
 
 <div class="table-container">
@@ -224,7 +227,9 @@
                                 {% endif %}
                             </td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">
-                                {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                <input type="date" class="pickup-date-input" data-fleet-number="{{ fleet_group.fleet_number }}" 
+                                    value="{{ fleet_group.appointment_datetime|date:'Y-m-d' }}" 
+                                    style="width: 120px; padding: 4px;">
                             </td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
@@ -284,7 +289,9 @@
                                                 {% endif %}
                                             </td>
                                             <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                <input type="date" class="pickup-date-input" data-fleet-number="{{ fleet_group.fleet_number }}" 
+                                                    value="{{ fleet_group.appointment_datetime|date:'Y-m-d' }}" 
+                                                    style="width: 120px; padding: 4px;">
                                             </td>
                                         {% endif %}
 
@@ -365,7 +372,9 @@
                                                     {% endif %}
                                                 </td> 
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                    {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                    <input type="date" class="pickup-date-input" data-fleet-number="{{ fleet_group.fleet_number }}" 
+                                                        value="{{ fleet_group.appointment_datetime|date:'Y-m-d' }}" 
+                                                        style="width: 120px; padding: 4px;">
                                                 </td> 
                                             {% endif %}
 
@@ -1387,9 +1396,11 @@
         const btn = document.getElementById('batchDepartureBtn');
         const downloadBtn = document.getElementById('batchDownloadPickupBtn');
         const carrierBtn = document.getElementById('batchSaveCarrierBtn');
+        const pickupBtn = document.getElementById('batchSavePickupTimeBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
         if (carrierBtn) carrierBtn.disabled = !hasChecked;
+        if (pickupBtn) pickupBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1663,6 +1674,70 @@
         carrierInput.name = 'carrier_data';
         carrierInput.value = JSON.stringify(carrierData);
         form.appendChild(carrierInput);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    function batchSavePickupTime() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const pickupTimeData = [];
+        const processedFleetNumbers = new Set();
+
+        fleetNumbers.forEach(fleetNumber => {
+            if (processedFleetNumbers.has(fleetNumber)) return;
+            
+            const pickupInput = document.querySelector(`.pickup-date-input[data-fleet-number="${fleetNumber}"]`);
+            if (pickupInput) {
+                const pickupDate = pickupInput.value;
+                if (pickupDate) {
+                    pickupTimeData.push({
+                        fleet_number: fleetNumber,
+                        pickup_date: pickupDate
+                    });
+                    processedFleetNumbers.add(fleetNumber);
+                }
+            }
+        });
+
+        if (pickupTimeData.length === 0) {
+            alert('没有设置任何提货时间，请先在日期输入框中选择日期');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_save_pickup_time';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const pickupInput = document.createElement('input');
+        pickupInput.type = 'hidden';
+        pickupInput.name = 'pickup_time_data';
+        pickupInput.value = JSON.stringify(pickupTimeData);
+        form.appendChild(pickupInput);
 
         document.body.appendChild(form);
         form.submit();
