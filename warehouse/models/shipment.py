@@ -52,6 +52,7 @@ class Shipment(models.Model):
     pod_uploaded_at = models.DateTimeField(null=True, blank=True)
     ltl_bol_link = models.CharField(max_length=2000, null=True, blank=True)
     ltl_label_link = models.CharField(max_length=2000, null=True, blank=True)
+    ltl_other_file_link = models.CharField(max_length=2000, null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)
     fleet_number = models.ForeignKey(
         Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name="shipment"
@@ -73,6 +74,8 @@ class Shipment(models.Model):
     pod_to_customer = models.BooleanField(default=False, null=True, blank=True, verbose_name='LTL是否将POD传给客户')
     is_virtual_sp = models.BooleanField(default=False, null=True, blank=True, verbose_name='虚构的约')
     delivery_type = models.CharField(max_length=255, null=True, blank=True,choices=[('public', '公仓'), ('other', '私仓'), ('dropshipping', '一件代发')],verbose_name='仓库类型')
+    needLabel = models.BooleanField(default=False, null=True, blank=True, verbose_name='ltl是否需要下载label文件')
+    hasOtherFile = models.BooleanField(default=False, null=True, blank=True, verbose_name='ltl是否需要下载其他文件')
     history = HistoricalRecords()
 
     class Meta:
