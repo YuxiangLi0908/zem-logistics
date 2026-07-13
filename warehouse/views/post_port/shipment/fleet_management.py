@@ -5637,10 +5637,10 @@ class FleetManagement(View):
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
 
-    async def _upload_shipping_order_file_to_sharepoint(
+    async def _upload_ltl_other_file_to_sharepoint(
         self, conn, fleet_number: str, file
     ) -> None:
-        '''上传出库单到云盘'''
+        '''ltl 上传第三份文件到云盘'''
         shipment = await sync_to_async(Shipment.objects.get)(
             fleet_number__fleet_number=fleet_number
         )
@@ -5675,7 +5675,7 @@ class FleetManagement(View):
     async def _upload_shipping_order_file_to_sharepoint(
         self, conn, shipment_batch_number: str, file
     ) -> None:
-        '''ltl 上传第三份文件到云盘'''
+        '''上传出库单到云盘'''
         shipment = await sync_to_async(Shipment.objects.get)(
             shipment_batch_number=shipment_batch_number
         )
