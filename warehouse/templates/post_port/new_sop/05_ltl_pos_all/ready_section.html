@@ -601,22 +601,42 @@
                                                     {% endif %}
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
-                                                    <div class="other-file-upload" 
-                                                         data-fleet-number="{{ fleet_group.fleet_number }}"
-                                                         style="border: 2px dashed #ced4da; 
-                                                                border-radius: 8px; 
-                                                                padding: 10px; 
-                                                                text-align: center; 
-                                                                cursor: pointer;
-                                                                min-width: 100px;"
-                                                         ondragover="event.preventDefault(); this.style.borderColor='#28a745';"
-                                                         ondragleave="this.style.borderColor='#ced4da';"
-                                                         ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#ced4da';"
-                                                         onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
-                                                        <i class="fas fa-paperclip" style="font-size: 1.2rem; color: #6c757d;"></i>
-                                                        <div style="font-size: 0.75rem; color: #6c757d; margin-top: 4px;">上传其他文件</div>
-                                                        <div style="font-size: 0.65rem; color: #adb5bd; margin-top: 2px;">拖拽或点击</div>
-                                                    </div>
+                                                    {% if fleet_group.has_other_file %}
+                                                        <div class="other-file-upload" 
+                                                             data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                             style="border: 2px solid #28a745; 
+                                                                    background-color: #d4edda;
+                                                                    border-radius: 8px; 
+                                                                    padding: 10px; 
+                                                                    text-align: center; 
+                                                                    cursor: pointer;
+                                                                    min-width: 100px;"
+                                                             ondragover="event.preventDefault(); this.style.borderColor='#155724';"
+                                                             ondragleave="this.style.borderColor='#28a745';"
+                                                             ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#28a745';"
+                                                             onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
+                                                            <i class="fas fa-check-circle" style="font-size: 1.2rem; color: #28a745;"></i>
+                                                            <div style="font-size: 0.75rem; color: #155724; margin-top: 4px;">已上传</div>
+                                                            <div style="font-size: 0.65rem; color: #2d5a27; margin-top: 2px;">点击可重新上传</div>
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="other-file-upload" 
+                                                             data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                             style="border: 2px dashed #ced4da; 
+                                                                    border-radius: 8px; 
+                                                                    padding: 10px; 
+                                                                    text-align: center; 
+                                                                    cursor: pointer;
+                                                                    min-width: 100px;"
+                                                             ondragover="event.preventDefault(); this.style.borderColor='#28a745';"
+                                                             ondragleave="this.style.borderColor='#ced4da';"
+                                                             ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#ced4da';"
+                                                             onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
+                                                            <i class="fas fa-paperclip" style="font-size: 1.2rem; color: #6c757d;"></i>
+                                                            <div style="font-size: 0.75rem; color: #6c757d; margin-top: 4px;">上传其他文件</div>
+                                                            <div style="font-size: 0.65rem; color: #adb5bd; margin-top: 2px;">拖拽或点击</div>
+                                                        </div>
+                                                    {% endif %}
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                     <button class="action-btn" onclick="openCostModal('{{ fleet_group.fleet_number }}')"

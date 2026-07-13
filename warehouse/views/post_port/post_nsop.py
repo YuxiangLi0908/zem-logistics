@@ -6065,7 +6065,8 @@ class PostNsop(View):
             
             file = request.FILES[file_key]
             fleet_number = request.POST[fleet_key]
-            await fm._upload_shipping_order_file_to_sharepoint(conn, fleet_number, file)
+            await fm._upload_ltl_other_file_to_sharepoint(conn, fleet_number, file)
+            
             index += 1
         
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
@@ -15606,8 +15607,12 @@ class PostNsop(View):
                 len(s['cargos']) if s['cargos'] else 1
                 for s in fleet_group['shipments'].values()
             )
-            # 只有有数据的fleet才返回
-            # if fleet_group['shipments']:
+            
+            fleet_group['has_other_file'] = any(
+                shipment.hasOtherFile
+                for shipment in shipments
+            )
+            
             grouped_data.append(fleet_group)
         # 按 appointment_datetime 排序，时间早的排在前面
         grouped_data.sort(
