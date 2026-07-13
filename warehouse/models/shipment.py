@@ -52,6 +52,7 @@ class Shipment(models.Model):
     pod_uploaded_at = models.DateTimeField(null=True, blank=True)
     ltl_bol_link = models.CharField(max_length=2000, null=True, blank=True)
     ltl_label_link = models.CharField(max_length=2000, null=True, blank=True)
+    ltl_other_file_link = models.CharField(max_length=2000, null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)
     fleet_number = models.ForeignKey(
         Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name="shipment"

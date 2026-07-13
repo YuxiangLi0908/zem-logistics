@@ -576,6 +576,9 @@ class PostNsop(View):
         elif step == "batch_save_label":
             template, context = await self.handle_batch_save_label(request)
             return render(request, template, context)
+        elif step == "batch_upload_other_file":
+            template, context = await self.handle_upload_other_file(request)
+            return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -6046,6 +6049,28 @@ class PostNsop(View):
         context = {'success_messages': f"成功更新 {updated_count} 条记录的Label设置"}
             
         return await self.handle_ltl_unscheduled_pos_post(request,context)
+
+    async def handle_upload_other_file(self, request: HttpRequest):
+        '''ltl 处理其他文件批量上传'''
+        fm = FleetManagement()
+        conn = await fm._get_sharepoint_auth()
+        
+        index = 0
+        while True:
+            file_key = f"file_{index}"
+            fleet_key = f"fleet_{index}"
+            
+            if file_key not in request.FILES or fleet_key not in request.POST:
+                break
+            
+            file = request.FILES[file_key]
+            fleet_number = request.POST[fleet_key]
+            await fm._upload_shipping_order_file_to_sharepoint(conn, fleet_number, file)
+            index += 1
+        
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context.update({"success_messages": '其他文件上传成功!'})
+        return template, context
 
     async def handle_export_virtual_fleet_pos_post(
             self, request: HttpRequest

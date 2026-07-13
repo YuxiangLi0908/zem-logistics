@@ -160,6 +160,9 @@
     <button type="button" class="fleet-action-btn" style="background-color: #ffc107 !important; color: #333 !important; margin-left: 10px;" onclick="batchSaveLabel()" id="batchSaveLabelBtn" disabled>
         <i class="fas fa-tag"></i> 保存Label
     </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #9c27b0 !important; color: white !important; margin-left: 10px;" onclick="batchUploadOtherFile()" id="batchUploadOtherFileBtn" disabled>
+        <i class="fas fa-upload"></i> 上传其他文件
+    </button>
 </div>
 
 <div class="table-container">
@@ -180,6 +183,7 @@
                 <th>出库</th>
                 <th>拣货单</th> 
                 <th>下载</th>
+                <th>其他文件</th>
                 <th>费用</th>
                 <th style="min-width: 100px;">操作</th>
             </tr>
@@ -251,9 +255,9 @@
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
-                            <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
+                            <td colspan="5" style="text-align:center; color:#aaa;">无可出库货物</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
-                            <td colspan="4"></td> <!-- 占位：出库、拣货单、下载、费用 -->
+                            <td colspan="4"></td> <!-- 占位：出库、拣货单、下载、其他文件、费用 -->
                             <td style="vertical-align: middle;">
                                 {% if fleet_group.carrier == 'Maersk' %}
                                     <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -327,7 +331,7 @@
                                         </td>
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
 
-                                        <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
+                                        <td colspan="5" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">
                                             <select class="label-select" data-batch-number="{{ shipment.shipment_batch_number }}" style="width: 80px;">
@@ -337,7 +341,7 @@
                                         </td>
 
                                         {% if is_first_shipment %}
-                                            <td rowspan="{{ fleet_rowspan }}" colspan="4"></td> <!-- 占位：出库、拣货单、下载、费用 -->
+                                            <td rowspan="{{ fleet_rowspan }}" colspan="5"></td> <!-- 占位：出库、拣货单、下载、其他文件、费用 -->
                                             <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                 {% if fleet_group.carrier == 'Maersk' %}
                                                     <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -595,6 +599,24 @@
                                                             {% endif %}
                                                         </div>
                                                     {% endif %}
+                                                </td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
+                                                    <div class="other-file-upload" 
+                                                         data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                         style="border: 2px dashed #ced4da; 
+                                                                border-radius: 8px; 
+                                                                padding: 10px; 
+                                                                text-align: center; 
+                                                                cursor: pointer;
+                                                                min-width: 100px;"
+                                                         ondragover="event.preventDefault(); this.style.borderColor='#28a745';"
+                                                         ondragleave="this.style.borderColor='#ced4da';"
+                                                         ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#ced4da';"
+                                                         onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
+                                                        <i class="fas fa-paperclip" style="font-size: 1.2rem; color: #6c757d;"></i>
+                                                        <div style="font-size: 0.75rem; color: #6c757d; margin-top: 4px;">上传其他文件</div>
+                                                        <div style="font-size: 0.65rem; color: #adb5bd; margin-top: 2px;">拖拽或点击</div>
+                                                    </div>
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                     <button class="action-btn" onclick="openCostModal('{{ fleet_group.fleet_number }}')"
@@ -1433,11 +1455,13 @@
         const carrierBtn = document.getElementById('batchSaveCarrierBtn');
         const pickupBtn = document.getElementById('batchSavePickupTimeBtn');
         const labelBtn = document.getElementById('batchSaveLabelBtn');
+        const otherFileBtn = document.getElementById('batchUploadOtherFileBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
         if (carrierBtn) carrierBtn.disabled = !hasChecked;
         if (pickupBtn) pickupBtn.disabled = !hasChecked;
         if (labelBtn) labelBtn.disabled = !hasChecked;
+        if (otherFileBtn) otherFileBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1860,6 +1884,164 @@
         document.body.appendChild(form);
         form.submit();
         document.body.removeChild(form);
+    }
+
+    function batchUploadOtherFile() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const fileInputs = [];
+        fleetNumbers.forEach((fleetNumber, index) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.name = `file_${index}`;
+            input.multiple = false;
+            input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt';
+            input.style.display = 'none';
+            input.onchange = function() {
+                if (this.files.length > 0) {
+                    fileInputs[index] = this.files[0];
+                }
+            };
+            fileInputs.push(null);
+        });
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+        form.enctype = 'multipart/form-data';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_upload_other_file';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const activeTabInput = document.createElement('input');
+        activeTabInput.type = 'hidden';
+        activeTabInput.name = 'active_tab';
+        activeTabInput.value = 'readyShip';
+        form.appendChild(activeTabInput);
+
+        const tempInput = document.createElement('input');
+        tempInput.type = 'file';
+        tempInput.multiple = true;
+        tempInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt';
+        tempInput.style.display = 'none';
+        tempInput.onchange = function() {
+            if (this.files.length > 0) {
+                Array.from(this.files).forEach((file, fileIndex) => {
+                    if (fileIndex < fleetNumbers.length) {
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.name = `file_${fileIndex}`;
+                        fileInput.style.display = 'none';
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        fileInput.files = dataTransfer.files;
+                        form.appendChild(fileInput);
+
+                        const fleetInput = document.createElement('input');
+                        fleetInput.type = 'hidden';
+                        fleetInput.name = `fleet_${fileIndex}`;
+                        fleetInput.value = fleetNumbers[fileIndex];
+                        form.appendChild(fleetInput);
+                    }
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }
+            document.body.removeChild(tempInput);
+        };
+
+        document.body.appendChild(tempInput);
+        tempInput.click();
+    }
+
+    function handleOtherFileClick(fleetNumber) {
+        const checkbox = document.querySelector(`.readyShip-fleet-checkbox[data-fleet-number="${fleetNumber}"]`);
+        if (checkbox && !checkbox.checked) {
+            checkbox.checked = true;
+            updateBatchDepartureBtn();
+        }
+        batchUploadOtherFile();
+    }
+
+    function handleOtherFileDrop(event, fleetNumber) {
+        event.preventDefault();
+        const checkbox = document.querySelector(`.readyShip-fleet-checkbox[data-fleet-number="${fleetNumber}"]`);
+        if (checkbox && !checkbox.checked) {
+            checkbox.checked = true;
+            updateBatchDepartureBtn();
+        }
+        
+        const file = event.dataTransfer.files[0];
+        if (file) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            form.enctype = 'multipart/form-data';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+            form.appendChild(csrfInput);
+
+            const stepInput = document.createElement('input');
+            stepInput.type = 'hidden';
+            stepInput.name = 'step';
+            stepInput.value = 'batch_upload_other_file';
+            form.appendChild(stepInput);
+
+            const warehouseInput = document.createElement('input');
+            warehouseInput.type = 'hidden';
+            warehouseInput.name = 'warehouse';
+            warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+            form.appendChild(warehouseInput);
+
+            const activeTabInput = document.createElement('input');
+            activeTabInput.type = 'hidden';
+            activeTabInput.name = 'active_tab';
+            activeTabInput.value = 'readyShip';
+            form.appendChild(activeTabInput);
+
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = 'file_0';
+            fileInput.style.display = 'none';
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            form.appendChild(fileInput);
+
+            const fleetInput = document.createElement('input');
+            fleetInput.type = 'hidden';
+            fleetInput.name = 'fleet_0';
+            fleetInput.value = fleetNumber;
+            form.appendChild(fleetInput);
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
     }
 
     // 待出库页面特定的JavaScript
