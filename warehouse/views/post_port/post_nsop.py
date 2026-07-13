@@ -569,7 +569,16 @@ class PostNsop(View):
             return await self.handle_batch_download_pickup_list(request)
         elif step == "batch_save_carrier":
             template, context = await self.handle_batch_save_carrier(request)
-            return render(request, template, context) 
+            return render(request, template, context)
+        elif step == "batch_save_pickup_time":
+            template, context = await self.handle_batch_save_pickup_time(request)
+            return render(request, template, context)
+        elif step == "batch_save_label":
+            template, context = await self.handle_batch_save_label(request)
+            return render(request, template, context)
+        elif step == "batch_upload_other_file":
+            template, context = await self.handle_upload_other_file(request)
+            return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -5954,18 +5963,114 @@ class PostNsop(View):
             if not batch_number or not carrier:
                 continue
             
+            updated = await sync_to_async(
+                lambda bn=batch_number, c=carrier: Shipment.objects.filter(shipment_batch_number=bn).update(carrier=c)
+            )()
+            updated_count += updated
+        
+        context = {'success_messages': f"成功更新 {updated_count} 条记录的供应商"}
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+    async def handle_batch_save_pickup_time(self, request: HttpRequest) -> HttpResponse:
+        '''ltl 批量保存提货时间'''
+        pickup_time_data_str = request.POST.get("pickup_time_data")
+        
+        if not pickup_time_data_str:
+            raise ValueError("没有获取到提货时间数据")
+        
+        try:
+            pickup_time_data = json.loads(pickup_time_data_str)
+        except ValueError:
+            raise ValueError("提货时间数据解析错误")
+        
+        if not isinstance(pickup_time_data, list) or len(pickup_time_data) == 0:
+            raise ValueError("提货时间数据列表为空")
+        
+        updated_count = 0
+        
+        for item in pickup_time_data:
+            fleet_number = item.get('fleet_number')
+            pickup_date = item.get('pickup_date')
+            
+            if not fleet_number or not pickup_date:
+                continue
+            
+            fleets = await sync_to_async(list)(
+                Fleet.objects.filter(fleet_number=fleet_number)
+            )
+            
+            for fleet in fleets:
+                from datetime import datetime
+                try:
+                    pickup_datetime = datetime.strptime(pickup_date, '%Y-%m-%d')
+                    if fleet.appointment_datetime != pickup_datetime:
+                        fleet.appointment_datetime = pickup_datetime
+                        await sync_to_async(fleet.save)()
+                        updated_count += 1
+                except ValueError:
+                    continue
+        context = {'success_messages': f"成功更新 {updated_count} 条记录的提货时间"}
+        
+        return await self.handle_ltl_unscheduled_pos_post(request,context)
+
+    async def handle_batch_save_label(self, request: HttpRequest) -> HttpResponse:
+        '''ltl 批量保存Label是否需要下载'''
+        label_data_str = request.POST.get("label_data")
+        
+        if not label_data_str:
+            raise ValueError("没有获取到Label数据")
+        
+        try:
+            label_data = json.loads(label_data_str)
+        except ValueError:
+            raise ValueError("Label数据解析错误")
+        
+        if not isinstance(label_data, list) or len(label_data) == 0:
+            raise ValueError("Label数据列表为空")
+        
+        updated_count = 0
+        
+        for item in label_data:
+            batch_number = item.get('batch_number')
+            need_label = item.get('need_label')
+            
+            if not batch_number or need_label is None:
+                continue
+            
             shipments = await sync_to_async(list)(
                 Shipment.objects.filter(shipment_batch_number=batch_number)
             )
             
             for shipment in shipments:
-                if shipment.carrier != carrier:
-                    shipment.carrier = carrier
+                if shipment.needLabel != need_label:
+                    shipment.needLabel = need_label
                     await sync_to_async(shipment.save)()
                     updated_count += 1
+        context = {'success_messages': f"成功更新 {updated_count} 条记录的Label设置"}
+            
+        return await self.handle_ltl_unscheduled_pos_post(request,context)
+
+    async def handle_upload_other_file(self, request: HttpRequest):
+        '''ltl 处理其他文件批量上传'''
+        fm = FleetManagement()
+        conn = await fm._get_sharepoint_auth()
         
-        context = {'success_messages': f"成功更新 {updated_count} 条记录的供应商"}
-        return await self.handle_ltl_unscheduled_pos_post(request, context)
+        index = 0
+        while True:
+            file_key = f"file_{index}"
+            fleet_key = f"fleet_{index}"
+            
+            if file_key not in request.FILES or fleet_key not in request.POST:
+                break
+            
+            file = request.FILES[file_key]
+            fleet_number = request.POST[fleet_key]
+            await fm._upload_shipping_order_file_to_sharepoint(conn, fleet_number, file)
+            index += 1
+        
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context.update({"success_messages": '其他文件上传成功!'})
+        return template, context
 
     async def handle_export_virtual_fleet_pos_post(
             self, request: HttpRequest
@@ -11593,6 +11698,7 @@ class PostNsop(View):
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
                         'carrier': shipment.carrier or '',
+                        'needLabel': shipment.needLabel,
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
@@ -15457,6 +15563,7 @@ class PostNsop(View):
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
                         'carrier': shipment.carrier or '',
+                        'needLabel': shipment.needLabel,
                         'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
