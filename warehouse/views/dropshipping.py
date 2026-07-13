@@ -47,6 +47,7 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.container import Container
 from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
+from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet import Fleet
 from warehouse.models.offload import Offload
@@ -62,7 +63,7 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER, \
-    DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE
+    DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE, DROPSHIPPING_DELIVERY_METHOD_OPTIONS
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 from warehouse.views.export_file import export_do
 from warehouse.views.pre_port.pre_port_dash import PrePortDash
@@ -348,7 +349,7 @@ class Dropshipping(View):
                     Pallet.objects.select_related(
                         "container_number", "shipment_batch_number"
                     ).filter(
-                        dropshipping_item_model_number=record.dropshipping_item_model_number,
+                        model=record.model,
                         container_number__container_number=record.container_number.container_number,
                         delivery_method=record.delivery_method,
                         delivery_type="一件代发"
@@ -405,7 +406,7 @@ class Dropshipping(View):
             .annotate(
                 retrieval_destination_precise=Subquery(retrieval_precise_subquery)
             )
-            .filter(is_resolved=True, confirmed_by_warehouse=False, delivery_method="一件代发")
+            .filter(is_resolved=True, confirmed_by_warehouse=False, delivery_type="一件代发")
             .order_by("created_at")
         )
         if warehouse:
@@ -423,7 +424,7 @@ class Dropshipping(View):
                 "confirmed_by_warehouse": (
                     True if status.confirmed_by_warehouse else False
                 ),
-                "dropshipping_item_model_number": status.dropshipping_item_model_number,
+                "model": status.model,
                 "delivery_method": status.delivery_method,
                 "pcs_reported": status.pcs_reported,
                 "pcs_actual": status.pcs_actual,
@@ -564,7 +565,7 @@ class Dropshipping(View):
                         ),
                         "resolved_at": status.resolved_at,
                         "is_resolved": True if status.is_resolved else False,
-                        "dropshipping_item_model_number": status.dropshipping_item_model_number,
+                        "model": status.model,
                         "delivery_method": status.delivery_method,
                         "pcs_reported": status.pcs_reported,
                         "pcs_actual": status.pcs_actual,
@@ -586,7 +587,7 @@ class Dropshipping(View):
                     ),
                     "resolved_at": status.resolved_at,
                     "is_resolved": True if status.is_resolved else False,
-                    "dropshipping_item_model_number": status.dropshipping_item_model_number,
+                    "model": status.model,
                     "delivery_method": status.delivery_method,
                     "pcs_reported": status.pcs_reported,
                     "pcs_actual": status.pcs_actual,
@@ -637,8 +638,8 @@ class Dropshipping(View):
                 destroyed_pallet = PalletDestroyed(
                     packing_list=pallet.packing_list,
                     container_number=pallet.container_number if pallet.container_number else None,
-                    dropshipping_item_name=pallet.dropshipping_item_name,
-                    dropshipping_item_model_number=pallet.dropshipping_item_model_number,
+                    product_name=pallet.product_name,
+                    model=pallet.model,
                     address=pallet.address,
                     zipcode=pallet.zipcode,
                     delivery_method=pallet.delivery_method,
@@ -673,8 +674,8 @@ class Dropshipping(View):
             return await self.handle_warehouse_post_inventory(request)
 
         # ===================== 修改板数的逻辑 =====================
-        dropshipping_item_name = request.POST.get("dropshipping_item_name").strip()
-        dropshipping_item_model_number_new = request.POST.get("dropshipping_item_model_number").strip()
+        product_name = request.POST.get("product_name").strip()
+        model_new = request.POST.get("model").strip()
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
@@ -726,8 +727,8 @@ class Dropshipping(View):
                         ),
                         packing_list=template.packing_list,
                         container_number=container,
-                        dropshipping_item_name=dropshipping_item_name,
-                        dropshipping_item_model_number=dropshipping_item_model_number_new,
+                        product_name=product_name,
+                        model=model_new,
                         address=address_new,
                         zipcode=zipcode_new,
                         delivery_method=delivery_method_new,
@@ -795,7 +796,7 @@ class Dropshipping(View):
         )
 
         for pl in packing_list:
-            pl.dropshipping_item_model_number = dropshipping_item_model_number_new
+            pl.model = model_new
             pl.address = address_new
             pl.zipcode = zipcode_new
             pl.delivery_method = delivery_method_new
@@ -805,7 +806,7 @@ class Dropshipping(View):
             packing_list,
             PackingList,
             fields=[
-                "dropshipping_item_model_number",
+                "model",
                 "address",
                 "zipcode",
                 "delivery_method",
@@ -834,7 +835,7 @@ class Dropshipping(View):
             pallet,
             Pallet,
             fields=[
-                "dropshipping_item_model_number",
+                "model",
                 "address",
                 "zipcode",
                 "delivery_method",
@@ -905,7 +906,7 @@ class Dropshipping(View):
         total_pcs = int(request.POST.get("pcs"))  # 全局总件数（分摊基准）
         warehouse = request.POST.get("warehouse").upper().strip()
         # data of new pallets
-        dropshipping_item_model_numbers = request.POST.getlist("dropshipping_item_model_number_repalletize")
+        models = request.POST.getlist("model_repalletize")
         delivery_methods = request.POST.getlist("delivery_method_repalletize")
         addresses = request.POST.getlist("address_repalletize")
         zipcodes = request.POST.getlist("zipcode_repalletize")
@@ -947,7 +948,7 @@ class Dropshipping(View):
 
         seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
-                dropshipping_item_model_numbers,
+                models,
                 delivery_methods,
                 addresses,
                 zipcodes,
@@ -994,7 +995,7 @@ class Dropshipping(View):
                         )
                     ),
                     "container_number": container,
-                    "dropshipping_item_model_number": dest,
+                    "model": dest,
                     "address": addr,
                     "zipcode": zipcode,
                     "delivery_method": dm,
@@ -1022,7 +1023,7 @@ class Dropshipping(View):
             # ================================= 核心修正：按pcs比例分摊CBM/总磅数 =================================
             new_pl_data = {
                 "PO_ID": current_po_id,
-                "dropshipping_item_model_number": dest,
+                "model": dest,
                 "address": addr,
                 "zipcode": zipcode,
                 "delivery_method": dm,
@@ -1169,7 +1170,7 @@ class Dropshipping(View):
             row = [
                 p.get("customer_name", ""),
                 p.get("container", ""),
-                p.get("dropshipping_item_model_number", ""),
+                p.get("model", ""),
                 p.get("offload_at", ""),
                 delivery_method,
                 round(float(p.get("weight", 0)), 2),
@@ -1280,7 +1281,7 @@ class Dropshipping(View):
             )
 
             .values(
-                "dropshipping_item_model_number",
+                "model",
                 "delivery_method",
                 "delivery_type",
                 "shipping_mark",
@@ -1348,7 +1349,7 @@ class Dropshipping(View):
             )
 
             .values(
-                "dropshipping_item_model_number",
+                "model",
                 "delivery_method",
                 "delivery_type",
                 "shipping_mark",
@@ -1402,7 +1403,7 @@ class Dropshipping(View):
         )(pk=pk)
         offload = order_selected.offload_id
         container = order_selected.container_number
-        additional_pallets = request.POST.getlist("new_dropshipping_item_model_numbers")
+        additional_pallets = request.POST.getlist("new_models")
         warehouse = order_selected.warehouse.name
         if not offload.offload_at:
             offload_time = request.POST.get("offload_time")
@@ -1415,7 +1416,7 @@ class Dropshipping(View):
             pcs_reported = [int(d) for d in request.POST.getlist("pcs_reported")]
             cbm = [float(c) for c in request.POST.getlist("cbms")]
             weight = [float(c) for c in request.POST.getlist("weights")]
-            dropshipping_item_model_numbers = [d for d in request.POST.getlist("dropshipping_item_model_numbers")]
+            models = [d for d in request.POST.getlist("models")]
             addresses = [d for d in request.POST.getlist("address")]
             zipcodes = [d for d in request.POST.getlist("zipcode")]
             contact_names = [d for d in request.POST.getlist("contact_name")]
@@ -1450,7 +1451,7 @@ class Dropshipping(View):
                     p_r,
                     c,
                     w,
-                    dropshipping_item_model_number,
+                    model,
                     d_m,
                     d_t,
                     note,
@@ -1472,7 +1473,7 @@ class Dropshipping(View):
                 pcs_reported,
                 cbm,
                 weight,
-                dropshipping_item_model_numbers,
+                models,
                 delivery_method,
                 delivery_type,
                 notes,
@@ -1523,7 +1524,7 @@ class Dropshipping(View):
                         p_r,
                         c,
                         w,
-                        dropshipping_item_model_number,
+                        model,
                         d_m,
                         d_t,
                         note,
@@ -1553,7 +1554,7 @@ class Dropshipping(View):
                             "container_number": container,
                             "created_at": offload_time,
                             "is_resolved": False,
-                            "dropshipping_item_model_number": dropshipping_item_model_number,
+                            "model": model,
                             "delivery_method": d_m,
                             "pcs_reported": p_r,
                             "pcs_actual": p_a,
@@ -1562,7 +1563,7 @@ class Dropshipping(View):
             if additional_pallets:
                 # 如果有多货的情况，因为前端目前新增行的时候通过clone id="palletization-row-empty"的行，所以会增加input，值为空，所以下面就进行了去重工作
                 # 计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
-                new_dropshipping_item_model_numbers = request.POST.getlist("new_dropshipping_item_model_numbers")
+                new_models = request.POST.getlist("new_models")
                 new_delivery_method = request.POST.getlist("new_delivery_method")
                 new_pcs_actul = [
                     int(value) for value in request.POST.getlist("new_pcs_actul")
@@ -1584,7 +1585,7 @@ class Dropshipping(View):
                 # 生成新的PO_ID
                 new_po_ids = []
                 seq_num = 0
-                for dm, dest in zip(new_delivery_method, new_dropshipping_item_model_numbers):
+                for dm, dest in zip(new_delivery_method, new_models):
                     if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                         po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     elif dm == "客户自提" or dest == "客户自提":
@@ -1602,7 +1603,7 @@ class Dropshipping(View):
                         n,
                         p_a,
                         c,
-                        dropshipping_item_model_number,
+                        model,
                         d_m,
                         note,
                         shipping_mark,
@@ -1616,7 +1617,7 @@ class Dropshipping(View):
                     new_pallets,
                     new_pcs_actul,
                     new_cbm,
-                    new_dropshipping_item_model_numbers,
+                    new_models,
                     new_delivery_method,
                     new_notes,
                     shipping_marks,
@@ -1655,7 +1656,7 @@ class Dropshipping(View):
                         0,
                         c,
                         0,
-                        dropshipping_item_model_number,
+                        model,
                         d_m,
                         delivery_type,
                         note,
@@ -1687,7 +1688,7 @@ class Dropshipping(View):
                             "container_number": container,
                             "created_at": offload_time,
                             "is_resolved": False,
-                            "dropshipping_item_model_number": dropshipping_item_model_number,
+                            "model": model,
                             "delivery_method": d_m,
                             "pcs_reported": 0,
                             "pcs_actual": p_a,
@@ -1854,7 +1855,7 @@ class Dropshipping(View):
             p_r: int,
             c: float,
             w: float,
-            dropshipping_item_model_number: str,
+            model: str,
             delivery_method: str,
             delivery_type: str,
             note: str,
@@ -1913,7 +1914,7 @@ class Dropshipping(View):
             pallet_data.append(
                 {
                     "container_number": order.container_number,
-                    "dropshipping_item_model_number": dropshipping_item_model_number,
+                    "model": model,
                     "address": address,
                     "zipcode": zipcode,
                     "contact_name": contact_name,
@@ -1945,7 +1946,7 @@ class Dropshipping(View):
         if shipment or master_shipment:
             log_info = {
                 'container_number': order.container_number.container_number,
-                'dropshipping_item_model_number': dropshipping_item_model_number,
+                'model': model,
                 'delivery_type': delivery_type,
                 'location': order.warehouse.name,
                 'po_id': po_id,
@@ -2198,19 +2199,19 @@ class Dropshipping(View):
                             ),
                         ),
                         When(
-                            Q(delivery_method="客户自提") & ~Q(dropshipping_item_model_number="客户自提"),
+                            Q(delivery_method="客户自提") & ~Q(model="客户自提"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
-                                "dropshipping_item_model_number",
+                                "model",
                             ),
                         ),
                         When(
-                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            Q(delivery_method="客户自提") | Q(model="客户自提"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
-                                "dropshipping_item_model_number",
+                                "model",
                                 Value("-"),
                                 "shipping_mark",
                             ),
@@ -2229,7 +2230,7 @@ class Dropshipping(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "dropshipping_item_model_number",
+                    "model",
                     "address",
                     "zipcode",
                     "contact_name",
@@ -2361,7 +2362,7 @@ class Dropshipping(View):
                 mask = (
                         (df["shipment_batch_number__load_type"] != "卡板")
                         & (df["vessel_eta_dt"] >= BASE_ETA)
-                        & (df["dropshipping_item_model_number"].isin(TARGET_WAREHOUSES))
+                        & (df["model"].isin(TARGET_WAREHOUSES))
                 )
             else:
                 mask = (
@@ -2457,18 +2458,18 @@ class Dropshipping(View):
             df["pl"] = ""  # 清空打板数字段
 
             if zem_name == "JINYU":
-                df = df[["dropshipping_item_model_number", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"]]
+                df = df[["model", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"]]
             else:
                 df = df[["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"]]
 
         else:
             if zem_name == "JINYU":
-                df = pd.DataFrame(columns=["dropshipping_item_model_number", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"])
+                df = pd.DataFrame(columns=["model", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"])
             else:
                 df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"])
 
         if zem_name == "JINYU":
-            df = df[["dropshipping_item_model_number", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]]
+            df = df[["model", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]]
         else:
             df = df[["destination", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]]
         buffer = BytesIO()
@@ -2531,7 +2532,7 @@ class Dropshipping(View):
 
         # 表头行（第二行）
         if zem_name == "JINYU":
-            column_names = ["dropshipping_item_model_number", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]
+            column_names = ["model", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]
         else:
             column_names = ["destination", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]
         for col_idx, name in enumerate(column_names, 1):
@@ -2632,11 +2633,11 @@ class Dropshipping(View):
                             ),
                         ),
                         When(
-                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            Q(delivery_method="客户自提") | Q(model="客户自提"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
-                                "dropshipping_item_model_number",
+                                "model",
                                 Value("-"),
                                 "shipping_mark",
                             ),
@@ -2651,7 +2652,7 @@ class Dropshipping(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "dropshipping_item_model_number",
+                    "model",
                     "address",
                     "zipcode",
                     "contact_name",
@@ -2745,7 +2746,7 @@ class Dropshipping(View):
                 .values(
                     "container_number__container_number",
                     "delivery_method",
-                    "dropshipping_item_model_number",
+                    "model",
                     "fba_id",
                     "ref_id",
                     "shipping_mark",
@@ -2772,11 +2773,11 @@ class Dropshipping(View):
                             ),
                         ),
                         When(
-                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            Q(delivery_method="客户自提") | Q(model="客户自提"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
-                                "dropshipping_item_model_number",
+                                "model",
                                 Value("-"),
                                 "shipping_mark",
                             ),
@@ -2791,7 +2792,7 @@ class Dropshipping(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "dropshipping_item_model_number",
+                    "model",
                     "address",
                     "zipcode",
                     "contact_name",
@@ -2818,11 +2819,11 @@ class Dropshipping(View):
                 .order_by("-cbm")
             )
             existing_po = {
-                (plt["container_number__container_number"], plt["dropshipping_item_model_number"])
+                (plt["container_number__container_number"], plt["model"])
                 for plt in packing_list
             }
             for pl in packing_list_complement:
-                po = (pl["container_number__container_number"], pl["dropshipping_item_model_number"])
+                po = (pl["container_number__container_number"], pl["model"])
                 if po not in existing_po:
                     packing_list.append(
                         {
@@ -2830,7 +2831,7 @@ class Dropshipping(View):
                                 "container_number__container_number"
                             ],
                             "delivery_method": pl["custom_delivery_method"],
-                            "dropshipping_item_model_number": pl["dropshipping_item_model_number"],
+                            "model": pl["model"],
                             "fba_id": pl["fba_ids"],
                             "ref_id": pl["ref_ids"],
                             "shipping_mark": pl["shipping_marks"],
@@ -2964,7 +2965,7 @@ class Dropshipping(View):
             df = df[
                 [
                     "container_number",
-                    "dropshipping_item_model_number",
+                    "model",
                     "delivery_method",
                     "fba_id",
                     "ref_id",
@@ -3172,10 +3173,10 @@ class Dropshipping(View):
                     cbm *= n_label
                     label_count = int(cbm)
                 if customer_name == "JINYU":
-                    if ("客户自提" in pl.get("dropshipping_item_model_number") or "自提" in pl.get("dropshipping_item_model_number")):
+                    if ("客户自提" in pl.get("model") or "自提" in pl.get("model")):
                         destination = "S/P"
                     else:
-                        destination = pl.get("dropshipping_item_model_number")
+                        destination = pl.get("model")
                     marks = pl.get("shipping_marks") or pl.get("shipping_mark")
                     new_marks = None
                     if marks:
@@ -3344,11 +3345,11 @@ class Dropshipping(View):
                             ),
                         ),
                         When(
-                            Q(delivery_method="客户自提") | Q(dropshipping_item_model_number="客户自提"),
+                            Q(delivery_method="客户自提") | Q(model="客户自提"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
-                                "dropshipping_item_model_number",
+                                "model",
                                 Value("-"),
                                 "shipping_mark",
                             ),
@@ -3363,7 +3364,7 @@ class Dropshipping(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "dropshipping_item_model_number",
+                    "model",
                     "address",
                     "zipcode",
                     "contact_name",
@@ -3407,7 +3408,7 @@ class Dropshipping(View):
                 .values(
                     "container_number__container_number",
                     "delivery_method",
-                    "dropshipping_item_model_number",
+                    "model",
                     "fba_id",
                     "ref_id",
                     "shipping_mark",
@@ -4096,9 +4097,6 @@ class Dropshipping(View):
             )
         )()
 
-        for container_number in container_numbers:
-            await self._update_container_unpacking_priority(container_number)
-
         return await self.handle_order_management_container_get(request)
 
     async def handle_update_delivery_type(
@@ -4116,20 +4114,20 @@ class Dropshipping(View):
 
         for start in range(0, total, batch_size):
             batch = await sync_to_async(list)(
-                queryset[start : start + batch_size].values("id", "dropshipping_item_model_number")
+                queryset[start : start + batch_size].values("id", "model")
             )
 
             public_ids = [
                 item["id"]
                 for item in batch
                 if (
-                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["dropshipping_item_model_number"]).strip())
-                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["dropshipping_item_model_number"]).strip())
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["model"]).strip())
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["model"]).strip())
                     or re.fullmatch(
-                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["dropshipping_item_model_number"]).strip()
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["model"]).strip()
                     )
                     or any(
-                        kw.lower() in str(item["dropshipping_item_model_number"]).lower()
+                        kw.lower() in str(item["model"]).lower()
                         for kw in {"walmart", "沃尔玛"}
                     )
                 )
@@ -4150,20 +4148,20 @@ class Dropshipping(View):
 
         for start in range(0, total, plt_size):
             batch_plt = await sync_to_async(list)(
-                queryset[start : start + plt_size].values("id", "dropshipping_item_model_number")
+                queryset[start : start + plt_size].values("id", "model")
             )
 
             public_ids = [
                 item["id"]
                 for item in batch_plt
                 if (
-                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["dropshipping_item_model_number"]).strip())
-                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["dropshipping_item_model_number"]).strip())
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["model"]).strip())
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["model"]).strip())
                     or re.fullmatch(
-                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["dropshipping_item_model_number"]).strip()
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["model"]).strip()
                     )
                     or any(
-                        kw.lower() in str(item["dropshipping_item_model_number"]).lower()
+                        kw.lower() in str(item["model"]).lower()
                         for kw in {"walmart", "沃尔玛"}
                     )
                 )
@@ -4189,16 +4187,16 @@ class Dropshipping(View):
         matched_containers = []
 
         for container_number in orders:
-            dropshipping_item_model_number = await sync_to_async(
+            model = await sync_to_async(
                 lambda: list(
                     PackingList.objects.filter(
                         container_number__container_number=container_number
                     )
-                    .values_list("dropshipping_item_model_number", flat=True)
+                    .values_list("model", flat=True)
                     .distinct()
                 )
             )()
-            if len(dropshipping_item_model_number) == 1:
+            if len(model) == 1:
                 matched_containers.append(container_number)
         request.abnormal_container = matched_containers
         return await self.handle_order_management_container_get(request)
@@ -4243,7 +4241,7 @@ class Dropshipping(View):
             lambda: Pallet.objects.filter(
                 container_number__container_number=container_number
             ).aggregate(
-                unique_dropshipping_item_model_numbers=Count("dropshipping_item_model_number", distinct=True),
+                unique_models=Count("model", distinct=True),
                 total_weight=Sum("weight_lbs"),
                 total_cbm=Sum("cbm"),
                 total_pallets=Count("id"),
@@ -4255,7 +4253,7 @@ class Dropshipping(View):
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number
                 ).aggregate(
-                    unique_dropshipping_item_model_numbers=Count("dropshipping_item_model_number", distinct=True),
+                    unique_models=Count("model", distinct=True),
                     total_weight=Sum("total_weight_lbs"),
                     total_cbm=Sum("cbm"),
                     total_pallets=Coalesce(
@@ -4320,7 +4318,7 @@ class Dropshipping(View):
         else:
             uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
 
-        if plts["unique_dropshipping_item_model_numbers"] > uncombina_threshold:
+        if plts["unique_models"] > uncombina_threshold:
             container.account_order_type = "一件代发"
             container.non_combina_reason = (
                 f"总仓点超过{uncombina_threshold}个"
@@ -4333,13 +4331,13 @@ class Dropshipping(View):
             plts_by_destination = await sync_to_async(
                 lambda: list(Pallet.objects.filter(
                     container_number__container_number=container_number
-                ).values("dropshipping_item_model_number").annotate(total_cbm=Sum("cbm")))
+                ).values("model").annotate(total_cbm=Sum("cbm")))
             )()
         else:
             plts_by_destination = await sync_to_async(
                 lambda: list(PackingList.objects.filter(
                     container_number__container_number=container_number
-                ).values("dropshipping_item_model_number").annotate(total_cbm=Sum("cbm")))
+                ).values("model").annotate(total_cbm=Sum("cbm")))
             )()
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
@@ -4395,12 +4393,12 @@ class Dropshipping(View):
         sum_des = set()
         price_display = defaultdict(set)
         for plts in plts_by_destination:
-            sum_des.add(plts["dropshipping_item_model_number"])
-            if "UPS" in plts["dropshipping_item_model_number"]:
+            sum_des.add(plts["model"])
+            if "UPS" in plts["model"]:
                 non_combina_dests.add("UPS")
                 continue
 
-            destination_str = plts["dropshipping_item_model_number"]
+            destination_str = plts["model"]
             destination_origin, destination = self._process_destination(destination_str)
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
 
@@ -4670,10 +4668,11 @@ class Dropshipping(View):
                 "vessel_id",
                 "container_number",
                 "customer_name",
-                "container_number__packinglist",
                 "retrieval_id",
                 "offload_id"
-            ).values(
+            ).prefetch_related(
+                "dropshipcargo_set")
+            .values(
                 "container_number__container_number",
                 "container_number__weight_lbs",
                 "container_number__container_type",
@@ -4692,9 +4691,7 @@ class Dropshipping(View):
                 "cancel_notification",
                 "id",
             ).filter(
-                (models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
-                 | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER))
-                & models.Q(offload_id__offload_at__isnull=True)
+                models.Q(offload_id__offload_at__isnull=True)
                 & models.Q(cancel_notification=False)
                 & models.Q(order_type='一件代发')
             )
@@ -4743,9 +4740,9 @@ class Dropshipping(View):
                 "vessel_id",
             ).get
         )(container_number__container_number=container_number)
-        packing_list = await sync_to_async(list)(
-            PackingList.objects.filter(
-                models.Q(container_number__container_number=container_number)
+        dropship_cargo = await sync_to_async(list)(
+            DropshipCargo.objects.filter(
+                models.Q(container__container_number=container_number)
             )
         )
         try:
@@ -4759,10 +4756,10 @@ class Dropshipping(View):
             await sync_to_async(order.save)()
             return await self.handle_order_basic_info_get()
         context["selected_order"] = order
-        context["packing_list"] = packing_list
+        context["dropship_cargo"] = dropship_cargo
         context["vessel"] = vessel
         context["shipping_lines"] = SHIPPING_LINE_OPTIONS
-        context["delivery_options"] = DELIVERY_METHOD_OPTIONS
+        context["delivery_options"] = DROPSHIPPING_DELIVERY_METHOD_OPTIONS
         context["delivery_types"] = [
             ("一件代发", "一件代发"),
         ]
@@ -4971,35 +4968,19 @@ class Dropshipping(View):
     async def _update_container_unpacking_priority(
         self, container_number:str
     ) -> None:
-        # 把所有有快递的，都直接优先级定位P1
-        has_ups_fedex = await sync_to_async(
-            lambda: (
-                PackingList.objects.filter(
-                    container_number__container_number=container_number,
-                    delivery_method__in=["UPS", "FEDEX"]
-                ).exists()
-                or
-                Pallet.objects.filter(
-                    container_number__container_number=container_number,
-                    delivery_method__in=["UPS", "FEDEX"]
-                ).exists()
-            )
-        )()
         is_expiry_guaranteed = await sync_to_async(
             lambda: Container.objects.filter(
                 container_number=container_number,
                 is_expiry_guaranteed=True
             ).exists()
         )()
-        if has_ups_fedex and is_expiry_guaranteed:
-            priority = "P1"
-        elif has_ups_fedex or is_expiry_guaranteed:
+        if is_expiry_guaranteed:
             priority = "P2"
         else:
             has_shipment = await sync_to_async(
                 lambda: (
-                    PackingList.objects.filter(
-                        container_number__container_number=container_number,
+                    DropshipCargo.objects.filter(
+                        container__container_number=container_number,
                         shipment_batch_number__isnull=False
                     ).exists()
                     or
@@ -5033,9 +5014,9 @@ class Dropshipping(View):
                 "shipment_id",
             ).get
         )(container_number__container_number=container_number)
-        packing_list = await sync_to_async(list)(
-            PackingList.objects.filter(
-                models.Q(container_number__container_number=container_number)
+        dropship_cargo = await sync_to_async(list)(
+            DropshipCargo.objects.filter(
+                models.Q(container__container_number=container_number)
             )
         )
         offload = order.offload_id
@@ -5049,11 +5030,11 @@ class Dropshipping(View):
         )()
         context = {
             "selected_order": order,
-            "packing_list": packing_list,
+            "dropship_cargo": dropship_cargo,
             "vessel": order.vessel_id,
             "retrieval": order.retrieval_id,
             "shipping_lines": SHIPPING_LINE_OPTIONS,
-            "delivery_options": DELIVERY_METHOD_OPTIONS,
+            "delivery_options": DROPSHIPPING_DELIVERY_METHOD_OPTIONS,
             "packing_list_upload_form": UploadFileForm(),
             "order_type": self.order_type,
             "container_type": self.container_type,
@@ -5178,19 +5159,14 @@ class Dropshipping(View):
                     df.loc[idx, "total_weight_lbs"] = round(
                         df.loc[idx, "total_weight_kg"] * 2.20462, 2
                     )
-            df["dropshipping_item_name"] = df["dropshipping_item_name"].str.strip()
-            df["dropshipping_item_model_number"] = df["dropshipping_item_model_number"].str.strip()
+            df["product_name"] = df["product_name"].str.strip()
+            df["model"] = df["model"].apply(lambda x: x.strip() if isinstance(x, str) else x)
             df["delivery_type"] = "一件代发"
             # model_fields获取pl模型的所有字段名
-            model_fields = [field.name for field in PackingList._meta.fields]
+            model_fields = [field.name for field in DropshipCargo._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
-            for data in pl_data:
-                if pd.isna(data["delivery_window_start"]):
-                    data["delivery_window_start"] = None
-                if pd.isna(data["delivery_window_end"]):
-                    data["delivery_window_end"] = None
-            packing_list = [PackingList(**data) for data in pl_data]
+            dropship_cargo = [DropshipCargo(**data) for data in pl_data]
         else:
             raise ValueError(f"invalid file format!")
         source = request.POST.get("source")
@@ -5200,11 +5176,11 @@ class Dropshipping(View):
             mutable_get["container_number"] = container_number
             request.GET = mutable_get
             _, context = await self.handle_order_management_container_get(request)
-            context["packing_list"] = packing_list
+            context["dropship_cargo"] = dropship_cargo
             return self.template_order_details_pl, context
         else:
             _, context = await self.handle_order_supplemental_info_get(request)
-            context["packing_list"] = packing_list
+            context["dropship_cargo"] = dropship_cargo
             return self.template_order_create_supplement_pl_tab, context
 
     async def handle_download_template_post(self) -> HttpResponse:
@@ -5226,7 +5202,7 @@ class Dropshipping(View):
             return response
 
     async def handle_update_order_packing_list_info_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[Any, Any]:
         '''更新Packing List信息'''
         container_number = request.POST.get("container_number")
@@ -5238,100 +5214,80 @@ class Dropshipping(View):
         container = order.container_number
         offload = order.offload_id
         if (
-            offload.offload_at and "pl_id" in request.POST
-        ):  # 原本是offload.offload_at，但是打板后如果是上传的文件，是没有pl_id的
+                offload.offload_at and "pl_id" in request.POST
+        ):  # 打板后走更新逻辑
             updated_pl = []
             pl_ids = request.POST.getlist("pl_id")
             pl_id_idx_mapping = {int(pl_ids[i]): i for i in range(len(pl_ids))}
-            packing_list = await sync_to_async(list)(
-                PackingList.objects.filter(
-                    container_number__container_number=container_number
+            dropship_cargo = await sync_to_async(list)(
+                DropshipCargo.objects.filter(
+                    container__container_number=container_number
                 )
             )
-            for pl in packing_list:
+            for pl in dropship_cargo:
                 idx = pl_id_idx_mapping[pl.id]
                 pl.delivery_method = request.POST.getlist("delivery_method")[idx]
                 pl.delivery_type = request.POST.getlist("delivery_type")[idx]
-                pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
-                pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
-                pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
-                pl.dropshipping_item_name = request.POST.getlist("dropshipping_item_name")[idx].strip()
-                pl.dropshipping_item_model_number = request.POST.getlist("dropshipping_item_model_number")[idx].strip()
+
+                # 【这段你写的是正确的，保留】
+                sm_val = request.POST.getlist("shipping_mark")[idx].strip()
+                model_val = request.POST.getlist("model")[idx].strip()
+                pl.shipping_mark = sm_val if sm_val else model_val
+                pl.product_name = request.POST.getlist("product_name")[idx].strip()
+                pl.model = model_val
+
                 pl.address = request.POST.getlist("address")[idx]
                 pl.note = request.POST.getlist("note")[idx]
-                pl.office_note = request.POST.getlist("office_note")[idx]
                 long = request.POST.getlist("long")[idx]
                 pl.long = Decimal(long) if long else None
                 width = request.POST.getlist("width")[idx]
                 pl.width = Decimal(width) if width else None
-
                 height = request.POST.getlist("height")[idx]
                 pl.height = Decimal(height) if height else None
 
-                pl.express_number = request.POST.getlist("express_number")[idx]
-                start_date_str = request.POST.getlist("delivery_window_start")[
-                    idx
-                ].strip()
-                pl.delivery_window_start = (
-                    parse_date(start_date_str) if start_date_str else None
-                )
-                end_date_str = request.POST.getlist("delivery_window_end")[idx].strip()
-                pl.delivery_window_end = (
-                    parse_date(end_date_str) if end_date_str else None
-                )
                 updated_pl.append(pl)
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
-                PackingList,
+                DropshipCargo,
                 fields=[
                     "delivery_method",
                     "delivery_type",
                     "shipping_mark",
-                    "fba_id",
-                    "ref_id",
-                    "dropshipping_item_name",
-                    "dropshipping_item_model_number",
+                    "product_name",
+                    "model",
                     "address",
                     "note",
-                    "office_note",
                     "long",
                     "width",
                     "height",
-                    "express_number",
-                    "delivery_window_start",
-                    "delivery_window_end",
                 ],
             )
         else:
-            # 没打板的，才考虑，判断是否有快递，然后修改为P1等级
+            # 没打板：删除旧数据，批量新建
             await sync_to_async(
-                PackingList.objects.filter(
-                    container_number__container_number=container_number
+                DropshipCargo.objects.filter(
+                    container__container_number=container_number
                 ).delete
             )()
             # Generate PO_ID
             po_ids = []
             po_id_hash = {}
             seq_num = 1
+            # 修复：这里不要替换shipping_mark数组，保持原生下标对齐
             for dm, sm, dest in zip_longest(
                     request.POST.getlist("delivery_method"),
-                    request.POST.getlist("mark"),
-                    request.POST.getlist("dropshipping_item_model_number"),
+                    request.POST.getlist("shipping_mark"),
+                    request.POST.getlist("model"),
                     fillvalue='',
             ):
                 po_id: str = ""
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
-                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
-                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
-                    po_id_seg = (
-                        f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
-                    )
-                elif dm == "客户自提" or dest == "客户自提":
+                if dm == "自提" or dest == "自提":
                     po_id_hkey = f"{container_number}-{dm}-{dest}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
-                        if sm
+                        if sm.strip()
                         else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 else:
@@ -5354,9 +5310,10 @@ class Dropshipping(View):
                     seq_num += 1
                 po_ids.append(po_id)
             del po_id_hash, po_id, po_id_seg, po_id_hkey
+
             total_weight_lbs_list = []
             for lbs_str in request.POST.getlist("total_weight_lbs"):
-                if lbs_str.strip():  # 跳过空值
+                if lbs_str.strip():
                     try:
                         total_weight_lbs_list.append(float(lbs_str))
                     except ValueError:
@@ -5366,29 +5323,25 @@ class Dropshipping(View):
             container = await sync_to_async(Container.objects.get)(
                 container_number=container_number
             )
-            container.weight_lbs = total_weight_lbs_sum  # 假设Container模型有weight_lbs字段
+            container.weight_lbs = total_weight_lbs_sum
             await sync_to_async(container.save)()
+
+            # 修复：zip_longest参数恢复原生，不替换数组
             pl_data = zip_longest(
                 request.POST.getlist("delivery_method"),
                 request.POST.getlist("shipping_mark"),
-                request.POST.getlist("fba_id"),
-                request.POST.getlist("ref_id"),
-                request.POST.getlist("dropshipping_item_name"),
-                request.POST.getlist("dropshipping_item_model_number"),
+                request.POST.getlist("product_name"),
+                request.POST.getlist("model"),
                 request.POST.getlist("address"),
                 request.POST.getlist("pcs"),
                 request.POST.getlist("total_weight_kg"),
                 request.POST.getlist("total_weight_lbs"),
                 request.POST.getlist("cbm"),
                 request.POST.getlist("note"),
-                request.POST.getlist("office_note"),
                 request.POST.getlist("long"),
                 request.POST.getlist("width"),
                 request.POST.getlist("height"),
-                request.POST.getlist("express_number"),
                 po_ids,
-                request.POST.getlist("delivery_window_start"),
-                request.POST.getlist("delivery_window_end"),
                 request.POST.getlist("delivery_type"),
                 fillvalue=""
             )
@@ -5402,53 +5355,40 @@ class Dropshipping(View):
                     raise ValueError(f"无效的数值格式: {value}")
 
             pl_to_create = [
-                PackingList(
-                    container_number=container,
+                DropshipCargo(
+                    container=container,
                     delivery_method=d[0],
-                    shipping_mark=d[1].strip(),
-                    fba_id=d[2].strip(),
-                    ref_id=d[3].strip(),
-                    dropshipping_item_name=d[4],
-                    dropshipping_item_model_number=d[5],
-                    address=d[6],
-                    pcs=int(float(d[7])),
-                    total_weight_kg=d[8],
-                    total_weight_lbs=d[9],
-                    cbm=d[10],
-                    note=d[11],
-                    office_note=d[12],
-                    long=parse_decimal(d[13]),
-                    width=parse_decimal(d[14]),
-                    height=parse_decimal(d[15]),
-                    express_number=d[16],
-                    PO_ID=d[17],
-                    delivery_window_start=d[18] if d[18].strip() else None,
-                    delivery_window_end=d[19] if d[19].strip() else None,
-                    delivery_type=d[20],
+                    # 空唛头自动取model(d[3])
+                    shipping_mark=d[1].strip() if d[1].strip() else d[3].strip(),
+                    product_name=d[2],
+                    model=d[3].strip(),
+                    address=d[4],
+                    pcs=int(float(d[5])),
+                    total_weight_kg=d[6],
+                    total_weight_lbs=d[7],
+                    cbm=d[8],
+                    note=d[9],
+                    long=parse_decimal(d[10]),
+                    width=parse_decimal(d[11]),
+                    height=parse_decimal(d[12]),
+                    PO_ID=d[13],
+                    delivery_type=d[14],
                 )
                 for d in pl_data
             ]
 
-            await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
-            # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
+            await sync_to_async(bulk_create_with_history)(pl_to_create, DropshipCargo)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
-            #每次更新pl清单，就判断柜子优先级
-            await self._update_container_unpacking_priority(container_number)
-        # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
 
-        # 因为上面已经将新的packing_list存到表里，所以直接去pl表查
-        packing_list = await sync_to_async(list)(
-            PackingList.objects.filter(container_number__container_number=container)
+        # 统一更新container配送类型
+        dropship_cargo = await sync_to_async(list)(
+            DropshipCargo.objects.filter(container__container_number=container_number)
         )
-        # 更新完pl之后，更新container的delivery_type
-        # await self._confirm_delivery_type(container_number)
-        types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
-        new_type = types.pop() if len(types) == 1 else "mixed"
         container = await sync_to_async(Container.objects.get, thread_sensitive=True)(
             container_number=container_number
         )
-        container.delivery_type = new_type
+        container.delivery_type = "一件代发"
         await sync_to_async(container.save, thread_sensitive=True)()
 
         source = request.POST.get("source")
@@ -5613,7 +5553,7 @@ class Dropshipping(View):
                 lambda: list(
                     PackingList.objects.filter(
                         container_number__container_number=container_number
-                    ).values("dropshipping_item_model_number")
+                    ).values("model")
                 )
             )()
             matched_regions = self.find_matching_regions(
@@ -5625,13 +5565,13 @@ class Dropshipping(View):
             ups_total_pcs = await sync_to_async(
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number,
-                    dropshipping_item_model_number__icontains="UPS",
+                    model__icontains="UPS",
                 ).aggregate(total=Sum("pcs"))["total"]
             )()
             fxdex_total_pcs = await sync_to_async(
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number,
-                    dropshipping_item_model_number__icontains="FEDEX",
+                    model__icontains="FEDEX",
                 ).aggregate(total=Sum("pcs"))["total"]
             )()
             results.append(
@@ -5676,11 +5616,11 @@ class Dropshipping(View):
         price_display = defaultdict(set)
 
         for plts in plts_by_destination:
-            if "UPS" in plts["dropshipping_item_model_number"]:
+            if "UPS" in plts["model"]:
                 # 如果包含UPS，不需要显示细节，就显示UPS就可以了，张楠提
                 non_combina_dests.add("UPS")
                 continue
-            dest = plts["dropshipping_item_model_number"]
+            dest = plts["model"]
             dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
             matched = False
             # 遍历所有区域和location
