@@ -4555,7 +4555,7 @@ class PostNsop(View):
             try:
                 my_barcode = barcode_class(content, writer=ImageWriter())
                 buffer = io.BytesIO()
-                my_barcode.write(buffer, options={"dpi": 600})
+                my_barcode.write(buffer, options={"dpi": 300})
                 buffer.seek(0)
                 image = Image.open(buffer)
                 width, height = image.size
@@ -5242,7 +5242,7 @@ class PostNsop(View):
             barcode_content, writer=ImageWriter()
         )  # 将条形码转换为图像形式
         buffer = io.BytesIO()  # 创建缓冲区
-        my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
+        my_barcode.write(buffer, options={"dpi": 300})  # 缓冲区存储图像
         buffer.seek(0)
         image = Image.open(buffer)
         width, height = image.size

@@ -45,6 +45,10 @@ from warehouse.models.maersk_price_rate import MaerskPriceRate
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.shipment_bindlog import ShipmentBindingLog
 from warehouse.models.system_parameter import SystemParameter
+from warehouse.models.dropship_cargo import DropshipCargo
+from warehouse.models.dropship_inventory import DropshipInventory
+from warehouse.models.dropship_shipment import DropshipShipment
+from warehouse.models.dropship_shipment_detail import DropshipShipmentDetail
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)
@@ -84,6 +88,10 @@ admin.site.register(InvoiceItemv2, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatusv2, SimpleHistoryAdmin)
 admin.site.register(MaerskPriceRate, SimpleHistoryAdmin)
 admin.site.register(SystemParameter, SimpleHistoryAdmin)
+admin.site.register(DropshipCargo, SimpleHistoryAdmin)
+admin.site.register(DropshipInventory, SimpleHistoryAdmin)
+admin.site.register(DropshipShipment, SimpleHistoryAdmin)
+admin.site.register(DropshipShipmentDetail, SimpleHistoryAdmin)
 
 
 class ShipmentBindingLogAdmin(SimpleHistoryAdmin):
