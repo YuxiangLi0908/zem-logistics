@@ -568,7 +568,8 @@ class PostNsop(View):
         elif step == "batch_download_pickup_list":
             return await self.handle_batch_download_pickup_list(request)
         elif step == "batch_save_carrier":
-            return await self.handle_batch_save_carrier(request)
+            template, context = await self.handle_batch_save_carrier(request)
+            return render(request, template, context)
         elif step == "batch_save_pickup_time":
             template, context = await self.handle_batch_save_pickup_time(request)
             return render(request, template, context)
@@ -5959,15 +5960,10 @@ class PostNsop(View):
             if not batch_number or not carrier:
                 continue
             
-            shipments = await sync_to_async(list)(
-                Shipment.objects.filter(shipment_batch_number=batch_number)
-            )
-            
-            for shipment in shipments:
-                if shipment.carrier != carrier:
-                    shipment.carrier = carrier
-                    await sync_to_async(shipment.save)()
-                    updated_count += 1
+            updated = await sync_to_async(
+                lambda bn=batch_number, c=carrier: Shipment.objects.filter(shipment_batch_number=bn).update(carrier=c)
+            )()
+            updated_count += updated
         
         context = {'success_messages': f"成功更新 {updated_count} 条记录的供应商"}
         return await self.handle_ltl_unscheduled_pos_post(request, context)

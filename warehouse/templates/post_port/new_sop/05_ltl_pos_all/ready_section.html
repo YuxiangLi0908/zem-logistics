@@ -1706,6 +1706,12 @@
         warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
         form.appendChild(warehouseInput);
 
+        const activeTabInput = document.createElement('input');
+        activeTabInput.type = 'hidden';
+        activeTabInput.name = 'active_tab';
+        activeTabInput.value = 'readyShip';
+        form.appendChild(activeTabInput);
+
         const carrierInput = document.createElement('input');
         carrierInput.type = 'hidden';
         carrierInput.name = 'carrier_data';
@@ -1770,6 +1776,12 @@
         warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
         form.appendChild(warehouseInput);
 
+        const activeTabInput = document.createElement('input');
+        activeTabInput.type = 'hidden';
+        activeTabInput.name = 'active_tab';
+        activeTabInput.value = 'readyShip';
+        form.appendChild(activeTabInput);
+
         const pickupInput = document.createElement('input');
         pickupInput.type = 'hidden';
         pickupInput.name = 'pickup_time_data';
@@ -1832,6 +1844,12 @@
         warehouseInput.name = 'warehouse';
         warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
         form.appendChild(warehouseInput);
+
+        const activeTabInput = document.createElement('input');
+        activeTabInput.type = 'hidden';
+        activeTabInput.name = 'active_tab';
+        activeTabInput.value = 'readyShip';
+        form.appendChild(activeTabInput);
 
         const labelInput = document.createElement('input');
         labelInput.type = 'hidden';
