@@ -858,7 +858,7 @@
                         </td>
                         <td>{{ fleet.details.柜号|join:", " }}</td>
                         <td>{{ fleet.details.目的地|join:", " }}</td>
-                        <td class="mark-column">{{ fleet.details.唛头|join:", " }}</td>
+                        <td class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
                         <td>{{ fleet.pcs }}</td>
                         <td>{{ fleet.details.详细地址|join:", " }}</td>
                         <td>{{ fleet.details.备注|join:", " }}</td>
