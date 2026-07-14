@@ -6597,20 +6597,20 @@ class PostNsop(View):
                 total_pcs += pl.pcs or 0
                 total_pallet += round(pl.cbm / 1.8)
 
-        fleet_data = {
-            "fleet_number": fleet_number,
-            "fleet_type": shipment_types[0] if shipment_types else None,
-            "origin": origins[0] if origins else None,
-            "total_weight": total_weight,
-            "total_cbm": total_cbm,
-            "total_pallet": total_pallet,
-            "total_pcs": total_pcs,
-            "is_virtual": True,
-        }
-        fleet = Fleet(**fleet_data)
-        await sync_to_async(fleet.save)()
-
         if shipment_ids:
+            fleet_data = {
+                "fleet_number": fleet_number,
+                "fleet_type": shipment_types[0] if shipment_types else None,
+                "origin": origins[0] if origins else None,
+                "total_weight": total_weight,
+                "total_cbm": total_cbm,
+                "total_pallet": total_pallet,
+                "total_pcs": total_pcs,
+                "is_virtual": True,
+            }
+            fleet = Fleet(**fleet_data)
+            await sync_to_async(fleet.save)()
+
             await sync_to_async(
                 Shipment.objects.filter(id__in=shipment_ids).update
             )(fleet_number=fleet)
@@ -17413,7 +17413,7 @@ class PostNsop(View):
 
             context['query_pallets'] = processed_pallets
             context['show_pallet_modal'] = True
-
+        
         except Exception as e:
             context['error_messages'] = f'查询失败: {str(e)}'
         request.POST._mutable = True
