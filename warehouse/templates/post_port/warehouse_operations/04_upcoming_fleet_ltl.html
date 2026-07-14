@@ -307,7 +307,7 @@
     }
 
     .batch-info {
-        min-width: 180px;
+        min-width: 150px;
         font-size: 0.75rem;
         font-weight: 600;
         color: #495057;
@@ -863,10 +863,12 @@
                         <td>{{ fleet.details.详细地址|join:", " }}</td>
                         <td>{{ fleet.details.备注|join:", " }}</td>
                         <td class="action-column">
-                            {% if fleet.fleet_type == 'LTL' or fleet.fleet_type == '客户自提' %}
                             <div class="link-group">
                                 {% for shipment in fleet.shipment_links %}
                                 <div class="link-row">
+                                    <div class="batch-info" title="{{ shipment.shipment_batch_number }}">
+                                        {{ shipment.shipment_batch_number }}
+                                    </div>
                                     <div class="link-buttons">
                                         {% if shipment.ltl_bol_link %}
                                         <a href="{{ shipment.ltl_bol_link }}" 
@@ -900,7 +902,6 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            {% endif %}
                             <div class="action-buttons">
                                 {% if fleet.warehouse_process_status == 'waiting' %}
                                     <form method="post" class="action-form" id="loading-fleet-form-{{ fleet.fleet_number }}">
