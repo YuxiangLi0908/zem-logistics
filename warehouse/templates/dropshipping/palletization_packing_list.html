@@ -26,8 +26,6 @@
                             <th class="th">派送方式</th>
                             {% if status == 'non_palletized' %}
                             <th class="th">唛头</th>
-                            <th class="th">FBA ID</th>
-                            <th class="th">REF ID</th>
                             <th class="th">预报箱数</th>
                             {% endif %}
                             <th class="th">入库箱数</th>
@@ -37,23 +35,21 @@
                             {% if warehouse == "LA-91761" %}
                             <th class="th">库位</th>
                             {% endif %}
-                            <th class="th">最早派送时间</th>
-                            <th class="th">最晚派送时间</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody id="palletization-container">
                         {% for pl, pl_form in order_packing_list %}
                         <tr id="palletization-row">
-                            <td class="td">{{ pl.container_number__container_number }}</td>
+                            <td class="td">{{ pl.container__container_number }}</td>
                             {% if status == 'non_palletized' %}
-                            <td class="td">{{ pl.dropshipping_item_model_number }}</td>
+                            <td class="td">{{ pl.model }}</td>
                             {% elif status == 'palletized' %}
-                                {% if " " in pl.dropshipping_item_model_number or "自提" in pl.dropshipping_item_model_number %}
-                                <td id="dropshipping_item_model_number - {{ pl.id }}" class="td">
+                                {% if " " in pl.model or "自提" in pl.model %}
+                                <td id="model - {{ pl.id }}" class="td">
                                     <a href="#"
                                         onclick="showPalletFromLink(this)"
-                                        data-dropshipping_item_model_number="{{ pl.dropshipping_item_model_number }}"
+                                        data-model="{{ pl.model }}"
                                         data-ids="{{ pl.ids }}"
                                         data-length="{{ pl.length|default_if_none:'' }}"
                                         data-width="{{ pl.width|default_if_none:'' }}"
@@ -61,11 +57,11 @@
                                         data-npcs="{{ pl.n_pcs }}"
                                         data-number="{{ pl.number|default_if_none:'' }}"
                                         data-weight="{{ pl.weight }}">
-                                        {{ pl.dropshipping_item_model_number }}
+                                        {{ pl.model }}
                                     </a>
                                 </td>
                                 {% else %}
-                                <td class="td">{{ pl.dropshipping_item_model_number }}</td>
+                                <td class="td">{{ pl.model }}</td>
                                 {% endif%}
                             {% endif %}
                             <td class="td">
@@ -85,8 +81,6 @@
                             </td>
                             {% if status == 'non_palletized' %}
                             <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
                             <td class="td">{{ pl.pcs }}</td>
                             <td class="td"><input type="number" step="1" name="pcs_actul" style="width:50px;" value="{{ pl.pcs }}" required></td>
                             {% else %}
@@ -108,33 +102,15 @@
                                 </td>
                             {% endif %}
                             <td class="td">{{ pl.PO_ID }}</td>
-                            {% if warehouse == "LA-91761" %}
-                                {% if status == 'non_palletized' %}
-                                <td class="td">
-                                    <input type="text" name="slots" value="{{ pl.slot|default_if_none:'' }}"
-                                        style="width: 80px; font-size: 11px;">
-                                </td>
-                                {% else %}
-                                <td class="td">{{ pl.slot  }}</td>
-                                {% endif %}
-                            {% endif %}
-                            <td class="td">{{ pl.delivery_window_start  }}</td>
-                            <td class="td">{{ pl.delivery_window_end  }}</td>
                             <td class="td">{{ pl.note|default_if_none:"" }}</td>
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="shipping_marks" value="{{pl.shipping_marks}}">
-                            <input type="hidden" name="fba_ids" value="{{pl.fba_ids}}">
-                            <input type="hidden" name="ref_ids" value="{{pl.ref_ids}}">
                             <input type="hidden" name="address" value="{{pl.address}}">
-                            <input type="hidden" name="zipcode" value="{{pl.zipcode}}">
-                            <input type="hidden" name="contact_name" value="{{pl.contact_name}}">
                             <input type="hidden" name="pcs_reported" value="{{pl.pcs}}">
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
                             <input type="hidden" name="notes" value="{{pl.note}}">
                             <input type="hidden" name="weights" value="{{pl.weight_lbs}}">
-                            <input type="hidden" name="dropshipping_item_model_numbers" value="{{pl.dropshipping_item_model_number}}">
-                            <input type="hidden" name="delivery_window_starts" value="{{pl.delivery_window_start}}">
-                            <input type="hidden" name="delivery_window_ends" value="{{pl.delivery_window_end}}">
+                            <input type="hidden" name="models" value="{{pl.model}}">
                             <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
                             <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
                             <input type="hidden" name="master_shipment_batch_number" value="{{pl.master_shipment_batch_number__shipment_batch_number}}">
@@ -144,7 +120,7 @@
                         {% if status == 'non_palletized' %}
                         <tr id="palletization-row-empty" class="abnormal-palletization-row" style="display: none;">
                             <td class="td"><input type="text" name="container_numer" value="{{ container_number }}" disabled></td>
-                            <td class="td"><input type="text" name="new_dropshipping_item_model_numbers" required></td>
+                            <td class="td"><input type="text" name="new_models" required></td>
                             <td class="td">
                                 <select name="delivery_type" class="new-delivery-method" style="font-size: 13px;">
                                     <option value="public">public</option>
@@ -160,8 +136,6 @@
                             </td>
                             {% if status == 'non_palletized' %}
                             <td class="td"><input type="text" name="new_shipping_marks" placeholder="optional"></td>
-                            <td class="td"><input type="text" name="new_fba_ids" placeholder="optional"></td>
-                            <td class="td"><input type="text" name="new_ref_ids" placeholder="optional"></td>
                             <td class="td"><input type="text" name="new_pcs_reported" value="0" disabled></td>
                             <td class="td"><input type="number" step="1" name="new_pcs_actul" required></td>
                             {% else %}
@@ -170,13 +144,6 @@
                             <td class="td"><input type="number" name="new_cbms" step="0.01" placeholder="optional"></td>
                             <td class="td"><input type="number" step="1" name="new_pallets" required></td>
                             <td class="td"><input type="text" name="po_ids" disabled></td>
-                            {% if warehouse == "LA-91761" %}
-                            <td class="td">
-                                <input type="text" name="new_slots" style="width: 80px; font-size: 11px;">
-                            </td>
-                            {% endif %}
-                            <td class="td"><input type="date" name="new_delivery_window_starts"></td>
-                            <td class="td"><input type="date" name="new_delivery_window_ends"></td>
                             <td class="td"><input type="text" name="new_notes"></td>
                         </tr>
                         {% endif %}
@@ -327,7 +294,7 @@ function forceSubmitPalletForm() {
 function showPalletFromLink(el) {
     const d = el.dataset;
     const payload = {
-        dropshipping_item_model_number: d.dropshipping_item_model_number || '',
+        model: d.model || '',
         ids: d.ids || '',
         length: d.length || '',
         width: d.width || '',
@@ -408,7 +375,7 @@ function showPallet(button) {
 
     var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
     tableBody.innerHTML = '';
-    if (button.dropshipping_item_model_number.includes('自提')) {
+    if (button.model.includes('自提')) {
         var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
         var secondTh = theadTr.getElementsByTagName('th')[1];
         secondTh.style.display = 'none';
@@ -444,8 +411,8 @@ function showPallet(button) {
         const form = document.getElementById('exportPallet-add');
         const newInput = document.createElement('input');
         newInput.type = 'hidden';
-        newInput.name = 'dropshipping_item_model_number';
-        newInput.value = button.dropshipping_item_model_number;
+        newInput.name = 'model';
+        newInput.value = button.model;
         form.appendChild(newInput);
         var numberArray = button.number.split(',');
         if (numberArray.length === 1){

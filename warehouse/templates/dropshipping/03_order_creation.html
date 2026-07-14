@@ -449,8 +449,8 @@
                                     <td><input type="number" step="0.01" name="long"></td>
                                     <td><input type="number" step="0.01" name="width"></td>
                                     <td><input type="number" step="0.01" name="height"></td>
-                                    <td><input type="text" name="dropshipping_item_name" required></td>
-                                    <td><input type="text" name="dropshipping_item_model_number" required></td>
+                                    <td><input type="text" name="product_name" required></td>
+                                    <td><input type="text" name="model" required></td>
                                     <td class="td">
                                         <select name="delivery_type"  class="delivery-type">
                                         {% for k, v in delivery_types %}
@@ -478,8 +478,8 @@
                                     <td><input type="number" step="0.01" name="long" {% if pl.long %}value="{{ pl.long }}"{% endif %} ></td>
                                     <td><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} ></td>
                                     <td><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} ></td>
-                                    <td><input type="text" name="dropshipping_item_name" {% if pl.dropshipping_item_name %}value="{{ pl.dropshipping_item_name }}"{% endif %} required></td>
-                                    <td><input type="text" name="dropshipping_item_model_number" {% if pl.dropshipping_item_model_number %}value="{{ pl.dropshipping_item_model_number }}"{% endif %} required></td>
+                                    <td><input type="text" name="product_name" {% if pl.product_name %}value="{{ pl.product_name }}"{% endif %} required></td>
+                                    <td><input type="text" name="model" {% if pl.model %}value="{{ pl.model }}"{% endif %} required></td>
                                     <td class="td">
                                         <select name="delivery_type" class="delivery-type">
                                             {% for k, v in delivery_types %}
