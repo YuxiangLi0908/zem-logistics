@@ -53,6 +53,7 @@ from warehouse.utils.constants import (
 class WarehouseOperations(View):
     template_warehousing_operation = "post_port/warehouse_operations/01_warehousing_operation.html"
     template_upcoming_fleet = "post_port/warehouse_operations/03_upcoming_fleet.html"
+    template_upcoming_fleet_ltl = "post_port/warehouse_operations/04_upcoming_fleet_ltl.html"
     template_counting_pallet = "post_port/warehouse_operations/02_counting_pallet.html"
 
 
@@ -66,6 +67,13 @@ class WarehouseOperations(View):
         elif step == "upcoming_fleet":
             template, context = await self.handle_upcoming_fleet_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "upcoming_fleet_ltl":
+            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),}
+            return await sync_to_async(render)(request, self.template_upcoming_fleet_ltl, context)
         elif step == "counting_pallet":
             template, context = await self.handle_counting_pallet_get(request)
             return await sync_to_async(render)(request, template, context)
@@ -101,6 +109,9 @@ class WarehouseOperations(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "upcoming_fleet_warehouse":
             template, context = await self.handle_upcoming_fleet_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "upcoming_fleet_ltl_warehouse":
+            template, context = await self.handle_upcoming_fleet_ltl_post(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "checkin_fleet":
             template, context = await self.handle_checkin_fleet_post(request)
@@ -154,6 +165,22 @@ class WarehouseOperations(View):
                     "icon": "fa-check-double"
                 })
             return render(request, template, context)
+        elif step == "shipped_fleet_ltl":
+            template, context = await self.handle_shipped_fleet_ltl_post(request)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                fleet_number = request.POST.get("fleet_number")
+                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
+                if not fleet:
+                    return JsonResponse({"success": False, "error": "未找到该车次"})
+
+                # 返回更新后的状态给前端
+                return JsonResponse({
+                    "success": True,
+                    "new_status": "shipped",
+                    "display_text": "已出库",
+                    "icon": "fa-check-double"
+                })
+            return render(request, template, context)
         elif step == "complete_loading":
             file_path_name = "outbound_file"
             template, context = await self.handle_complete_loading_post(request, file_path_name)
@@ -164,6 +191,9 @@ class WarehouseOperations(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "report_issue":
             template, context = await self.handle_report_issue_post(request)
+            return render(request, template, context)
+        elif step == "report_issue_ltl":
+            template, context = await self.handle_report_issue_ltl_post(request)
             return render(request, template, context)
         elif step =="export_bol":
             return await self.handle_bol_post(request)
@@ -542,7 +572,33 @@ class WarehouseOperations(View):
         else:
             raise ValueError('出库类型异常！')
 
-        
+    async def handle_report_issue_ltl_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        ''' LTL 仓库出库异常'''
+        fleet_number = request.POST.get("fleet_number")
+        issue_type = request.POST.get("issue_type")
+        issue_description = request.POST.get("issue_description")
+        issue = issue_type + ":" + issue_description
+
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        fleet.warehouse_process_status='abnormal'
+        fleet.abnormal_reason = issue
+        fleet.is_canceled = True
+        fleet.status = "Exception"
+        fleet.status_description = issue
+        await sync_to_async(fleet.save)()
+
+        #更新完车次之后，要把这个约变为异常，展示给异常预约里面
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number=fleet)
+        )
+        for shipment in shipments:
+            shipment.status = "Exception"
+            shipment.status_description = issue
+            shipment.fleet_number = None
+            await sync_to_async(shipment.save)()
+        return await self.handle_upcoming_fleet_ltl_post(request)
 
     async def handle_report_issue_post(
         self, request: HttpRequest
@@ -561,14 +617,14 @@ class WarehouseOperations(View):
         await sync_to_async(fleet.save)()
 
         #更新完车次之后，要把这个约变为异常，展示给异常预约里面
-        updated_count = await sync_to_async(
-            lambda: Shipment.objects.filter(fleet_number=fleet).update(
-                status="Exception",
-                status_description=issue,
-                fleet_number=None
-            ),
-            thread_sensitive=True
-        )()
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number=fleet)
+        )
+        for shipment in shipments:
+            shipment.status = "Exception"
+            shipment.status_description = issue
+            shipment.fleet_number = None
+            await sync_to_async(shipment.save)()
         return await self.handle_upcoming_fleet_post(request)
 
     async def handle_complete_loading_post(
@@ -686,9 +742,28 @@ class WarehouseOperations(View):
             return ValueError('未查到该车次')
         return await self.handle_upcoming_fleet_post(request)
     
+    async def handle_shipped_fleet_ltl_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        ''' ltl 仓库确认出库'''
+        fleet_number = request.POST.get("fleet_number")
+
+        fleets = await sync_to_async(list)(
+            Fleet.objects.filter(fleet_number=fleet_number)
+        )
+        
+        if not fleets:
+            return ValueError('未查到该车次')
+        
+        fleet = fleets[0]
+        fleet.warehouse_process_status = "shipped"
+        await sync_to_async(fleet.save)()
+
+        return await self.handle_upcoming_fleet_ltl_post(request)
     async def handle_shipped_fleet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        ''' FTL 仓库确认出库'''
         fleet_number = request.POST.get("fleet_number")
 
         updated = await sync_to_async(
@@ -908,6 +983,334 @@ class WarehouseOperations(View):
         timezone.activate(local_tz)
         return timezone.localtime(now_utc, local_tz)
     
+    async def handle_upcoming_fleet_ltl_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        ''' ltl 仓库待出库货物筛选 - 区分待出库/已出库'''
+        warehouse = request.POST.get("warehouse")
+        days_range = int(request.POST.get("days_range") or 14)
+        
+        today = self.get_local_time(warehouse)
+        two_weeks_ago = today - timedelta(days=days_range)
+        
+        warehouse_condition = models.Q(origin=warehouse)
+        fleet_type_condition = models.Q(fleet_type__in=['LTL', '客户自提'])
+        
+        pending_condition = models.Q(departured_at__isnull=True)
+        shipped_condition = models.Q(
+            departured_at__isnull=False,
+            appointment_datetime__gte=two_weeks_ago
+        )
+        
+        query_conditions = (pending_condition | shipped_condition) & warehouse_condition & fleet_type_condition
+        
+        fleets = await sync_to_async(list)(
+            Fleet.objects.filter(query_conditions)
+            .annotate(
+                shipped_order=Case(
+                    When(warehouse_process_status='shipped', then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+            .order_by('appointment_datetime', 'shipped_order') 
+            .prefetch_related(
+                Prefetch(
+                    'shipment',
+                    queryset=Shipment.objects.only('ARM_PRO','is_print_label').prefetch_related(
+                        'pallet',
+                        'packinglist'
+                    )
+                )
+            )
+        )
+        
+        fleet_data = []
+        day_stats = {
+            0: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            3: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
+        }
+
+        type_stats = {
+            'all': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            'LTL': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            '客户自提': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
+        }
+        
+        for fleet in fleets:
+            pls_details = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(
+                        shipment_batch_number__fleet_number=fleet,
+                        container_number__orders__offload_id__offload_at__isnull=True
+                    ).select_related('container_number').values(
+                        'container_number__container_number',
+                        'shipping_mark',
+                        'destination',
+                        'address',
+                        'note',
+                        'zipcode',
+                        'cbm',
+                        'pcs'
+                    )
+                )
+            )() 
+            pls_cbm = sum(item['cbm'] for item in pls_details) if pls_details else 0
+            pls_pcs = sum(item['pcs'] for item in pls_details) if pls_details else 0
+
+            plt_details = await sync_to_async(
+                lambda: list(
+                    Pallet.objects.filter(
+                        shipment_batch_number__fleet_number=fleet,
+                        container_number__orders__offload_id__offload_at__isnull=False
+                    ).select_related('container_number').values(
+                        'container_number__container_number',
+                        'shipping_mark',
+                        'destination',
+                        'address',
+                        'note',
+                        'zipcode',
+                        'cbm',
+                        'pcs'
+                    )
+                )
+            )()               
+            plts_cbm = sum(item['cbm'] for item in plt_details) if plt_details else 0
+            plts_pcs = sum(item['pcs'] for item in plt_details) if plt_details else 0
+            plts_count = len(plt_details)
+            
+            total_cbm = pls_cbm + plts_cbm
+            try:
+                total_pcs = pls_pcs + plts_pcs
+            except TypeError as e:
+                total_pcs = 0
+            total_pallets = round(plts_count + round(pls_cbm / 1.8, 2))
+
+            is_estimated = plts_count == 0 and total_pallets > 0
+            days_diff = (fleet.appointment_datetime.date() - today.date()).days
+            all_details = pls_details + plt_details
+            details = {}
+            fleet_type = fleet.fleet_type
+            
+            if fleet_type == 'LTL':
+                seen = set()
+                details['柜号'] = []
+                details['唛头'] = []
+                details['目的地'] = []
+                details['详细地址'] = []
+                details['备注'] = []
+                details['邮编'] = []
+                for item in all_details:
+                    container_num = item.get('container_number__container_number')
+                    shipping_mark = item.get('shipping_mark')
+                    destination = item.get('destination', '')
+                    address = item.get('address', '')
+                    note = item.get('note', '')
+                    zipcode = item.get('zipcode', '')
+                    if container_num and shipping_mark:
+                        key = f"{container_num}-{shipping_mark}"
+                        if key not in seen:
+                            details['柜号'].append(container_num)
+                            details['唛头'].append(shipping_mark)
+                            details['目的地'].append(destination)
+                            details['详细地址'].append(address)
+                            details['备注'].append(note)
+                            details['邮编'].append(zipcode)
+                            seen.add(key)
+
+            display_day = days_diff
+            arm_pro_combined = None
+            is_print_label_combined = None
+            
+            if fleet_type != 'FTL':
+                arm_pro_list = [
+                    str(getattr(shipment, 'ARM_PRO', ''))
+                    for shipment in fleet.shipment.all()
+                    if getattr(shipment, 'ARM_PRO', None)
+                ]
+                arm_pro_combined = '|'.join(arm_pro_list)
+
+                is_print_label_list = [
+                    str(getattr(shipment, 'is_print_label', ''))
+                    for shipment in fleet.shipment.all()
+                    if getattr(shipment, 'is_print_label', None) is not None
+                ]
+
+                if len(set(is_print_label_list)) == 1:
+                    is_print_label_combined = is_print_label_list[0]
+                else:
+                    is_print_label_combined = '|'.join(is_print_label_list)
+            
+            is_shipped = fleet.departured_at is not None
+            
+            fleet_item = {
+                'fleet_number': fleet.fleet_number,
+                'details': details,
+                'warehouse_process_status': fleet.warehouse_process_status,
+                'pickup_number': fleet.pickup_number,
+                'fleet_type': fleet.fleet_type,
+                'appointment_datetime': fleet.appointment_datetime,
+                'carrier': fleet.carrier,
+                'pallets': total_pallets,
+                'pcs': total_pcs,
+                'is_estimated': is_estimated,
+                'days_diff': days_diff,
+                'display_day': 0 if days_diff < 0 else days_diff,
+                'abnormal_reason': fleet.abnormal_reason,
+                'PRO': arm_pro_combined,
+                'is_print_label': is_print_label_combined,
+                'is_shipped': is_shipped,
+                'shipment_links': await sync_to_async(list)(
+                    fleet.shipment.all().values(
+                        'shipment_batch_number',
+                        'ltl_bol_link',
+                        'ltl_label_link',
+                        'needLabel',
+                        'hasOtherFile',
+                        'ltl_other_file_link'
+                    )
+                )
+            }
+            fleet_data.append(fleet_item)
+
+            if fleet_type in type_stats:
+                type_stats[fleet_type]['fleets'].append(fleet_item)
+                type_stats[fleet_type]['total_pallets'] += total_pallets
+                type_stats[fleet_type]['total_cbm'] += total_cbm
+                if fleet.warehouse_process_status == 'shipped':
+                    type_stats[fleet_type]['completed_count'] += 1
+                elif fleet.warehouse_process_status == 'abnormal':
+                    type_stats[fleet_type]['abnormal_count'] += 1
+            
+            type_stats['all']['fleets'].append(fleet_item)
+            type_stats['all']['total_pallets'] += total_pallets
+            type_stats['all']['total_cbm'] += total_cbm
+            if fleet.warehouse_process_status == 'shipped':
+                type_stats['all']['completed_count'] += 1
+            elif fleet.warehouse_process_status == 'abnormal':
+                type_stats['all']['abnormal_count'] += 1
+
+            if is_shipped:
+                day_to_count = 3
+            else:
+                day_to_count = 0
+
+            if day_to_count in day_stats:
+                day_stats[day_to_count]['fleets'].append(fleet_item)
+                day_stats[day_to_count]['total_pallets'] += total_pallets
+                day_stats[day_to_count]['total_cbm'] += total_cbm
+                if fleet.warehouse_process_status == 'shipped':
+                    day_stats[day_to_count]['completed_count'] += 1
+                elif fleet.warehouse_process_status == 'abnormal':
+                    day_stats[day_to_count]['abnormal_count'] += 1
+        
+        for day in [0, 3]:
+            total_fleets = len(day_stats[day]['fleets'])
+            completed_count = day_stats[day]['completed_count']
+            abnormal_count = day_stats[day]['abnormal_count']
+            normal_count = total_fleets - abnormal_count
+
+            if normal_count > 0:
+                completion_rate = round((completed_count / normal_count) * 100)
+            else:
+                completion_rate = 0
+
+            day_stats[day]['completion_rate'] = completion_rate
+            day_stats[day]['normal_count'] = normal_count
+
+        for stats in type_stats.values():
+            total_fleets = len(stats['fleets'])
+            completed_count = stats['completed_count']
+            abnormal_count = stats['abnormal_count']
+            normal_count = total_fleets - abnormal_count
+            
+            if normal_count > 0:
+                completion_rate = round((completed_count / normal_count) * 100)
+            else:
+                completion_rate = 0
+                
+            stats['completion_rate'] = completion_rate
+            stats['normal_count'] = normal_count
+            stats['total_fleets'] = total_fleets
+
+        fleet_data.sort(key=lambda x: (
+            2 if x['warehouse_process_status'] == 'shipped' else
+            1 if x['warehouse_process_status'] == 'abnormal' else 0,
+            x['days_diff']
+        ))
+        shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
+        
+        context = {
+            "warehouse_options": [("", "")] + await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            'fleets': fleet_data,
+            'warehouse': warehouse,
+            'shipment_type_filter': shipment_type_filter,
+            'days_range': days_range,
+            'type_stats': type_stats,
+            'summary': {
+                'total_fleets': len(fleet_data),
+                'total_pallets': sum(f['pallets'] for f in fleet_data),
+                'total_pcs': sum(f['pcs'] for f in fleet_data),
+                'completed_count': len([f for f in fleet_data if f['warehouse_process_status'] == 'shipped']),
+                'abnormal_count': len([f for f in fleet_data if f['warehouse_process_status'] == 'abnormal']),
+                'today_count': len(day_stats[0]['fleets']),
+                'past_count': len(day_stats[3]['fleets']),
+                'day_stats': {
+                    0: {
+                        'total_fleets': len(day_stats[0]['fleets']),
+                        'total_pallets': day_stats[0]['total_pallets'],
+                        'total_cbm': round(day_stats[0]['total_cbm'], 2),
+                        'completed_count': day_stats[0]['completed_count'],
+                        'abnormal_count': day_stats[0]['abnormal_count'],
+                        'normal_count': day_stats[0]['normal_count'],
+                        'completion_rate': day_stats[0]['completion_rate']
+                    },
+                    3: {
+                        'total_fleets': len(day_stats[3]['fleets']),
+                        'total_pallets': day_stats[3]['total_pallets'],
+                        'total_cbm': round(day_stats[3]['total_cbm'], 2),
+                        'completed_count': day_stats[3]['completed_count'],
+                        'abnormal_count': day_stats[3]['abnormal_count'],
+                        'normal_count': day_stats[3]['normal_count'],
+                        'completion_rate': day_stats[3]['completion_rate']
+                    },
+                }
+            }
+        }
+        day_type_stats = {0: {}, 3: {}}
+        for day in [0, 3]:
+            fleets = day_stats[day]['fleets']
+            grouped = {}
+            for f in fleets:
+                t = f['fleet_type']
+                if t not in grouped:
+                    grouped[t] = {
+                        'total_fleets': 0,
+                        'total_pallets': 0,
+                        'total_cbm': 0,
+                        'completed_count': 0,
+                        'abnormal_count': 0
+                    }
+                grouped[t]['total_fleets'] += 1
+                grouped[t]['total_pallets'] += f['pallets']
+                grouped[t]['total_cbm'] += f['pcs']
+                if f['warehouse_process_status'] == 'shipped':
+                    grouped[t]['completed_count'] += 1
+                elif f['warehouse_process_status'] == 'abnormal':
+                    grouped[t]['abnormal_count'] += 1
+
+            for g in grouped.values():
+                normal = g['total_fleets'] - g['abnormal_count']
+                g['completion_rate'] = round((g['completed_count'] / normal) * 100) if normal > 0 else 0
+            day_type_stats[day] = grouped
+        context["day_type_stats"] = day_type_stats
+        context["today"] = today
+        return self.template_upcoming_fleet_ltl, context
+
     async def handle_upcoming_fleet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -970,6 +1373,9 @@ class WarehouseOperations(View):
                         'container_number__container_number',
                         'shipping_mark',
                         'destination',
+                        'address',
+                        'note',
+                        'zipcode',
                         'cbm',
                         'pcs'
                     )
@@ -987,6 +1393,9 @@ class WarehouseOperations(View):
                         'container_number__container_number',
                         'shipping_mark',
                         'destination',
+                        'address',
+                        'note',
+                        'zipcode',
                         'cbm',
                         'pcs'
                     )
@@ -1087,7 +1496,10 @@ class WarehouseOperations(View):
                     fleet.shipment.all().values(
                         'shipment_batch_number',
                         'ltl_bol_link',
-                        'ltl_label_link'
+                        'ltl_label_link',
+                        'needLabel',
+                        'hasOtherFile',
+                        'ltl_other_file_link'
                     )
                 )
             }
@@ -1154,7 +1566,11 @@ class WarehouseOperations(View):
             stats['normal_count'] = normal_count
             stats['total_fleets'] = total_fleets
 
-        fleet_data.sort(key=lambda x: x['days_diff'])
+        fleet_data.sort(key=lambda x: (
+            2 if x['warehouse_process_status'] == 'shipped' else
+            1 if x['warehouse_process_status'] == 'abnormal' else 0,
+            x['days_diff']
+        ))
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
