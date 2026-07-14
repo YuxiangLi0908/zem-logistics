@@ -415,13 +415,18 @@
 </div>
 {% include 'post_port/new_sop/02_shipment/modals/message_modal.html' %}
 <!-- 弹窗结构 -->
-    {% if show_pallet_modal and query_pallets %}
+    {% if show_pallet_modal %}
     <div class="modal-overlay" id="palletModal" style="display: flex;">
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title" id="modalTitle">要加塞的po</h2>
                 <button class="close-modal" onclick="closeModal()">&times;</button>
             </div>
+            {% if not query_pallets %}
+                <div style="text-align: center; padding: 20px 0; color: blue; font-weight: bold;">
+                    没有查询到板子数据
+                </div>
+            {% else %}
             <div class="modal-subtitle" id="selectedCount">已选择：0 板</div>
             <div id="palletTableContainer">
                 <table class="pallet-table">
@@ -452,6 +457,7 @@
             <div class="modal-actions">
                 <button class="add-po-btn" id="addPoBtn" onclick="addSelectedPallets()" disabled>添加PO</button>
             </div>
+            {% endif %}
             
             <input type="hidden" id="search_fleet_number" value="{{ fleet_number|default:'' }}">
             <input type="hidden" id="search_pickup_number" value="{{ pickup_number|default:'' }}">

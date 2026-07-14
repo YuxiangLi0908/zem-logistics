@@ -57,7 +57,7 @@ class TimeoutWarning(View):
         '''库存时效预警的界面筛选'''
         warehouse = request.POST.get("warehouse")
         delivery_type = request.POST.get("delivery_type")
-        # 拆柜入库3周，没有约的板子，只看2/1号之后的
+        # 拆柜入库1周，没有约的板子，只看2/1号之后的
         pallets = await self._get_packing_list(warehouse, delivery_type)
 
         # 预约时间过期没有排车
@@ -193,12 +193,12 @@ class TimeoutWarning(View):
         delivery_type = None,
     ) -> list[Any]:
         now = timezone.now() + timezone.timedelta(days=1)
-        three_weeks_ago = now - timedelta(weeks=3)
+        one_weeks_ago = now - timedelta(weeks=1)
 
         # 构建基础 filter 条件
         filter_conditions = (
             models.Q(
-                container_number__orders__offload_id__offload_at__lte=three_weeks_ago
+                container_number__orders__offload_id__offload_at__lte=one_weeks_ago
             )
             & models.Q(
                 container_number__orders__offload_id__offload_at__gte="2025-02-01"
