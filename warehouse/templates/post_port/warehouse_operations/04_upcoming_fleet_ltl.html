@@ -863,7 +863,6 @@
                         <td>{{ fleet.details.详细地址|join:", " }}</td>
                         <td>{{ fleet.details.备注|join:", " }}</td>
                         <td class="action-column">
-                            {% if fleet.fleet_type == 'LTL' or fleet.fleet_type == '客户自提' %}
                             <div class="link-group">
                                 {% for shipment in fleet.shipment_links %}
                                 <div class="link-row">
@@ -900,7 +899,6 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            {% endif %}
                             <div class="action-buttons">
                                 {% if fleet.warehouse_process_status == 'waiting' %}
                                     <form method="post" class="action-form" id="loading-fleet-form-{{ fleet.fleet_number }}">
