@@ -1001,8 +1001,11 @@ class WarehouseOperations(View):
             departured_at__isnull=False,
             appointment_datetime__gte=two_weeks_ago
         )
+        condition_after_2026 = models.Q(
+            appointment_datetime__gte=datetime(2026, 6, 1)
+        )
         
-        query_conditions = (pending_condition | shipped_condition) & warehouse_condition & fleet_type_condition
+        query_conditions = (pending_condition | shipped_condition) & warehouse_condition & fleet_type_condition & condition_after_2026
         
         fleets = await sync_to_async(list)(
             Fleet.objects.filter(query_conditions)
