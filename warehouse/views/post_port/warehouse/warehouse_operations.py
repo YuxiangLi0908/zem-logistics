@@ -1120,6 +1120,17 @@ class WarehouseOperations(View):
                             details['备注'].append(note)
                             details['邮编'].append(zipcode)
                             seen.add(key)
+                
+                if len(details['柜号']) > 1 and len(set(v or '' for v in details['柜号'])) == 1:
+                    details['柜号'] = [details['柜号'][0]]
+                if len(details['目的地']) > 1 and len(set(v or '' for v in details['目的地'])) == 1:
+                    details['目的地'] = [details['目的地'][0]]
+                if len(details['详细地址']) > 1 and len(set(v or '' for v in details['详细地址'])) == 1:
+                    details['详细地址'] = [details['详细地址'][0]]
+                if len(details['备注']) > 1 and len(set(v or '' for v in details['备注'])) == 1:
+                    details['备注'] = [details['备注'][0]]
+                if len(details['邮编']) > 1 and len(set(v or '' for v in details['邮编'])) == 1:
+                    details['邮编'] = [details['邮编'][0]]
 
             display_day = days_diff
             arm_pro_combined = None

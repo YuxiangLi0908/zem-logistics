@@ -15527,6 +15527,13 @@ class PostNsop(View):
         grouped_data = []
 
         for fleet in fleets:
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet.fleet_number)
+            )
+            if not shipments:
+                await sync_to_async(fleet.delete)()
+                continue
+
             arm_pickup = await self._get_fleet_arm_pickup(fleet)
             fleet_group = {
                 'fleet_number': fleet.fleet_number,
@@ -15546,10 +15553,6 @@ class PostNsop(View):
                 'total_cargos': 0,  # 总货物行数
                 'arm_pickup': arm_pickup,
             }
-
-            shipments = await sync_to_async(list)(
-                Shipment.objects.filter(fleet_number__fleet_number=fleet.fleet_number)
-            )
 
             for shipment in shipments:
                 if not shipment.shipment_batch_number:
