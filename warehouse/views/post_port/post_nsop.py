@@ -582,6 +582,12 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "batch_pickup_list":
             return await self.handle_batch_pickup_list(request)
+        elif step == "batch_bol":
+            result = await self.handle_batch_bol(request)
+            if isinstance(result, tuple):
+                template, context = result
+                return render(request, template, context)
+            return result
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -6080,6 +6086,268 @@ class PostNsop(View):
         </html>
         """
         return html
+
+    async def handle_batch_bol(self, request: HttpRequest) -> HttpResponse:
+        'ltl 批量BOL - 合并多个fleet的BOL为一个PDF'
+        fleet_numbers_str = request.POST.get("batch_fleet_numbers")
+        warehouse = request.POST.get("warehouse")
+        
+        if not fleet_numbers_str:
+            context = {'error_messages': '没有获取到车次号'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        try:
+            fleet_numbers = json.loads(fleet_numbers_str)
+        except ValueError:
+            context = {'error_messages': '车次号解析错误'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        if not isinstance(fleet_numbers, list) or len(fleet_numbers) == 0:
+            context = {'error_messages': '车次号列表为空'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        all_arm_pickup = []
+        all_fleets = []
+        conflicts = []
+
+        for fleet_number in fleet_numbers:
+            fleet = await sync_to_async(Fleet.objects.filter(fleet_number=fleet_number).first)()
+            if not fleet:
+                continue
+            all_fleets.append(fleet)
+
+            arm_pickup = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number__container_number",
+                    "shipment_batch_number__fleet_number",
+                )
+                .filter(shipment_batch_number__fleet_number__fleet_number=fleet_number)
+                .values(
+                    "container_number__container_number",
+                    "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_PRO",
+                    "shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__fleet_number__appointment_datetime",
+                    "shipment_batch_number__fleet_number__fleet_type",
+                    "destination",
+                    "shipping_mark",
+                    "shipment_batch_number__note",
+                    "slot",
+                    "shipment_batch_number__shipment_batch_number",
+                )
+                .annotate(
+                    total_pcs=Sum("pcs"),
+                    total_pallet=Count("pallet_id", distinct=True),
+                    total_weight=Sum("weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                )
+            )
+            for item in arm_pickup:
+                item["fleet_number"] = fleet_number
+            all_arm_pickup.extend(arm_pickup)
+
+        if not all_arm_pickup:
+            context = {'error_messages': '没有找到数据'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        carriers = set(f.carrier for f in all_fleets if f.carrier)
+        pickup_times = set(f.appointment_datetime for f in all_fleets if f.appointment_datetime)
+        origins = set(f.origin for f in all_fleets if f.origin)
+
+        if len(carriers) > 1:
+            conflicts.append(f"carrier 不一致: {', '.join(carriers)}")
+        if len(pickup_times) > 1:
+            conflicts.append(f"提货时间 不一致")
+        if len(origins) > 1:
+            conflicts.append(f"仓库 不一致: {', '.join(origins)}")
+
+        if conflicts:
+            error_msg = "无法生成批量BOL，以下字段存在冲突：" .join(conflicts)
+            context = {'error_messages': error_msg}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        carrier = all_fleets[0].carrier if all_fleets else ""
+        pickup_time_str = all_fleets[0].appointment_datetime if all_fleets else None
+        pickup_time = pickup_time_str.strftime("%Y-%m-%d") if pickup_time_str else ""
+        warehouse = all_fleets[0].origin if all_fleets else warehouse or ""
+
+        pallet = 0
+        pcs = 0
+        shipping_mark = ""
+        notes = set()
+        arm_pro = ""
+        container_number = ""
+        destination = ""
+
+        def safe_int(value, default: int = 0) -> int:
+            if value is None:
+                return default
+            if isinstance(value, int):
+                return value
+            value_str = str(value).strip()
+            if value_str == "" or value_str.lower() == "none":
+                return default
+            try:
+                return int(float(value_str))
+            except Exception:
+                return default
+
+        for arm in all_arm_pickup:
+            arm_pro = arm.get("shipment_batch_number__ARM_PRO", "")
+            carrier = arm.get("shipment_batch_number__fleet_number__carrier", "") or carrier
+            pallet += safe_int(arm.get("total_pallet", 0))
+            pcs += safe_int(arm.get("total_pcs", 0))
+            container_number = arm.get("container_number__container_number", "")
+            destination = arm.get("destination", "")
+            shipping_mark += arm.get("shipping_mark", "")
+            notes.add(arm.get("shipment_batch_number__note", ""))
+            marks = arm.get("shipping_mark", "")
+            new_marks = ""
+            if marks:
+                array = marks.split(",")
+                if len(array) > 1:
+                    parts = []
+                    for i in range(0, len(array)):
+                        part = ",".join(array[i: i + 1])
+                        parts.append(part)
+                    new_marks = "\n".join(parts)
+                else:
+                    new_marks = marks
+            arm["shipping_mark"] = new_marks
+
+        from django.utils.html import escape
+        from django.utils.safestring import mark_safe
+
+        def format_two_per_line(values: list) -> str:
+            cleaned = []
+            seen = set()
+            for v in values:
+                v_str = str(v).strip()
+                if not v_str or v_str.lower() == "none":
+                    continue
+                if v_str in seen:
+                    continue
+                seen.add(v_str)
+                cleaned.append(escape(v_str))
+            lines = []
+            for i in range(0, len(cleaned), 2):
+                lines.append(", ".join(cleaned[i: i + 2]))
+            return mark_safe("<br>".join(lines)) if lines else ""
+
+        group_container_number = format_two_per_line(
+            [a.get("container_number__container_number", "") for a in all_arm_pickup]
+        )
+
+        import re
+        all_marks = []
+        for a in all_arm_pickup:
+            marks_value = a.get("shipping_mark", "")
+            for part in re.split(r"[\n,]+", str(marks_value)):
+                part_str = part.strip()
+                if part_str:
+                    all_marks.append(part_str)
+        group_shipping_mark = format_two_per_line(all_marks)
+
+        all_destinations = []
+        for a in all_arm_pickup:
+            dest_value = a.get("destination", "")
+            dest_str = dest_value.strip()
+            if dest_str and dest_str not in all_destinations:
+                all_destinations.append(dest_str)
+        group_destination = format_two_per_line(all_destinations)
+
+        processed_notes = []
+        for note in filter(None, notes):
+            parts = [p.strip() for p in note.split(';') if p.strip()]
+            for part in parts:
+                if len(part) > 40:
+                    lines = [part[i:i + 40] for i in range(0, len(part), 40)]
+                    processed_notes.append(mark_safe("<br>".join([escape(line) for line in lines])))
+                else:
+                    processed_notes.append(escape(part))
+        notes_str = mark_safe("<br>".join(processed_notes))
+
+        def generate_barcode_base64(content: str) -> str:
+            try:
+                from barcode import get_barcode_class
+                from barcode.writer import ImageWriter
+                barcode_type = "code128"
+                barcode_class = get_barcode_class(barcode_type)
+                my_barcode = barcode_class(content, writer=ImageWriter())
+                buffer = io.BytesIO()
+                my_barcode.write(buffer, options={"dpi": 300})
+                buffer.seek(0)
+                image = Image.open(buffer)
+                width, height = image.size
+                new_height = int(height * 0.7)
+                cropped_image = image.crop((0, 0, width, new_height))
+                new_buffer = io.BytesIO()
+                cropped_image.save(new_buffer, format="PNG")
+                return base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+            except Exception as e:
+                return ""
+
+        if not arm_pro or arm_pro == "None" or arm_pro is None:
+            if '自提' in group_destination:
+                group_destination = 'client pickup'
+            barcode_content = f"{container_number}|{group_destination}"
+        else:
+            barcode_content = f"{arm_pro}"
+        
+        barcode_content = barcode_content.replace('\xa0', ' ').replace('\u2002', ' ').replace('\u2003', ' ')
+        barcode_content = ''.join(c for c in barcode_content if ord(c) < 128)
+        
+        barcode_base64 = generate_barcode_base64(barcode_content)
+
+        if not carrier or carrier == "None" or carrier == "":
+            carrier = "nocarrier"
+
+        carrier_image_map = {}
+        carrier_params = await sync_to_async(list)(
+            SystemParameter.objects.filter(category="私仓供应商", is_active=True).exclude(image_base64="")
+        )
+        for cp in carrier_params:
+            if cp.image_base64:
+                carrier_image_map[cp.key] = cp.image_base64
+
+        context = {
+            "warehouse": warehouse,
+            "arm_pro": arm_pro,
+            "carrier": carrier,
+            "carrier_image_base64": carrier_image_map.get(carrier, ""),
+            "pallet": pallet,
+            "pcs": pcs,
+            "container_number": group_container_number,
+            "shipping_mark": group_shipping_mark,
+            "destination": group_destination,
+            "barcode": barcode_base64,
+            "pickup_attachments": [],
+            "pickup_has_pdf": False,
+            "arm_pickup": all_arm_pickup,
+            "contact": {},
+            "contact_flag": False,
+            "pickup_time": pickup_time,
+            "notes": notes_str,
+            "appointment_info": "",
+            "show_containers": True,
+        }
+
+        from django.template.loader import get_template
+        template = get_template("export_file/ltl_bol.html")
+        html = template.render(context)
+
+        pdf_buffer = io.BytesIO()
+        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=pdf_buffer, link_callback=link_callback)
+        if pisa_status.err:
+            context = {'error_messages': f'PDF生成失败: {str(pisa_status.err)}'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        pdf_buffer.seek(0)
+        response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="batch_bol.pdf"'
+        response["X-Content-Type-Options"] = "nosniff"
+        
+        return response
 
     async def handle_batch_save_carrier(self, request: HttpRequest) -> HttpResponse:
         'ltl 待出库批次，批量保存供应商'
