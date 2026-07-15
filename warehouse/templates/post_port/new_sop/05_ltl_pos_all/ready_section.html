@@ -163,6 +163,9 @@
     <button type="button" class="fleet-action-btn" style="background-color: #9c27b0 !important; color: white !important; margin-left: 10px;" onclick="batchUploadOtherFile()" id="batchUploadOtherFileBtn" disabled>
         <i class="fas fa-upload"></i> 上传其他文件
     </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #e67e22 !important; color: white !important; margin-left: 10px;" onclick="batchPickupList()" id="batchPickupListBtn" disabled>
+        <i class="fas fa-file-alt"></i> 批量拣货单
+    </button>
 </div>
 
 <div class="table-container">
@@ -1468,12 +1471,14 @@
         const pickupBtn = document.getElementById('batchSavePickupTimeBtn');
         const labelBtn = document.getElementById('batchSaveLabelBtn');
         const otherFileBtn = document.getElementById('batchUploadOtherFileBtn');
+        const pickupListBtn = document.getElementById('batchPickupListBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
         if (carrierBtn) carrierBtn.disabled = !hasChecked;
         if (pickupBtn) pickupBtn.disabled = !hasChecked;
         if (labelBtn) labelBtn.disabled = !hasChecked;
         if (otherFileBtn) otherFileBtn.disabled = !hasChecked;
+        if (pickupListBtn) pickupListBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1678,6 +1683,47 @@
         batchesInput.name = 'batch_shipment_batches';
         batchesInput.value = JSON.stringify(allShipmentBatches);
         form.appendChild(batchesInput);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    function batchPickupList() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+        form.target = '_blank';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_pickup_list';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const fleetNumbersInput = document.createElement('input');
+        fleetNumbersInput.type = 'hidden';
+        fleetNumbersInput.name = 'batch_fleet_numbers';
+        fleetNumbersInput.value = JSON.stringify(fleetNumbers);
+        form.appendChild(fleetNumbersInput);
 
         document.body.appendChild(form);
         form.submit();
