@@ -94,6 +94,7 @@ from warehouse.models.system_parameter import SystemParameter
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.warehouse.palletization import Palletization
+from warehouse.views.post_port.posport_dash import PostportDash
 from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
@@ -579,6 +580,8 @@ class PostNsop(View):
         elif step == "batch_upload_other_file":
             template, context = await self.handle_upload_other_file(request)
             return render(request, template, context)
+        elif step == "batch_pickup_list":
+            return await self.handle_batch_pickup_list(request)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
             return render(request, template, context)      
@@ -4184,6 +4187,7 @@ class PostNsop(View):
         fleet_number = request.POST.get("fleet_number")
         arm_pickup_data = request.POST.get("arm_pickup_data")
         warehouse = request.POST.get("warehouse")
+        show_containers = request.POST.get("show_containers", "true") != "false"
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
         contact = {}
         arm_pickup_groups = []
@@ -4692,6 +4696,7 @@ class PostNsop(View):
                 "arm_pickup": arm_pickup,
                 "notes_table": notes_table,
                 "appointment_info": appointment_info_str,
+                "show_containers": show_containers,
             }
             if has_special_operation:
                 template = get_template(self.template_special_multi_ltl_bol)
@@ -4734,6 +4739,7 @@ class PostNsop(View):
                 "pickup_time": pickup_time,
                 "notes": notes_str,
                 "appointment_info": appointment_info_str,
+                "show_containers": show_containers,
             }
             if has_special_operation:
                 template = get_template(self.template_special_ltl_bol)
@@ -4984,6 +4990,7 @@ class PostNsop(View):
     async def handle_export_maersk_bol(self, request: HttpRequest) -> HttpResponse:
         '''Maersk BOL获取'''
         fleet_number = request.POST.get("fleet_number")
+        show_containers = request.POST.get("show_containers", "true") != "false"
 
         # Get Shipment info
         shipment_data = await sync_to_async(list)(
@@ -5111,6 +5118,7 @@ class PostNsop(View):
                                     "pickup_has_pdf": False,
                                     "container_number": "",
                                     "shipping_mark": "",
+                                    "show_containers": show_containers,
                                 }
                                 template = get_template("export_file/ltl_bol.html")
                                 html = template.render(context)
@@ -5938,6 +5946,140 @@ class PostNsop(View):
                     shipment_batch_number__shipment_batch_number=batch_number,
                 )
             )
+
+    async def handle_batch_pickup_list(self, request: HttpRequest) -> HttpResponse:
+        'ltl 批量拣货单 - 按fleet_number分组生成PDF表格'
+        fleet_numbers_str = request.POST.get("batch_fleet_numbers")
+        warehouse = request.POST.get("warehouse")
+        
+        if not fleet_numbers_str:
+            raise ValueError("没有获取到车次号")
+        
+        try:
+            fleet_numbers = json.loads(fleet_numbers_str)
+        except ValueError:
+            raise ValueError("车次号解析错误")
+        
+        if not isinstance(fleet_numbers, list) or len(fleet_numbers) == 0:
+            raise ValueError("车次号列表为空")
+        
+        all_pickup_data = []
+        
+        for fleet_number in fleet_numbers:
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+            )
+            
+            if not shipments:
+                continue
+            
+            for shipment in shipments:
+                shipment_batch_number = shipment.shipment_batch_number
+                if not shipment_batch_number:
+                    continue
+                
+                criteria = models.Q(
+                    shipment_batch_number__shipment_batch_number=shipment_batch_number
+                )
+
+                pt = PostportDash()
+                packing_list = await pt._get_combined_packing_data(criteria, criteria)
+                
+                carrier = shipment.carrier or ""
+                pickup_time = shipment.pickup_time
+                
+                for pl in packing_list:
+                    all_pickup_data.append({
+                        "container_number": pl.get("container_number__container_number", ""),
+                        "destination": pl.get("destination", ""),
+                        "shipping_mark": pl.get("shipping_marks", ""),
+                        "total_pcs": pl.get("total_pcs", 0),
+                        "total_pallet": pl.get("total_n_pallet_act") or pl.get("total_n_pallet_est", 0),
+                        "carrier": carrier,
+                        "pickup_time": pickup_time,
+                        "fleet_number": fleet_number,
+                    })
+        
+        if not all_pickup_data:
+            raise ValueError("没有找到拣货数据")
+        
+        html = self._generate_pickup_list_html(all_pickup_data)
+        
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="批量拣货单.pdf"'
+        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=response, link_callback=link_callback)
+        if pisa_status.err:
+            raise ValueError("Error during PDF generation: %s" % pisa_status.err)
+        
+        return response
+    
+    def _generate_pickup_list_html(self, data: list[dict]) -> str:
+        html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>批量拣货单</title>
+            <style>
+                @page {
+                    margin: 20mm;
+                }
+                body {
+                    font-family: STSong-Light;
+                    font-size: 12px;
+                }
+                table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                th, td { 
+                    border: 1px solid #000; 
+                    padding: 6px 8px; 
+                    text-align: left; 
+                    font-size: 12px;
+                    font-family: STSong-Light;
+                }
+                th { 
+                    background-color: #f2f2f2; 
+                    font-weight: bold; 
+                }
+                .mark-col { width: 125px; word-break: break-all; }
+            </style>
+        </head>
+        <body>
+            <table>
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>目的地</th>
+                        <th class="mark-col">唛头</th>
+                        <th>件数</th>
+                        <th>板数</th>
+                        <th>carrier</th>
+                        <th>提货时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for item in data:
+            pickup_time_str = item["pickup_time"].strftime("%Y-%m-%d %H:%M") if item["pickup_time"] else ""
+            html += f"""
+                <tr>
+                    <td>{item["container_number"]}</td>
+                    <td>{item["destination"]}</td>
+                    <td class="mark-col">{item["shipping_mark"]}</td>
+                    <td>{item["total_pcs"]}</td>
+                    <td>{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>
+                    <td>{item["carrier"]}</td>
+                    <td>{pickup_time_str}</td>
+                </tr>
+            """
+        
+        html += """
+                </tbody>
+            </table>
+        </body>
+        </html>
+        """
+        return html
 
     async def handle_batch_save_carrier(self, request: HttpRequest) -> HttpResponse:
         'ltl 待出库批次，批量保存供应商'
