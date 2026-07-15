@@ -4187,6 +4187,7 @@ class PostNsop(View):
         fleet_number = request.POST.get("fleet_number")
         arm_pickup_data = request.POST.get("arm_pickup_data")
         warehouse = request.POST.get("warehouse")
+        show_containers = request.POST.get("show_containers", "true") != "false"
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
         contact = {}
         arm_pickup_groups = []
@@ -4695,6 +4696,7 @@ class PostNsop(View):
                 "arm_pickup": arm_pickup,
                 "notes_table": notes_table,
                 "appointment_info": appointment_info_str,
+                "show_containers": show_containers,
             }
             if has_special_operation:
                 template = get_template(self.template_special_multi_ltl_bol)
@@ -4737,6 +4739,7 @@ class PostNsop(View):
                 "pickup_time": pickup_time,
                 "notes": notes_str,
                 "appointment_info": appointment_info_str,
+                "show_containers": show_containers,
             }
             if has_special_operation:
                 template = get_template(self.template_special_ltl_bol)
@@ -4987,6 +4990,7 @@ class PostNsop(View):
     async def handle_export_maersk_bol(self, request: HttpRequest) -> HttpResponse:
         '''Maersk BOL获取'''
         fleet_number = request.POST.get("fleet_number")
+        show_containers = request.POST.get("show_containers", "true") != "false"
 
         # Get Shipment info
         shipment_data = await sync_to_async(list)(
@@ -5114,6 +5118,7 @@ class PostNsop(View):
                                     "pickup_has_pdf": False,
                                     "container_number": "",
                                     "shipping_mark": "",
+                                    "show_containers": show_containers,
                                 }
                                 template = get_template("export_file/ltl_bol.html")
                                 html = template.render(context)

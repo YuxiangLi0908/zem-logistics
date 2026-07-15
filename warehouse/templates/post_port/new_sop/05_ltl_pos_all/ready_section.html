@@ -541,13 +541,18 @@
                                                                 </form>
                                                             {% endif %}
                                                         <div style="margin-top: 5px;">
+                                                            <label style="display: flex; align-items: center; gap: 5px; font-size: 0.75rem; margin-bottom: 5px;">
+                                                                <input type="checkbox" checked class="show-containers-check" data-fleet="{{ fleet_group.fleet_number }}">
+                                                                显示containers
+                                                            </label>
                                                             {% if fleet_group.carrier == 'Maersk' %}
                                                                 <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                                                     {% csrf_token %}
                                                                     <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
                                                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                                                     <input type="hidden" name="step" value="export_maersk_bol">
-                                                                    <button class="action-btn" style="
+                                                                    <input type="hidden" name="show_containers" value="true" class="show-containers-input">
+                                                                    <button class="action-btn" onclick="setShowContainers(this)" style="
                                                                         background: linear-gradient(135deg, #3498db, #2980b9);
                                                                         border: none;
                                                                         color: white;
@@ -573,7 +578,8 @@
                                                                     <input type="hidden" name="step" value="export_ltl_bol">
                                                                     <input type="hidden" name="active_tab" value="readyShip"> 
                                                                     <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                                    <button class="action-btn" style="
+                                                                    <input type="hidden" name="show_containers" value="true" class="show-containers-input">
+                                                                    <button class="action-btn" onclick="setShowContainers(this)" style="
                                                                         background: linear-gradient(135deg, #3498db, #2980b9);
                                                                         border: none;
                                                                         color: white;
@@ -831,6 +837,16 @@
 </div>
 
 <script>
+    function setShowContainers(btn) {
+        const form = btn.closest('form');
+        const fleetNumber = form.querySelector('input[name="fleet_number"]').value;
+        const check = document.querySelector(`input.show-containers-check[data-fleet="${fleetNumber}"]`);
+        const input = form.querySelector('input.show-containers-input');
+        if (check && input) {
+            input.value = check.checked ? 'true' : 'false';
+        }
+    }
+
     function openMaerskLabelModal(fleetNumber) {
         document.getElementById('maerskLabelFleetNumber').value = fleetNumber;
         const modal = new bootstrap.Modal(document.getElementById('maerskLabelModal'));

@@ -89,7 +89,6 @@
             </td>
             <td style="width:10%;"></td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black;">
-                <img style="width:250px; height:60px; padding-bottom:5px;" src="data:image/png;base64,{{ barcode }}">
                 <br><br><b class="larger-text">PRO#:{{arm_pro}}</b>
             </td>
         </tr>
@@ -107,11 +106,6 @@
             <td style="width:10%;">             
             </td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black; padding-top:5px;">
-                {% if carrier_image_base64 %}
-                <img style="width:100px;height:auto;" src="data:image/jpeg;base64,{{ carrier_image_base64 }}">
-                {% else %}
-                <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
-                {% endif %}
                 <br>
                 <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ carrier }}
                 <br>
@@ -137,15 +131,31 @@
     <div style="padding:20px;">
         <b style="text-align:center;">Accessorials:</b>
     <div>
-    <table style="width: 100%; padding:6px; font-size:16px;">
-        <tr>
-            <td style="width:20%; border:none;"></td>
-            <td style="width:30%; text-align:center; border: 1px solid black;"> Pallet:<br><b>{{ pallet }}</b></td>
-            <td style="width:30%; text-align:center; border: 1px solid black;"> Pcs:<br><b>{{ pcs }}</b></td>
-            <td style="width:60%; text-align:center; border: 1px solid black;"> containers: {{ container_number|safe }}</td>
-            <td style="width:60%; text-align:center; border: 1px solid black;"> shipping_mark: {{ shipping_mark|safe }}</td>
-            <td style="width:20%; border:none;"></td>
-        </tr>
+    <table style="width: 100%; padding:6px; font-size:16px; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="width:20%; border:none;"></th>
+                <th style="width:30%; text-align:center; border: 1px solid black;">Pallet</th>
+                <th style="width:30%; text-align:center; border: 1px solid black;">Pcs</th>
+                {% if show_containers != False %}
+                <th style="width:60%; text-align:center; border: 1px solid black;">containers</th>
+                {% endif %}
+                <th style="width:60%; text-align:center; border: 1px solid black;">shipping_mark</th>
+                <th style="width:20%; border:none;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="width:20%; border:none;"></td>
+                <td style="width:30%; text-align:center; border: 1px solid black;"><b>{{ pallet }}</b></td>
+                <td style="width:30%; text-align:center; border: 1px solid black;"><b>{{ pcs }}</b></td>
+                {% if show_containers != False %}
+                <td style="width:60%; text-align:center; border: 1px solid black;">{{ container_number|safe }}</td>
+                {% endif %}
+                <td style="width:60%; text-align:center; border: 1px solid black;">{{ shipping_mark|safe }}</td>
+                <td style="width:20%; border:none;"></td>
+            </tr>
+        </tbody>
     </table>
 </div>
 <div style="font-size: 12px;">
