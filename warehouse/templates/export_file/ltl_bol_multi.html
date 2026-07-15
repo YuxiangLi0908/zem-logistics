@@ -69,16 +69,17 @@
             <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
                 <b class="larger-text">SHIPPER</b><br>
                 {% if "SAV-31326" == page.warehouse %}
-                ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717<br>delivery@zemlogistics.com
+                ZEM LOGISTICS INC<br>251 Morgan Lakes Industrial  Blvd,Pooler, GA 31322<br>Leon &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
+                {% elif "NJ-07001" == page.warehouse %}
+                ZEM LOGISTICS INC<br>27 Engelhard Ave. Avenel NJ 07001<br>Marstin Ma<br>6463390570
                 {% elif "LA-91761" == page.warehouse %}
-                ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6263897353<br>delivery@zemlogistics.com
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
                 {% elif "LA-91748" == page.warehouse %}
-                ZEM RINCON<br>19545 San Jose Ave City of Industry<br>CA,91748,United States<br>Ricko &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;626-759-3942<br>delivery@zemlogistics.com
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
                 {% elif "LA-91766" == page.warehouse %}
-                1601 W Mission Blvd, Pomona<br>CA 91766<br>Allywork &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;213-510-5188-Ext 803<br>allywork.operation@gmail.com
-                {% elif "LA-91730" == warehouse %}
-                9570 Santa Anita Ave, Rancho Cucamonga<br>CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987<br>delivery@zemlogistics.com
-
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
+                {% elif "LA-91730" == page.warehouse %}
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
                 {% else %}
                 <br><br><br><br>
                 {% endif %}
@@ -244,7 +245,6 @@
 
 {% endfor %}
 
-<div class="page-break"></div>
 <br><br>
 <b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
 <table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 
