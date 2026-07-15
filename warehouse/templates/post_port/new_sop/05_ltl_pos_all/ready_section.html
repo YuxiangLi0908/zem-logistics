@@ -166,6 +166,9 @@
     <button type="button" class="fleet-action-btn" style="background-color: #e67e22 !important; color: white !important; margin-left: 10px;" onclick="batchPickupList()" id="batchPickupListBtn" disabled>
         <i class="fas fa-file-alt"></i> 批量拣货单
     </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #1abc9c !important; color: white !important; margin-left: 10px;" onclick="batchBol()" id="batchBolBtn" disabled>
+        <i class="fas fa-file-word"></i> 批量BOL
+    </button>
 </div>
 
 <div class="table-container">
@@ -201,15 +204,15 @@
                         </button>
                     </div>
                 </td>
-                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
-                <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
-                <td><textarea class="header-search" placeholder="搜索目的地" data-column="4" rows="2"></textarea></td>
-                <td><textarea class="header-search" placeholder="搜索柜号" data-column="5" rows="2"></textarea></td>
-                <td><textarea class="header-search" placeholder="搜索唛头" data-column="6" rows="2"></textarea></td>
-                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
-                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="4"></td>
+                <td><textarea class="header-search" placeholder="搜索目的地" data-column="5" rows="2"></textarea></td>
+                <td><textarea class="header-search" placeholder="搜索柜号" data-column="6" rows="2"></textarea></td>
+                <td><textarea class="header-search" placeholder="搜索唛头" data-column="7" rows="2"></textarea></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="9"></td>
                 <td>
-                    <select class="header-search" data-column="9">
+                    <select class="header-search" data-column="10">
                         <option value="">全部</option>
                         <option value="True">需要Label</option>
                         <option value="False">不需要Label</option>
@@ -1326,7 +1329,7 @@
         let allColumnsMatch = true;
         
         // 需要支持多值搜索的列（添加了勾选框列后索引+1）
-        const multiValueColumns = ['4', '5', '6']; // 目的地、柜号、唛头
+        const multiValueColumns = ['5', '6', '7']; // 目的地、柜号、唛头
         
         // 检查每一列的筛选条件（AND关系）
         Object.keys(columnFilters).forEach(colIndex => {
@@ -1342,7 +1345,7 @@
             let cellText = cell.textContent.toLowerCase();
             
             // 处理特殊列（唛头有完整数据在data-full属性中）
-            if (colIndex === '6') { // 唛头列
+            if (colIndex === '7') { // 唛头列
                 const fullMarkings = cell.getAttribute('data-full') || cellText;
                 cellText = fullMarkings.toLowerCase();
             }
@@ -1435,7 +1438,7 @@
                 }
                 
                 // 对于唛头列，使用完整数据进行高亮
-                if (colIndex === '6') {
+                if (colIndex === '7') {
                     const fullData = cell.getAttribute('data-full') || cellText;
                     cellText = fullData;
                 }
@@ -1488,6 +1491,7 @@
         const labelBtn = document.getElementById('batchSaveLabelBtn');
         const otherFileBtn = document.getElementById('batchUploadOtherFileBtn');
         const pickupListBtn = document.getElementById('batchPickupListBtn');
+        const bolBtn = document.getElementById('batchBolBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
         if (carrierBtn) carrierBtn.disabled = !hasChecked;
@@ -1495,6 +1499,7 @@
         if (labelBtn) labelBtn.disabled = !hasChecked;
         if (otherFileBtn) otherFileBtn.disabled = !hasChecked;
         if (pickupListBtn) pickupListBtn.disabled = !hasChecked;
+        if (bolBtn) bolBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1727,6 +1732,46 @@
         stepInput.type = 'hidden';
         stepInput.name = 'step';
         stepInput.value = 'batch_pickup_list';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const fleetNumbersInput = document.createElement('input');
+        fleetNumbersInput.type = 'hidden';
+        fleetNumbersInput.name = 'batch_fleet_numbers';
+        fleetNumbersInput.value = JSON.stringify(fleetNumbers);
+        form.appendChild(fleetNumbersInput);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    function batchBol() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_bol';
         form.appendChild(stepInput);
 
         const warehouseInput = document.createElement('input');
