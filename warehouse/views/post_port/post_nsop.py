@@ -6040,7 +6040,7 @@ class PostNsop(View):
         """
         
         for item in data:
-            pickup_time_str = item["pickup_time"].strftime("%Y-%m-%d %H:%M") if item["pickup_time"] else ""
+            pickup_time_str = item["pickup_time"].strftime("%Y-%m-%d") if item["pickup_time"] else ""
             html += f"""
                 <tr>
                     <td>{item["container_number"]}</td>
