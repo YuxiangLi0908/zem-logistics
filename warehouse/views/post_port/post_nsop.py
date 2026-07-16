@@ -6008,10 +6008,14 @@ class PostNsop(View):
                     font-family: STSong-Light;
                     font-size: 12px;
                 }
-                table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    table-layout: fixed;
+                }
                 th, td { 
                     border: 1px solid #000; 
-                    padding: 6px 8px; 
+                    padding: 4px; 
                     text-align: left; 
                     font-size: 12px;
                     font-family: STSong-Light;
@@ -6020,20 +6024,32 @@ class PostNsop(View):
                     background-color: #f2f2f2; 
                     font-weight: bold; 
                 }
-                .mark-col { width: 125px; word-break: break-all; }
+                .cell-div {
+                    width: 100%;
+                    display: inline-block;
+                    word-wrap: break-word;
+                    white-space: pre-wrap;
+                }
+                .col-container { width: 120px; }
+                .col-destination { width: 150px; }
+                .col-mark { width: 200px; }
+                .col-pcs { width: 60px; }
+                .col-pallet { width: 60px; }
+                .col-carrier { width: 100px; }
+                .col-pickup-time { width: 85px; }
             </style>
         </head>
         <body>
             <table>
                 <thead>
                     <tr>
-                        <th>柜号</th>
-                        <th>目的地</th>
-                        <th class="mark-col">唛头</th>
-                        <th>件数</th>
-                        <th>板数</th>
-                        <th>carrier</th>
-                        <th>提货时间</th>
+                        <th width="120">柜号</th>
+                        <th width="150">目的地</th>
+                        <th width="200">唛头</th>
+                        <th width="60">件数</th>
+                        <th width="60">板数</th>
+                        <th width="100">carrier</th>
+                        <th width="85">提货时间</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -6043,13 +6059,13 @@ class PostNsop(View):
             pickup_time_str = item["pickup_time"].strftime("%Y-%m-%d") if item["pickup_time"] else ""
             html += f"""
                 <tr>
-                    <td>{item["container_number"]}</td>
-                    <td>{item["destination"]}</td>
-                    <td class="mark-col">{item["shipping_mark"]}</td>
-                    <td>{item["total_pcs"]}</td>
-                    <td>{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>
-                    <td>{item["carrier"]}</td>
-                    <td>{pickup_time_str}</td>
+                    <td width="120"><div class="cell-div">{item["container_number"]}</div></td>
+                    <td width="150"><div class="cell-div">{item["destination"]}</div></td>
+                    <td width="200"><div class="cell-div">{item["shipping_mark"]}</div></td>
+                    <td width="60"><div class="cell-div">{item["total_pcs"]}</div></td>
+                    <td width="60"><div class="cell-div">{int(item["total_pallet"]) if item["total_pallet"] else 0}</div></td>
+                    <td width="100"><div class="cell-div">{item["carrier"]}</div></td>
+                    <td width="85"><div class="cell-div">{pickup_time_str}</div></td>
                 </tr>
             """
         
