@@ -5993,6 +5993,19 @@ class PostNsop(View):
         
         return response
     
+    def _wrap_text(self, text: str, max_length: int = 25) -> str:
+        if not text:
+            return ""
+        parts = re.split(r'[,，]', text)
+        wrapped_parts = []
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+            for i in range(0, len(part), max_length):
+                wrapped_parts.append(part[i:i+max_length])
+        return "<br>".join(wrapped_parts)
+
     def _generate_pickup_list_html(self, data: list[dict]) -> str:
         html = """
         <!DOCTYPE html>
@@ -6019,24 +6032,12 @@ class PostNsop(View):
                     text-align: left; 
                     font-size: 12px;
                     font-family: STSong-Light;
+                    vertical-align: top;
                 }
                 th { 
                     background-color: #f2f2f2; 
                     font-weight: bold; 
                 }
-                .cell-div {
-                    width: 100%;
-                    display: inline-block;
-                    word-wrap: break-word;
-                    white-space: pre-wrap;
-                }
-                .col-container { width: 120px; }
-                .col-destination { width: 150px; }
-                .col-mark { width: 200px; }
-                .col-pcs { width: 60px; }
-                .col-pallet { width: 60px; }
-                .col-carrier { width: 100px; }
-                .col-pickup-time { width: 85px; }
             </style>
         </head>
         <body>
@@ -6057,15 +6058,16 @@ class PostNsop(View):
         
         for item in data:
             pickup_time_str = item["pickup_time"].strftime("%Y-%m-%d") if item["pickup_time"] else ""
+            shipping_mark_wrapped = self._wrap_text(item["shipping_mark"], 25)
             html += f"""
                 <tr>
-                    <td width="120"><div class="cell-div">{item["container_number"]}</div></td>
-                    <td width="150"><div class="cell-div">{item["destination"]}</div></td>
-                    <td width="200"><div class="cell-div">{item["shipping_mark"]}</div></td>
-                    <td width="60"><div class="cell-div">{item["total_pcs"]}</div></td>
-                    <td width="60"><div class="cell-div">{int(item["total_pallet"]) if item["total_pallet"] else 0}</div></td>
-                    <td width="100"><div class="cell-div">{item["carrier"]}</div></td>
-                    <td width="85"><div class="cell-div">{pickup_time_str}</div></td>
+                    <td width="120">{item["container_number"]}</td>
+                    <td width="150">{item["destination"]}</td>
+                    <td width="200">{shipping_mark_wrapped}</td>
+                    <td width="60">{item["total_pcs"]}</td>
+                    <td width="60">{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>
+                    <td width="100">{item["carrier"]}</td>
+                    <td width="85">{pickup_time_str}</td>
                 </tr>
             """
         
