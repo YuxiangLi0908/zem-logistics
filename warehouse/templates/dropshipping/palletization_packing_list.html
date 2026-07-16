@@ -21,6 +21,7 @@
                     <thead>
                         <tr>
                             <th class="th">货柜</th>
+                            <th class="th">产品名称</th>
                             <th class="th">货物型号</th>
                             <th class="th">派送类型</th>
                             <th class="th">派送方式</th>
@@ -42,6 +43,7 @@
                         {% for pl, pl_form in order_packing_list %}
                         <tr id="palletization-row">
                             <td class="td">{{ pl.container__container_number }}</td>
+                            <td class="td">{{ pl.product_name }}</td>
                             {% if status == 'non_palletized' %}
                             <td class="td">{{ pl.model }}</td>
                             {% elif status == 'palletized' %}
@@ -49,6 +51,7 @@
                                 <td id="model - {{ pl.id }}" class="td">
                                     <a href="#"
                                         onclick="showPalletFromLink(this)"
+                                        data-product_name="{{ pl.product_name }}"
                                         data-model="{{ pl.model }}"
                                         data-ids="{{ pl.ids }}"
                                         data-length="{{ pl.length|default_if_none:'' }}"
@@ -80,15 +83,17 @@
                                 {% endif %}
                             </td>
                             {% if status == 'non_palletized' %}
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
-                            <td class="td">{{ pl.pcs }}</td>
-                            <td class="td"><input type="number" step="1" name="pcs_actul" style="width:50px;" value="{{ pl.pcs }}" required></td>
+                                <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
+                                <td class="td">{{ pl.pcs }}</td>
+                                <td class="td"><input type="number" step="1" name="pcs_actul" style="width:50px;" value="{{ pl.pcs }}" required></td>
                             {% else %}
-                            <td class="td">{{ pl.pcs }}</td>
+                                <td class="td">{{ pl.pcs }}</td>
                             {% endif %}
+
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
+
                             {% if status == 'palletized' %}
-                            <td class="td">{{ pl.n_pallet }}</td>
+                                <td class="td">{{ pl.n_pallet }}</td>
                             {% else %}
                                 <td class="td">
                                     <div style="position: relative;">
@@ -101,6 +106,7 @@
                                     </div>
                                 </td>
                             {% endif %}
+
                             <td class="td">{{ pl.PO_ID }}</td>
                             <td class="td">{{ pl.note|default_if_none:"" }}</td>
                             <input type="hidden" name="ids" value="{{pl.ids}}">
@@ -110,21 +116,21 @@
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
                             <input type="hidden" name="notes" value="{{pl.note}}">
                             <input type="hidden" name="weights" value="{{pl.weight_lbs}}">
+                            <input type="hidden" name="product_names" value="{{pl.product_name}}">
                             <input type="hidden" name="models" value="{{pl.model}}">
-                            <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
-                            <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
-                            <input type="hidden" name="master_shipment_batch_number" value="{{pl.master_shipment_batch_number__shipment_batch_number}}">
+                            <input type="hidden" name="container_number" value="{{pl.container__container_number}}">
                             <input type="hidden" name="po_ids" value="{{pl.PO_ID}}">
                         </tr>
                         {% endfor %}
+
                         {% if status == 'non_palletized' %}
                         <tr id="palletization-row-empty" class="abnormal-palletization-row" style="display: none;">
                             <td class="td"><input type="text" name="container_numer" value="{{ container_number }}" disabled></td>
+                            <td class="td"><input type="text" name="new_product_names" required></td>
                             <td class="td"><input type="text" name="new_models" required></td>
                             <td class="td">
                                 <select name="delivery_type" class="new-delivery-method" style="font-size: 13px;">
-                                    <option value="public">public</option>
-                                    <option value="other">other</option>
+                                    <option value="dropshipping">一件代发</option>
                                 </select>
                             </td>
                             <td class="td">
@@ -134,13 +140,15 @@
                                     {% endfor %}
                                 </select>
                             </td>
+
                             {% if status == 'non_palletized' %}
-                            <td class="td"><input type="text" name="new_shipping_marks" placeholder="optional"></td>
-                            <td class="td"><input type="text" name="new_pcs_reported" value="0" disabled></td>
-                            <td class="td"><input type="number" step="1" name="new_pcs_actul" required></td>
+                                <td class="td"><input type="text" name="new_shipping_marks" placeholder="optional"></td>
+                                <td class="td"><input type="text" name="new_pcs_reported" value="0" disabled></td>
+                                <td class="td"><input type="number" step="1" name="new_pcs_actul" required></td>
                             {% else %}
-                            <td class="td"><input type="text" style="width:50px;" name="new_pcs_actul"></td>
+                                <td class="td"><input type="text" style="width:50px;" name="new_pcs_actul"></td>
                             {% endif %}
+
                             <td class="td"><input type="number" name="new_cbms" step="0.01" placeholder="optional"></td>
                             <td class="td"><input type="number" step="1" name="new_pallets" required></td>
                             <td class="td"><input type="text" name="po_ids" disabled></td>

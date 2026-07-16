@@ -20,6 +20,8 @@ class Pallet(models.Model):
         on_delete=models.SET_NULL,
         related_name="pallet",
     )
+    model = models.CharField(max_length=255, null=True, blank=True, verbose_name="型号")
+    product_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="产品名称")
     dropshipping_item_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发货物名称")
     dropshipping_item_model_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="一件代发货物型号")
     created_at = models.DateTimeField(null=True, blank=True,verbose_name="拆柜时间")
