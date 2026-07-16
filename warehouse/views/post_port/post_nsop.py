@@ -3972,17 +3972,23 @@ class PostNsop(View):
 
         # 添加换行函数
         def wrap_text(text, max_length=11):
-            """将文本按最大长度换行"""
+            """将文本按最大长度换行，遇到中英文逗号也换行"""
             if not isinstance(text, str):
                 text = str(text)
 
             if len(text) <= max_length:
                 return text
 
-            # 按最大长度分割文本
+            # 先用逗号分割（支持中英文逗号）
+            parts = re.split(r'[,，]', text)
             wrapped_lines = []
-            for i in range(0, len(text), max_length):
-                wrapped_lines.append(text[i:i + max_length])
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+                # 每个部分再按最大长度分割
+                for i in range(0, len(part), max_length):
+                    wrapped_lines.append(part[i:i + max_length])
             return '\n'.join(wrapped_lines)
 
         # 对DataFrame应用换行处理
@@ -4372,6 +4378,7 @@ class PostNsop(View):
                         "pickup_file_content": str(
                             row.get("pickup_file_content", "")
                         ),
+                        "shipment_batch_number__pickup_time": row.get("shipment_batch_number__pickup_time"),
                     }
                     for possible_key in (
                             "arm_pickup_group",
@@ -5093,6 +5100,7 @@ class PostNsop(View):
                                         "shipment_batch_number__fleet_number__carrier",
                                         "slot",
                                         "shipment_batch_number__note",
+                                        "shipment_batch_number__pickup_time",
                                     )
                                     .annotate(
                                         total_pcs=Sum("pcs"),
@@ -6044,13 +6052,13 @@ class PostNsop(View):
             <table>
                 <thead>
                     <tr>
-                        <th width="120">柜号</th>
-                        <th width="150">目的地</th>
-                        <th width="200">唛头</th>
-                        <th width="60">件数</th>
-                        <th width="60">板数</th>
-                        <th width="100">carrier</th>
-                        <th width="85">提货时间</th>
+                        <th width="14%">柜号</th>
+                        <th width="10%">目的地</th>
+                        <th width="30%">唛头</th>
+                        <th width="8%">件数</th>
+                        <th width="8%">板数</th>
+                        <th width="12%">carrier</th>
+                        <th width="10%">提货时间</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -6061,13 +6069,13 @@ class PostNsop(View):
             shipping_mark_wrapped = self._wrap_text(item["shipping_mark"], 25)
             html += f"""
                 <tr>
-                    <td width="120">{item["container_number"]}</td>
-                    <td width="150">{item["destination"]}</td>
-                    <td width="200">{shipping_mark_wrapped}</td>
-                    <td width="60">{item["total_pcs"]}</td>
-                    <td width="60">{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>
-                    <td width="100">{item["carrier"]}</td>
-                    <td width="85">{pickup_time_str}</td>
+                    <td width="14%" style="word-break:break-all;">{item["container_number"]}</td>
+                    <td width="10%" style="word-break:break-all;">{item["destination"]}</td>
+                    <td width="30%" style="word-break:break-all;">{shipping_mark_wrapped}</td>
+                    <td width="8%" style="word-break:break-all;">{item["total_pcs"]}</td>
+                    <td width="8%" style="word-break:break-all;">{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>
+                    <td width="12%" style="word-break:break-all;">{item["carrier"]}</td>
+                    <td width="10%" style="word-break:break-all;">{pickup_time_str}</td>
                 </tr>
             """
         
@@ -16049,6 +16057,7 @@ class PostNsop(View):
                 "address",
                 "slot",
                 "shipment_batch_number__note",
+                "shipment_batch_number__pickup_time",
             )
             .annotate(
                 total_pcs=Sum("pcs"),

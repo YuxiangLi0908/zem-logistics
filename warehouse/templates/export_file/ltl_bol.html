@@ -244,15 +244,16 @@
     <thead> 
         <tr>
             <th style="width: 7%; border: none;"></th>
-            <th style="width: 14%; border:1px solid black;">container number</th>
-            <th style="width: 14%; border:1px solid black;">destination</th>
-            <th style="width: 18%; border:1px solid black;">shipping_mark</th>
-            <th style="width: 13%; border:1px solid black;">pallets</th>
-            <th style="width: 13%; border:1px solid black;">pcs</th>
-            <th style="width: 13%; border:1px solid black;">carrier</th>
+            <th style="width: 14%; border:1px solid black; word-break:break-all;">container number</th>
+            <th style="width: 10%; border:1px solid black; word-break:break-all;">destination</th>
+            <th style="width: 28%; border:1px solid black; word-break:break-all;">shipping_mark</th>
+            <th style="width: 8%; border:1px solid black; word-break:break-all;">pallets</th>
+            <th style="width: 8%; border:1px solid black; word-break:break-all;">pcs</th>
+            <th style="width: 10%; border:1px solid black; word-break:break-all;">carrier</th>
             {% if "LA-91761" == warehouse %}
-            <th style="width: 8%; border:1px solid black;">slot</th>
+            <th style="width: 6%; border:1px solid black; word-break:break-all;">slot</th>
             {% endif %}
+            <th style="width: 10%; border:1px solid black; word-break:break-all;">pickup time</th>
             <th style="width: 8%; border: none;"></th>
         </tr>
     </thead>
@@ -260,17 +261,18 @@
         {% for p in arm_pickup %}
         <tr style="text-align:center;">
             <th style="width: 7%; border: none;"></th>
-            <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
-            <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
-            <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+            <td style="width: 14%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.container_number__container_number }}</td>
+            <td style="width: 10%; text-align:center; border:1px solid black; font-family: STSong-Light; word-break:break-all;">{{ p.destination }}</td>
+            <td style="width: 28%; word-break:break-all; border:1px solid black;">{{ p.shipping_mark|safe }}</td>
+            <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pallet }}</td>
+            <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pcs }}</td>
+            <td style="width: 10%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
             {% if "LA-91761" == warehouse %}
-            <td style="text-align:center; border:1px solid black;">
+            <td style="width: 6%; text-align:center; border:1px solid black; word-break:break-all;">
                 {{ p.slot|default:"&nbsp;" }}
             </td>
             {% endif %}
+            <td style="width: 10%; text-align:center; border:1px solid black; word-break:break-all;">{% if p.shipment_batch_number__pickup_time %}{{ p.shipment_batch_number__pickup_time|date:"Y-m-d" }}{% endif %}</td>
             <th style="width: 8%; border: none;"></th>
         </tr>
         {% endfor %}
