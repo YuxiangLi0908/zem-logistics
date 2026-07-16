@@ -31,7 +31,6 @@ from django.utils import timezone
 
 from warehouse.models.container import Container
 from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
-from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet import Fleet
 from warehouse.models.invoicev2 import Invoicev2, InvoiceStatusv2, InvoiceItemv2
@@ -47,6 +46,7 @@ from warehouse.models.shipment import Shipment
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.system_parameter import SystemParameter
+from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
 from warehouse.utils.constants import SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER, \
     PACKING_LIST_TEMP_COL_MAPPING, DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE
@@ -288,52 +288,96 @@ class PostDrop(View):
             context.update({'error_messages': "没选仓库！"})
             return self.template_ltl_pos_all, context
 
-        # 获取客户筛选条件（保持字符串类型）
-        customer_idlist = request.POST.getlist("customer")
-
-        # 构建基础筛选条件
-        pl_criteria = Q(
-            container_number__orders__cancel_notification=False,
-            container_number__orders__offload_id__offload_at__isnull=True,
-            shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__orders__retrieval_id__retrieval_destination_precise=warehouse,
-            delivery_type="一件代发"
-        )
-        plt_criteria = Q(
-            location=warehouse,
-            container_number__orders__cancel_notification=False,
-            shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
-            delivery_type="一件代发"
+        # 基础筛选条件：warehouse匹配，排除all_out状态
+        base_criteria = Q(
+            warehouse__name=warehouse,
+            status__in=['not_in_stock', 'in_stock'],
         )
 
-        # 如果有客户筛选条件，添加到筛选条件中
-        if customer_idlist:
-            # 将字符串ID转换为整数
-            customer_idlist_int = [int(id) for id in customer_idlist if id]
-            # 获取选中客户的 zem_name
-            customer_names = await sync_to_async(list)(
-                Customer.objects.filter(id__in=customer_idlist_int).values_list("zem_name", flat=True)
-            )
-            # 添加客户筛选条件
-            pl_criteria &= Q(container_number__orders__customer_name__zem_name__in=customer_names)
-            plt_criteria &= Q(container_number__orders__customer_name__zem_name__in=customer_names)
+        # 未放行条件：status=not_in_stock 且 (planned_release_time为空 或 temp_t49_available_for_pickup为否)
+        release_condition = Q(warehouse__name=warehouse) & Q(status='not_in_stock') & (
+            Q(order__retrieval_id__planned_release_time__isnull=True) |
+            Q(order__retrieval_id__temp_t49_available_for_pickup=False)
+        )
 
-        # 未放行、已放行-客提、已放行-自发
-        pn = PostNsop()
-        release_cargos, _, selfdel_cargos = await pn._get_classified_cargos(pl_criteria, plt_criteria)
+        # 查询未放行货物的ID集合
+        release_ids = await sync_to_async(list)(
+            DropshipCargo.objects.filter(release_condition).values_list('id', flat=True)
+        )
+        release_ids_set = set(release_ids)
+
+        # 查询所有满足基础条件的货物
+        all_cargos_qs = DropshipCargo.objects.select_related(
+            'order',
+            'order__customer_name',
+            'order__container_number',
+            'order__retrieval_id',
+            'order__vessel_id',
+            'warehouse',
+        ).filter(base_criteria)
+        all_cargos_raw = await sync_to_async(list)(all_cargos_qs)
+
+        # 按条件分类：ID在未放行集合中的归为未放行，其余归为已放行自发
+        release_cargos_raw = []
+        selfdel_cargos_raw = []
+        for cargo in all_cargos_raw:
+            if cargo.id in release_ids_set:
+                release_cargos_raw.append(cargo)
+            else:
+                selfdel_cargos_raw.append(cargo)
+
+        # 转换为前端需要的格式
+        release_cargos = []
+        for cargo in release_cargos_raw:
+            release_cargos.append({
+                'ids': cargo.id,
+                'plt_ids': '',
+                'customer_name': cargo.order.customer_name.zem_name if cargo.order and cargo.order.customer_name else '-',
+                'vessel_eta': cargo.order.vessel_id.vessel_eta if cargo.order and cargo.order.vessel_id else None,
+                'container_numbers': cargo.order.container_number.container_number if cargo.order and cargo.order.container_number else '-',
+                'dropshipping_item_name': cargo.product_name or '-',
+                'dropshipping_item_model_number': cargo.model or '-',
+                'shipping_marks': cargo.shipping_mark or '-',
+                'address': cargo.address ,
+                'note': cargo.note or '-',
+                'total_cbm': cargo.cbm or 0,
+                'total_pcs': cargo.pcs or 0,
+                'total_weight_lbs': cargo.total_weight_lbs or 0,
+                'total_weight_kg': cargo.total_weight_kg or 0,
+            })
+
+        # 转换为前端需要的格式
+        selfdel_cargos = []
+        for cargo in selfdel_cargos_raw:
+            selfdel_cargos.append({
+                'ids': cargo.id,
+                'plt_ids': '',
+                'customer_name': cargo.order.customer_name.zem_name if cargo.order and cargo.order.customer_name else '-',
+                'vessel_eta': cargo.order.vessel_id.vessel_eta if cargo.order and cargo.order.vessel_id else None,
+                'container_numbers': cargo.order.container_number.container_number if cargo.order and cargo.order.container_number else '-',
+                'dropshipping_item_name': cargo.product_name or '-',
+                'dropshipping_item_model_number': cargo.model or '-',
+                'shipping_marks': cargo.shipping_mark or '-',
+                'address': cargo.address ,
+                'note': cargo.note or '-',
+                'total_cbm': cargo.cbm or 0,
+                'total_pcs': cargo.pcs or 0,
+                'total_weight_lbs': cargo.total_weight_lbs or 0,
+                'total_weight_kg': cargo.total_weight_kg or 0,
+            })
 
         # 未排车
         unschedule_fleet = await self._drop_sp_unscheduled_data(request, warehouse)
         # 待出库
-        ready_to_ship_data = await pn._ltl_ready_to_ship_data(warehouse, request.user)
-        # 待送达
-        delivery_data_raw = await pn._fl_delivery_get(warehouse, None, 'ltl')
-        delivery_data = delivery_data_raw['shipments']
-        # #待传POD
-        pod_data = await pn._ltl_pod_get(warehouse)
-        # #待传出库单
-        shipping_data = await pn._ltl_shipping_get(warehouse)
+        ready_to_ship_data=delivery_data=pod_data=shipping_data = []
+        # ready_to_ship_data = await pn._ltl_ready_to_ship_data(warehouse, request.user)
+        # # 待送达
+        # delivery_data_raw = await pn._fl_delivery_get(warehouse, None, 'ltl')
+        # delivery_data = delivery_data_raw['shipments']
+        # # #待传POD
+        # pod_data = await pn._ltl_pod_get(warehouse)
+        # # #待传出库单
+        # shipping_data = await pn._ltl_shipping_get(warehouse)
         pod_data = sorted(
             pod_data,
             key=lambda p: p.pod_to_customer is True
@@ -351,10 +395,7 @@ class PostDrop(View):
             context = {}
         supplier_mapping = await sync_to_async(SystemParameter.get_active_by_category)("私仓供应商")
 
-        # 获取所有客户数据
-        customers = await sync_to_async(list)(Customer.objects.all())
-        customers_dict = {c.zem_name: str(c.id) for c in customers}
-        customers_dict = {"----": None, **customers_dict}
+        
 
         context.update({
             'warehouse': warehouse,
@@ -373,13 +414,11 @@ class PostDrop(View):
             "pod_data": pod_data,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
-            "carrier_options": await pn.get_carrier_other_options(),
+            #"carrier_options": await pn.get_carrier_other_options(),
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
             'unschedule_fleet': unschedule_fleet,
             "supplier_mapping_json": mark_safe(json.dumps(supplier_mapping)),
-            "customers": customers_dict,
-            "customer_list": customer_idlist
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
@@ -410,22 +449,30 @@ class PostDrop(View):
                     shipment.fleet_display_name = shipment.fleet_number.fleet_number
                 except ObjectDoesNotExist:
                     shipment.fleet_display_name = None
-            # 从packinglist表获取唛头
-            packinglist_marks = await sync_to_async(list)(
-                PackingList.objects.filter(
-                    shipment_batch_number=shipment.id
+            # 从DropshipCargo表获取唛头（通过container关联）
+            dropship_marks = await sync_to_async(list)(
+                DropshipCargo.objects.filter(
+                    container__in=Container.objects.filter(
+                        id__in=PackingList.objects.filter(
+                            shipment_batch_number=shipment.id
+                        ).values_list('container_number_id', flat=True)
+                    )
                 ).values_list('shipping_mark', flat=True).distinct()
             )
 
-            # 从pallet表获取唛头
-            pallet_marks = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    shipment_batch_number=shipment.id
+            # 从DropshipCargo表获取唛头（通过order关联）
+            order_marks = await sync_to_async(list)(
+                DropshipCargo.objects.filter(
+                    order__container_number__in=Container.objects.filter(
+                        id__in=PackingList.objects.filter(
+                            shipment_batch_number=shipment.id
+                        ).values_list('container_number_id', flat=True)
+                    )
                 ).values_list('shipping_mark', flat=True).distinct()
             )
 
             # 合并并去重唛头
-            all_marks = set(packinglist_marks + pallet_marks)
+            all_marks = set(dropship_marks + order_marks)
             all_marks = [mark for mark in all_marks if mark]  # 过滤空值
 
             # 添加唛头字段到shipment对象
@@ -453,22 +500,7 @@ class PostDrop(View):
         cargo_ids = request.POST.get('cargo_ids', '')
         ltl_verify = request.POST.get('ltl_verify', 'false').lower() == 'true'
 
-        # 处理 PackingList 的核实（Pallet 没有 ltl_verify 字段，跳过 plt_ 前缀的ID）
-        if cargo_ids:
-            packinglist_ids = []
-            for id_str in cargo_ids.split(','):
-                id_str = id_str.strip()
-                if id_str and not id_str.startswith('plt_'):
-                    try:
-                        packinglist_ids.append(int(id_str))
-                    except ValueError:
-                        pass
-            if packinglist_ids:
-                await sync_to_async(PackingList.objects.filter(
-                    id__in=packinglist_ids
-                ).update)(
-                    ltl_verify=ltl_verify
-                )
+        
         return await self.handle_ltl_unscheduled_pos_post(request)
 
     async def handle_save_releaseCommand(
@@ -498,17 +530,8 @@ class PostDrop(View):
             if not c_id or not command_text: continue
 
             if c_id.startswith('plt_'):
-                target_ids = c_id.replace('plt_', '').split(',')
-                model = Pallet
+                continue
 
-            else:
-                target_ids = c_id.split(',')
-                model = PackingList
-            update_data = {'ltl_release_command': command_text}
-            objs = await sync_to_async(list)(model.objects.filter(id__in=target_ids))
-            for obj in objs:
-                obj.ltl_release_command = command_text
-                await sync_to_async(obj.save)()
             num += 1
         context = {'success_messages': f'保存成功{num}组数据!'}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
@@ -1191,10 +1214,16 @@ class PostDrop(View):
     ) -> HttpResponse:
         """导出未放行货物到Excel"""
         cargo_ids = request.POST.get('cargo_ids', '')
+        warehouse = request.POST.get('warehouse')
 
         # 构建筛选条件
-        pl_criteria = Q()
-        plt_criteria = models.Q(pk__isnull=True) & models.Q(pk__isnull=False)
+        base_criteria = Q(
+            warehouse__name=warehouse,
+            status='not_in_stock',
+        ) & (
+            Q(order__retrieval_id__planned_release_time__isnull=True) |
+            Q(order__retrieval_id__temp_t49_available_for_pickup=False)
+        )
 
         # 如果指定了 ID，则只导出选中的货物
         if cargo_ids:
@@ -1207,11 +1236,34 @@ class PostDrop(View):
                     except ValueError:
                         pass
             if cargo_id_list:
-                pl_criteria &= Q(id__in=cargo_id_list)
+                base_criteria &= Q(id__in=cargo_id_list)
 
         # 获取数据
-        pn = PostNsop()
-        release_cargos = await pn._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        release_cargos_qs = DropshipCargo.objects.select_related(
+            'order',
+            'order__customer_name',
+            'order__container_number',
+            'order__retrieval_id',
+        ).filter(base_criteria)
+        release_cargos_raw = await sync_to_async(list)(release_cargos_qs)
+
+        # 转换为前端需要的格式
+        release_cargos = []
+        for cargo in release_cargos_raw:
+            release_cargos.append({
+                'customer_name': cargo.order.customer_name.zem_name if cargo.order and cargo.order.customer_name else '-',
+                'container_numbers': cargo.order.container_number.container_number if cargo.order and cargo.order.container_number else '-',
+                'dropshipping_item_name': cargo.product_name or '-',
+                'dropshipping_item_model_number': cargo.model or '-',
+                'shipping_marks': cargo.shipping_mark or '-',
+                'address': cargo.address or cargo.order.retrieval_id.retrieval_address if cargo.order and cargo.order.retrieval_id else '-',
+                'note': cargo.note or '-',
+                'total_cbm': cargo.cbm or 0,
+                'total_pcs': cargo.pcs or 0,
+                'total_weight_lbs': cargo.total_weight_lbs or 0,
+                'total_weight_kg': cargo.total_weight_kg or 0,
+                'ltl_verify': False,
+            })
 
         # 准备 Excel 数据
         excel_data = []

@@ -566,8 +566,6 @@ class PostNsop(View):
         elif step == "batch_fleet_departure":
             template, context = await self.handle_batch_fleet_departure_post(request)
             return render(request, template, context)
-        elif step == "batch_download_pickup_list":
-            return await self.handle_batch_download_pickup_list(request)
         elif step == "batch_save_carrier":
             template, context = await self.handle_batch_save_carrier(request)
             return render(request, template, context)
@@ -5928,30 +5926,6 @@ class PostNsop(View):
         await sync_to_async(_update_shipments_and_fleet)()
         
         return await self.handle_ltl_unscheduled_pos_post(request)
-
-    async def handle_batch_download_pickup_list(self, request: HttpRequest) -> HttpResponse:
-        'ltl 批量下载出库单'
-        shipment_batches_str = request.POST.get("batch_shipment_batches")
-        warehouse = request.POST.get("warehouse")
-        
-        if not shipment_batches_str:
-            raise ValueError("没有获取到预约批次号")
-        
-        try:
-            shipment_batches = json.loads(shipment_batches_str)
-        except ValueError:
-            raise ValueError("预约批次号解析错误")
-        
-        if not isinstance(shipment_batches, list) or len(shipment_batches) == 0:
-            raise ValueError("预约批次号列表为空")
-        
-        for batch_number in shipment_batches:
-           # 拣货单模板还未给出
-            packing_list = await sync_to_async(list)(
-                PackingList.objects.select_related("container_number").filter(
-                    shipment_batch_number__shipment_batch_number=batch_number,
-                )
-            )
 
     async def handle_batch_pickup_list(self, request: HttpRequest) -> HttpResponse:
         'ltl 批量拣货单 - 按fleet_number分组生成PDF表格'
