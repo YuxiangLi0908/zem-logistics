@@ -11414,7 +11414,7 @@ class ReceivableAccounting(View):
     
 
     def handle_container_invoice_combina_get(
-        self, request: HttpRequest
+        self, request: HttpRequest,
     ) -> tuple[Any, Any]:
         '''组合柜财务查看账单'''
         # 1、基础条件
@@ -11513,11 +11513,13 @@ class ReceivableAccounting(View):
         stipulate = fee_details.get("COMBINA_STIPULATE").details
         # 查找cbm_per_pl
         cbm_per_pl = stipulate['global_rules']['cbm_per_pl']['default']
-        total_pallets = round(packinglist_total_cbm / cbm_per_pl, 2)
+        total_pallets = math.ceil(packinglist_total_cbm / cbm_per_pl)
         # 4.2、规定的最大板数
         max_pallets = self._get_max_pallets(stipulate, warehouse, container_type)
         # 4.3、超出板数
-        over_count = max(0, total_pallets - max_pallets)
+        count_diff = total_pallets - max_pallets
+        over_count = 0 if count_diff <= 0.01 else max(0, count_diff)
+        
         # 4.4、计算超板费用
         plts_by_destination = self._calculate_delivery_fee_cost(
             fee_details, warehouse, plts_by_destination, over_count, vessel_etd
@@ -11810,7 +11812,8 @@ class ReceivableAccounting(View):
                 },
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
-                "is_combina": True,            
+                "is_combina": True,   
+                "cbm_per_pl": cbm_per_pl,         
             }
         )
         return context
