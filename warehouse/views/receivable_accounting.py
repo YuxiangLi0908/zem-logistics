@@ -11507,8 +11507,13 @@ class ReceivableAccounting(View):
         # 3、超重费用
 
         # 4、超板费用
-        # 4.1、实际板数
-        total_pallets = Pallet.objects.filter(container_number__container_number=container_number).count()  
+        # 4.1、实际板数，用总cbm/2计算
+        packinglist_total_cbm = round(float(PackingList.objects.filter(container_number__container_number=container_number).aggregate(total=Sum('cbm'))['total'] or 0), 2)
+        
+        stipulate = fee_details.get("COMBINA_STIPULATE").details
+        # 查找cbm_per_pl
+        cbm_per_pl = stipulate['global_rules']['cbm_per_pl']['default']
+        total_pallets = round(packinglist_total_cbm / cbm_per_pl, 2)
         # 4.2、规定的最大板数
         max_pallets = self._get_max_pallets(stipulate, warehouse, container_type)
         # 4.3、超出板数
