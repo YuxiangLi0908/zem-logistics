@@ -609,8 +609,7 @@
                     <th data-column="13">重量kg<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(13)">×</span></th>
                     <th data-column="14">重量lbs<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(14)">×</span></th>
                     <th class="fleet-pallet-col" data-column="15">板数<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(15)">×</span></th>
-                    <th class="fleet-supplier-col" data-column="16">供应商<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(16)">×</span></th>
-                    <th class="fleet-action-col" data-column="17">操作</th>
+                    <th class="fleet-action-col" data-column="16">操作</th>
                 </tr>
             </thead>
 
@@ -673,10 +672,6 @@
                     <input type="checkbox" id="fleetCol15Checkbox" checked>
                     <label for="fleetCol15Checkbox">板数</label>
                 </div>
-                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(16, this)">
-                    <input type="checkbox" id="fleetCol16Checkbox" checked>
-                    <label for="fleetCol16Checkbox">供应商</label>
-                </div>
             </div>
             <tbody>
                 <!-- 筛选行 -->
@@ -724,10 +719,7 @@
                     <td data-column="15">
                         <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td data-column="16">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选供应商..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
-                    </td>
-                    <td class="fleet-action-col" data-column="17">
+                    <td class="fleet-action-col" data-column="16">
                         <!-- 操作列不需要筛选 -->
                     </td>
                 </tr>
@@ -781,18 +773,8 @@
                     <td class="fleet-delivery-method-col" data-column="3">
                         <select class="method-select fleet-delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
-                            <option value="卡车派送" {% if cargo.delivery_method == "卡车派送" %}selected{% endif %}>卡车派送</option>
                             <option value="客户自提" {% if cargo.delivery_method == "客户自提" %}selected{% endif %}>客户自提</option>
-                            <option value="暂扣留仓(HOLD)" {% if cargo.delivery_method == "暂扣留仓(HOLD)" %}selected{% endif %}>暂扣留仓(HOLD)</option>
-                            <option value="整柜直送" {% if cargo.delivery_method == "整柜直送" %}selected{% endif %}>整柜直送</option>
-                            <option value="UPS" {% if cargo.delivery_method == "UPS" %}selected{% endif %}>UPS</option>
-                            <option value="FEDEX" {% if cargo.delivery_method == "FEDEX" %}selected{% endif %}>FEDEX</option>
-                            <option value="DHL" {% if cargo.delivery_method == "DHL" %}selected{% endif %}>DHL</option>
-                            <option value="DPD" {% if cargo.delivery_method == "DPD" %}selected{% endif %}>DPD</option>
-                            <option value="TNT" {% if cargo.delivery_method == "TNT" %}selected{% endif %}>TNT</option>
-                            {% if cargo.delivery_method and cargo.delivery_method != "卡车派送" and cargo.delivery_method != "客户自提" and cargo.delivery_method != "暂扣留仓(HOLD)" and cargo.delivery_method != "整柜直送" and cargo.delivery_method != "UPS" and cargo.delivery_method != "FEDEX" and cargo.delivery_method != "DHL" and cargo.delivery_method != "DPD" and cargo.delivery_method != "TNT" %}
-                                <option value="{{ cargo.delivery_method }}" selected>{{ cargo.delivery_method }}</option>
-                            {% endif %}
+                            <option value="自发" {% if cargo.delivery_method == "自发" %}selected{% endif %}>自发</option>
                         </select>
                     </td>
                     <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}" data-column="4">
@@ -801,9 +783,6 @@
                     <td data-column="5">{{ cargo.dropshipping_item_name|default:"-" }}</td>
                     <td data-column="6">{{ cargo.dropshipping_item_model_number|default:"-" }}</td>
                     <td class="fleet-mark-col" data-column="7">
-                        {% if cargo.ltl_verify == False %}
-                            <span style="color: #ffc107; margin-right: 5px;" title="未核实"><i class="fas fa-exclamation-triangle"></i></span>
-                        {% endif %}
                         {{ cargo.shipping_marks|default:"-" }}
                     </td>
                     <td class="fleet-address-col" data-column="8">
@@ -835,13 +814,7 @@
                             <span class="fleet-pallet-count">0</span>
                         {% endif %}
                     </td>
-                    <td class="fleet-supplier-col" data-column="16">
-                        <input type="text" class="fleet-supplier-input"
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{{ cargo.ltl_supplier|default:'' }}"
-                            placeholder="输入供应商">
-                    </td>
-                    <td class="fleet-action-col" data-column="17">
+                    <td class="fleet-action-col" data-column="16">
                         <div class="fleet-action-buttons" style="display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;">
                             <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
                                 <i class="fas fa-save"></i> 保存
@@ -851,7 +824,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="17" style="text-align: center; padding: 20px;">
+                    <td colspan="16" style="text-align: center; padding: 20px;">
                         暂无自发货物
                     </td>
                 </tr>
@@ -940,7 +913,6 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="save_selfdel_cargo">
     <input type="hidden" name="cargo_id" id="fleet_cargoIdInput">
-    <input type="hidden" name="ltl_supplier" id="fleet_supplierInput">
     <input type="hidden" name="address" id="fleet_addressInput">
     <input type="hidden" name="note" id="fleet_noteInput">
     <input type="hidden" name="batch_data" id="fleet_batchDataInput">
@@ -1045,27 +1017,23 @@
             const row = button.closest('tr');
             const id = row.querySelector('.fleet-cargo-checkbox').value;
             
-            const supplierInput = row.querySelector('.fleet-supplier-input');
             const addressInput = row.querySelector('.fleet-address-input');
             const noteInput = row.querySelector('.fleet-note-input');
             const deliveryMethodInput = row.querySelector('.fleet-delivery-method-input');
             
-            const supplierValue = supplierInput ? supplierInput.value.trim() : '';
             const addressValue = addressInput ? addressInput.value.trim() : '';
             const noteValue = noteInput ? noteInput.value.trim() : '';
             const deliveryMethodValue = deliveryMethodInput ? deliveryMethodInput.value : '';
             
             const cargoIdInput = document.getElementById('fleet_cargoIdInput');
-            const supplierInputField = document.getElementById('fleet_supplierInput');
             const addressInputField = document.getElementById('fleet_addressInput');
             const noteInputField = document.getElementById('fleet_noteInput');
             const deliveryMethodInputField = document.getElementById('fleet_deliveryMethodInput');
             const saveForm = document.getElementById('fleet_saveForm');
             
-            if (cargoIdInput && supplierInputField && addressInputField && noteInputField &&
+            if (cargoIdInput && addressInputField && noteInputField &&
                 deliveryMethodInputField && saveForm) {
                 cargoIdInput.value = id;
-                supplierInputField.value = supplierValue;
                 addressInputField.value = addressValue;
                 noteInputField.value = noteValue;
                 deliveryMethodInputField.value = deliveryMethodValue;
@@ -1104,7 +1072,6 @@
                 { name: '托盘数', index: 14 },
                 { name: '重量lbs', index: 13 },
                 { name: '重量kg', index: 12 },
-                { name: '供应商', index: 15 },
                 { name: '预约批次号', index: -1 },
                 { name: '出库时间', index: -1 },
                 { name: '预计送达时间', index: -1 },
@@ -1143,7 +1110,7 @@
                         helpTooltip.remove();
                     }
 
-                    const inputElement = tempCell.querySelector('.fleet-supplier-input, .fleet-address-input, .fleet-note-input');
+                    const inputElement = tempCell.querySelector('.fleet-address-input, .fleet-note-input');
                     if (inputElement && inputElement.value !== undefined) {
                         cellText = inputElement.value.trim();
                     } else {
@@ -1514,7 +1481,6 @@
 
             const selectedCargos = selectedCheckboxes.map(checkbox => {
                 const row = checkbox.closest('tr');
-                const supplierInput = row.querySelector('.fleet-supplier-input');
                 const addressInput = row.querySelector('.fleet-address-input');
                 const noteInput = row.querySelector('.fleet-note-input');
                 
@@ -1526,7 +1492,6 @@
                     cbm: parseFloat(row.dataset.cbm) || 0,
                     pcs: parseInt(row.dataset.pcs) || 0,
                     pallets: parseInt(row.dataset.pallets) || 0,
-                    supplier: supplierInput ? supplierInput.value.trim() : '',
                     address: addressInput ? addressInput.value.trim() : '',
                     note: noteInput ? noteInput.value.trim() : '',
                     weight_lbs: parseFloat(row.dataset.weightLbs) || 0,
@@ -1775,7 +1740,6 @@
                 
                 return {
                     cargo_id: checkbox.value,
-                    ltl_supplier: row.querySelector('.fleet-supplier-input')?.value.trim() || '',
                     address: row.querySelector('.fleet-address-input')?.value.trim() || '',
                     note: row.querySelector('.fleet-note-input')?.value.trim() || '',
                     delivery_method: row.querySelector('.fleet-delivery-method-input')?.value || '',

@@ -148,9 +148,6 @@
     <button type="button" class="fleet-action-btn" style="background-color: #27ae60 !important; color: white !important; margin-left: 0px;" onclick="openBatchDepartureModal()" id="batchDepartureBtn" disabled>
         <i class="fas fa-check-circle"></i> 批量出库
     </button>
-    <button type="button" class="fleet-action-btn" style="background-color: #28a745 !important; color: white !important; margin-left: 10px;" onclick="batchDownloadPickupList()" id="batchDownloadPickupBtn" disabled>
-        <i class="fas fa-file-download"></i> 批量下载拣货单
-    </button>
     <button type="button" class="fleet-action-btn" style="background-color: #17a2b8 !important; color: white !important; margin-left: 10px;" onclick="batchSaveCarrier()" id="batchSaveCarrierBtn" disabled>
         <i class="fas fa-save"></i> 保存carrier
     </button>
@@ -1649,65 +1646,6 @@
         }
 
         form.submit();
-    }
-
-    function batchDownloadPickupList() {
-        const fleetNumbers = getSelectedFleetNumbers();
-        if (fleetNumbers.length === 0) {
-            alert('请先选择车次');
-            return;
-        }
-
-        const allShipmentBatches = [];
-        fleetNumbers.forEach(fleetNumber => {
-            const fleetData = collectFleetData(fleetNumber);
-            if (!fleetData || !fleetData.shipments) return;
-
-            fleetData.shipments.forEach(shipment => {
-                const shipmentBatch = shipment.shipment_batch_number;
-                if (shipmentBatch && !allShipmentBatches.includes(shipmentBatch)) {
-                    allShipmentBatches.push(shipmentBatch);
-                }
-            });
-        });
-
-        if (allShipmentBatches.length === 0) {
-            alert('没有找到预约批次号');
-            return;
-        }
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '';
-        form.target = '_blank';
-
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
-        form.appendChild(csrfInput);
-
-        const stepInput = document.createElement('input');
-        stepInput.type = 'hidden';
-        stepInput.name = 'step';
-        stepInput.value = 'batch_download_pickup_list';
-        form.appendChild(stepInput);
-
-        const warehouseInput = document.createElement('input');
-        warehouseInput.type = 'hidden';
-        warehouseInput.name = 'warehouse';
-        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
-        form.appendChild(warehouseInput);
-
-        const batchesInput = document.createElement('input');
-        batchesInput.type = 'hidden';
-        batchesInput.name = 'batch_shipment_batches';
-        batchesInput.value = JSON.stringify(allShipmentBatches);
-        form.appendChild(batchesInput);
-
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
     }
 
     function batchPickupList() {
