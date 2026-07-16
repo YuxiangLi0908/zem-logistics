@@ -11513,7 +11513,8 @@ class ReceivableAccounting(View):
         stipulate = fee_details.get("COMBINA_STIPULATE").details
         # 查找cbm_per_pl
         cbm_per_pl = stipulate['global_rules']['cbm_per_pl']['default']
-        total_pallets = math.ceil(packinglist_total_cbm / cbm_per_pl)
+        cbm_value = packinglist_total_cbm / cbm_per_pl
+        total_pallets = math.floor(cbm_value) if (cbm_value - math.floor(cbm_value) < 0.1) else math.ceil(cbm_value)
         # 4.2、规定的最大板数
         max_pallets = self._get_max_pallets(stipulate, warehouse, container_type)
         # 4.3、超出板数
