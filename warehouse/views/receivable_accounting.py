@@ -11518,8 +11518,8 @@ class ReceivableAccounting(View):
         max_pallets = self._get_max_pallets(stipulate, warehouse, container_type)
         # 4.3、超出板数
         count_diff = total_pallets - max_pallets
-        over_count = 0 if count_diff <= 0.01 else max(0, count_diff)
-        
+        over_count = 0 if count_diff <= 0.09 else max(0, count_diff)
+
         # 4.4、计算超板费用
         plts_by_destination = self._calculate_delivery_fee_cost(
             fee_details, warehouse, plts_by_destination, over_count, vessel_etd
