@@ -60,6 +60,58 @@
         color: #007bff;
         font-weight: 500;
     }
+        /* Packing List 表格全局美化 */
+    .packing-list-table {
+        border-collapse: collapse;
+        width:100%;
+        table-layout: fixed;
+    }
+    .packing-list-table th,
+    .packing-list-table td {
+        border:1px solid #dee2e6;
+        padding:6px 8px;
+        vertical-align: middle;
+        font-size:12px;
+    }
+    .packing-list-table thead tr {
+        background:#f1f3f5;
+    }
+    /* 隔行浅灰底色 */
+    .packing-list-table tbody tr:not(#table_summary):not(#sub_table_summary):not(#packing-list-row-empty):nth-child(even) {
+        background:#f8f9fa;
+    }
+    /* 行hover高亮 */
+    .packing-list-table tbody tr:not(#table_summary):not(#sub_table_summary):not(#packing-list-row-empty):hover {
+        background:#e7f5ff;
+    }
+    /* 输入框统一样式 */
+    .packing-list-table input,
+    .packing-list-table select {
+        width:100%;
+        box-sizing:border-box;
+        padding:4px 6px;
+        border:1px solid #ced4da;
+        border-radius:3px;
+        font-size:12px;
+    }
+    .packing-list-table input:focus,
+    .packing-list-table select:focus {
+        outline:none;
+        border-color:#86b7fe;
+        box-shadow:0 0 0 2px rgba(13,110,253,0.25);
+    }
+    /* 底部合计行 */
+    #table_summary, #sub_table_summary {
+        font-weight:600;
+        background:#e9ecef !important;
+        height:42px;
+    }
+    /* 文字超长省略 */
+    .text-ellipsis {
+        white-space: nowrap;
+        overflow:hidden;
+        text-overflow: ellipsis;
+    }
 </style>
 <div style="display: flex; position: sticky; top: 0; background: white; z-index: 1000;">
     <div style="width: 100%; font-size: 11px;">
@@ -293,78 +345,82 @@
         </form>
     </div>
 
-    <div id="order-packing-list-info-sec" style="display: none;">
-        <div style="display: flex;">
-            {% if not selected_order.offload_id.offload_at and not selected_order.offload_id.offload_other_at%}
-            <div style="display: flex; width: 80%;">
-                <div>
-                    <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
+    <div id="order-packing-list-info-sec" style="display: none; width: 100%;">
+        <div style="display: flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            {% if not selected_order.offload_id.offload_at and not selected_order.offload_id.offload_other_at %}
+                <div style="display: flex; gap:10px; align-items:center;">
+                    <form method="post" id='upload-form' enctype="multipart/form-data"
+                          style="font-size: 11px; display:flex; align-items:center; gap:8px;">
                         {% csrf_token %}
-                        导入模版:
+                        <span>导入模版:</span>
                         {{ packing_list_upload_form.file }}
                         <input type="hidden" name="step" value="upload_template">
                         <input type="hidden" name="source" value="order_management">
-                        <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
+                        <input type="hidden" name="container_number"
+                               value="{{ selected_order.container_number.container_number }}">
+                        <button type="submit" class="btn btn-success"
+                                style="width: 100px; height: 35px; font-size: 12px;">上传清单
+                        </button>
                     </form>
-                </div>
-                <div>
                     <form method="post" action="">
                         {% csrf_token %}
                         <input type="hidden" name="step" value="download_template">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载模版</button>
+                        <button type="submit" class="btn btn-success"
+                                style="width: 100px; height: 35px; font-size: 12px;">下载模版
+                        </button>
                     </form>
                 </div>
-            </div>
-            <div class="text-right" style="min-width: 400px">
-                <button type="button" id="add-more-btn" class="btn btn-success"
-                        style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
-                    <i class="bi bi-plus-lg"></i> 添加行
-                </button>
-                <button type="button" id="remove-last-btn" class="btn btn-danger"
-                        style="height: 35px; font-size: 12px; margin: 5px;" onclick="rmLastRow()">
-                    <i class="bi bi-dash-lg"></i> 删除行
-                </button>
-                <button type="submit" form="packing-list-form" class="btn btn-primary"
-                        style="height: 35px; font-size: 12px; margin: 5px; white-space: nowrap;"
-                        onclick="return processForm()">
-                    更新PackingList信息
-                </button>
-            </div>
-            {% else%}
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button type="button" id="add-more-btn" class="btn btn-success"
+                            style="height: 35px; font-size: 12px;" onclick="addRowBelow()">
+                        <i class="bi bi-plus-lg"></i> 添加行
+                    </button>
+                    <button type="button" id="remove-last-btn" class="btn btn-danger"
+                            style="height: 35px; font-size: 12px;" onclick="rmLastRow()">
+                        <i class="bi bi-dash-lg"></i> 删除选中行
+                    </button>
+                    <button type="submit" form="packing-list-form" class="btn btn-primary"
+                            style="height: 35px; font-size: 12px; white-space: nowrap;"
+                            onclick="return processForm()">
+                        更新PackingList信息
+                    </button>
+                </div>
+            {% else %}
                 {% if user.is_authenticated %}
                     {% if user.is_staff %}
-                        <div style="display: flex; width: 80%;">
-                            <div>
-                                <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
-                                    {% csrf_token %}
-                                    导入模版:
-                                    {{ packing_list_upload_form.file }}
-                                    <input type="hidden" name="step" value="upload_template">
-                                    <input type="hidden" name="source" value="order_management">
-                                    <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                                    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
-                                </form>
-                            </div>
-                            <div>
-                                <form method="post" action="">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="download_template">
-                                    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载模版</button>
-                                </form>
-                            </div>
+                        <div style="display: flex; gap:10px; align-items:center;">
+                            <form method="post" id='upload-form' enctype="multipart/form-data"
+                                  style="font-size: 11px; display:flex; align-items:center; gap:8px;">
+                                {% csrf_token %}
+                                <span>导入模版:</span>
+                                {{ packing_list_upload_form.file }}
+                                <input type="hidden" name="step" value="upload_template">
+                                <input type="hidden" name="source" value="order_management">
+                                <input type="hidden" name="container_number"
+                                       value="{{ selected_order.container_number.container_number }}">
+                                <button type="submit" class="btn btn-success"
+                                        style="width: 100px; height: 35px; font-size: 12px;">上传清单
+                                </button>
+                            </form>
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="download_template">
+                                <button type="submit" class="btn btn-success"
+                                        style="width: 100px; height: 35px; font-size: 12px;">下载模版
+                                </button>
+                            </form>
                         </div>
-                        <div class="text-right" style="min-width: 400px">
+                        <div style="display:flex; gap:10px; align-items:center;">
                             <button type="button" id="add-more-btn" class="btn btn-success"
-                                    style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
+                                    style="height: 35px; font-size: 12px;" onclick="addRowBelow()">
                                 <i class="bi bi-plus-lg"></i> 添加行
                             </button>
                             <button type="button" id="remove-last-btn" class="btn btn-danger"
-                                    style="height: 35px; font-size: 12px; margin: 5px;" onclick="rmLastRow()">
-                                <i class="bi bi-dash-lg"></i> 删除行
+                                    style="height: 35px; font-size: 12px;" onclick="rmLastRow()">
+                                <i class="bi bi-dash-lg"></i> 删除选中行
                             </button>
                             <button type="submit" form="packing-list-form" class="btn btn-primary"
-                                    style="height: 35px; font-size: 12px; margin: 5px; white-space: nowrap;"
+                                    style="height: 35px; font-size: 12px; white-space: nowrap;"
                                     onclick="return processForm()">
                                 更新PackingList信息
                             </button>
@@ -374,187 +430,193 @@
             {% endif %}
         </div>
 
-        <div style="overflow-x: auto; table-layout: fixed;">
-            <form method="post" id="packing-list-form" action="">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="update_order_packing_list_info">
-                <input type="hidden" name="source" value="order_management">
-                <input type="hidden" name="container_number"
-                       value="{{ selected_order.container_number.container_number }}">
-                <div style="overflow-x: auto; max-width: 100%; max-height: 80%;">
-                    <div style="overflow-y: auto; max-width: 100%; max-height: 50%;">
-                        <table class="packing-list-table" id="packing-list-table" style="margin-top: 10px; font-size: 11px; max-width: 100%; table-layout: fixed;">
-                            <thead>
-                                <tr style="position: sticky; top: 0;">
-                                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
-                                    <th class="th">唛头</th>
-                                    <th class="th">箱数</th>
-                                    <th class="th">总重量kg</th>
-                                    <th class="th">总箱磅(lb)</th>
-                                    <th class="th">总CBM</th>
-                                    <th class="th">长</th>
-                                    <th class="th">宽</th>
-                                    <th class="th">高</th>
-                                    <th class="th">货物名称</th>
-                                    <th class="th">货物型号</th>
-                                    <th class="th">派送类别</th>
-                                    <th class="th">仓库/私人 地址</th>
-                                    <th class="th">派送方式</th>
-                                    <th class="th">备注</th>
-                                </tr>
-                                <tr style="position: sticky; top: 18px;" id="packing-list-table-filter">
-                                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
-                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
-                                    </th>
-                                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头..." oninput="filterTable(this, 3, true)"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" id="detinationSearchInput" placeholder="搜索货物型号..." oninput="filterTable(this, 6, true)"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="packing-list-container">
-                                <tr id="packing-list-row-empty" style="display: none;">
-                                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
-                                        <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
-                                    </td>
-                                    <td class="td"><input type="text" name="shipping_mark"></td>
-                                    <td class="td"><input type="number" step="0.01" name="pcs" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="cbm" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="long"></td>
-                                    <td class="td"><input type="number" step="0.01" name="width"></td>
-                                    <td class="td"><input type="number" step="0.01" name="height"></td>
-                                    <td class="td"><input type="text" name="product_name" required></td>
-                                    <td class="td"><input type="text" name="model" required></td>
-                                    <td class="td">
-                                        <select name="delivery_type"  class="delivery-type">
-                                        {% for k, v in delivery_types %}
-                                        <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td"><input type="text" name="address"></td>
-                                    <td class="td">
-                                        <select name="delivery_method" class="delivery-method">
-                                            {% for k, v in delivery_options %}
-                                                <option value="{{ v }}">{{ k }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td"><input type="text" name="note"></td>
-                                </tr>
-                                {% for pl in dropship_cargo %}
-                                <tr id="packing-list-row">
-                                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
-                                        <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
-                                    </td>
-                                    <td class="td"><input type="text" name="shipping_mark" {% if pl.shipping_mark %}value="{{ pl.shipping_mark }}"{% endif %}></td>
-                                    <td class="td"><input type="number" step="0.01" name="pcs" {% if pl.pcs %}value="{{ pl.pcs }}"{% endif %} required></td>
-                                    <td class="td"><input type="number" step="0.01" name="total_weight_kg" {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %} oninput="updateWeight(this)" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="total_weight_lbs" {% if pl.total_weight_lbs %}value="{{ pl.total_weight_lbs }}"{% endif %} oninput="updateWeight(this)" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="cbm" {% if pl.cbm %}value="{{ pl.cbm }}"{% endif %} required></td>
-                                    <td class="td"><input type="number" step="0.01" name="long" {% if pl.long %}value="{{ pl.long }}"{% endif %} ></td>
-                                    <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} ></td>
-                                    <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} ></td>
-                                    <td class="td"><input type="text" name="product_name" {% if pl.product_name %}value="{{ pl.product_name }}"{% endif %} required></td>
-                                    <td class="td"><input type="text" name="model" {% if pl.model %}value="{{ pl.model }}"{% endif %} required></td>
-                                    <td class="td">
-                                        <select name="delivery_type" class="delivery-type">
-                                            {% for k, v in delivery_types %}
-                                            <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
-                                    <td class="td">
-                                        <select name="delivery_method" class="delivery-method">
-                                            {% for k, v in delivery_options %}
-                                            <option value="{{ v }}" {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td"><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
-                                </tr>
+        <form method="post" id="packing-list-form" action="">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="update_order_packing_list_info">
+            <input type="hidden" name="source" value="order_management">
+            <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+            <div style="max-height: 70vh; overflow-y:auto;">
+                <table class="packing-list-table" id="packing-list-table">
+                    <thead>
+                    <tr style="position: sticky; top:0; z-index:2;">
+                        <th style="width:3%;">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                        </th>
+                        <th style="width:8%;">唛头</th>
+                        <th style="width:5%;">箱数</th>
+                        <th style="width:7%;">总重量kg</th>
+                        <th style="width:7%;">总箱磅(lb)</th>
+                        <th style="width:6%;">总CBM</th>
+                        <th style="width:4%;">长</th>
+                        <th style="width:4%;">宽</th>
+                        <th style="width:4%;">高</th>
+                        <th style="width:10%;">货物名称</th>
+                        <th style="width:10%;">货物型号</th>
+                        <th style="width:8%;">派送类别</th>
+                        <th style="width:12%;">仓库/私人地址</th>
+                        <th style="width:8%;">派送方式</th>
+                        <th style="width:4%;">备注</th>
+                    </tr>
+                    <tr style="position: sticky; top:28px; z-index:1; background:#fff;">
+                        <th></th>
+                        <th><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头"
+                                   oninput="filterTable(this, 1, true)"></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th><input type="text" id="detinationSearchInput" placeholder="搜索型号"
+                                   oninput="filterTable(this, 10, true)"></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="packing-list-container">
+                    <tr id="packing-list-row-empty" style="display: none;">
+                        <td>
+                            <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
+                        </td>
+                        <td><input type="text" name="shipping_mark"></td>
+                        <td><input type="number" step="0.01" name="pcs" required></td>
+                        <td><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)"
+                                   required></td>
+                        <td><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)"
+                                   required></td>
+                        <td><input type="number" step="0.01" name="cbm" required></td>
+                        <td><input type="number" step="0.01" name="long"></td>
+                        <td><input type="number" step="0.01" name="width"></td>
+                        <td><input type="number" step="0.01" name="height"></td>
+                        <td><input type="text" name="product_name" class="text-ellipsis" required></td>
+                        <td><input type="text" name="model" class="text-ellipsis" required></td>
+                        <td>
+                            <select name="delivery_type" class="delivery-type">
+                                {% for k, v in delivery_types %}
+                                    <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
-                                <tr id="sub_table_summary" style="position: sticky; bottom: 18px; background-color: #f2f2f2;">
-                                    <td class="td" id="sub_table_summary_cnt"><b>已筛选</b></td>
-                                    <td class="td"></td>
-                                    <td class="td" id="sub_table_summary_pcs">0</td>
-                                    <td class="td" id="sub_table_summary_weight_kg">0</td>
-                                    <td class="td" id="sub_table_summary_weight">0</td>
-                                    <td class="td" id="sub_table_summary_cbm">0</td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                </tr>
-                                <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
-                                    <td class="td" id="table_summary_cnt"><b>总计</b></td>
-                                    <td class="td"></td>
-                                    <td class="td" id="table_summary_pcs">0</td>
-                                    <td class="td" id="table_summary_weight_kg">0</td>
-                                    <td class="td" id="table_summary_weight">0</td>
-                                    <td class="td" id="table_summary_cbm">0</td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                    <td class="td"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </form>
-        </div>
+                            </select>
+                        </td>
+                        <td><input type="text" name="address" class="text-ellipsis"></td>
+                        <td>
+                            <select name="delivery_method" class="delivery-method">
+                                {% for k, v in delivery_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="text" name="note"></td>
+                    </tr>
+                    {% for pl in dropship_cargo %}
+                        <tr id="packing-list-row">
+                            <td>
+                                <input type='checkbox' name='is_packing_list_selected'
+                                       onclick="toggleRowBackground(this)">
+                            </td>
+                            <td><input type="text" name="shipping_mark"
+                                       {% if pl.shipping_mark %}value="{{ pl.shipping_mark }}"{% endif %}></td>
+                            <td><input type="number" step="0.01" name="pcs"
+                                       {% if pl.pcs %}value="{{ pl.pcs }}"{% endif %} required></td>
+                            <td><input type="number" step="0.01" name="total_weight_kg"
+                                       {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %}
+                                       oninput="updateWeight(this)" required></td>
+                            <td><input type="number" step="0.01" name="total_weight_lbs"
+                                       {% if pl.total_weight_lbs %}value="{{ pl.total_weight_lbs }}"{% endif %}
+                                       oninput="updateWeight(this)" required></td>
+                            <td><input type="number" step="0.01" name="cbm"
+                                       {% if pl.cbm %}value="{{ pl.cbm }}"{% endif %} required></td>
+                            <td><input type="number" step="0.01" name="long"
+                                       {% if pl.long %}value="{{ pl.long }}"{% endif %}></td>
+                            <td><input type="number" step="0.01" name="width"
+                                       {% if pl.width %}value="{{ pl.width }}"{% endif %}></td>
+                            <td><input type="number" step="0.01" name="height"
+                                       {% if pl.height %}value="{{ pl.height }}"{% endif %}></td>
+                            <td><input type="text" name="product_name" class="text-ellipsis"
+                                       {% if pl.product_name %}value="{{ pl.product_name }}"{% endif %} required></td>
+                            <td><input type="text" name="model" class="text-ellipsis"
+                                       {% if pl.model %}value="{{ pl.model }}"{% endif %} required></td>
+                            <td>
+                                <select name="delivery_type" class="delivery-type">
+                                    {% for k, v in delivery_types %}
+                                        <option value="{{ v }}"
+                                                {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" name="address" class="text-ellipsis"
+                                       {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
+                            <td>
+                                <select name="delivery_method" class="delivery-method">
+                                    {% for k, v in delivery_options %}
+                                        <option value="{{ v }}"
+                                                {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
+                        </tr>
+                    {% endfor %}
+                    <tr id="sub_table_summary" style="position: sticky; bottom:28px; z-index:2;">
+                        <td id="sub_table_summary_cnt"><b>已筛选</b></td>
+                        <td></td>
+                        <td id="sub_table_summary_pcs">0</td>
+                        <td id="sub_table_summary_weight_kg">0</td>
+                        <td id="sub_table_summary_weight">0</td>
+                        <td id="sub_table_summary_cbm">0</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr id="table_summary" style="position: sticky; bottom:0; z-index:2;">
+                        <td id="table_summary_cnt"><b>总计</b></td>
+                        <td></td>
+                        <td id="table_summary_pcs">0</td>
+                        <td id="table_summary_weight_kg">0</td>
+                        <td id="table_summary_weight">0</td>
+                        <td id="table_summary_cbm">0</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </form>
         {% if user.is_staff %}
-            <form method="post" action="">
-                {% csrf_token %}
-                <br>
-                {% if user.is_authenticated %}
-                    <div class="text-right">
-                        <input type="hidden" name="step" value="update_delivery_type_all">
-                        <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 180px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                            给pl和plt更新派送类型
-                        </button>
-                    </div>
-                    <br>
-                {% endif %}
-            </form>
-            <form method="post" action="">
-                {% csrf_token %}
-                <br>
-                {% if user.is_authenticated %}
-                    <div class="text-right">
-                        <input type="hidden" name="step" value="update_container_unpacking_priority">
-                        <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 180px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                            给所有order更新优先级
-                        </button>
-                    </div>
-                    <br>
-                {% endif %}
-            </form>
+            <div style="margin-top:12px; display:flex; gap:12px; justify-content:flex-end;">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_delivery_type_all">
+                    <button type="submit" class="btn btn-primary" style="width: 180px; height: 30px; font-size: 13px;"
+                            onclick="processForm()">
+                        批量更新派送类型
+                    </button>
+                </form>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_container_unpacking_priority">
+                    <button type="submit" class="btn btn-primary" style="width: 180px; height: 30px; font-size: 13px;"
+                            onclick="processForm()">
+                        更新订单优先级
+                    </button>
+                </form>
+            </div>
         {% endif %}
     </div>
 

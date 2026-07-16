@@ -2372,10 +2372,18 @@ class Dropshipping(View):
             order = await sync_to_async(Order.objects.select_related('retrieval_id').get)(
                 container_number__container_number=cn
             )
+            dropship_cargo = await sync_to_async(list)(
+                DropshipCargo.objects.filter(
+                    models.Q(container__container_number=cn)
+                )
+            )
             if order.order_type == "一件代发":
                 warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=retrieval_destination)
                 order.warehouse = warehouse
                 await sync_to_async(order.save)()
+                for d_c in dropship_cargo:
+                    d_c.warehouse = warehouse
+                    await sync_to_async(d_c.save)()
             # 更新retrieval记录
             order.retrieval_id.retrieval_destination_precise = retrieval_destination
             order.retrieval_id.retrieval_carrier = retrieval_carrier
@@ -2505,10 +2513,19 @@ class Dropshipping(View):
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             models.Q(container_number__container_number=container_number)
         )
+        dropship_cargo = await sync_to_async(list)(
+            DropshipCargo.objects.filter(
+                models.Q(container__container_number=container_number)
+            )
+        )
+
         if order_type == "一件代发":
             warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=destination)
             order.warehouse = warehouse
             await sync_to_async(order.save)()
+            for d_c in dropship_cargo:
+                d_c.warehouse = warehouse
+                await sync_to_async(d_c.save)()
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
@@ -3161,10 +3178,18 @@ class Dropshipping(View):
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             container_number__container_number=container_number
         )
+        dropship_cargo = await sync_to_async(list)(
+            DropshipCargo.objects.filter(
+                models.Q(container__container_number=container_number)
+            )
+        )
         retrieval_destination_precise = request.POST.get("retrieval_destination_precise")
         warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=retrieval_destination_precise)
         order.warehouse = warehouse
         await sync_to_async(order.save)()
+        for d_c in dropship_cargo:
+            d_c.warehouse = warehouse
+            await sync_to_async(d_c.save)()
         retrieval = await sync_to_async(Retrieval.objects.get)(
             models.Q(retrieval_id=order.retrieval_id)
         )
@@ -3824,10 +3849,13 @@ class Dropshipping(View):
         container_number = request.POST.get("container_number")
         order = await sync_to_async(
             Order.objects.select_related(
-                "container_number", "offload_id", "vessel_id"
+                "container_number", "offload_id", "vessel_id", "warehouse"
             ).get
         )(container_number__container_number=container_number)
-        warehouse = await sync_to_async(lambda: ZemWarehouse.objects.get(id=order.warehouse_id))()
+        if order.warehouse_id:
+            warehouse = await sync_to_async(lambda: ZemWarehouse.objects.get(id=order.warehouse_id))()
+        else:
+            warehouse = None
         offload = order.offload_id
         if (
                 offload.offload_at and "pl_id" in request.POST

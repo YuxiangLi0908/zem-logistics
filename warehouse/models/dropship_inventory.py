@@ -29,7 +29,7 @@ class DropshipInventory(models.Model):
     pcs_change = models.IntegerField(verbose_name="件数变动（正=增加，负=减少）")
     
     # 操作后的库存快照（便于追踪历史状态）
-    after_pcs = models.PositiveIntegerField(verbose_name="操作后件数")
+    after_pcs = models.PositiveIntegerField(verbose_name="操作后件数", null=True, blank=True)
     
     # 关联批次
     shipment_detail = models.ForeignKey(
