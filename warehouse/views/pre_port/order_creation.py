@@ -1624,7 +1624,7 @@ class OrderCreation(View):
         seq_num = 1
         for dm, sm, dest in zip_longest(
                 request.POST.getlist("delivery_method"),
-                request.POST.getlist("mark"),
+                request.POST.getlist("shipping_mark"),
                 destination_list,
                 fillvalue='',
         ):
@@ -1861,7 +1861,7 @@ class OrderCreation(View):
         seq_num = 1
         for dm, sm, dest in zip_longest(
                 request.POST.getlist("delivery_method"),
-                request.POST.getlist("mark"),
+                request.POST.getlist("shipping_mark"),
                 destination_list,
                 fillvalue='',
         ):
@@ -2206,7 +2206,7 @@ class OrderCreation(View):
             seq_num = 1
             for dm, sm, dest in zip_longest(
                     request.POST.getlist("delivery_method"),
-                    request.POST.getlist("mark"),
+                    request.POST.getlist("shipping_mark"),
                     destination_list,
                     fillvalue='',
             ):

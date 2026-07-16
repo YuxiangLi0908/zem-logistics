@@ -79,15 +79,21 @@ class DropshipCargo (models.Model):
     
     # 提货类型
     delivery_type = models.CharField(
-        max_length=20, 
-        choices=PICKUP_TYPE_CHOICES, 
-        default='pickup', 
+        max_length=20,
+        default='一件代发',
         verbose_name="提货类型"
+    )
+
+    delivery_method = models.CharField(
+        max_length=20,
+        choices=PICKUP_TYPE_CHOICES,
+        default='pickup',
+        verbose_name="派送方式"
     )
     # 地址（提货地址，仅自发的有值）
     address = models.TextField(null=True, blank=True, verbose_name="提货地址")
     # 状态
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_stock', verbose_name="货物状态")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_in_stock', verbose_name="货物状态")
     
     # 备注
     note = models.TextField(null=True, blank=True, verbose_name="备注")
@@ -101,3 +107,5 @@ class DropshipCargo (models.Model):
         ]
     def __str__(self):
         return f"{self.shipping_mark} - {self.product_name} ({self.current_quantity}件)"
+
+    history = HistoricalRecords()

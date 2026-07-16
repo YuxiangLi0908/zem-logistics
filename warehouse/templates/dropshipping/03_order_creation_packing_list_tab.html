@@ -199,9 +199,10 @@
                 {% csrf_token %}
                 <div style="overflow-x: auto; max-width: 100%; max-height: 100%;">
                     <div style="overflow-y: auto; max-width: 100%; max-height: 400px;">
-                        <table class="packing-list-table" style="margin-top: 10px; font-size: 11px; max-width: 100%; table-layout: fixed;">
+                        <table class="packing-list-table" id="packing-list-table" style="margin-top: 10px; font-size: 11px; max-width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr style="position: sticky; top: 0;">
+                                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                                     <th class="th">唛头</th>
                                     <th class="th">箱数</th>
                                     <th class="th">总重量kg</th>
@@ -214,17 +215,34 @@
                                     <th class="th">货物型号</th>
                                     <th class="th">派送类别</th>
                                     <th class="th">仓库/私人 地址</th>
-                                    <th class="th">FBA号</th>
-                                    <td class="th">Amazon Reference ID</td>
                                     <th class="th">派送方式</th>
-                                    <th class="th">快递单号</th>
                                     <th class="th">备注</th>
-                                    <th class="th">最早配送时间</th>
-                                    <th class="th">最晚配送时间</th>
+                                </tr>
+                                <tr style="position: sticky; top: 18px;" id="packing-list-table-filter">
+                                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
+                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                                    </th>
+                                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头..." oninput="filterTable(this, 3, true)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" id="detinationSearchInput" placeholder="搜索货物型号..." oninput="filterTable(this, 6, true)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
                                 </tr>
                             </thead>
                             <tbody id="packing-list-container">
-                                <tr id="packing-list-row-empty" style="display: none;">
+                                <tr id="packing-list-row-empty" style="display: none;" onload="bindRowInputEvent(this)">
+                                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                                        <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
+                                    </td>
                                     <td class="td"><input type="text" name="shipping_mark"></td>
                                     <td class="td"><input type="number" step="0.01" name="pcs" required></td>
                                     <td class="td"><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)" required></td>
@@ -233,32 +251,30 @@
                                     <td class="td"><input type="number" step="0.01" name="long"></td>
                                     <td class="td"><input type="number" step="0.01" name="width"></td>
                                     <td class="td"><input type="number" step="0.01" name="height"></td>
-                                    <td class="td"><input type="text" name="dropshipping_item_name" required></td>
-                                    <td class="td"><input type="text" name="dropshipping_item_model_number" required></td>
+                                    <td class="td"><input type="text" name="product_name" required></td>
+                                    <td class="td"><input type="text" name="model" required></td>
                                     <td class="td">
-                                        <select name="delivery_type"  class="delivery-method">
+                                        <select name="delivery_type"  class="delivery-type">
                                         {% for k, v in delivery_types %}
                                         <option value="{{ v }}">{{ k }}</option>
                                         {% endfor %}
                                         </select>
                                     </td>
                                     <td class="td"><input type="text" name="address"></td>
-                                    <td class="td"><input type="text" name="fba_id"></td>
-                                    <td class="td"><input type="text" name="ref_id"></td>
                                     <td class="td">
                                         <select name="delivery_method" class="delivery-method">
                                             {% for k, v in delivery_options %}
-                                                <option value="{{ v }}">{{ k }}</option>
+                                                <option value="{{ v }}" {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>
-                                    <td class="td"><input type="text" name="express_number"></td>
                                     <td class="td"><input type="text" name="note"></td>
-                                    <td class="td"><input type="date" name="delivery_window_start"></td>
-                                    <td class="td"><input type="date" name="delivery_window_end"></td>
                                 </tr>
-                                {% for pl in packing_list %}
-                                <tr id="packing-list-row">
+                                {% for pl in dropship_cargo %}
+                                <tr id="packing-list-row" onload="bindRowInputEvent(this)">
+                                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                                        <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
+                                    </td>
                                     <td class="td"><input type="text" name="shipping_mark" {% if pl.shipping_mark %}value="{{ pl.shipping_mark }}"{% endif %}></td>
                                     <td class="td"><input type="number" step="0.01" name="pcs" {% if pl.pcs %}value="{{ pl.pcs }}"{% endif %} required></td>
                                     <td class="td"><input type="number" step="0.01" name="total_weight_kg" {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %} oninput="updateWeight(this)" required></td>
@@ -267,18 +283,16 @@
                                     <td class="td"><input type="number" step="0.01" name="long" {% if pl.long %}value="{{ pl.long }}"{% endif %} ></td>
                                     <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} ></td>
                                     <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} ></td>
-                                    <td class="td"><input type="text" name="dropshipping_item_name" {% if pl.dropshipping_item_name %}value="{{ pl.dropshipping_item_name }}"{% endif %} required></td>
-                                    <td class="td"><input type="text" name="dropshipping_item_model_number" {% if pl.dropshipping_item_model_number %}value="{{ pl.dropshipping_item_model_number }}"{% endif %} required></td>
+                                    <td class="td"><input type="text" name="product_name" {% if pl.product_name %}value="{{ pl.product_name }}"{% endif %} required></td>
+                                    <td class="td"><input type="text" name="model" {% if pl.model %}value="{{ pl.model }}"{% endif %} required></td>
                                     <td class="td">
-                                        <select name="delivery_type" class="delivery-method">
+                                        <select name="delivery_type" class="delivery-type">
                                             {% for k, v in delivery_types %}
                                             <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>
                                     <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="fba_id" {% if pl.fba_id %}value="{{ pl.fba_id }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="ref_id" {% if pl.ref_id %}value="{{ pl.ref_id }}"{% endif %}></td>
                                     <td class="td">
                                         <select name="delivery_method" class="delivery-method">
                                             {% for k, v in delivery_options %}
@@ -286,17 +300,43 @@
                                             {% endfor %}
                                         </select>
                                     </td>
-                                    <td class="td"><input type="text" name="express_number" {% if pl.express_number %}value="{{ pl.express_number }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
-                                    <td class="td">
-                                        <input type="date" name="delivery_window_start" {% if pl.delivery_window_start %}value="{{ pl.delivery_window_start |date:'Y-m-d' }}"{% endif %}>
-                                    </td>
-                                    <td class="td">
-                                        <input type="date" name="delivery_window_end" {% if pl.delivery_window_end %}value="{{ pl.delivery_window_end |date:'Y-m-d' }}"{% endif %}>
-                                    </td>
-                                    <input type="hidden" name="pl_id" value="{{ pl.id }}">
                                 </tr>
                                 {% endfor %}
+                                <tr id="sub_table_summary" style="position: sticky; bottom: 18px; background-color: #f2f2f2;">
+                                    <td class="td" id="sub_table_summary_cnt"><b>已筛选</b></td>
+                                    <td class="td"></td>
+                                    <td class="td" id="sub_table_summary_pcs">0</td>
+                                    <td class="td" id="sub_table_summary_weight_kg">0</td>
+                                    <td class="td" id="sub_table_summary_weight">0</td>
+                                    <td class="td" id="sub_table_summary_cbm">0</td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                </tr>
+                                <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
+                                    <td class="td" id="table_summary_cnt"><b>总计</b></td>
+                                    <td class="td"></td>
+                                    <td class="td" id="table_summary_pcs">0</td>
+                                    <td class="td" id="table_summary_weight_kg">0</td>
+                                    <td class="td" id="table_summary_weight">0</td>
+                                    <td class="td" id="table_summary_cbm">0</td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -315,80 +355,195 @@
 
 
 <script>
+    let allOriginRows = [];
+
+    // 页面初始化
+    window.onload = function () {
+        initTableRows();
+        bindAllRowInput();
+        calcTotalAll();
+    }
+
+    // 缓存所有真实货物行
+    function initTableRows() {
+        const container = document.getElementById("packing-list-container");
+        const trList = container.querySelectorAll("tr#packing-list-row");
+        allOriginRows = Array.from(trList);
+    }
+
+    // Tab切换
     function showSection(navItem, secId) {
         const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.classList.remove('active')
-        });
+        navLinks.forEach(link => link.classList.remove('active'));
         navItem.classList.add('active');
 
         const sections = document.querySelectorAll('#order-info-sec > div');
         sections.forEach(section => {
-            section.style.display = section.id === secId ? "":"none";
+            section.style.display = section.id === secId ? "" : "none";
         });
     };
 
     function alterTableTdAreaDestination(select) {
         const selectedValue = select.value;
-        console.log(selectedValue);
         const td = document.getElementById("td-order-area");
-        const dd = document.getElementById("dd-order-destination");
         const tdThead = document.getElementById("td-order-area-th");
-        const ddThead = document.getElementById("dd-order-destination-th");
         const inputElement = document.getElementById('infoOrderDestination');
         if (selectedValue == "一件代发") {
             td.style.display = '';
-            dd.style.display = 'none';
             tdThead.style.display = '';
-            ddThead.style.display = 'none';
-            inputElement.removeAttribute('required');
+            if(inputElement) inputElement.removeAttribute('required');
         };
     };
 
     function alterTableNote(checkbox) {
         const noteTd = document.getElementById("special-container-note");
         const noteTh = document.getElementById("special-container-note-th");
-        noteTd.style.display = checkbox.checked ? "":"none";
-        noteTh.style.display = checkbox.checked ? "":"none";
+        noteTd.style.display = checkbox.checked ? "" : "none";
+        noteTh.style.display = checkbox.checked ? "" : "none";
     };
 
     function checkShippingLineInput() {
         var selectElement = document.getElementById('shipping-line-select');
-        var selectedOption = selectElement.options[selectElement.selectedIndex];
-        var selectedValue = selectedOption.value;
+        var selectedValue = selectElement.value;
         if (!selectedValue) {
             alert('请选择船司！');
             event.preventDefault();
         };
     };
 
+    // 添加行
     function addRowBelow() {
         var table = document.getElementById('packing-list-container');
         var newRow = document.querySelector('#packing-list-row-empty').cloneNode(true);
         newRow.style.display = '';
         newRow.id = 'packing-list-row';
-        table.appendChild(newRow);
+        // 插入到合计行上方
+        table.insertBefore(newRow, document.getElementById("sub_table_summary"));
+        allOriginRows.push(newRow);
+        bindRowInputEvent(newRow);
+        calcTotalAll();
     };
 
+    // 删除最后一行
     function rmLastRow() {
-        var table = document.getElementById('packing-list-container');
-        var rows = table.getElementsByTagName('tr');
+        var rows = document.querySelectorAll('#packing-list-container tr#packing-list-row');
         if (rows.length > 1) {
-            table.removeChild(rows[rows.length - 1]);
+            const delRow = rows[rows.length - 1];
+            delRow.remove();
+            initTableRows();
+            calcTotalAll();
         };
     };
 
+    // KG ↔ LBS 双向换算
     function updateWeight(numberInput) {
         const row = numberInput.closest('tr');
+        const kgInput = row.querySelector('input[name="total_weight_kg"]');
+        const lbsInput = row.querySelector('input[name="total_weight_lbs"]');
         if (numberInput.name == "total_weight_kg") {
-            var lbsWeightInpu = row.querySelector('input[name="total_weight_lbs"]');
-            lbsWeightInpu.value = (numberInput.value * 2.20462).toFixed(2);
+            lbsInput.value = numberInput.value ? (Number(numberInput.value) * 2.20462).toFixed(2) : "0.00";
         } else {
-            var kgWeightInpu = row.querySelector('input[name="total_weight_kg"]');
-            kgWeightInpu.value = (numberInput.value / 2.20462).toFixed(2);
+            kgInput.value = numberInput.value ? (Number(numberInput.value) / 2.20462).toFixed(2) : "0.00";
         };
+        calcTotalAll();
     };
 
+    // 单行输入框绑定数值变更事件
+    function bindRowInputEvent(rowEl) {
+        const inputs = rowEl.querySelectorAll('input[name="pcs"],input[name="total_weight_kg"],input[name="total_weight_lbs"],input[name="cbm"]');
+        inputs.forEach(input => {
+            input.oninput = () => calcTotalAll();
+        })
+        // 复选框勾选变化触发统计
+        const checkbox = rowEl.querySelector('input[name="is_packing_list_selected"]');
+        checkbox.onchange = () => calcTotalAll();
+    }
+
+    // 批量绑定所有现有行输入事件
+    function bindAllRowInput() {
+        allOriginRows.forEach(row => bindRowInputEvent(row));
+    }
+
+    // 全选/取消全选
+    function toggleAllCheckboxes() {
+        const masterCheck = document.getElementById("selectAllCheckbox");
+        allOriginRows.forEach(row => {
+            const chk = row.querySelector('input[name="is_packing_list_selected"]');
+            chk.checked = masterCheck.checked;
+            toggleRowBackground(chk);
+        })
+        calcTotalAll();
+    }
+
+    // 勾选行变色
+    function toggleRowBackground(chk) {
+        const tr = chk.closest("tr");
+        tr.style.backgroundColor = chk.checked ? "#e7f3ff" : "#fff";
+        calcTotalAll();
+    }
+
+    // 搜索过滤：仅控制行显示隐藏，不影响小计
+    function filterTable(inputEl, colIndex, fuzzy) {
+        const keyword = inputEl.value.trim().toLowerCase();
+        allOriginRows.forEach(row => {
+            const cellInput = row.querySelectorAll("td")[colIndex].querySelector("input");
+            const cellText = cellInput ? cellInput.value.toLowerCase() : "";
+            if (fuzzy) {
+                row.style.display = cellText.includes(keyword) ? "" : "none";
+            } else {
+                row.style.display = cellText === keyword ? "" : "none";
+            }
+        })
+        // 搜索不改变勾选小计，仅刷新UI
+    }
+
+    // 核心统计函数
+    function calcTotalAll() {
+        // 1. 已筛选小计：只统计【复选框被勾选】的行（不受搜索隐藏影响）
+        let selectCnt = 0, selectPcs = 0, selectKg = 0, selectLbs = 0, selectCbm = 0;
+        // 2. 总计：所有货物行，不管是否勾选、是否被搜索隐藏
+        let allCnt = 0, allPcs = 0, allKg = 0, allLbs = 0, allCbm = 0;
+
+        allOriginRows.forEach(row => {
+            const pcs = Number(row.querySelector('input[name="pcs"]').value || 0);
+            const kg = Number(row.querySelector('input[name="total_weight_kg"]').value || 0);
+            const lbs = Number(row.querySelector('input[name="total_weight_lbs"]').value || 0);
+            const cbm = Number(row.querySelector('input[name="cbm"]').value || 0);
+
+            // 全部总计累加
+            allCnt += 1;
+            allPcs += pcs;
+            allKg += kg;
+            allLbs += lbs;
+            allCbm += cbm;
+
+            // 勾选的行才计入【已筛选】
+            const chk = row.querySelector('input[name="is_packing_list_selected"]');
+            if (chk.checked) {
+                selectCnt += 1;
+                selectPcs += pcs;
+                selectKg += kg;
+                selectLbs += lbs;
+                selectCbm += cbm;
+            }
+        })
+
+        // 回填【已筛选（勾选）】行
+        document.getElementById("sub_table_summary_cnt").innerText = `已勾选(${selectCnt})`;
+        document.getElementById("sub_table_summary_pcs").innerText = selectPcs.toFixed(2);
+        document.getElementById("sub_table_summary_weight_kg").innerText = selectKg.toFixed(2);
+        document.getElementById("sub_table_summary_weight").innerText = selectLbs.toFixed(2);
+        document.getElementById("sub_table_summary_cbm").innerText = selectCbm.toFixed(4);
+
+        // 回填【全部总计】行
+        document.getElementById("table_summary_cnt").innerText = `总计(${allCnt})`;
+        document.getElementById("table_summary_pcs").innerText = allPcs.toFixed(2);
+        document.getElementById("table_summary_weight_kg").innerText = allKg.toFixed(2);
+        document.getElementById("table_summary_weight").innerText = allLbs.toFixed(2);
+        document.getElementById("table_summary_cbm").innerText = allCbm.toFixed(4);
+    }
+
+    // 表单提交校验派送方式
     function processForm() {
         var firstEmptyRow = document.getElementById('packing-list-row-empty');
         if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
@@ -406,8 +561,8 @@
         deliveryMethodSelects.forEach(function(select) {
             if (!select.disabled) {
                 if (select.value.trim() === '') {
-                isValid = false;
-                select.style.border = '2px solid red';
+                    isValid = false;
+                    select.style.border = '2px solid red';
                 } else {
                     select.style.border = '';
                 };
