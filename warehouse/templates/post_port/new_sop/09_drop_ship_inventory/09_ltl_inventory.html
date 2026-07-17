@@ -236,9 +236,10 @@
                     <th>操作时间</th>
                     <th>唛头</th>
                     <th>商品型号</th>
-                    <th>件数变动</th>
-                    <th>操作后件数</th>
-                    <th>核验件数</th>
+                    <th>预计件数变动</th>
+                    <th>预计剩余件数</th>
+                    <th>实际件数变动</th>
+                    <th>实际剩余件数</th>
                     <th>操作人</th>
                     <th>是否核验</th>
                     <th>批次号</th>
@@ -254,6 +255,7 @@
                     <td><input type="text" class="search-input" placeholder="搜索..." data-column="7"></td>
                     <td><input type="text" class="search-input" placeholder="搜索..." data-column="8"></td>
                     <td><input type="text" class="search-input" placeholder="搜索..." data-column="9"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="10"></td>
                 </tr>
             </thead>
             <tbody>
@@ -273,6 +275,11 @@
                         </span>
                     </td>
                     <td>{{ record.after_pcs|default:0 }}</td>
+                    <td>
+                        <span class="{% if record.verfiy_pcs_change > 0 %}pcs-positive{% else %}pcs-negative{% endif %}">
+                            {{ record.verfiy_pcs_change|default:0 }}
+                        </span>
+                    </td>
                     <td>{{ record.verify_pcs|default:0 }}</td>
                     <td>{{ record.operator|default:'' }}</td>
                     <td>

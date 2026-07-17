@@ -48,6 +48,21 @@ from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.models.dropship_inventory import DropshipInventory
+from office365.sharepoint.client_context import ClientContext
+from office365.sharepoint.sharing.links.kind import SharingLinkKind
+
+from warehouse.utils.constants import (
+    APP_ENV,
+    DELIVERY_METHOD_OPTIONS,
+    SP_CLIENT_ID,
+    SP_DOC_LIB,
+    SP_PRIVATE_KEY,
+    SP_SCOPE,
+    SP_TENANT,
+    SP_THUMBPRINT,
+    SP_URL,
+    SYSTEM_FOLDER,
+)
 from warehouse.models.dropship_shipment import DropshipShipment
 from warehouse.models.dropship_shipment_detail import DropshipShipmentDetail
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
@@ -243,10 +258,7 @@ class PostDrop(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "batch_pod_upload":
             # 批量POD上传
-            fm = FleetManagement()
-            await fm.handle_pod_upload_post(request, 'post_nsop')
-            template, context = await self.handle_ltl_unscheduled_pos_post(request)
-            context.update({"success_messages": '批量POD上传成功!'})
+            template, context = await self.handle_batch_pod_upload(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "save_shipping_tracking":
             # 保存物流跟踪信息
@@ -456,14 +468,139 @@ class PostDrop(View):
         return ready_to_ship_data
 
     async def _get_pod_data(self, warehouse: str) -> list:
-        '''获取待传POD批次数据'''
-        pn = PostNsop()
-        pod_data = await pn._ltl_pod_get(warehouse)
-        pod_data = sorted(
-            pod_data,
-            key=lambda p: p.pod_to_customer is True
+        '''获取待传POD批次数据 - 从DropshipShipment表获取，筛选shipped_at有值但pod_uploaded_at为空的记录'''
+        warehouse_obj = await sync_to_async(ZemWarehouse.objects.filter(name=warehouse).first)()
+        if not warehouse_obj:
+            return []
+
+        dropship_shipments = await sync_to_async(list)(
+            DropshipShipment.objects
+            .filter(warehouse=warehouse_obj, shipped_at__isnull=False, pod_uploaded_at__isnull=True)
+            .select_related('warehouse')
+            .order_by('-shipped_at')
         )
+
+        pod_data = []
+        for shipment in dropship_shipments:
+            details = await sync_to_async(list)(
+                DropshipShipmentDetail.objects
+                .filter(shipment=shipment)
+                .select_related('cargo')
+            )
+
+            shipment_data = {
+                'shipment_batch_number': shipment.shipment_batch_number,
+                'total_pcs': shipment.total_pcs,
+                'pickup_time': shipment.pickup_time,
+                'pod_file': shipment.pod_file,
+                'pod_uploaded_at': shipment.pod_uploaded_at,
+                'details': [],
+            }
+
+            models_set = set()
+            marks_set = set()
+
+            for detail in details:
+                cargo = detail.cargo
+                models_set.add(cargo.model or '')
+                marks_set.add(cargo.shipping_mark or '')
+
+                shipment_data['details'].append({
+                    'cargo_id': cargo.id,
+                    'detail_id': detail.id,
+                    'model': cargo.model or '',
+                    'shipping_mark': cargo.shipping_mark or '',
+                    'pcs': detail.pcs,
+                })
+
+            shipment_data['models'] = ', '.join([m for m in models_set if m])
+            shipment_data['shipping_marks'] = ', '.join([m for m in marks_set if m])
+
+            pod_data.append(shipment_data)
         return pod_data
+
+    async def _get_sharepoint_auth(self) -> ClientContext:
+        ctx = ClientContext(SP_URL).with_client_certificate(
+            SP_TENANT,
+            SP_CLIENT_ID,
+            SP_THUMBPRINT,
+            private_key=SP_PRIVATE_KEY,
+            scopes=[SP_SCOPE],
+        )
+        return ctx
+
+    async def _upload_file_to_sharepoint(
+        self, conn, shipment_batch_number: str, file
+    ) -> None:
+        shipment = await sync_to_async(DropshipShipment.objects.get)(
+            shipment_batch_number=shipment_batch_number
+        )
+        file_extension = os.path.splitext(file.name)[1]
+        file_path = os.path.join(
+            SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}"
+        )
+        try:
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(
+                f"{shipment_batch_number}{file_extension}", file
+            ).execute_query()
+        except:
+            conn = await self._get_sharepoint_auth()
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(
+                f"{shipment_batch_number}{file_extension}", file
+            ).execute_query()
+        link = (
+            resp.share_link(SharingLinkKind.AnonymousView)
+            .execute_query()
+            .value.to_json()["sharingLinkInfo"]["Url"]
+        )
+        shipment.pod_link = link
+        shipment.pod_uploaded_at = timezone.now()
+        await sync_to_async(shipment.save)()
+
+    async def handle_batch_pod_upload(
+            self, request: HttpRequest, context: dict | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        '''批量POD文件上传处理'''
+        if not context:
+            context = {}
+
+        conn = await self._get_sharepoint_auth()
+        
+        if "pod_files" in request.FILES:
+            files = request.FILES.getlist("pod_files")
+            shipment_batch_numbers = request.POST.getlist("batch_numbers")
+            if isinstance(shipment_batch_numbers, str):
+                shipment_batch_numbers = [shipment_batch_numbers]
+            if len(files) != len(shipment_batch_numbers):
+                context.update({'error_messages': '文件数量和批次号数量不匹配'})
+                return await self.handle_ltl_unscheduled_pos_post(request, context)
+            
+            success_count = 0
+            fail_count = 0
+            fail_messages = []
+            
+            for file, shipment_batch_number in zip(files, shipment_batch_numbers):
+                try:
+                    await self._upload_file_to_sharepoint(conn, shipment_batch_number, file)
+                    success_count += 1
+                except Exception as e:
+                    fail_count += 1
+                    fail_messages.append(f'批次号 {shipment_batch_number}: {str(e)}')
+            
+            if success_count > 0:
+                msg = f'批量上传成功: {success_count} 个'
+                if fail_count > 0:
+                    msg += f'，失败: {fail_count} 个'
+                context.update({'success_messages': msg})
+            
+            if fail_messages:
+                context.update({'error_messages': '; '.join(fail_messages)})
+        else:
+            context.update({'error_messages': '未找到上传的文件'})
+
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def handle_confirm_shipment(
             self, request: HttpRequest, context: dict | None = None,
@@ -1733,6 +1870,7 @@ class PostDrop(View):
                         'model': record.cargo.model,
                         'pcs_change': record.pcs_change,
                         'after_pcs': record.after_pcs,
+                        'verfiy_pcs_change': record.verfiy_pcs_change,
                         'verify_pcs': record.verify_pcs,
                         'operator': record.operator,
                         'is_verify': record.is_verify,
