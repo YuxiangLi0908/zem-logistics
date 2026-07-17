@@ -15505,6 +15505,7 @@ class PostNsop(View):
                     str_shipping_mark=Cast("shipping_mark", CharField()),
                 )
                 .values(
+                    "str_shipping_mark",
                     "container_number__container_number",
                     "destination",
                     "address",
