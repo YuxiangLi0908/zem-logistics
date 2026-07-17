@@ -443,12 +443,6 @@
         display: none;
     }
     
-    /* 日期列样式 */
-    .fleet-date-col {
-        min-width: 100px;
-        max-width: 120px;
-    }
-    
     .fleet-editable-textarea {
         width: 100%;
         border: 1px solid #dee2e6;
@@ -465,12 +459,6 @@
         outline: none;
         border-color: #80bdff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-    }
-    
-    /* 日期显示样式 */
-    .fleet-month-day {
-        font-size: 0.85rem;
-        white-space: nowrap;
     }
 
     .fleet-editable-textarea, .fleet-address-input, 
@@ -575,8 +563,7 @@
                         <input type="checkbox" id="fleet_selectAllCargos">
                     </th>
                     <th class="fleet-customer-col" data-column="1">客户<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(1)">×</span></th>
-                    <th class="fleet-date-col" data-column="2">拆柜日期<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
-                    <th class="fleet-delivery-method-col" data-column="3">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(3)">×</span></th>
+                    <th class="fleet-delivery-method-col" data-column="2">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
                     <th data-column="4">柜号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(4)">×</span></th>
                     <th data-column="5">商品型号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th>
                     <th data-column="6">商品类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(6)">×</span></th>
@@ -601,11 +588,7 @@
                 </div>
                 <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(2, this)">
                     <input type="checkbox" id="fleetCol2Checkbox" checked>
-                    <label for="fleetCol2Checkbox">拆柜日期</label>
-                </div>
-                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(3, this)">
-                    <input type="checkbox" id="fleetCol3Checkbox" checked>
-                    <label for="fleetCol3Checkbox">派送方式</label>
+                    <label for="fleetCol2Checkbox">派送方式</label>
                 </div>
                 <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(4, this)">
                     <input type="checkbox" id="fleetCol4Checkbox" checked>
@@ -660,10 +643,7 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选客户..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td data-column="2">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选拆柜日期..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
-                    </td>
-                    <td data-column="3">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="2" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
                     </td> 
                     <td data-column="4">
                         <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="3" onkeyup="fleet_applyColumnFilter(this)">
@@ -708,8 +688,8 @@
                 <tr class="fleet-data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}" 
                     style="background-color: {{ cargo.correlation_bg_color }} !important;"
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                    data-dropship-cargo-id="{{ cargo.ids }}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
-                    data-offload-date="{{ cargo.offload_other_at|date:'Y-m-d'|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}"
                     data-item-name="{{ cargo.dropshipping_item_name|default:'' }}"
@@ -727,23 +707,7 @@
                             onchange="fleet_updateSelectedCount()">
                     </td>
                     <td class="fleet-customer-col" data-column="1">{{ cargo.customer_name|default:"-" }}</td>
-                    <td class="fleet-date-col" data-column="2">
-                        {% if cargo.offload_other_at %}
-                            <span class="fleet-month-day">
-                                {{ cargo.offload_other_at }}
-                                {% if cargo.offload_tag == "实际提柜" %}
-                                    <span style="color:#e53935">{{ cargo.offload_tag }}</span>
-                                {% elif cargo.offload_tag == "实际放行" %}
-                                    <span style="color:#fb8c00">{{ cargo.offload_tag }}</span>
-                                {% else %}
-                                    <span style="color:#757575">{{ cargo.offload_tag }}</span>
-                                {% endif %}
-                            </span>
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td class="fleet-delivery-method-col" data-column="3">
+                    <td class="fleet-delivery-method-col" data-column="2">
                         <select class="method-select fleet-delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
                             <option value="pickup" {% if cargo.delivery_method == "pickup" %}selected{% endif %}>客户自提</option>
@@ -1164,7 +1128,8 @@
                 const noteInput = row.querySelector('.fleet-note-input');
                 
                 return {
-                    id: checkbox.value,
+                    id: row.dataset.dropshipCargoId || checkbox.value,
+                    dropship_cargo_id: row.dataset.dropshipCargoId,
                     customer: row.dataset.customer,
                     containerNumber: row.dataset.containerNumber,
                     shippingMark: row.dataset.shippingMark,
@@ -1282,15 +1247,6 @@
                             cellValue = inputElement.value.toLowerCase().trim();
                         } else {
                             cellValue = cell.textContent.toLowerCase().trim();
-                        }
-                        
-                        if (idx === 1) { // 拆柜日期
-                            const dateSpan = cell.querySelector('.fleet-month-day');
-                            if (dateSpan) {
-                                cellValue = dateSpan.textContent.toLowerCase().trim();
-                            } else {
-                                cellValue = cell.textContent.toLowerCase().trim();
-                            }
                         }
                         
                         if (!cellValue.includes(filterValue.toLowerCase())) {

@@ -1615,7 +1615,6 @@ class PostNsop(View):
             # 生成批次号
             batch_number = await self.generate_unique_batch_number(
                 destination[:8] if len(destination) > 8 else destination)
-            print('生成的批次号是', batch_number)
             # 整理柜子ID
             packinglist_ids = []
             pallet_ids = []
@@ -1628,18 +1627,15 @@ class PostNsop(View):
                     elif id_str.startswith('plt_id'):
                         plt_id = int(''.join(filter(str.isdigit, id_str)))
                         pallet_ids.append(plt_id)
-            print('找到的po记录', packinglist_ids, pallet_ids)
             # 计算总重量等参数
             total_weight, total_cbm, total_pcs, total_pallet = await self._get_pl_plt_total_weight(packinglist_ids,
                                                                                                    pallet_ids)
-            print('找到的总重量', total_weight)
             # 时间字段处理
             pickup_time = group.get('pickup_time')
 
             if hasattr(pickup_time, 'strftime'):
                 pickup_time = pickup_time.strftime("%Y-%m-%d %H:%M")
             pickup_time_dt = timezone.make_aware(datetime.fromisoformat(str(pickup_time).replace('Z', '')))
-            print('时间是', pickup_time_dt)
 
             # 设置默认值
             shipment_type = group.get('appointment_type')
@@ -1655,12 +1651,12 @@ class PostNsop(View):
                 if hasattr(departure_time, 'strftime'):
                     departure_time = departure_time.strftime("%Y-%m-%d %H:%M")
                 departure_time_dt = timezone.make_aware(datetime.fromisoformat(str(departure_time).replace('Z', '')))
-            print('出库时间是', departure_time_dt)
+
             if arrival_time:
                 if hasattr(arrival_time, 'strftime'):
                     arrival_time = arrival_time.strftime("%Y-%m-%d %H:%M")
                 arrival_time_dt = timezone.make_aware(datetime.fromisoformat(str(arrival_time).replace('Z', '')))
-            print('送达时间是', arrival_time_dt)
+ 
 
             fleet = None
             current_time = datetime.now()
