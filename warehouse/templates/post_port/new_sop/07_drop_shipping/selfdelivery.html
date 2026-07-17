@@ -361,16 +361,6 @@
         background-color: #5a32a3 !important;
     }
 
-    /* 批量修改派送方式按钮 */
-    .btn-delivery-batch {
-        background-color: #fd7e14 !important;
-        color: white !important;
-    }
-
-    .btn-delivery-batch:hover {
-        background-color: #dc6502 !important;
-    }
-
     .fleet-selected-stats {
         display: flex; 
         align-items: center;
@@ -453,12 +443,6 @@
         display: none;
     }
     
-    /* 日期列样式 */
-    .fleet-date-col {
-        min-width: 100px;
-        max-width: 120px;
-    }
-    
     .fleet-editable-textarea {
         width: 100%;
         border: 1px solid #dee2e6;
@@ -475,12 +459,6 @@
         outline: none;
         border-color: #80bdff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-    }
-    
-    /* 日期显示样式 */
-    .fleet-month-day {
-        font-size: 0.85rem;
-        white-space: nowrap;
     }
 
     .fleet-editable-textarea, .fleet-address-input, 
@@ -512,19 +490,8 @@
         <button class="fleet-action-btn fleet-btn-primary" onclick="fleet_scheduleShipment()">
             <i class="fas fa-calendar-check"></i> 预约出库
         </button>
-        <button class="fleet-action-btn fleet-btn-warning fleet-copy-btn-hint" 
-                onclick="fleet_copySelectedRows()" 
-                title="复制选中行的所有列数据">
-            <i class="fas fa-copy"></i> 复制选中行
-        </button>
         <button class="fleet-action-btn btn-save-batch" onclick="fleet_batchSaveRows()">
             <i class="fas fa-save"></i> 批量保存参数
-        </button>
-        <button class="fleet-action-btn btn-delivery-batch" onclick="fleet_batchUpdateDeliveryMethod()">
-            <i class="fas fa-truck-loading"></i> 批量修改派送方式
-        </button>
-        <button class="fleet-action-btn" style="background-color: #008080 !important; color: white !important;"  onclick="fleet_batchOnePickMultiDrop()">
-            <i class="fas fa-layer-group"></i> 一提多卸
         </button>
         <button class="fleet-action-btn" style="background-color: #28a745 !important; color: white !important;" onclick="openPickupListModal()">
             <i class="fas fa-clipboard-list"></i> 拣货单
@@ -596,8 +563,7 @@
                         <input type="checkbox" id="fleet_selectAllCargos">
                     </th>
                     <th class="fleet-customer-col" data-column="1">客户<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(1)">×</span></th>
-                    <th class="fleet-date-col" data-column="2">拆柜日期<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
-                    <th class="fleet-delivery-method-col" data-column="3">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(3)">×</span></th>
+                    <th class="fleet-delivery-method-col" data-column="2">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
                     <th data-column="4">柜号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(4)">×</span></th>
                     <th data-column="5">商品型号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th>
                     <th data-column="6">商品类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(6)">×</span></th>
@@ -622,11 +588,7 @@
                 </div>
                 <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(2, this)">
                     <input type="checkbox" id="fleetCol2Checkbox" checked>
-                    <label for="fleetCol2Checkbox">拆柜日期</label>
-                </div>
-                <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(3, this)">
-                    <input type="checkbox" id="fleetCol3Checkbox" checked>
-                    <label for="fleetCol3Checkbox">派送方式</label>
+                    <label for="fleetCol2Checkbox">派送方式</label>
                 </div>
                 <div class="fleet-column-toggle-item" onclick="fleet_toggleColumnFromPanel(4, this)">
                     <input type="checkbox" id="fleetCol4Checkbox" checked>
@@ -681,10 +643,7 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选客户..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td data-column="2">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选拆柜日期..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
-                    </td>
-                    <td data-column="3">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="2" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
                     </td> 
                     <td data-column="4">
                         <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="3" onkeyup="fleet_applyColumnFilter(this)">
@@ -729,8 +688,8 @@
                 <tr class="fleet-data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}" 
                     style="background-color: {{ cargo.correlation_bg_color }} !important;"
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                    data-dropship-cargo-id="{{ cargo.ids }}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
-                    data-offload-date="{{ cargo.offload_other_at|date:'Y-m-d'|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}"
                     data-item-name="{{ cargo.dropshipping_item_name|default:'' }}"
@@ -738,13 +697,7 @@
                     data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
                     data-cbm="{{ cargo.total_cbm|default:0 }}"
                     data-pcs="{{ cargo.total_pcs|default:0 }}"
-                    {% if cargo.total_n_pallet_act %}
-                        data-pallets="{{ cargo.total_n_pallet_act }}"
-                    {% elif cargo.total_n_pallet_est %}
-                        data-pallets="{{ cargo.total_n_pallet_est }}"
-                    {% else %}
-                        data-pallets="0"
-                    {% endif %}
+                    data-pallets="{{ cargo.pallets|default:0 }}"
                     data-address="{{ cargo.address|default:'' }}"
                     data-note="{{ cargo.note|default:'' }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}">
@@ -754,27 +707,11 @@
                             onchange="fleet_updateSelectedCount()">
                     </td>
                     <td class="fleet-customer-col" data-column="1">{{ cargo.customer_name|default:"-" }}</td>
-                    <td class="fleet-date-col" data-column="2">
-                        {% if cargo.offload_other_at %}
-                            <span class="fleet-month-day">
-                                {{ cargo.offload_other_at }}
-                                {% if cargo.offload_tag == "实际提柜" %}
-                                    <span style="color:#e53935">{{ cargo.offload_tag }}</span>
-                                {% elif cargo.offload_tag == "实际放行" %}
-                                    <span style="color:#fb8c00">{{ cargo.offload_tag }}</span>
-                                {% else %}
-                                    <span style="color:#757575">{{ cargo.offload_tag }}</span>
-                                {% endif %}
-                            </span>
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td class="fleet-delivery-method-col" data-column="3">
+                    <td class="fleet-delivery-method-col" data-column="2">
                         <select class="method-select fleet-delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
-                            <option value="客户自提" {% if cargo.delivery_method == "客户自提" %}selected{% endif %}>客户自提</option>
-                            <option value="自发" {% if cargo.delivery_method == "自发" %}selected{% endif %}>自发</option>
+                            <option value="pickup" {% if cargo.delivery_method == "pickup" %}selected{% endif %}>客户自提</option>
+                            <option value="self_ship" {% if cargo.delivery_method == "self_ship" %}selected{% endif %}>自发</option>
                         </select>
                     </td>
                     <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}" data-column="4">
@@ -804,14 +741,8 @@
                     <td data-column="13">{{ cargo.total_weight_kg|default:0 }}</td>
                     <td data-column="14">{{ cargo.total_weight_lbs|default:0 }}</td>
                     <td class="fleet-pallet-col" data-column="15">
-                        {% if cargo.total_n_pallet_act %}
-                            <span class="fleet-pallet-count">{{ cargo.total_n_pallet_act }}</span>
-                            <span class="fleet-pallet-tag fleet-pallet-tag-act">ACT</span>
-                        {% elif cargo.total_n_pallet_est %}
-                            <span class="fleet-pallet-count">{{ cargo.total_n_pallet_est|floatformat:"0" }}</span>
-                            <span class="fleet-pallet-tag fleet-pallet-tag-est">EST</span>
-                        {% else %}
-                            <span class="fleet-pallet-count">0</span>
+                        {% if cargo.pallets %}
+                            <span class="fleet-pallet-count">{{ cargo.pallets }}</span>
                         {% endif %}
                     </td>
                     <td class="fleet-action-col" data-column="16">
@@ -918,7 +849,6 @@
     <input type="hidden" name="batch_data" id="fleet_batchDataInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduledFleet">
-    <input type="hidden" name="batch_methods" id="fleet_batchMethodsInput"> 
     <input type="hidden" name="delivery_method" id="fleet_deliveryMethodInput">
 </form>
 
@@ -976,26 +906,7 @@
                 });
             });
 
-            // 添加复制按钮提示样式
-            if (!document.querySelector('#fleet-copy-btn-styles')) {
-                const style = document.createElement('style');
-                style.id = 'fleet-copy-btn-styles';
-                style.textContent = `
-                    /* 复制按钮的提示 */
-                    .fleet-copy-btn-hint {
-                        position: relative;
-                    }
-                    
-                    .fleet-copy-btn-hint::after {
-                        content: '';
-                        font-size: 0.8em;
-                        opacity: 0.7;
-                        font-style: italic;
-                    }
-                `;
-                document.head.appendChild(style);
             }
-        }
 
         // 切换排序规则显示/隐藏
         function fleet_toggleSortRules() {
@@ -1043,255 +954,7 @@
             }
         }
 
-        // 新增：复制选中行数据到剪贴板（针对自发页面）
-        function fleet_copySelectedRows() {
-            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
-                .filter(checkbox => {
-                    const row = checkbox.closest('tr');
-                    return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
-                });
 
-            if (selectedCheckboxes.length === 0) {
-                fleet_showCopyNotification('请先选择要复制的行', 'warning');
-                return;
-            }
-
-            const warehouseValue = "{{ warehouse }}";
-
-            const columnMapping = [
-                { name: '仓库', index: -2, value: warehouseValue },
-                { name: '拆柜日期', index: 2 },
-                { name: '客户', index: 1 },
-                { name: '柜号', index: 4 },
-                { name: '商品型号', index: 5 },
-                { name: '唛头', index: 7 },
-                { name: '地址', index: 8 },
-                { name: '备注', index: 9 },
-                { name: 'CBM', index: 10 },
-                { name: '件数', index: 11 },
-                { name: '托盘数', index: 14 },
-                { name: '重量lbs', index: 13 },
-                { name: '重量kg', index: 12 },
-                { name: '预约批次号', index: -1 },
-                { name: '出库时间', index: -1 },
-                { name: '预计送达时间', index: -1 },
-                { name: '出库单', index: -1 }
-            ];
-
-            const rowsData = [];
-
-            const table = document.getElementById('fleet_cargoTable');
-
-            selectedCheckboxes.forEach(checkbox => {
-                const row = checkbox.closest('tr');
-                const rowData = [];
-
-                columnMapping.forEach(col => {
-                    if (col.index === -2) {
-                        rowData.push(col.value);
-                        return;
-                    }
-                    if (col.index === -1) {
-                        rowData.push('');
-                        return;
-                    }
-
-                    const cell = row.cells[col.index + 1];
-                    if (!cell) {
-                        rowData.push('');
-                        return;
-                    }
-
-                    let cellText = '';
-
-                    const tempCell = cell.cloneNode(true);
-                    const helpTooltip = tempCell.querySelector('.fleet-help-tooltip');
-                    if (helpTooltip) {
-                        helpTooltip.remove();
-                    }
-
-                    const inputElement = tempCell.querySelector('.fleet-address-input, .fleet-note-input');
-                    if (inputElement && inputElement.value !== undefined) {
-                        cellText = inputElement.value.trim();
-                    } else {
-                        const palletCount = tempCell.querySelector('.fleet-pallet-count');
-                        if (palletCount) {
-                            cellText = palletCount.textContent.trim();
-                        } else {
-                            cellText = tempCell.textContent.trim();
-                            if (cellText === '-' || cellText.includes('font-style: italic')) {
-                                cellText = '';
-                            }
-                        }
-                    }
-
-                    cellText = cellText.replace(/\n/g, ' ').replace(/\s+/g, ' ');
-                    rowData.push(cellText);
-                });
-
-                rowsData.push(rowData);
-            });
-
-            const csvData = rowsData.map(row => row.join('\t')).join('\n');
-            
-            navigator.clipboard.writeText(csvData)
-                .then(() => {
-                    fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板`, 'success');
-                })
-                .catch(err => {
-                    console.error('复制失败:', err);
-                    
-                    try {
-                        const textarea = document.createElement('textarea');
-                        textarea.value = csvData;
-                        textarea.style.position = 'fixed';
-                        textarea.style.opacity = '0';
-                        document.body.appendChild(textarea);
-                        textarea.select();
-                        
-                        const successful = document.execCommand('copy');
-                        document.body.removeChild(textarea);
-                        
-                        if (successful) {
-                            fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板`, 'success');
-                        } else {
-                            fleet_showCopyNotification('复制失败，请手动选择并复制数据', 'error');
-                        }
-                    } catch (fallbackErr) {
-                        console.error('降级复制失败:', fallbackErr);
-                        fleet_showCopyNotification('复制失败，请检查浏览器权限或手动复制', 'error');
-                    }
-                });
-        }
-
-        // 新增：显示复制通知（针对自发页面）
-        function fleet_showCopyNotification(message, type = 'success') {
-            // 移除已有的通知
-            const existingNotification = document.querySelector('.fleet-copy-notification');
-            if (existingNotification) {
-                existingNotification.remove();
-            }
-            
-            // 根据类型设置颜色
-            let bgColor, icon, textColor;
-            switch(type) {
-                case 'success':
-                    bgColor = '#ffffff'; // 白色背景
-                    textColor = '#2c3e50'; // 深灰色文字
-                    icon = '<i class="fas fa-check"></i>';
-                    break;
-                case 'warning':
-                    bgColor = '#fff8e1'; // 淡黄色背景
-                    textColor = '#ff9800'; // 橙色文字
-                    icon = '<i class="fas fa-exclamation-triangle"></i>';
-                    break;
-                case 'error':
-                    bgColor = '#ffebee'; // 淡红色背景
-                    textColor = '#f44336'; // 红色文字
-                    icon = '<i class="fas fa-times-circle"></i>';
-                    break;
-                default:
-                    bgColor = '#ffffff';
-                    textColor = '#2c3e50';
-                    icon = '<i class="fas fa-info-circle"></i>';
-            }
-            
-            // 创建通知元素
-            const notification = document.createElement('div');
-            notification.className = 'fleet-copy-notification';
-            notification.style.cssText = `
-                position: fixed !important;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                background: ${bgColor} !important;
-                color: ${textColor} !important;
-                padding: 18px 25px !important;
-                border-radius: 10px !important;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08),
-                            0 0 0 1px #e9ecef !important;
-                z-index: 99999 !important;
-                animation: fleetMinimalFade 0.25s ease !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                text-align: center !important;
-                max-width: 280px !important;
-                backdrop-filter: blur(5px) !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 10px !important;
-                border: 1px solid #e0e6ed !important;
-                line-height: 1.5 !important;
-            `;
-            
-            notification.innerHTML = `
-                <span style="color: #34a853; font-size: 18px;">
-                    ${icon}
-                </span>
-                <span>${message}</span>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // 添加动画样式（如果不存在）
-            if (!document.querySelector('#fleet-copy-notification-styles')) {
-                const style = document.createElement('style');
-                style.id = 'fleet-copy-notification-styles';
-                style.textContent = `
-                    @keyframes fleetMinimalFade {
-                        0% { 
-                            opacity: 0;
-                            transform: translate(-50%, -50%) translateY(10px);
-                        }
-                        100% { 
-                            opacity: 1;
-                            transform: translate(-50%, -50%) translateY(0);
-                        }
-                    }
-                    
-                    .fleet-copy-notification:hover {
-                        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1) !important;
-                        transform: translate(-50%, -50%) translateY(-1px) !important;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-            
-            // 悬停效果
-            notification.addEventListener('mouseenter', function() {
-                this.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.1) !important';
-                this.style.transform = 'translate(-50%, -50%) translateY(-1px) !important';
-            });
-            
-            notification.addEventListener('mouseleave', function() {
-                this.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.08) !important';
-                this.style.transform = 'translate(-50%, -50%) translateY(0) !important';
-            });
-            
-            // 点击关闭
-            notification.addEventListener('click', function() {
-                this.style.opacity = '0';
-                this.style.transform = 'translate(-50%, -50%) translateY(-5px)';
-                setTimeout(() => {
-                    if (this.parentNode) {
-                        this.parentNode.removeChild(this);
-                    }
-                }, 200);
-            });
-            
-            // 2秒后自动淡出
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transform = 'translate(-50%, -50%) translateY(-5px)';
-                notification.style.transition = 'all 0.3s ease !important';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 2000);
-        }
         
         // 在初始化函数中调用快捷键初始化
         function fleet_initializeFleetPage() {
@@ -1310,26 +973,6 @@
                 });
             });
             
-            // 添加复制按钮提示样式
-            if (!document.querySelector('#fleet-copy-btn-styles')) {
-                const style = document.createElement('style');
-                style.id = 'fleet-copy-btn-styles';
-                style.textContent = `
-                    /* 复制按钮的提示 */
-                    .fleet-copy-btn-hint {
-                        position: relative;
-                    }
-                    
-                    .fleet-copy-btn-hint::after {
-                        content: '';
-                        font-size: 0.8em;
-                        opacity: 0.7;
-                        font-style: italic;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
             // 恢复列显示状态
             fleet_loadColumnVisibility();
         }
@@ -1485,10 +1128,13 @@
                 const noteInput = row.querySelector('.fleet-note-input');
                 
                 return {
-                    id: checkbox.value,
+                    id: row.dataset.dropshipCargoId || checkbox.value,
+                    dropship_cargo_id: row.dataset.dropshipCargoId,
                     customer: row.dataset.customer,
                     containerNumber: row.dataset.containerNumber,
                     shippingMark: row.dataset.shippingMark,
+                    itemName: row.dataset.itemName,
+                    itemModel: row.dataset.itemModel,
                     cbm: parseFloat(row.dataset.cbm) || 0,
                     pcs: parseInt(row.dataset.pcs) || 0,
                     pallets: parseInt(row.dataset.pallets) || 0,
@@ -1601,15 +1247,6 @@
                             cellValue = inputElement.value.toLowerCase().trim();
                         } else {
                             cellValue = cell.textContent.toLowerCase().trim();
-                        }
-                        
-                        if (idx === 1) { // 拆柜日期
-                            const dateSpan = cell.querySelector('.fleet-month-day');
-                            if (dateSpan) {
-                                cellValue = dateSpan.textContent.toLowerCase().trim();
-                            } else {
-                                cellValue = cell.textContent.toLowerCase().trim();
-                            }
                         }
                         
                         if (!cellValue.includes(filterValue.toLowerCase())) {
@@ -1755,64 +1392,7 @@
                 saveForm.submit();
             }
         }
-        // 批量修改派送方式
-        function fleet_batchUpdateDeliveryMethod() {
-            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
-                .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
 
-            if (selectedCheckboxes.length === 0) { alert('请选择要修改的行'); return; }
-            if (!confirm(`确定批量修改选中的 ${selectedCheckboxes.length} 项派送方式吗？`)) return;
-
-            const methodData = selectedCheckboxes.map(checkbox => {
-                const row = checkbox.closest('tr');
-                return {
-                    cargo_id: checkbox.value,
-                    delivery_method: row.querySelector('.fleet-delivery-method-input').value
-                };
-            });
-
-            const saveForm = document.getElementById('fleet_saveForm');
-            saveForm.querySelector('input[name="step"]').value = "batch_update_delivery_method"; 
-            document.getElementById('fleet_batchMethodsInput').value = JSON.stringify(methodData);
-            saveForm.submit();
-        }
-
-        // 一提多卸逻辑
-        function fleet_batchOnePickMultiDrop() {
-            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
-                .filter(checkbox => {
-                    const row = checkbox.closest('tr');
-                    return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
-                });
-
-            if (selectedCheckboxes.length < 2) {
-                alert('请至少选择两组货物进行“一提多卸”关联');
-                return;
-            }
-
-            if (!confirm(`确定要将选中的 ${selectedCheckboxes.length} 组货物设为“一提多卸”关联吗？`)) {
-                return;
-            }
-
-            // 封装数据，保持与批量保存类似的格式，同时带上 shipping_mark 给后端做 seed
-            const correlationData = selectedCheckboxes.map(checkbox => {
-                const row = checkbox.closest('tr');
-                return {
-                    cargo_id: checkbox.value,
-                    shipping_mark: row.dataset.shippingMark || ''
-                };
-            });
-
-            const saveForm = document.getElementById('fleet_saveForm');
-            const batchCorrInput = document.getElementById('fleet_batchCorrelationInput');
-            
-            if (saveForm && batchCorrInput) {
-                // 设置 step 为一提多卸相关的名字
-                saveForm.querySelector('input[name="step"]').value = "batch_one_pick_multi_drop";
-                batchCorrInput.value = JSON.stringify(correlationData);
-                saveForm.submit();
-            }
-        }
 
         // 将函数暴露到全局作用域
         window.fleet_toggleSelectAll = fleet_toggleSelectAll;
@@ -1822,11 +1402,7 @@
         window.fleet_updateSelectedCount = fleet_updateSelectedCount;
         window.fleet_saveRowData = fleet_saveRowData;
         window.fleet_autoResizeTextarea = fleet_autoResizeTextarea;
-        window.fleet_copySelectedRows = fleet_copySelectedRows;
-        window.fleet_showCopyNotification = fleet_showCopyNotification;
         window.fleet_batchSaveRows = fleet_batchSaveRows;
-        window.fleet_batchUpdateDeliveryMethod = fleet_batchUpdateDeliveryMethod;
-        window.fleet_batchOnePickMultiDrop = fleet_batchOnePickMultiDrop;
         window.fleet_toggleSortRules = fleet_toggleSortRules;
         window.fleet_toggleColumn = fleet_toggleColumn;
         window.fleet_toggleColumnFromPanel = fleet_toggleColumnFromPanel;

@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .inventory-system {
+        max-width: 102%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .inventory-header {
+        background: linear-gradient(135deg, #0d3d5c, #1a5276);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .inventory-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .inventory-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 15px 25px;
+        border-radius: 10px;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95rem;
+        min-width: 150px;
+    }
+
+    .filter-controls button {
+        padding: 10px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .filter-controls button:hover {
+        background: #1b5e20;
+        transform: translateY(-1px);
+    }
+
+    .inventory-main {
+        padding: 25px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 14px 16px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+        font-size: 0.9rem;
+    }
+
+    .data-table th {
+        background: linear-gradient(135deg, #f5f7fa, #e4e8ec);
+        font-weight: 600;
+        color: #4a5568;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+
+    .search-row td {
+        padding: 8px 16px;
+        background: #fafbfc;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .data-table tr:hover {
+        background: #f8fafc;
+    }
+
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .type-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .type-unpack { background: #e8f5e9; color: #2e7d32; }
+    .type-return { background: #f3e5f5; color: #7b1fa2; }
+    .type-transfer { background: #e3f2fd; color: #1565c0; }
+    .type-pick { background: #fff3e0; color: #e65100; }
+    .type-adjust { background: #ffebee; color: #c62828; }
+
+    .verify-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .verify-yes { background: #e8f5e9; color: #2e7d32; }
+    .verify-no { background: #ffebee; color: #c62828; }
+
+    .pcs-positive { color: #2e7d32; font-weight: 600; }
+    .pcs-negative { color: #c62828; font-weight: 600; }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #9ca3af;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 5px;
+        color: #6b7280;
+    }
+
+    .empty-state p {
+        font-size: 0.95rem;
+    }
+</style>
+
+<div class="inventory-system">
+    <div class="inventory-header">
+        <div class="inventory-logo">
+            <i class="fas fa-clipboard-list"></i>
+            <span>库存流水查询</span>
+        </div>
+        <form method="POST" class="filter-controls">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="dropship_invetory">
+            <div class="filter-group">
+                <label for="warehouse">仓库:</label>
+                <select name="warehouse" id="warehouse">
+                    <option value="">请选择仓库</option>
+                    {% for name, name in warehouse_options %}
+                    <option value="{{ name }}" {% if selected_warehouse == name %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit">查询</button>
+        </form>
+    </div>
+
+    <div class="inventory-main">
+        {% if inventory_records %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>操作类型</th>
+                    <th>操作时间</th>
+                    <th>唛头</th>
+                    <th>商品型号</th>
+                    <th>件数变动</th>
+                    <th>操作后件数</th>
+                    <th>核验件数</th>
+                    <th>操作人</th>
+                    <th>是否核验</th>
+                    <th>批次号</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="0"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="1"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="2"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="3"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="4"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="5"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="6"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="7"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="8"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="9"></td>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in inventory_records %}
+                <tr>
+                    <td>
+                        <span class="type-badge type-{{ record.transaction_type_code }}">
+                            {{ record.transaction_type }}
+                        </span>
+                    </td>
+                    <td>{{ record.transaction_date|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ record.shipping_mark|default:'' }}</td>
+                    <td>{{ record.model|default:'' }}</td>
+                    <td>
+                        <span class="{% if record.pcs_change > 0 %}pcs-positive{% else %}pcs-negative{% endif %}">
+                            {{ record.pcs_change }}
+                        </span>
+                    </td>
+                    <td>{{ record.after_pcs|default:0 }}</td>
+                    <td>{{ record.verify_pcs|default:0 }}</td>
+                    <td>{{ record.operator|default:'' }}</td>
+                    <td>
+                        <span class="verify-badge {% if record.is_verify %}verify-yes{% else %}verify-no{% endif %}">
+                            {% if record.is_verify %}已核验{% else %}未核验{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ record.shipment_batch|default:'' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-database"></i>
+            <h3>暂无库存流水记录</h3>
+            <p>请选择仓库并点击查询按钮查看库存流水</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var warehouseSelect = document.getElementById('warehouse');
+        warehouseSelect.addEventListener('change', function() {
+            if (this.value) {
+                this.form.submit();
+            }
+        });
+
+        var searchInputs = document.querySelectorAll('.search-input');
+        searchInputs.forEach(function(input) {
+            input.addEventListener('input', function() {
+                var columnIndex = parseInt(this.dataset.column);
+                var searchText = this.value.toLowerCase();
+                var table = this.closest('table');
+                var rows = table.querySelectorAll('tbody tr');
+                
+                rows.forEach(function(row) {
+                    var cells = row.querySelectorAll('td');
+                    if (cells[columnIndex]) {
+                        var cellText = cells[columnIndex].textContent.toLowerCase();
+                        if (cellText.includes(searchText)) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}
