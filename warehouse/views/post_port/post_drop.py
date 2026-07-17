@@ -261,6 +261,10 @@ class PostDrop(View):
             template, context = await self.handle_ltl_unscheduled_pos_post(request)
             context.update({"success_messages": pn_ctx.get('success_messages', 'POD状态更新成功!')})
             return await sync_to_async(render)(request, template, context)
+        elif step == "confirm_shipment":
+            # 确认出库
+            template, context = await self.handle_confirm_shipment(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             raise ValueError('wrong step',step)
         
@@ -279,6 +283,7 @@ class PostDrop(View):
 
         release_cargos = await self._get_release_cargos(warehouse)
         selfdel_cargos = await self._get_selfdel_cargos(warehouse)
+        # 待出库批次
         ready_to_ship_data = await self._get_ready_to_ship_data(warehouse)
         pod_data = await self._get_pod_data(warehouse)
 
@@ -398,7 +403,7 @@ class PostDrop(View):
 
         dropship_shipments = await sync_to_async(list)(
             DropshipShipment.objects
-            .filter(warehouse=warehouse_obj, shipped_at__isnull=True, arrived_at__isnull=False)
+            .filter(warehouse=warehouse_obj, shipped_at__isnull=True)
             .select_related('warehouse')
             .order_by('-created_at')
         )
@@ -414,10 +419,7 @@ class PostDrop(View):
             shipment_data = {
                 'shipment_batch_number': shipment.shipment_batch_number,
                 'total_pcs': shipment.total_pcs,
-                'total_pallets': shipment.total_pallets,
-                'pickup_time': shipment.picku_time,
-                'created_at': shipment.created_at,
-                'operator': shipment.operator,
+                'pickup_time': shipment.pickup_time,
                 'details': [],
             }
 
@@ -429,12 +431,22 @@ class PostDrop(View):
                 models_set.add(cargo.model or '')
                 marks_set.add(cargo.shipping_mark or '')
 
+                inventory = await sync_to_async(
+                    DropshipInventory.objects
+                    .filter(cargo=cargo, transaction_type='pick', shipment_detail=detail)
+                    .first
+                )()
+
                 shipment_data['details'].append({
                     'cargo_id': cargo.id,
+                    'detail_id': detail.id,
                     'model': cargo.model or '',
                     'shipping_mark': cargo.shipping_mark or '',
                     'pcs': detail.pcs,
-                    'pallets': detail.pallets,
+                    'original_pcs': detail.pcs,
+                    'current_cargo_pcs': cargo.pcs or 0,
+                    'inventory_id': inventory.id if inventory else None,
+                    'inventory_after_pcs': inventory.after_pcs if inventory else 0,
                 })
 
             shipment_data['models'] = ', '.join([m for m in models_set if m])
@@ -452,6 +464,69 @@ class PostDrop(View):
             key=lambda p: p.pod_to_customer is True
         )
         return pod_data
+
+    async def handle_confirm_shipment(
+            self, request: HttpRequest, context: dict | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        '''确认出库处理'''
+        if not context:
+            context = {}
+
+        batch_number = request.POST.get('shipment_batch_number')
+        ship_time_str = request.POST.get('ship_time')
+        cargo_details_raw = request.POST.get('cargo_details')
+
+        if not batch_number or not ship_time_str or not cargo_details_raw:
+            context.update({'error_messages': '参数不完整!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        try:
+            cargo_details = json.loads(cargo_details_raw)
+        except json.JSONDecodeError:
+            context.update({'error_messages': '数据格式错误!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        ship_time = datetime.fromisoformat(ship_time_str).replace(tzinfo=ZoneInfo('Asia/Shanghai'))
+
+        shipment = await sync_to_async(DropshipShipment.objects.filter(shipment_batch_number=batch_number).first)()
+        if not shipment:
+            context.update({'error_messages': '未找到该预约批次!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        total_pcs = 0
+        for detail_data in cargo_details:
+            cargo_id = detail_data.get('cargo_id')
+            pcs = detail_data.get('pcs', 0)
+            original_pcs = detail_data.get('original_pcs', 0)
+            inventory_id = detail_data.get('inventory_id')
+
+            cargo = await sync_to_async(DropshipCargo.objects.filter(id=cargo_id).first)()
+            if pcs != original_pcs:
+                delta = original_pcs - pcs
+                verify_pcs = max(0, cargo.pcs + delta)
+                cargo.pcs = verify_pcs
+                await sync_to_async(cargo.save)()
+
+            inventory = await sync_to_async(DropshipInventory.objects.filter(id=inventory_id).first)()
+            inventory.is_verify = True
+            if pcs == original_pcs:
+                inventory.verify_pcs = inventory.after_pcs
+            else:
+                inventory.verfiy_pcs_change = -pcs
+                inventory.verify_pcs = verify_pcs
+            await sync_to_async(inventory.save)()
+
+            total_pcs += pcs
+
+        shipment.total_pcs = total_pcs
+        shipment.shipped_at = ship_time
+        await sync_to_async(shipment.save)()
+
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context.update({"success_messages": f'批次 {batch_number} 出库确认成功!'})
+        return template, context
 
     async def handle_verify_ltl_cargo(
             self, request: HttpRequest, context: dict | None = None,
@@ -1550,8 +1625,7 @@ class PostDrop(View):
             shipment_batch_number=batch_number,
             warehouse=warehouse_obj,
             created_at=current_time_beijing,
-            expected_shipped_date=pickup_time.date(),
-            expected_delivered_date=pickup_time,
+            pickup_time=pickup_time.date(),
             total_pcs=total_pcs,
             total_pallets=0,
             shipping_address='',

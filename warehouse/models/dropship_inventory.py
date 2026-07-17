@@ -26,7 +26,7 @@ class DropshipInventory(models.Model):
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, verbose_name="操作类型")
     
     # 件数变动（正数表示入库，负数表示出库）
-    pcs_change = models.IntegerField(verbose_name="件数变动（正=增加，负=减少）")
+    pcs_change = models.IntegerField(verbose_name="预计件数变动（正=增加，负=减少）", null=True, blank=True)
     
     # 操作后的库存快照（便于追踪历史状态）
     after_pcs = models.PositiveIntegerField(verbose_name="操作后件数", null=True, blank=True)
@@ -53,6 +53,7 @@ class DropshipInventory(models.Model):
     note = models.TextField(null=True, blank=True, verbose_name="备注")
     # 对于预约出库来说，为真表示确认出库了；对于建单来说，为真表示已经拆柜入库了
     is_verify = models.BooleanField(default=False, verbose_name="是否核验")
+    verfiy_pcs_change = models.IntegerField(verbose_name="实际件数变动（正=增加，负=减少）", null=True, blank=True)
     verify_pcs = models.PositiveIntegerField(verbose_name="核验后件数", null=True, blank=True)
     
     class Meta:
