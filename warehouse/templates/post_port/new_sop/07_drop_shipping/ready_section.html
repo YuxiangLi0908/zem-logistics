@@ -24,6 +24,57 @@
         vertical-align: top !important;
         line-height: 1.4 !important;
     }
+    .batch-cell {
+        background-color: #f8f9fa;
+        vertical-align: top !important;
+    }
+    .batch-number {
+        color: #3498db;
+        font-weight: bold;
+        display: block;
+    }
+    .pickup-time {
+        color: #888;
+        font-size: 0.8rem;
+        margin-top: 4px;
+        display: block;
+    }
+    .pcs-input {
+        width: 70px;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+    .pcs-input:focus {
+        outline: none;
+        border-color: #3498db;
+    }
+    .ship-btn {
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+    .ship-btn:hover {
+        background-color: #2ecc71;
+    }
+    .ship-time-input {
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-right: 8px;
+    }
+    .confirm-section {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
 </style>
 
 <div class="table-container">
@@ -33,59 +84,77 @@
                 <th>预约批次号</th>
                 <th>商品型号</th>
                 <th>唛头</th>
-                <th>板数</th>
+                <th>总件数</th>
                 <th>件数</th>
-                <th>提货时间</th>
-                <th>创建时间</th>
-                <th>操作人</th>
+                <th>确认出库</th>
             </tr>
             <tr class="search-row">
                 <td><input type="text" class="header-search" placeholder="搜索批次号" data-column="0"></td>
                 <td><input type="text" class="header-search" placeholder="搜索商品型号" data-column="1"></td>
                 <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="2"></td>
-                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索总件数" data-column="3"></td>
                 <td><input type="text" class="header-search" placeholder="搜索件数" data-column="4"></td>
-                <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="5"></td>
-                <td><input type="text" class="header-search" placeholder="搜索创建时间" data-column="6"></td>
-                <td><input type="text" class="header-search" placeholder="搜索操作人" data-column="7"></td>
+                <td></td>
             </tr>
         </thead>
         <tbody>
             {% for shipment in ready_to_ship_data %}
-                <tr>
-                    <td style="vertical-align: middle; background-color: #f8f9fa;">
-                        <strong style="color: #3498db;">{{ shipment.shipment_batch_number }}</strong>
+                {% with detail_count=shipment.details|length %}
+                {% for detail in shipment.details %}
+                <tr data-batch="{{ shipment.shipment_batch_number }}">
+                    {% if forloop.first %}
+                    <td rowspan="{{ detail_count }}" class="batch-cell">
+                        <span class="batch-number">{{ shipment.shipment_batch_number }}</span>
+                        {% if shipment.pickup_time %}
+                        <span class="pickup-time">{{ shipment.pickup_time|date:"Y-m-d" }}</span>
+                        {% endif %}
                     </td>
-                    <td>{{ shipment.models|default:"-" }}</td>
-                    <td class="markings-col">{{ shipment.shipping_marks|default:"-" }}</td>
-                    <td>{{ shipment.total_pallets|default:0 }}</td>
-                    <td>{{ shipment.total_pcs|default:0 }}</td>
-                    <td>{% if shipment.pickup_time %}{{ shipment.pickup_time|date:"Y-m-d" }}{% else %}-{% endif %}</td>
-                    <td>{{ shipment.created_at|date:"Y-m-d H:i:s" }}</td>
-                    <td>{{ shipment.operator|default:"-" }}</td>
+                    {% endif %}
+                    <td>{{ detail.model }}</td>
+                    <td class="markings-col">{{ detail.shipping_mark }}</td>
+                    {% if forloop.first %}
+                    <td rowspan="{{ detail_count }}" class="batch-cell">
+                        <strong>{{ shipment.total_pcs }}</strong>
+                    </td>
+                    {% endif %}
+                    <td>
+                        <input type="number" 
+                               class="pcs-input" 
+                               data-cargo-id="{{ detail.cargo_id }}"
+                               data-detail-id="{{ detail.detail_id }}"
+                               data-original-pcs="{{ detail.original_pcs }}"
+                               data-inventory-id="{{ detail.inventory_id }}"
+                               value="{{ detail.pcs }}" 
+                               min="0">
+                    </td>
+                    {% if forloop.first %}
+                    <td rowspan="{{ detail_count }}" class="batch-cell">
+                        <div class="confirm-section">
+                            <input type="datetime-local" class="ship-time-input" id="ship-time-{{ shipment.shipment_batch_number|cut:'-' }}">
+                            <button class="ship-btn" onclick="confirmShipment('{{ shipment.shipment_batch_number }}')">出库</button>
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
-                {% if shipment.details %}
-                    {% for detail in shipment.details %}
-                        <tr style="background-color: #fafbfc;">
-                            <td></td>
-                            <td style="padding-left: 20px;"><small>{{ detail.model }}</small></td>
-                            <td class="markings-col" style="padding-left: 20px;"><small>{{ detail.shipping_mark }}</small></td>
-                            <td><small>{{ detail.pallets }}</small></td>
-                            <td><small>{{ detail.pcs }}</small></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                    {% endfor %}
-                {% endif %}
+                {% endfor %}
+                {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="8" style="text-align:center; color:#aaa; padding: 40px;">暂无待出库批次</td>
+                    <td colspan="6" style="text-align:center; color:#aaa; padding: 40px;">暂无待出库批次</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<form method="post" action="" id="shipmentForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="confirm_shipment">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="shipment_batch_number" id="shipment_batch_number">
+    <input type="hidden" name="ship_time" id="ship_time">
+    <input type="hidden" name="cargo_details" id="cargo_details">
+</form>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -111,4 +180,41 @@
             });
         });
     });
+
+    function confirmShipment(batchNumber) {
+        var timeInput = document.getElementById('ship-time-' + batchNumber.replace(/-/g, ''));
+        var shipTime = timeInput ? timeInput.value : '';
+        
+        if (!shipTime) {
+            alert('请选择出库时间');
+            return;
+        }
+
+        var rows = document.querySelectorAll('tbody tr[data-batch="' + batchNumber + '"]');
+        var cargoDetails = [];
+        
+        rows.forEach(function(row) {
+            var pcsInput = row.querySelector('.pcs-input');
+            if (pcsInput) {
+                cargoDetails.push({
+                    cargo_id: parseInt(pcsInput.dataset.cargoId),
+                    detail_id: parseInt(pcsInput.dataset.detailId),
+                    pcs: parseInt(pcsInput.value) || 0,
+                    original_pcs: parseInt(pcsInput.dataset.originalPcs),
+                    inventory_id: parseInt(pcsInput.dataset.inventoryId) || null,
+                });
+            }
+        });
+
+        if (cargoDetails.length === 0) {
+            alert('未找到相关货物数据');
+            return;
+        }
+
+        document.getElementById('shipment_batch_number').value = batchNumber;
+        document.getElementById('ship_time').value = shipTime;
+        document.getElementById('cargo_details').value = JSON.stringify(cargoDetails);
+        
+        document.getElementById('shipmentForm').submit();
+    }
 </script>

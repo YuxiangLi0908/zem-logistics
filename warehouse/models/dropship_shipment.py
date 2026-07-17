@@ -11,13 +11,12 @@ class DropshipShipment(models.Model):
     
     # 时间
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    picku_time = models.DateField(null=True, blank=True, verbose_name="预计提货日期")
+    pickup_time = models.DateField(null=True, blank=True, verbose_name="预计提货日期")
     shipped_at = models.DateTimeField(null=True, blank=True, verbose_name="实际出库日期")
     arrived_at = models.DateTimeField(null=True, blank=True, verbose_name="送达时间")
     
     # 出库信息
     total_pcs = models.PositiveIntegerField(default=0, verbose_name="总出库件数")
-    total_pallets = models.PositiveIntegerField(default=0, verbose_name="总板数")
     
     # POD文件
     pod_file = models.FileField(upload_to='pod_files/', null=True, blank=True, verbose_name="POD文件")
