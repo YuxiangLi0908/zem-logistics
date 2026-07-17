@@ -179,12 +179,6 @@ class PostDrop(View):
         elif step == "save_selfdel_cargo":
             template, context = await self.handle_save_selfdel_cargo(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "batch_update_delivery_method":
-            template, context = await self.handle_batch_update_delivery_method(request)
-            return await sync_to_async(render)(request, template, context)
-        elif step == "batch_one_pick_multi_drop":
-            template, context = await self.handle_batch_one_pick_multi_drop(request)
-            return await sync_to_async(render)(request, template, context)
         elif step == "ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -360,6 +354,8 @@ class PostDrop(View):
                 'shipping_marks': cargo.shipping_mark or '-',
                 'address': cargo.address ,
                 'note': cargo.note or '-',
+                'delivery_method': cargo.delivery_method,
+                'pallets': cargo.pallets,
                 'total_cbm': cargo.cbm or 0,
                 'total_pcs': cargo.pcs or 0,
                 'total_weight_lbs': cargo.total_weight_lbs or 0,
@@ -1444,7 +1440,6 @@ class PostDrop(View):
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''一件代发自发保存自行编辑的货物信息'''
-        # 1. 判断是批量保存还是单行保存
         batch_data_raw = request.POST.get('batch_data')
         if batch_data_raw:
             try:
@@ -1456,25 +1451,11 @@ class PostDrop(View):
                 'cargo_id': request.POST.get('cargo_id'),
                 'address': request.POST.get('address', '').strip(),
                 'note': request.POST.get('note', '').strip(),
-                'pallet_size': request.POST.get('pallet_size', '').strip(),
-                'carrier_company': request.POST.get('carrier_company', '').strip(),
-                'bol_number': request.POST.get('bol_number', '').strip(),
-                'pro_number': request.POST.get('pro_number', '').strip(),
-                'follow_status': request.POST.get('follow_status', '').strip(),
-                'ltl_cost_note': request.POST.get('ltl_cost_note', '').strip(),
-                'ltl_quote_note': request.POST.get('ltl_quote_note', '').strip(),
-                'contact_method': request.POST.get('contact_method', '').strip(),
-                'ltl_cost': request.POST.get('ltl_cost', '').strip(),
-                'ltl_quote': request.POST.get('ltl_quote', '').strip(),
                 'delivery_method': request.POST.get('delivery_method', '').strip(),
-                'ltl_release_command': request.POST.get('ltl_release_command', '').strip(),
-                'ltl_supplier': request.POST.get('ltl_supplier', '').strip(),
             }]
 
         total_status_messages = []
-        username = request.user.username
-        pn = PostNsop()
-        # 2. 循环处理每一个更新项
+        saved_count = 0
         for item in update_items:
             cargo_id = item.get('cargo_id')
             if not cargo_id:
@@ -1482,183 +1463,36 @@ class PostDrop(View):
 
             address = item.get('address', '')
             note = item.get('note', '')
-            pallet_size = item.get('pallet_size', '')
-            carrier_company = item.get('carrier_company', '')
-            bol_number = item.get('bol_number', '')
-            pro_number = item.get('pro_number', '')
-            follow_status = item.get('follow_status', '')
-            ltl_cost_note = item.get('ltl_cost_note', '')
-            ltl_quote_note = item.get('ltl_quote_note', '')
-            contact_method = item.get('contact_method', '')
             delivery_method = item.get('delivery_method')
-            ltl_release_command = item.get('ltl_release_command')
-            ltl_supplier = item.get('ltl_supplier', '')
 
-            ltl_cost_raw = item.get('ltl_cost', '')
-            has_ltl_cost_param = bool(ltl_cost_raw)
-            ltl_quote_raw = item.get('ltl_quote', '')
-            has_ltl_quote_param = bool(ltl_quote_raw)
-
-            ltl_cost = float(ltl_cost_raw) if has_ltl_cost_param else None
-            ltl_quote = float(ltl_quote_raw) if has_ltl_quote_param else None
-
-            # 根据 ID 类型确定字段名
             if cargo_id.startswith('plt_'):
                 ids = cargo_id.replace('plt_', '').split(',')
                 model = Pallet
             else:
                 ids = cargo_id.split(',')
-                model = PackingList
+                model = DropshipCargo
 
-            # 构建更新字典
             update_data = {}
-
-            if carrier_company or carrier_company == '':
-                update_data['carrier_company'] = carrier_company
-            if address or address == '':
+            if address is not None:
                 update_data['address'] = address
-            if bol_number or bol_number == '':
-                update_data['ltl_bol_num'] = bol_number
-            if pro_number or pro_number == '':
-                update_data['ltl_pro_num'] = pro_number
-            if note or note == '':
+            if note is not None:
                 update_data['note'] = note
-            if follow_status or follow_status == '':
-                update_data['ltl_follow_status'] = follow_status
-            if has_ltl_cost_param:
-                update_data['ltl_cost'] = ltl_cost
-            if has_ltl_quote_param:
-                update_data['ltl_quote'] = ltl_quote
-            if ltl_cost_note:
-                update_data["ltl_cost_note"] = ltl_cost_note
-            if ltl_quote_note:
-                update_data["ltl_quote_note"] = ltl_quote_note
-            if contact_method:
-                update_data["ltl_contact_method"] = contact_method
-            if pallet_size:
-                update_data["ltl_plt_size_note"] = pallet_size
             if delivery_method is not None:
                 update_data['delivery_method'] = delivery_method
-            if ltl_release_command is not None:
-                update_data['ltl_release_command'] = ltl_release_command
-            if ltl_supplier:
-                update_data['ltl_supplier'] = ltl_supplier
 
-            # 批量更新通用字段
             if update_data:
                 objs = await sync_to_async(list)(model.objects.filter(id__in=ids))
                 for obj in objs:
                     for key, value in update_data.items():
                         setattr(obj, key, value)
                     await sync_to_async(obj.save)()
+                saved_count += len(objs)
 
-            if cargo_id.startswith('plt_') and pallet_size:
-                await pn._save_pallet_sizes(ids, pallet_size)
-
-            if has_ltl_quote_param or '组合柜' in ltl_quote_note:
-                if not ltl_quote_note:
-                    ltl_quote_note = '派送费'
-                msg = await pn._delivery_account_entry(ids, ltl_quote, ltl_quote_note, username)
-                if msg:
-                    total_status_messages.append(msg)
-
-        success_message = f'成功保存 {len(update_items)} 组数据！'
+        success_message = f'成功保存 {saved_count} 条记录！'
         if total_status_messages:
             success_message = mark_safe(f"{success_message}<br>" + "<br>".join(set(total_status_messages)))
 
         context = {'success_messages': success_message}
-        return await self.handle_ltl_unscheduled_pos_post(request, context)
-
-    async def handle_batch_update_delivery_method(
-            self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        '''批量保存派送方式'''
-        context = {}
-        batch_data_json = request.POST.get('batch_methods')
-        try:
-            batch_data = json.loads(batch_data_json) if batch_data_json else []
-
-            for entry in batch_data:
-                raw_id = entry.get('cargo_id', '')
-                new_method = entry.get('delivery_method', '')
-
-                if not raw_id:
-                    continue
-
-                if raw_id.startswith('plt_'):
-                    pallet_ids = raw_id.replace('plt_', '').split(',')
-                    await Pallet.objects.filter(id__in=pallet_ids).aupdate(delivery_method=new_method)
-                else:
-                    cargo_ids = raw_id.split(',')
-                    await PackingList.objects.filter(id__in=cargo_ids).aupdate(delivery_method=new_method)
-            context.update({'success_messages': f"成功批量修改 {len(batch_data)} 项派送方式"})
-
-        except Exception as e:
-            context.update({'error_messages': f"修改派送方式失败，原因是{e}"})
-
-        return await self.handle_ltl_unscheduled_pos_post(request, context)
-
-    async def handle_batch_one_pick_multi_drop(
-            self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        '''一件代发 一提多卸标记'''
-        context = {}
-        batch_json = request.POST.get('batch_correlation_data', '[]')
-        try:
-            correlation_list = json.loads(batch_json)
-        except (json.JSONDecodeError, TypeError):
-            correlation_list = []
-
-        if correlation_list:
-            seed_parts = []
-            for item in correlation_list:
-                mark = str(item.get('shipping_mark', '')).strip()
-                if len(mark) > 10:
-                    seed_parts.append(f"{mark[:5]}{mark[-5:]}")
-                else:
-                    seed_parts.append(mark)
-
-            seed_str = "|".join(seed_parts)
-            correlation_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, seed_str))
-
-            for entry in correlation_list:
-                raw_id = entry.get('cargo_id', '')
-                if not raw_id:
-                    continue
-
-                if raw_id.startswith('plt_'):
-                    pallet_ids = raw_id.replace('plt_', '').split(',')
-
-                    existing_records = await sync_to_async(list)(
-                        Pallet.objects.filter(id__in=pallet_ids).values('id', 'ltl_correlation_id')
-                    )
-                    if not existing_records:
-                        continue
-
-                    has_correlation = any(record['ltl_correlation_id'] for record in existing_records)
-
-                    if has_correlation:
-                        await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id='')
-                        context.update({'success_messages': f"成功取消一提多卸关联"})
-                    else:
-                        await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id=correlation_id)
-                        context.update({'success_messages': f"成功关联一提多卸"})
-                else:
-                    cargo_ids = raw_id.split(',')
-
-                    existing_records = await sync_to_async(list)(
-                        PackingList.objects.filter(id__in=cargo_ids).values('id', 'ltl_correlation_id')
-                    )
-                    if not existing_records:
-                        continue
-                    has_correlation = any(record['ltl_correlation_id'] for record in existing_records)
-
-                    if has_correlation:
-                        await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id='')
-                        context.update({'success_messages': f"成功取消一提多卸关联"})
-                    else:
-                        await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id=correlation_id)
-                        context.update({'success_messages': f"成功关联一提多卸"})
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def handle_ltl_bind_group_shipment(
