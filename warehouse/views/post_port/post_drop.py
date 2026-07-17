@@ -316,22 +316,12 @@ class PostDrop(View):
 
     async def _get_release_cargos(self, warehouse: str) -> list:
         '''获取未放行货物数据'''
-        base_criteria = Q(
-            warehouse__name=warehouse,
-            status__in=['not_in_stock', 'in_stock'],
+        base_criteria = Q(warehouse__name=warehouse) & Q(status='not_in_stock') & (
+            Q(order__retrieval_id__planned_release_time__isnull=False) |
+            Q(order__retrieval_id__temp_t49_available_for_pickup=True)
         )
 
-        release_condition = Q(warehouse__name=warehouse) & Q(status='not_in_stock') & (
-            Q(order__retrieval_id__planned_release_time__isnull=True) |
-            Q(order__retrieval_id__temp_t49_available_for_pickup=False)
-        )
-
-        release_ids = await sync_to_async(list)(
-            DropshipCargo.objects.filter(release_condition).values_list('id', flat=True)
-        )
-        release_ids_set = set(release_ids)
-
-        all_cargos_qs = DropshipCargo.objects.select_related(
+        cargos_qs = DropshipCargo.objects.select_related(
             'order',
             'order__customer_name',
             'order__container_number',
@@ -339,9 +329,7 @@ class PostDrop(View):
             'order__vessel_id',
             'warehouse',
         ).filter(base_criteria)
-        all_cargos_raw = await sync_to_async(list)(all_cargos_qs)
-
-        release_cargos_raw = [cargo for cargo in all_cargos_raw if cargo.id in release_ids_set]
+        release_cargos_raw = await sync_to_async(list)(cargos_qs)
 
         release_cargos = []
         for cargo in release_cargos_raw:
@@ -364,23 +352,13 @@ class PostDrop(View):
         return release_cargos
 
     async def _get_selfdel_cargos(self, warehouse: str) -> list:
-        '''获取已放行自发货物数据'''
-        base_criteria = Q(
-            warehouse__name=warehouse,
-            status__in=['not_in_stock', 'in_stock'],
+        '''获取已放行货物数据'''       
+        base_criteria = Q(warehouse__name=warehouse) & ~Q(status='all_out') & (
+            Q(order__retrieval_id__planned_release_time__isnull=False) |
+            Q(order__retrieval_id__temp_t49_available_for_pickup=True)
         )
 
-        release_condition = Q(warehouse__name=warehouse) & Q(status='not_in_stock') & (
-            Q(order__retrieval_id__planned_release_time__isnull=True) |
-            Q(order__retrieval_id__temp_t49_available_for_pickup=False)
-        )
-
-        release_ids = await sync_to_async(list)(
-            DropshipCargo.objects.filter(release_condition).values_list('id', flat=True)
-        )
-        release_ids_set = set(release_ids)
-
-        all_cargos_qs = DropshipCargo.objects.select_related(
+        cargos_qs = DropshipCargo.objects.select_related(
             'order',
             'order__customer_name',
             'order__container_number',
@@ -388,9 +366,7 @@ class PostDrop(View):
             'order__vessel_id',
             'warehouse',
         ).filter(base_criteria)
-        all_cargos_raw = await sync_to_async(list)(all_cargos_qs)
-
-        selfdel_cargos_raw = [cargo for cargo in all_cargos_raw if cargo.id not in release_ids_set]
+        selfdel_cargos_raw = await sync_to_async(list)(cargos_qs)
 
         selfdel_cargos = []
         for cargo in selfdel_cargos_raw:
@@ -1497,7 +1473,6 @@ class PostDrop(View):
         arm_bol = request.POST.get('arm_bol', '').strip()
         shipment_type = request.POST.get('shipment_type', '客户自提').strip()
         warehouse = request.POST.get('warehouse')
-        print(request.POST)
 
         if not shipment_appointment:
             context = {'error_messages': '请填写提货时间！'}
