@@ -347,33 +347,95 @@
 
     <div id="order-packing-list-info-sec" style="display: none; width: 100%;">
         <div style="display: flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            {% if not selected_order.offload_id.offload_at and not selected_order.offload_id.offload_other_at %}
+            {% if not selected_order.offload_id.offload_at %}
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <button type="button" id="add-more-btn" class="btn btn-success"
-                            style="height: 35px; font-size: 12px;" onclick="addRowBelow()">
-                        <i class="bi bi-plus-lg"></i> 添加行
+                    <div style="
+                        color:#888;
+                        font-size:12px;
+                        margin-left:10px;
+                    ">
+                        提示：修改、删除 PackingList 信息需要先勾选对应行
+                    </div>
+                    <button type="button"
+                            onclick="openAddPackingListModal();"
+                            class="btn"
+                                    style="
+                                    width:120px;
+                                    height:35px;
+                                    font-size:13px;
+                                    color:white;
+                                    background:#17b82c;
+                                    border:none;
+                                    border-radius:5px;
+                                    cursor:pointer;
+                                ">
+                        添加选中行
                     </button>
-                    <button type="button" id="remove-last-btn" class="btn btn-danger"
-                            style="height: 35px; font-size: 12px;" onclick="rmLastRow()">
-                        <i class="bi bi-dash-lg"></i> 删除选中行
+                    <button type="button"
+                            onclick="rmLastRow();"
+                            class="btn"
+                                    style="
+                                    width:120px;
+                                    height:35px;
+                                    font-size:13px;
+                                    color:white;
+                                    background:#fa3737;
+                                    border:none;
+                                    border-radius:5px;
+                                    cursor:pointer;
+                                ">
+                        删除选中行
                     </button>
                 </div>
             {% else %}
                 {% if user.is_authenticated %}
                     {% if user.is_staff %}
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <button type="button" id="add-more-btn" class="btn btn-success"
-                                    style="height: 35px; font-size: 12px;" onclick="addRowBelow()">
-                                <i class="bi bi-plus-lg"></i> 添加行
+                            <button type="button"
+                                    onclick="openAddPackingListModal();"
+                                    class="btn"
+                                    style="
+                                    width:120px;
+                                    height:35px;
+                                    font-size:13px;
+                                    color:white;
+                                    background:#17b82c;
+                                    border:none;
+                                    border-radius:5px;
+                                    cursor:pointer;
+                                ">
+                                添加选中行
                             </button>
-                            <button type="button" id="remove-last-btn" class="btn btn-danger"
-                                    style="height: 35px; font-size: 12px;" onclick="rmLastRow()">
-                                <i class="bi bi-dash-lg"></i> 删除选中行
+                            <button type="button"
+                                    onclick="rmLastRow();"
+                                    class="btn"
+                                    style="
+                                    width:120px;
+                                    height:35px;
+                                    font-size:13px;
+                                    color:white;
+                                    background:#fa3737;
+                                    border:none;
+                                    border-radius:5px;
+                                    cursor:pointer;
+                                ">
+                                删除选中行
                             </button>
-                            <button type="submit" form="packing-list-form" class="btn btn-primary"
-                                    style="height: 35px; font-size: 12px; white-space: nowrap;"
-                                    onclick="return processForm()">
-                                更新PackingList信息
+                            <button type="submit"
+                                    form="packing-list-form"
+                                    onclick="return processForm();"
+                                    class="btn"
+                                    style="
+                                    width:220px;
+                                    height:35px;
+                                    font-size:13px;
+                                    color:white;
+                                    background:#17a2b8;
+                                    border:none;
+                                    border-radius:5px;
+                                    cursor:pointer;
+                                ">
+                                更新选中PackingList信息
                             </button>
                         </div>
                     {% endif %}
@@ -381,11 +443,272 @@
             {% endif %}
         </div>
 
+        <div id="addPackingModal" class="modal" style="display:none;">
+            <div class="modal-content" style="
+        width:900px;
+        max-width:95%;
+        padding:25px;
+        border-radius:10px;
+    ">
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h3 style="margin:0;">新增 Packing List</h3>
+
+                    <button type="button"
+                            onclick="closeAddPackingModal()"
+                            style="
+                        border:none;
+                        background:none;
+                        font-size:24px;
+                        cursor:pointer;
+                        color:#666;">
+                        ×
+                    </button>
+                </div>
+
+                <form id="addPackingForm" method="post">
+
+                    {% csrf_token %}
+
+                    <input type="hidden" name="container_number"
+                           value="{{ selected_order.container_number.container_number }}">
+
+                    <input type="hidden" name="is_add" value="1">
+
+                    <input type="hidden" name="source" value="order_management">
+
+                    <input type="hidden" name="step"
+                           value="update_order_packing_list_info">
+
+                    <input type="hidden" name="selected_pl_ids" value="">
+
+
+                    <table class="table table-bordered" style="margin-bottom:20px;">
+                        <tbody>
+
+                        <tr>
+                            <th style="width:18%;background:#f8f9fa;">
+                                唛头
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       name="shipping_mark">
+                            </td>
+
+                            <th style="width:18%;background:#f8f9fa;">
+                                箱数 <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       min="1"
+                                       name="pcs"
+                                       required>
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                重量(KG) <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       step="0.01"
+                                       min="0"
+                                       name="total_weight_kg"
+                                       required>
+                            </td>
+
+
+                            <th style="background:#f8f9fa;">
+                                重量(LBS) <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       step="0.01"
+                                       min="0"
+                                       name="total_weight_lbs"
+                                       required>
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                CBM <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       step="0.0001"
+                                       min="0"
+                                       name="cbm"
+                                       required>
+                            </td>
+
+
+                            <th style="background:#f8f9fa;">
+                                派送方式 <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <select class="form-control"
+                                        name="delivery_method"
+                                        required>
+
+                                    {% for k,v in delivery_options %}
+                                        <option value="{{ v }}">
+                                            {{ k }}
+                                        </option>
+                                    {% endfor %}
+
+                                </select>
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                派送类型
+                            </th>
+                            <td>
+                                <select class="form-control"
+                                        name="delivery_type">
+
+                                    {% for k,v in delivery_types %}
+                                        <option value="{{ v }}">
+                                            {{ k }}
+                                        </option>
+                                    {% endfor %}
+
+                                </select>
+                            </td>
+
+
+                            <th style="background:#f8f9fa;">
+                                长(cm)
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       step="0.01"
+                                       name="long">
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                宽(cm)
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       step="0.01"
+                                       name="width">
+                            </td>
+
+
+                            <th style="background:#f8f9fa;">
+                                高(cm)
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       type="number"
+                                       step="0.01"
+                                       name="height">
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                型号 <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       name="model"
+                                       required>
+                            </td>
+
+
+                            <th style="background:#f8f9fa;">
+                                产品名称 <span style="color:red">*</span>
+                            </th>
+                            <td>
+                                <input class="form-control"
+                                       name="product_name"
+                                       >
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                地址
+                            </th>
+
+                            <td colspan="3">
+                                <input class="form-control"
+                                       name="address">
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+                            <th style="background:#f8f9fa;">
+                                备注
+                            </th>
+
+                            <td colspan="3">
+
+                <textarea class="form-control"
+                          rows="3"
+                          name="note"></textarea>
+
+                            </td>
+
+                        </tr>
+
+
+                        </tbody>
+                    </table>
+
+                </form>
+
+                <div style="display:flex;justify-content:flex-end;gap:10px;">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            onclick="closeAddPackingModal()">
+                        取消
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-success"
+                            onclick="submitAddPacking()">
+                        保存
+                    </button>
+
+                </div>
+
+            </div>
+        </div>
+
         <form method="post" id="packing-list-form" action="">
             {% csrf_token %}
             <input type="hidden" name="step" value="update_order_packing_list_info">
             <input type="hidden" name="source" value="order_management">
             <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+            <input type="hidden" id="delete_pl_ids" name="delete_pl_ids" value="">
+            <input type="hidden" name="selected_pl_ids" id="selected_pl_ids">
+            <input type="hidden" name="operation" id="operation" value="update">
             <div style="max-height: 70vh; overflow-y:auto;">
                 <table class="packing-list-table" id="packing-list-table">
                     <thead>
@@ -429,22 +752,21 @@
                     </tr>
                     </thead>
                     <tbody id="packing-list-container">
-                    <tr id="packing-list-row-empty" style="display: none;">
+                    <tr class="packing-list-row-empty" style="display: none;">
                         <td>
-                            <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
+                            <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this);updateSummary();">
+                            <input type="hidden" name="pl_id" value="{{ pl.id }}">
                         </td>
                         <td><input type="text" name="shipping_mark"></td>
-                        <td><input type="number" step="0.01" name="pcs" required></td>
-                        <td><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)"
-                                   required></td>
-                        <td><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)"
-                                   required></td>
-                        <td><input type="number" step="0.01" name="cbm" required></td>
+                        <td><input type="number" name="pcs"></td>
+                        <td><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)"></td>
+                        <td><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)"></td>
+                        <td><input type="number" step="0.01" name="cbm"></td>
                         <td><input type="number" step="0.01" name="long"></td>
                         <td><input type="number" step="0.01" name="width"></td>
                         <td><input type="number" step="0.01" name="height"></td>
-                        <td><input type="text" name="product_name" class="text-ellipsis" required></td>
-                        <td><input type="text" name="model" class="text-ellipsis" required></td>
+                        <td><input type="text" name="product_name" class="text-ellipsis"></td>
+                        <td><input type="text" name="model" class="text-ellipsis"></td>
                         <td>
                             <select name="delivery_type" class="delivery-type">
                                 {% for k, v in delivery_types %}
@@ -463,52 +785,53 @@
                         <td><input type="text" name="note"></td>
                     </tr>
                     {% for pl in dropship_cargo %}
-                        <tr id="packing-list-row">
+                        <tr class="packing-list-row">
                             <td>
                                 <input type='checkbox' name='is_packing_list_selected'
-                                       onclick="toggleRowBackground(this)">
+                                       onclick="toggleRowBackground(this);updateSummary();">
+                                <input type="hidden" name="pl_id" value="{{ pl.id }}">
                             </td>
-                            <td><input type="text" name="shipping_mark"
+                            <td><input type="text" name="shipping_mark_{{ pl.id }}"
                                        {% if pl.shipping_mark %}value="{{ pl.shipping_mark }}"{% endif %}></td>
-                            <td><input type="number" step="0.01" name="pcs"
+                            <td><input type="number" step="0.01" name="pcs_{{ pl.id }}"
                                        {% if pl.pcs %}value="{{ pl.pcs }}"{% endif %} required></td>
-                            <td><input type="number" step="0.01" name="total_weight_kg"
+                            <td><input type="number" step="0.01" name="total_weight_kg_{{ pl.id }}"
                                        {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %}
                                        oninput="updateWeight(this)" required></td>
-                            <td><input type="number" step="0.01" name="total_weight_lbs"
+                            <td><input type="number" step="0.01" name="total_weight_lbs_{{ pl.id }}"
                                        {% if pl.total_weight_lbs %}value="{{ pl.total_weight_lbs }}"{% endif %}
                                        oninput="updateWeight(this)" required></td>
-                            <td><input type="number" step="0.01" name="cbm"
+                            <td><input type="number" step="0.01" name="cbm_{{ pl.id }}"
                                        {% if pl.cbm %}value="{{ pl.cbm }}"{% endif %} required></td>
-                            <td><input type="number" step="0.01" name="long"
+                            <td><input type="number" step="0.01" name="long_{{ pl.id }}"
                                        {% if pl.long %}value="{{ pl.long }}"{% endif %}></td>
-                            <td><input type="number" step="0.01" name="width"
+                            <td><input type="number" step="0.01" name="width_{{ pl.id }}"
                                        {% if pl.width %}value="{{ pl.width }}"{% endif %}></td>
-                            <td><input type="number" step="0.01" name="height"
+                            <td><input type="number" step="0.01" name="height_{{ pl.id }}"
                                        {% if pl.height %}value="{{ pl.height }}"{% endif %}></td>
-                            <td><input type="text" name="product_name" class="text-ellipsis"
+                            <td><input type="text" name="product_name_{{ pl.id }}" class="text-ellipsis"
                                        {% if pl.product_name %}value="{{ pl.product_name }}"{% endif %} required></td>
-                            <td><input type="text" name="model" class="text-ellipsis"
+                            <td><input type="text" name="model_{{ pl.id }}" class="text-ellipsis"
                                        {% if pl.model %}value="{{ pl.model }}"{% endif %} required></td>
                             <td>
-                                <select name="delivery_type" class="delivery-type">
+                                <select name="delivery_type_{{ pl.id }}" class="delivery-type">
                                     {% for k, v in delivery_types %}
                                         <option value="{{ v }}"
                                                 {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td><input type="text" name="address" class="text-ellipsis"
+                            <td><input type="text" name="address_{{ pl.id }}" class="text-ellipsis"
                                        {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
                             <td>
-                                <select name="delivery_method" class="delivery-method">
+                                <select name="delivery_method_{{ pl.id }}" class="delivery-method">
                                     {% for k, v in delivery_options %}
                                         <option value="{{ v }}"
                                                 {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
+                            <td><input type="text" name="note_{{ pl.id }}" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
                         </tr>
                     {% endfor %}
                     <tr id="sub_table_summary" style="position: sticky; bottom:28px; z-index:2;">
@@ -814,6 +1137,33 @@
 
 </style>
 <script>
+    function openAddPackingListModal() {
+
+        document.getElementById(
+            "addPackingModal"
+        ).style.display = "block";
+
+    }
+
+    function closeAddPackingModal() {
+
+        document.getElementById(
+            "addPackingModal"
+        ).style.display = "none";
+
+    }
+
+    function submitAddPacking() {
+
+        let form = document.getElementById("addPackingForm");
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        form.submit();
+    }
     // 只针对当前按钮进行事件绑定，避免影响其他按钮
     const checkOrderForm = document.getElementById('checkOrderForm');
     const checkStatusBtn = document.getElementById('check-status-btn'); // 使用唯一ID
@@ -918,17 +1268,64 @@
         table.appendChild(subTableSummary);
     };
 
+    let deleteIds = [];
+
     function rmLastRow() {
-        var selectedRows = document.querySelectorAll('#packing-list-container tr:not(#table_summary):not(#sub_table_summary):not(#packing-list-row-empty)');
-        selectedRows.forEach(function(row) {
-            var checkbox = row.querySelector('input[type="checkbox"]');
-            if (checkbox.checked) {
-                row.remove();
+
+        const rows = document.querySelectorAll(
+            '#packing-list-container tr.packing-list-row'
+        );
+
+        let hasSelected = false;
+
+        rows.forEach(row => {
+            const checkbox = row.querySelector(
+                'input[name="is_packing_list_selected"]'
+            );
+
+            if (checkbox && checkbox.checked) {
+                hasSelected = true;
             }
         });
-        calculateSummary();
-        updateSubTableSummary();
-    };
+
+        if (!hasSelected) {
+            alert("请选择要删除的行");
+            return;
+        }
+
+        if (!confirm("确认删除选中的Packing List吗？")) {
+            return;
+        }
+
+        rows.forEach(row => {
+
+            const checkbox = row.querySelector(
+                'input[name="is_packing_list_selected"]'
+            );
+
+            if (checkbox && checkbox.checked) {
+
+                const idInput = row.querySelector(
+                    'input[name="pl_id"]'
+                );
+
+                if (idInput.value) {
+                    deleteIds.push(idInput.value);
+                }
+
+                row.remove();
+            }
+
+        });
+
+        document.getElementById("delete_pl_ids").value =
+            deleteIds.join(",");
+
+        processForm();
+
+        document.getElementById("packing-list-form").submit();
+
+    }
 
     function updateWeight(numberInput) {
         const row = numberInput.closest('tr');
@@ -942,54 +1339,214 @@
     };
 
     function processForm() {
-        var firstEmptyRow = document.getElementById('packing-list-row-empty');
-        if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
-            var inputs = firstEmptyRow.querySelectorAll('input, select');
-            inputs.forEach(function(input) {
-                if (input.hasAttribute('required')) {
-                    input.removeAttribute('required');
-                };
-                input.disabled = true;
-            });
-        };
 
-        var deliveryMethodSelects = document.querySelectorAll('.delivery-method');
-        var isValid = true;
-        deliveryMethodSelects.forEach(function(select) {
-            if (!select.disabled) {
-                if (select.value.trim() === '') {
-                isValid = false;
-                select.style.border = '2px solid red';
-                } else {
-                    select.style.border = '';
-                };
-            };
+        const form = document.getElementById("packing-list-form");
+
+        form.querySelectorAll(".dynamic-packing-data").forEach(e => e.remove());
+
+        let ids = [];
+
+        const rows = document.querySelectorAll(
+            "#packing-list-container tr.packing-list-row"
+        );
+
+        rows.forEach(row => {
+
+            const checked = row.querySelector(
+                'input[name="is_packing_list_selected"]'
+            ).checked;
+
+            if (!checked) {
+                return;
+            }
+
+            const id = row.querySelector(
+                'input[name="pl_id"]'
+            ).value;
+
+            ids.push(id);
+
+            [
+                "delivery_method",
+                "shipping_mark",
+                "product_name",
+                "model",
+                "address",
+                "pcs",
+                "total_weight_kg",
+                "total_weight_lbs",
+                "cbm",
+                "note",
+                "long",
+                "width",
+                "height"
+            ].forEach(field => {
+
+                let element = row.querySelector(
+                    `[name^="${field}"]`
+                );
+
+                let hidden = document.createElement("input");
+
+                hidden.type = "hidden";
+
+                hidden.className = "dynamic-packing-data";
+
+                hidden.name = field;
+
+                hidden.value = element.value;
+
+                form.appendChild(hidden);
+
+            });
+
         });
-        if (!isValid) {
-            event.preventDefault();
-            alert("请选择'派送方式'!");
-            return false;
-        };
+
+        document.getElementById("selected_pl_ids").value = ids.join(",");
+
         return true;
-    };
+
+    }
 
     function toggleAllCheckboxes() {
-        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
-        var checkboxes = document.querySelectorAll('#packing-list-row input[type="checkbox"][name="is_packing_list_selected"]');
 
-        checkboxes.forEach(function(checkbox) {
-            var tr = checkbox.closest('tr');
-            if (tr.style.display !== 'none') {
-                checkbox.checked = selectAllCheckbox.checked;
-                if (checkbox.checked) {
-                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
-                } else {
-                    tr.style.backgroundColor = ''; // Reset to default color
-                }
-            }
+        const checked = document.getElementById(
+            "selectAllCheckbox"
+        ).checked;
+
+
+        document.querySelectorAll(
+            "#packing-list-container tr.packing-list-row input[name='is_packing_list_selected']"
+        ).forEach(function (cb) {
+
+            cb.checked = checked;
+
+            toggleRowBackground(cb);
+
         });
-        updateSubTableSummary();
+
+
+        updateSummary();
+
+    }
+
+    function updateSummary(){
+
+
+    let total = {
+        pcs:0,
+        weight_kg:0,
+        weight:0,
+        cbm:0
     };
+
+
+    let selected = {
+        pcs:0,
+        weight_kg:0,
+        weight:0,
+        cbm:0
+    };
+
+
+    document.querySelectorAll(
+        "#packing-list-container tr.packing-list-row"
+    ).forEach(function(row){
+
+
+        let pcs = parseFloat(
+            row.querySelector("[name^='pcs_']")?.value
+        ) || 0;
+
+
+        let kg = parseFloat(
+            row.querySelector("[name^='total_weight_kg_']")?.value
+        ) || 0;
+
+
+        let lbs = parseFloat(
+            row.querySelector("[name^='total_weight_lbs_']")?.value
+        ) || 0;
+
+
+        let cbm = parseFloat(
+            row.querySelector("[name^='cbm_']")?.value
+        ) || 0;
+
+
+
+        // 总计
+        total.pcs += pcs;
+        total.weight_kg += kg;
+        total.weight += lbs;
+        total.cbm += cbm;
+
+
+
+        // 已筛选(勾选)
+        let checked =
+            row.querySelector(
+                "input[name='is_packing_list_selected']"
+            )?.checked;
+
+
+        if(checked){
+
+            selected.pcs += pcs;
+            selected.weight_kg += kg;
+            selected.weight += lbs;
+            selected.cbm += cbm;
+
+        }
+
+
+    });
+
+
+
+    // 总计
+    document.getElementById(
+        "table_summary_pcs"
+    ).innerText = total.pcs.toFixed(2);
+
+
+    document.getElementById(
+        "table_summary_weight_kg"
+    ).innerText = total.weight_kg.toFixed(2);
+
+
+    document.getElementById(
+        "table_summary_weight"
+    ).innerText = total.weight.toFixed(2);
+
+
+    document.getElementById(
+        "table_summary_cbm"
+    ).innerText = total.cbm.toFixed(2);
+
+
+
+    // 已筛选
+    document.getElementById(
+        "sub_table_summary_pcs"
+    ).innerText = selected.pcs.toFixed(2);
+
+
+    document.getElementById(
+        "sub_table_summary_weight_kg"
+    ).innerText = selected.weight_kg.toFixed(2);
+
+
+    document.getElementById(
+        "sub_table_summary_weight"
+    ).innerText = selected.weight.toFixed(2);
+
+
+    document.getElementById(
+        "sub_table_summary_cbm"
+    ).innerText = selected.cbm.toFixed(2);
+
+}
 
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');
@@ -1155,12 +1712,33 @@
         updateSubTableSummary();
     }
 
-    window.onload = calculateSummary;
     function formatDecimal(input) {
     if (input.value) {
         input.value = parseFloat(input.value).toFixed(4);
     }
 }
+    document.addEventListener(
+    "input",
+    function(e){
+
+        if(
+            e.target.closest("#packing-list-table")
+        ){
+            updateSummary();
+        }
+
+    }
+);
+
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function(){
+
+        updateSummary();
+
+    }
+);
 
 </script>
 {% endblock %}
