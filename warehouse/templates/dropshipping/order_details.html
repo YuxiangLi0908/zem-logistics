@@ -1589,32 +1589,6 @@
         document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
     };
 
-    function calculateSummary() {
-        var totalPcs = 0;
-        var totalWeightKg = 0;
-        var totalWeight = 0;
-        var totalCbm = 0;
-
-        var rows = document.querySelectorAll("#packing-list-container tr:not(#table_summary):not(#sub_table_summary):not(#packing-list-row-empty)");
-        rows.forEach(row => {
-            var pcsInput = row.querySelector('input[name="pcs"]');
-            var weightKgInput = row.querySelector('input[name="total_weight_kg"]');
-            var weightInput = row.querySelector('input[name="total_weight_lbs"]');
-            var cbmInput = row.querySelector('input[name="cbm"]');
-
-            totalPcs += parseInt(pcsInput.value) || 0;
-            totalWeightKg += parseFloat(weightKgInput.value) || 0;
-            totalWeight += parseFloat(weightInput.value) || 0;
-            totalCbm += parseFloat(cbmInput.value) || 0;
-        });
-
-        document.getElementById('table_summary_cnt').innerHTML = `<b>总计: ${rows.length}</b>`;
-        document.getElementById('table_summary_pcs').textContent = totalPcs;
-        document.getElementById('table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
-        document.getElementById('table_summary_weight').textContent = totalWeight.toFixed(2);
-        document.getElementById('table_summary_cbm').textContent = totalCbm.toFixed(2);
-    }
-
     function updateSubTableSummary() {
         var totalPcs = 0;
         var totalWeightKg = 0;
@@ -1648,14 +1622,21 @@
         document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
     }
 
-    window.onload = function() {
-        calculateSummary();
-        document.querySelectorAll('input[type="checkbox"][name="is_packing_list_selected"]').forEach(checkbox => {
+    window.onload = function () {
+
+        document.querySelectorAll(
+            'input[name="is_packing_list_selected"]'
+        ).forEach(checkbox => {
             checkbox.checked = false;
         });
-        document.getElementById('selectAllCheckbox').checked = false;
 
-        updateSubTableSummary();
+        document.getElementById(
+            'selectAllCheckbox'
+        ).checked = false;
+
+
+        updateSummary();
+
     };
 
     function filterTable(filterInput, col_idx, trim) {
@@ -1689,26 +1670,6 @@
             }
             row.style.display = showRow ? "" : "none";
         };
-        updateSubTableSummary();
-    }
-
-    function toggleRowBackground(checkbox) {
-        var row = checkbox.closest('tr');
-        row.style.backgroundColor = checkbox.checked ? '#ADD8E6' : '';
-        updateSubTableSummary();
-    }
-
-    function toggleAllCheckboxes() {
-        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
-        var checkboxes = document.querySelectorAll('#packing-list-row input[type="checkbox"][name="is_packing_list_selected"]');
-
-        checkboxes.forEach(checkbox => {
-            var tr = checkbox.closest('tr');
-            if (tr.style.display !== 'none') {
-                checkbox.checked = selectAllCheckbox.checked;
-                tr.style.backgroundColor = checkbox.checked ? '#ADD8E6' : '';
-            }
-        });
         updateSubTableSummary();
     }
 
