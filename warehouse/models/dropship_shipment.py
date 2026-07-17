@@ -11,8 +11,9 @@ class DropshipShipment(models.Model):
     
     # 时间
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    expected_shipped_date = models.DateField(null=True, blank=True, verbose_name="预计出库日期")
-    expected_delivered_date = models.DateTimeField(null=True, blank=True, verbose_name="送达时间")
+    picku_time = models.DateField(null=True, blank=True, verbose_name="预计提货日期")
+    shipped_at = models.DateTimeField(null=True, blank=True, verbose_name="实际出库日期")
+    arrived_at = models.DateTimeField(null=True, blank=True, verbose_name="送达时间")
     
     # 出库信息
     total_pcs = models.PositiveIntegerField(default=0, verbose_name="总出库件数")
@@ -23,9 +24,9 @@ class DropshipShipment(models.Model):
     pod_uploaded_at = models.DateTimeField(null=True, blank=True, verbose_name="POD上传时间")
     
     # 收货地址
-    shipping_address = models.TextField(verbose_name="收货地址")
-    contact_person = models.CharField(max_length=100, verbose_name="联系人")
-    contact_phone = models.CharField(max_length=20, verbose_name="联系电话")
+    shipping_address = models.TextField(verbose_name="收货地址", blank=True, null=True)
+    contact_person = models.CharField(max_length=100, verbose_name="联系人", blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, verbose_name="联系电话", blank=True, null=True)
     
     # 备注
     note = models.TextField(null=True, blank=True, verbose_name="备注")

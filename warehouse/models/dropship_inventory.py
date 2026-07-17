@@ -53,7 +53,7 @@ class DropshipInventory(models.Model):
     note = models.TextField(null=True, blank=True, verbose_name="备注")
     # 对于预约出库来说，为真表示确认出库了；对于建单来说，为真表示已经拆柜入库了
     is_verify = models.BooleanField(default=False, verbose_name="是否核验")
-    verify_pcs = models.PositiveIntegerField(verbose_name="操作后件数")
+    verify_pcs = models.PositiveIntegerField(verbose_name="核验后件数", null=True, blank=True)
     
     class Meta:
         indexes = [
