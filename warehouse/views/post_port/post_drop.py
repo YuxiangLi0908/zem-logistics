@@ -95,6 +95,7 @@ class PostDrop(View):
     template_ltl_pos_all = "post_port/new_sop/07_drop_shipping/07_ltl_main.html"
     template_account_rec = "post_port/new_sop/08_drop_ship_account/09_account_main.html"
     template_account_edit = "post_port/new_sop/08_drop_ship_account/account_detail.html"
+    template_ltl_inventory = "post_port/new_sop/09_drop_ship_inventory/09_ltl_inventory.html"
 
 
     container_type = {
@@ -153,6 +154,10 @@ class PostDrop(View):
                 )
             }
             return await sync_to_async(render)(request, self.template_account_rec, context)
+        elif step == "dropship_invetory":
+            warehouse_name = request.GET.get("warehouse", "")
+            context = await self.handle_dropship_inventory(request, warehouse_name)
+            return await sync_to_async(render)(request, self.template_ltl_inventory, context)
         else:
             raise ValueError('wrong step',step)
 
@@ -185,6 +190,10 @@ class PostDrop(View):
         elif step == "ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "dropship_invetory":
+            warehouse_name = request.POST.get("warehouse", "")
+            context = await self.handle_dropship_inventory(request, warehouse_name)
+            return await sync_to_async(render)(request, self.template_ltl_inventory, context)
         elif step == "cancel_fleet":
             # 删除车次后返回一件代发待出库界面
             fm = FleetManagement()
@@ -1639,7 +1648,7 @@ class PostDrop(View):
                 transaction_date=current_time_beijing,
                 operator=await sync_to_async(lambda: request.user.username)(),
                 verify_pcs=after_pcs,
-                is_verify=True
+                is_verify=False
             )
             inventory_records.append(inventory)
 
@@ -1658,3 +1667,54 @@ class PostDrop(View):
         success_msg = f'预约出库成功!<br>共出库 {total_pcs} 件<br>批次号: {batch_number}'
         context = {'success_messages': mark_safe(success_msg)}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+    async def handle_dropship_inventory(
+            self, request: HttpRequest, warehouse_name: str = ""
+    ) -> dict[str, Any]:
+        '''库存流水查询 - 根据仓库筛选DropshipInventory记录'''
+        context = {
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "selected_warehouse": warehouse_name,
+            "inventory_records": [],
+        }
+
+        if warehouse_name:
+            warehouse_obj = await sync_to_async(ZemWarehouse.objects.filter(name=warehouse_name).first)()
+            if warehouse_obj:
+                inventory_records = await sync_to_async(list)(
+                    DropshipInventory.objects
+                    .filter(cargo__warehouse=warehouse_obj)
+                    .select_related('cargo', 'shipment_detail', 'shipment_detail__shipment')
+                    .order_by('-transaction_date')
+                )
+                
+                inventory_data = []
+                for record in inventory_records:
+                    shipment_batch = ""
+                    if record.shipment_detail and record.shipment_detail.shipment:
+                        shipment_batch = record.shipment_detail.shipment.shipment_batch_number
+                    
+                    transaction_type_display = dict(record.TRANSACTION_TYPES).get(record.transaction_type, record.transaction_type)
+                    
+                    inventory_data.append({
+                        'id': record.id,
+                        'transaction_type': transaction_type_display,
+                        'transaction_type_code': record.transaction_type,
+                        'transaction_date': record.transaction_date,
+                        'shipping_mark': record.cargo.shipping_mark,
+                        'model': record.cargo.model,
+                        'pcs_change': record.pcs_change,
+                        'after_pcs': record.after_pcs,
+                        'verify_pcs': record.verify_pcs,
+                        'operator': record.operator,
+                        'is_verify': record.is_verify,
+                        'shipment_batch': shipment_batch,
+                    })
+                
+                context["inventory_records"] = inventory_data
+
+        return context
