@@ -23,9 +23,9 @@ class DropshipShipment(models.Model):
     pod_uploaded_at = models.DateTimeField(null=True, blank=True, verbose_name="POD上传时间")
     
     # 收货地址
-    shipping_address = models.TextField(verbose_name="收货地址")
-    contact_person = models.CharField(max_length=100, verbose_name="联系人")
-    contact_phone = models.CharField(max_length=20, verbose_name="联系电话")
+    shipping_address = models.TextField(verbose_name="收货地址", blank=True, null=True)
+    contact_person = models.CharField(max_length=100, verbose_name="联系人", blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, verbose_name="联系电话", blank=True, null=True)
     
     # 备注
     note = models.TextField(null=True, blank=True, verbose_name="备注")

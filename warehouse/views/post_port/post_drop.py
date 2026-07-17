@@ -1593,7 +1593,6 @@ class PostDrop(View):
 
         total_pcs = sum(item.get('pcs', 0) for item in cargo_pcs_data)
 
-        print('warehouse_obj',warehouse_obj)
         dropship_shipment = await sync_to_async(DropshipShipment.objects.create)(
             shipment_batch_number=batch_number,
             warehouse=warehouse_obj,
@@ -1605,7 +1604,6 @@ class PostDrop(View):
             shipping_address='',
             contact_person='',
             contact_phone='',
-            note=f'承运公司: {carrier}, BOL号: {arm_bol}, 预约类型: {shipment_type}',
             operator=await sync_to_async(lambda: request.user.username)()
         )
 
@@ -1647,7 +1645,6 @@ class PostDrop(View):
                 shipment_detail=shipment_detail,
                 transaction_date=current_time_beijing,
                 operator=await sync_to_async(lambda: request.user.username)(),
-                verify_pcs=after_pcs,
                 is_verify=False
             )
             inventory_records.append(inventory)
