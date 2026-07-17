@@ -200,14 +200,6 @@
         min-width: 200px;
     }
     
-    /* 托盘尺寸列样式 */
-    .pallet-size-cell {
-        max-width: 150px;
-        min-width: 120px;
-        white-space: pre-line; /* 保留换行 */
-        line-height: 1.4;
-    }
-    
     /* 多选框列 */
         .checkbox-col {
             width: 50px;
@@ -357,17 +349,18 @@
                         <table class="modal-table">
                             <thead>
                                 <tr>
-                                    <th class="checkbox-col">
-                                        <input type="checkbox" id="modal-selectAllCargos">
-                                    </th>
-                                    <th>客户</th>
-                                    <th>柜号</th>
-                                    <th>唛头</th>
-                                    <th>托盘尺寸</th>
-                                    <th>板数</th>
-                                    <th>CBM</th>
-                                    <th>重量(lbs)</th>
-                                </tr>
+                                        <th class="checkbox-col">
+                                            <input type="checkbox" id="modal-selectAllCargos">
+                                        </th>
+                                        <th>客户</th>
+                                        <th>柜号</th>
+                                        <th>唛头</th>
+                                        <th>商品型号</th>
+                                        <th>商品类型</th>
+                                        <th>板数</th>
+                                        <th>CBM</th>
+                                        <th>重量(lbs)</th>
+                                    </tr>
                             </thead>
                             <tbody id="cargoSelectionBody">
                                 <!-- JS 动态生成 -->
@@ -536,7 +529,7 @@
         const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
         const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
         
-        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 私仓预约出库';
+        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 一件代发预约出库';
         if (submitButton) submitButton.innerHTML = '<i class="fas fa-check"></i> 确认预约出库';
         if (cargoSelectionTitle) cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择的货物';
         
@@ -632,24 +625,25 @@
                         : '-';
 
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="checkbox-col">
-                            <input type="checkbox"
-                                class="cargo-checkbox"
-                                data-cargo-type="pallet"
-                                data-cargo-id="${pltId}"
-                                data-original-id="${cargo.id}"
-                                checked>
-                        </td>
-                        <td>${cargo.customer || '-'}</td>
-                        <td>${cargo.containerNumber || '-'}</td>
-                        <td>${cargo.shippingMark || '-'}</td>
-                        <td class="pallet-size-cell">${sizeText}</td>
-                        <td>1</td>
-                        <td>${(pallet.cbm ?? (cargo.cbm / pltIdArray.length)).toFixed(3)}</td>
-                        <td>${(pallet.weight_lbs ?? (cargo.weight_lbs / pltIdArray.length)).toFixed(2)}</td>
-                    `;
-                    tbody.appendChild(tr);
+                        tr.innerHTML = `
+                            <td class="checkbox-col">
+                                <input type="checkbox"
+                                    class="cargo-checkbox"
+                                    data-cargo-type="pallet"
+                                    data-cargo-id="${pltId}"
+                                    data-original-id="${cargo.id}"
+                                    checked>
+                            </td>
+                            <td>${cargo.customer || '-'}</td>
+                            <td>${cargo.containerNumber || '-'}</td>
+                            <td>${cargo.shippingMark || '-'}</td>
+                            <td>${cargo.itemName || '-'}</td>
+                            <td>${cargo.itemModel || '-'}</td>
+                            <td>1</td>
+                            <td>${(pallet.cbm ?? (cargo.cbm / pltIdArray.length)).toFixed(3)}</td>
+                            <td>${(pallet.weight_lbs ?? (cargo.weight_lbs / pltIdArray.length)).toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
                 });
             } else {
                 // 这是PACKINGLIST数据
@@ -667,7 +661,8 @@
                     <td>${cargo.customer || '-'}</td>
                     <td>${cargo.containerNumber || '-'}</td>
                     <td>${cargo.shippingMark || '-'}</td>
-                    <td class="pallet-size-cell">-</td>
+                    <td>${cargo.itemName || '-'}</td>
+                    <td>${cargo.itemModel || '-'}</td>
                     <td>${palletCount}</td>
                     <td>${cargo.cbm.toFixed(3)}</td>
                     <td>${cargo.weight_lbs.toFixed(2)}</td>
