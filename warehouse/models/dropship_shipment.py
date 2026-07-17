@@ -19,7 +19,7 @@ class DropshipShipment(models.Model):
     total_pcs = models.PositiveIntegerField(default=0, verbose_name="总出库件数")
     
     # POD文件
-    pod_file = models.FileField(upload_to='pod_files/', null=True, blank=True, verbose_name="POD文件")
+    pod_link = models.CharField(max_length=2000, null=True, blank=True)
     pod_uploaded_at = models.DateTimeField(null=True, blank=True, verbose_name="POD上传时间")
     
     # 收货地址
