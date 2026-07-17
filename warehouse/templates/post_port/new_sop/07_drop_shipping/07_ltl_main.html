@@ -396,20 +396,13 @@
                 未放行 <span class="badge">{{ summary.release_count }}</span>
             </div>           
             <div class="tab" data-tab="scheduledFleet">
-                已放行自发 <span class="badge">{{ summary.selfdel_count }}</span>
+                已放行 <span class="badge">{{ summary.selfdel_count }}</span>
             </div>
-            <div class="tab" data-tab="unscheduledFleet">
-                未排车 <span class="badge">{{ summary.unfleet_count }}</span>
-            </div>
+            
             <div class="tab" data-tab="readyShip">
                 待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
             </div>
-            <div class="tab" data-tab="shipping">
-                待传出库单 <span class="badge">{{ summary.shipping_count }}</span>
-            </div>
-            <div class="tab" data-tab="ready">
-                待送达批次 <span class="badge">{{ summary.ready_count }}</span>
-            </div>
+            
             <div class="tab" data-tab="pod">
                 待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
             </div>    
@@ -425,25 +418,14 @@
             {% include 'post_port/new_sop/07_drop_shipping/selfdelivery.html' %}
         </div>
 
-        <!-- 未排车标签页 -->
-        <div class="content-section" id="unscheduledFleet-section">
-            {% include 'post_port/new_sop/07_drop_shipping/unscheduled_fleet.html' %}
-        </div>
+        
 
         <!-- 待出库批次标签页 -->
         <div class="content-section" id="readyShip-section">
             {% include 'post_port/new_sop/07_drop_shipping/ready_section.html' %}
         </div>
 
-        <!-- 待传出库单标签页 -->
-        <div class="content-section" id="shipping-section">
-            {% include 'post_port/new_sop/07_drop_shipping/shipping_upload.html' %}
-        </div>
-
-        <!-- 待送达批次标签页 -->
-        <div class="content-section" id="ready-section">
-            {% include 'post_port/new_sop/07_drop_shipping/delivery_section.html' %}
-        </div>
+        
 
         <!-- 待传POD批次标签页 -->
         <div class="content-section" id="pod-section">
@@ -467,10 +449,7 @@
 {% include 'post_port/new_sop/07_drop_shipping/modal/message_modal.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/bind_shipment_modal.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/addable_po_modal.html' %}
-{% include 'post_port/new_sop/07_drop_shipping/modal/fleet_modal.html' %}
-{% include 'post_port/new_sop/07_drop_shipping/modal/abnormal_fleet.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/add_po_modal.html' %}
-{% include 'post_port/new_sop/07_drop_shipping/modal/departure_modal.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/maersk_tracking_modal.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/cost_modal.html' %}
 
@@ -580,9 +559,7 @@
                     if (tabName === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
                         setTimeout(initializeScheduledFleetSection, 50);
                     }
-                    if (tabName === 'unscheduledFleet' && typeof initializeUnscheduledFleetSection === 'function') {
-                        setTimeout(initializeUnscheduledFleetSection, 50);
-                    }
+                    
                     if (tabName === 'readyShip' && typeof initializeReadyShipSection === 'function') {
                         setTimeout(initializeReadyShipSection, 50);
                     } else if (tabName === 'readyShip' && typeof initReadyShipSearch === 'function') {

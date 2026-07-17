@@ -200,14 +200,6 @@
         min-width: 200px;
     }
     
-    /* 托盘尺寸列样式 */
-    .pallet-size-cell {
-        max-width: 150px;
-        min-width: 120px;
-        white-space: pre-line; /* 保留换行 */
-        line-height: 1.4;
-    }
-    
     /* 多选框列 */
         .checkbox-col {
             width: 50px;
@@ -254,13 +246,8 @@
             <form id="bindShipmentForm" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="ltl_bind_group_shipment">
-                <input type="hidden" name="suggestion_id" id="modalSuggestionId">
-                <!-- PackingList IDs -->
-                <input type="hidden" name="cargo_ids" id="modalCargoIds">
-                <!-- Pallet IDs -->
-                <input type="hidden" name="plt_ids" id="modalPltIds">
+                <input type="hidden" name="cargo_pcs_data" id="modalCargoPcsData">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                <input type="hidden" name="st_type" value="{{ st_type }}">
                 <input type="hidden" name="active_tab" id="modalActiveTab" value="">
                 <input type="hidden" name="operation_type" id="operationType" value="bind">
 
@@ -270,80 +257,29 @@
                     <table class="modal-table">
                         <thead>
                             <tr>
-                                <th>目的地</th>
-                                <th>地址</th>
                                 <th>承运公司</th>
-                                <th>供应商</th>
                                 <th>提货时间</th>
-                                <th>车次成本</th>
+                                <th>BOL号</th>
+                                <th>预约类型</th>
                             </tr>
                             <tr>
-                                <td>
-                                    <input type="text" name="destination" id="ftl-destination" class="form-input" required>
-                                    <div class="field-hint">自动从选中记录合并</div>
-                                </td>
-                                <td>
-                                    <input type="text" name="address" id="address_detail" class="form-input">
-                                    <div class="field-hint">自动从选中记录合并</div>
-                                </td>
                                 <td>
                                     <input type="text" name="carrier" id="carrier" class="form-input">
                                     <div class="field-hint">手动填写</div>
                                 </td>
                                 <td>
-                                    <select name="supplier" id="supplier" class="form-select" style="width: 100%;">
-                                        <option value="">请选择</option>
-                                    </select>
-                                    <div class="field-hint">根据目的地自动生成</div>
-                                </td>
-                                <td>
                                     <input type="datetime-local" id="pickup-time-input" name="shipment_appointment" class="form-input" required>
-                                    <div class="field-hint">自动从选中记录获取，如不同则需手动填写</div>
+                                    <div class="field-hint">手动填写提货时间</div>
                                 </td>
-                                <td>
-                                    <input type="text" name="fleet_cost" id="fleet_cost" class="form-input">
-                                    <div class="field-hint">需要自动排车时录入</div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>BOL号</th>
-                                <th>PRO号</th>
-                                <th>Label</th>
-                                <th>预约类型</th>
-                                <th>自动排车</th>
-                                <th>备注</th>
-                            </tr>
-                            <tr>
                                 <td>
                                     <input type="text" name="arm_bol" id="arm_bol" class="form-input">
-                                    <div class="field-hint">自动从选中记录合并</div>
-                                </td>
-                                <td>
-                                    <input type="text" name="arm_pro" id="arm_pro" class="form-input">
-                                    <div class="field-hint">自动从选中记录合并</div>
-                                </td>
-                                <td>
-                                    <select name="is_print_label" id="is-print-label" class="form-select">
-                                        <option value="false">否</option>
-                                        <option value="true">是</option>
-                                    </select>
+                                    <div class="field-hint">手动填写</div>
                                 </td>
                                 <td>
                                     <select name="shipment_type" id="ltl-shipment-type-select" class="form-select">
+                                        <option value="客户自提" selected>客户自提</option>
                                         <option value="LTL">LTL</option>
-                                        <option value="客户自提">客户自提</option>
                                     </select>
-                                </td>
-                                <td style="width: 80px;">
-                                    <select name="auto_fleet" id="auto-fleet-select" class="form-select">
-                                        <option value="true" selected>是</option>
-                                        <option value="false">否</option>
-                                    </select>
-                                    <div class="field-hint">选择"是"将自动排车</div>
-                                </td>
-                                <td>
-                                    <input type="text" name="note" id="note" class="form-input">
-                                    <div class="field-hint">可选备注</div>
                                 </td>
                             </tr>
                         </tbody>
@@ -357,17 +293,18 @@
                         <table class="modal-table">
                             <thead>
                                 <tr>
-                                    <th class="checkbox-col">
-                                        <input type="checkbox" id="modal-selectAllCargos">
-                                    </th>
-                                    <th>客户</th>
-                                    <th>柜号</th>
-                                    <th>唛头</th>
-                                    <th>托盘尺寸</th>
-                                    <th>板数</th>
-                                    <th>CBM</th>
-                                    <th>重量(lbs)</th>
-                                </tr>
+                                        <th class="checkbox-col">
+                                            <input type="checkbox" id="modal-selectAllCargos">
+                                        </th>
+                                        <th>客户</th>
+                                        <th>柜号</th>
+                                        <th>唛头</th>
+                                        <th>商品型号</th>
+                                        <th>商品类型</th>
+                                        <th>件数</th>
+                                        <th>CBM</th>
+                                        <th>重量(lbs)</th>
+                                    </tr>
                             </thead>
                             <tbody id="cargoSelectionBody">
                                 <!-- JS 动态生成 -->
@@ -463,43 +400,9 @@
         }
     }
 
-    // 更新供应商下拉框
-    function updateSupplierOptions() {
-        const supplierSelect = document.getElementById('supplier');
-        
-        if (!supplierSelect) return;
-        
-        // 清空现有选项
-        supplierSelect.innerHTML = '<option value="">请选择</option>';
-        
-        // 添加所有供应商选项
-        for (const [key, value] of Object.entries(SUPPLIER_MAPPING)) {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = value;
-            supplierSelect.appendChild(option);
-        }
-    }
-
     // 验证预约表单
     function validateShipmentForm() {
-        const destinationInput = document.getElementById('ftl-destination');
-        const addressInput = document.getElementById('address_detail');
         const pickupTimeInput = document.getElementById('pickup-time-input');
-        
-        // 验证目的地
-        if (!destinationInput || !destinationInput.value.trim()) {
-            alert('请填写目的地！');
-            if (destinationInput) destinationInput.focus();
-            return false;
-        }
-        
-        // 验证地址
-        if (!addressInput || !addressInput.value.trim()) {
-            alert('请填写地址！');
-            if (addressInput) addressInput.focus();
-            return false;
-        }
         
         // 验证提货时间
         if (!pickupTimeInput || !pickupTimeInput.value.trim()) {
@@ -536,7 +439,7 @@
         const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
         const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
         
-        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 私仓预约出库';
+        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 一件代发预约出库';
         if (submitButton) submitButton.innerHTML = '<i class="fas fa-check"></i> 确认预约出库';
         if (cargoSelectionTitle) cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择的货物';
         
@@ -569,38 +472,15 @@
         let allPltIds = [];
         let allCargoIds = [];
         
-        // 用于收集选中记录的信息，用于自动填充预约信息（目的地不自动填充，需手动输入）
-        const addresses = new Set();
+        // 用于收集选中记录的信息
         const bols = new Set();
-        const pros = new Set();
-        const pickupTimes = new Set();
-        const suppliers = new Set();
         
         selectedCargos.forEach(cargo => {
-            // 收集信息用于自动填充
-            if (cargo.address && cargo.address.trim() !== '') {
-                addresses.add(cargo.address);
-            }
+            // 收集BOL号
             if (cargo.bol && cargo.bol.trim() !== '') {
                 bols.add(cargo.bol);
             }
-            if (cargo.supplier && cargo.supplier.trim() !== '') {
-                suppliers.add(cargo.supplier);
-            }
             
-            // 从原始数据行获取PRO号
-            const originalRow = document.querySelector(`tr[data-cargo-id="${cargo.id}"]`);
-            if (originalRow) {
-                const proInput = originalRow.querySelector('.pro-input');
-                if (proInput && proInput.value.trim() !== '') {
-                    pros.add(proInput.value.trim());
-                }
-            }
-            
-            // 获取pickupTime
-            if (cargo.pickupTime && cargo.pickupTime.trim() !== '') {
-                pickupTimes.add(cargo.pickupTime);
-            }
             if (cargo.id.startsWith('plt_')) {
                 console.log('cargo.pallet_items:', cargo.pallet_items);
             }
@@ -631,44 +511,63 @@
                         ? `${length}*${width}*${height}`
                         : '-';
 
+                    const pcsValue = cargo.pcs || 0;
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="checkbox-col">
-                            <input type="checkbox"
-                                class="cargo-checkbox"
-                                data-cargo-type="pallet"
-                                data-cargo-id="${pltId}"
-                                data-original-id="${cargo.id}"
-                                checked>
-                        </td>
-                        <td>${cargo.customer || '-'}</td>
-                        <td>${cargo.containerNumber || '-'}</td>
-                        <td>${cargo.shippingMark || '-'}</td>
-                        <td class="pallet-size-cell">${sizeText}</td>
-                        <td>1</td>
-                        <td>${(pallet.cbm ?? (cargo.cbm / pltIdArray.length)).toFixed(3)}</td>
-                        <td>${(pallet.weight_lbs ?? (cargo.weight_lbs / pltIdArray.length)).toFixed(2)}</td>
-                    `;
-                    tbody.appendChild(tr);
+                        tr.innerHTML = `
+                            <td class="checkbox-col">
+                                <input type="checkbox"
+                                    class="cargo-checkbox"
+                                    data-cargo-type="pallet"
+                                    data-cargo-id="${cargo.dropship_cargo_id || cargo.id}"
+                                    data-original-id="${cargo.id}"
+                                    checked>
+                            </td>
+                            <td>${cargo.customer || '-'}</td>
+                            <td>${cargo.containerNumber || '-'}</td>
+                            <td>${cargo.shippingMark || '-'}</td>
+                            <td>${cargo.itemName || '-'}</td>
+                            <td>${cargo.itemModel || '-'}</td>
+                            <td>
+                                <input type="number" 
+                                    class="cargo-pcs-input" 
+                                    value="${pcsValue}" 
+                                    min="1" 
+                                    max="${pcsValue}" 
+                                    data-original-pcs="${pcsValue}"
+                                    style="width: 60px; text-align: center; padding: 4px;">
+                            </td>
+                            <td>${(pallet.cbm ?? (cargo.cbm / pltIdArray.length)).toFixed(3)}</td>
+                            <td>${(pallet.weight_lbs ?? (cargo.weight_lbs / pltIdArray.length)).toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
                 });
             } else {
                 // 这是PACKINGLIST数据
                 const cargoIdArray = cargo.id.split(',');
-                const palletCount = cargo.pallets || 1;
+                const pcsValue = cargo.pcs || 0;
                 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="checkbox-col">
                         <input type="checkbox" class="cargo-checkbox" 
                             data-cargo-type="packinglist" 
-                            data-cargo-id="${cargo.id}" 
+                            data-cargo-id="${cargo.dropship_cargo_id || cargo.id}" 
                             checked>
                     </td>
                     <td>${cargo.customer || '-'}</td>
                     <td>${cargo.containerNumber || '-'}</td>
                     <td>${cargo.shippingMark || '-'}</td>
-                    <td class="pallet-size-cell">-</td>
-                    <td>${palletCount}</td>
+                    <td>${cargo.itemName || '-'}</td>
+                    <td>${cargo.itemModel || '-'}</td>
+                    <td>
+                        <input type="number" 
+                            class="cargo-pcs-input" 
+                            value="${pcsValue}" 
+                            min="1" 
+                            max="${pcsValue}" 
+                            data-original-pcs="${pcsValue}"
+                            style="width: 60px; text-align: center; padding: 4px;">
+                    </td>
                     <td>${cargo.cbm.toFixed(3)}</td>
                     <td>${cargo.weight_lbs.toFixed(2)}</td>
                 `;
@@ -678,66 +577,9 @@
             }
         });
         
-        // 自动填充预约信息（目的地保持为空，需用户手动输入）
-        
-        if (addresses.size > 0 && addressInput) {
-            addressInput.value = Array.from(addresses).join('-');
-        }
-        
+        // 自动填充BOL号
         if (bols.size > 0 && armBolInput) {
             armBolInput.value = Array.from(bols).join('-');
-        }
-        
-        if (pros.size > 0 && armProInput) {
-            armProInput.value = Array.from(pros).join('-');
-        }
-        
-        // 初始化供应商下拉框
-        updateSupplierOptions();
-        
-        // 设置供应商下拉框
-        const supplierSelect = document.getElementById('supplier');
-        if (suppliers.size === 1 && supplierSelect) {
-            const supplierValue = Array.from(suppliers)[0];
-            // 检查下拉框中是否存在该选项
-            let optionExists = false;
-            for (let i = 0; i < supplierSelect.options.length; i++) {
-                if (supplierSelect.options[i].value === supplierValue) {
-                    optionExists = true;
-                    break;
-                }
-            }
-            // 如果不存在，添加该选项
-            if (!optionExists) {
-                const option = document.createElement('option');
-                option.value = supplierValue;
-                option.textContent = supplierValue;
-                supplierSelect.appendChild(option);
-            }
-            // 设置选中
-            supplierSelect.value = supplierValue;
-        }
-        
-        // 提货时间
-        if (pickupTimes.size === 1 && pickupTimeInput) {
-            const pickupTime = Array.from(pickupTimes)[0];
-            if (pickupTime) {
-                try {
-                    const date = new Date(pickupTime);
-                    if (!isNaN(date.getTime())) {
-                        const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const hours = String(date.getHours()).padStart(2, '0');
-                        const minutes = String(date.getMinutes()).padStart(2, '0');
-                        
-                        const formattedTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-                        pickupTimeInput.value = formattedTime;
-                    }
-                } catch (e) {
-                    console.error('时间解析错误:', e);
-                }
-            }
         }
         
         // 初始化全选功能
@@ -795,26 +637,30 @@
     function updateHiddenIds() {
         const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
         
-        const packinglistIds = [];
-        const palletIds = [];
+        const cargoPcsData = [];
         
         selected.forEach(checkbox => {
-            const cargoType = checkbox.dataset.cargoType;
+            const row = checkbox.closest('tr');
+            const pcsInput = row.querySelector('.cargo-pcs-input');
             const cargoId = checkbox.dataset.cargoId;
             
-            if (cargoType === 'packinglist') {
-                const ids = cargoId.split(',').filter(id => id.trim() !== '');
-                packinglistIds.push(...ids);
-            } else if (cargoType === 'pallet') {
-                palletIds.push(cargoId);
+            if (cargoId && pcsInput) {
+                const pcs = parseInt(pcsInput.value) || 0;
+                const originalPcs = parseInt(pcsInput.dataset.originalPcs) || 0;
+                
+                if (pcs > 0 && pcs <= originalPcs) {
+                    cargoPcsData.push({
+                        cargo_id: cargoId,
+                        pcs: pcs
+                    });
+                }
             }
         });
         
-        const cargoIdsInput = document.getElementById('modalCargoIds');
-        const pltIdsInput = document.getElementById('modalPltIds');
-        
-        if (cargoIdsInput) cargoIdsInput.value = packinglistIds.join(',');
-        if (pltIdsInput) pltIdsInput.value = palletIds.join(',');
+        const cargoPcsDataInput = document.getElementById('modalCargoPcsData');
+        if (cargoPcsDataInput) {
+            cargoPcsDataInput.value = JSON.stringify(cargoPcsData);
+        }
     }
 
     // 关闭模态框
@@ -825,11 +671,8 @@
         }
         
         // 重置隐藏字段
-        const cargoIdsInput = document.getElementById('modalCargoIds');
-        const pltIdsInput = document.getElementById('modalPltIds');
-        
-        if (cargoIdsInput) cargoIdsInput.value = '';
-        if (pltIdsInput) pltIdsInput.value = '';
+        const cargoPcsDataInput = document.getElementById('modalCargoPcsData');
+        if (cargoPcsDataInput) cargoPcsDataInput.value = '';
         
         // 隐藏模态框
         const modal = document.getElementById('bindShipmentModal');
