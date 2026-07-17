@@ -11414,7 +11414,7 @@ class ReceivableAccounting(View):
     
 
     def handle_container_invoice_combina_get(
-        self, request: HttpRequest
+        self, request: HttpRequest,
     ) -> tuple[Any, Any]:
         '''组合柜财务查看账单'''
         # 1、基础条件
@@ -11507,12 +11507,20 @@ class ReceivableAccounting(View):
         # 3、超重费用
 
         # 4、超板费用
-        # 4.1、实际板数
-        total_pallets = Pallet.objects.filter(container_number__container_number=container_number).count()  
+        # 4.1、实际板数，用总cbm/2计算
+        packinglist_total_cbm = round(float(PackingList.objects.filter(container_number__container_number=container_number).aggregate(total=Sum('cbm'))['total'] or 0), 2)
+        
+        stipulate = fee_details.get("COMBINA_STIPULATE").details
+        # 查找cbm_per_pl
+        cbm_per_pl = stipulate['global_rules']['cbm_per_pl']['default']
+        cbm_value = packinglist_total_cbm / cbm_per_pl
+        total_pallets = math.floor(cbm_value) if (cbm_value - math.floor(cbm_value) < 0.1) else math.ceil(cbm_value)
         # 4.2、规定的最大板数
         max_pallets = self._get_max_pallets(stipulate, warehouse, container_type)
         # 4.3、超出板数
-        over_count = max(0, total_pallets - max_pallets)
+        count_diff = total_pallets - max_pallets
+        over_count = 0 if count_diff <= 0.09 else max(0, count_diff)
+
         # 4.4、计算超板费用
         plts_by_destination = self._calculate_delivery_fee_cost(
             fee_details, warehouse, plts_by_destination, over_count, vessel_etd
@@ -11805,7 +11813,8 @@ class ReceivableAccounting(View):
                 },
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
-                "is_combina": True,            
+                "is_combina": True,   
+                "cbm_per_pl": cbm_per_pl,         
             }
         )
         return context

@@ -71,26 +71,25 @@
             <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
                 <b class="larger-text">SHIPPER</b><br>
                 {% if "SAV-31326" == warehouse %}
-                ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717<br>delivery@zemlogistics.com
-                {% elif "LA-91761" == warehouse %}
-                ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6263897353<br>delivery@zemlogistics.com
-                {% elif "LA-91748" == warehouse %}
-                ZEM RINCON<br>19545 San Jose Ave City of Industry<br>CA,91748,United States<br>Ricko &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;626-759-3942<br>delivery@zemlogistics.com
-                {% elif "LA-91766" == warehouse %}
-                1601 W Mission Blvd, Pomona<br>CA 91766<br>Allywork &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;213-510-5188-Ext 803<br>allywork.operation@gmail.com
+                ZEM LOGISTICS INC<br>251 Morgan Lakes Industrial  Blvd,Pooler, GA 31322<br>Leon &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
                 {% elif "NJ-07001" == warehouse %}
-                ZEM RINCON<br>27 Engelhard Ave<br>Avenel,NJ,07001<br>meilin &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6463390570<br>delivery@zemlogistics.com
+                ZEM LOGISTICS INC<br>27 Engelhard Ave. Avenel NJ 07001<br>Marstin Ma<br>6463390570
+                {% elif "LA-91761" == warehouse %}
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
+                {% elif "LA-91748" == warehouse %}
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
+                {% elif "LA-91766" == warehouse %}
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
                 {% elif "LA-91730" == warehouse %}
-                9570 Santa Anita Ave, Rancho Cucamonga<br>CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987<br>delivery@zemlogistics.com
-
+                ZEM LOGISTICS INC<br>9570 Santa Anita Ave, Rancho CA 91730<br>ZEM &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264612987
                 {% else %}
                 <br><br><br><br>
                 {% endif %}
             </td>
             <td style="width:10%;"></td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black;">
-                <img style="width:250px; height:60px; padding-bottom:5px;" src="data:image/png;base64,{{ barcode }}">
-                <br><br><b class="larger-text">PRO#:{{arm_pro}}</b>
+                <br><br>
+                <b class="medium-text">Pickup date</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ pickup_time }}  
             </td>
         </tr>
     </table>
@@ -107,15 +106,9 @@
             <td style="width:10%;">             
             </td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black; padding-top:5px;">
-                {% if carrier_image_base64 %}
-                <img style="width:100px;height:auto;" src="data:image/jpeg;base64,{{ carrier_image_base64 }}">
-                {% else %}
-                <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
-                {% endif %}
                 <br>
                 <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ carrier }}
-                <br>
-                <b class="medium-text">Pickup date</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ pickup_time }}               
+                <br>           
             </td>
         </tr>
     </table>
@@ -137,15 +130,31 @@
     <div style="padding:20px;">
         <b style="text-align:center;">Accessorials:</b>
     <div>
-    <table style="width: 100%; padding:6px; font-size:16px;">
-        <tr>
-            <td style="width:20%; border:none;"></td>
-            <td style="width:30%; text-align:center; border: 1px solid black;"> Pallet:<br><b>{{ pallet }}</b></td>
-            <td style="width:30%; text-align:center; border: 1px solid black;"> Pcs:<br><b>{{ pcs }}</b></td>
-            <td style="width:60%; text-align:center; border: 1px solid black;"> containers: {{ container_number|safe }}</td>
-            <td style="width:60%; text-align:center; border: 1px solid black;"> shipping_mark: {{ shipping_mark|safe }}</td>
-            <td style="width:20%; border:none;"></td>
-        </tr>
+    <table style="width: 100%; padding:6px; font-size:16px; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="width:20%; border:none;"></th>
+                <th style="width:30%; text-align:center; border: 1px solid black;">Pallet</th>
+                <th style="width:30%; text-align:center; border: 1px solid black;">Pcs</th>
+                {% if show_containers != False %}
+                <th style="width:60%; text-align:center; border: 1px solid black;">containers</th>
+                {% endif %}
+                <th style="width:60%; text-align:center; border: 1px solid black;">shipping_mark</th>
+                <th style="width:20%; border:none;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="width:20%; border:none;"></td>
+                <td style="width:30%; text-align:center; border: 1px solid black;"><b>{{ pallet }}</b></td>
+                <td style="width:30%; text-align:center; border: 1px solid black;"><b>{{ pcs }}</b></td>
+                {% if show_containers != False %}
+                <td style="width:60%; text-align:center; border: 1px solid black;">{{ container_number|safe }}</td>
+                {% endif %}
+                <td style="width:60%; text-align:center; border: 1px solid black;">{{ shipping_mark|safe }}</td>
+                <td style="width:20%; border:none;"></td>
+            </tr>
+        </tbody>
     </table>
 </div>
 <div style="font-size: 12px;">
@@ -229,22 +238,22 @@
 </div>
 {% endif %}
 
-<div class="page-break"></div>
 <br><br>
 <b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
 <table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 
     <thead> 
         <tr>
             <th style="width: 7%; border: none;"></th>
-            <th style="width: 14%; border:1px solid black;">container number</th>
-            <th style="width: 14%; border:1px solid black;">destination</th>
-            <th style="width: 18%; border:1px solid black;">shipping_mark</th>
-            <th style="width: 13%; border:1px solid black;">pallets</th>
-            <th style="width: 13%; border:1px solid black;">pcs</th>
-            <th style="width: 13%; border:1px solid black;">carrier</th>
+            <th style="width: 14%; border:1px solid black; word-break:break-all;">container number</th>
+            <th style="width: 10%; border:1px solid black; word-break:break-all;">destination</th>
+            <th style="width: 28%; border:1px solid black; word-break:break-all;">shipping_mark</th>
+            <th style="width: 8%; border:1px solid black; word-break:break-all;">pallets</th>
+            <th style="width: 8%; border:1px solid black; word-break:break-all;">pcs</th>
+            <th style="width: 10%; border:1px solid black; word-break:break-all;">carrier</th>
             {% if "LA-91761" == warehouse %}
-            <th style="width: 8%; border:1px solid black;">slot</th>
+            <th style="width: 6%; border:1px solid black; word-break:break-all;">slot</th>
             {% endif %}
+            <th style="width: 10%; border:1px solid black; word-break:break-all;">pickup time</th>
             <th style="width: 8%; border: none;"></th>
         </tr>
     </thead>
@@ -252,17 +261,18 @@
         {% for p in arm_pickup %}
         <tr style="text-align:center;">
             <th style="width: 7%; border: none;"></th>
-            <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
-            <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
-            <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+            <td style="width: 14%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.container_number__container_number }}</td>
+            <td style="width: 10%; text-align:center; border:1px solid black; font-family: STSong-Light; word-break:break-all;">{{ p.destination }}</td>
+            <td style="width: 28%; word-break:break-all; border:1px solid black;">{{ p.shipping_mark|safe }}</td>
+            <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pallet }}</td>
+            <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pcs }}</td>
+            <td style="width: 10%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
             {% if "LA-91761" == warehouse %}
-            <td style="text-align:center; border:1px solid black;">
+            <td style="width: 6%; text-align:center; border:1px solid black; word-break:break-all;">
                 {{ p.slot|default:"&nbsp;" }}
             </td>
             {% endif %}
+            <td style="width: 10%; text-align:center; border:1px solid black; word-break:break-all;">{% if p.shipment_batch_number__pickup_time %}{{ p.shipment_batch_number__pickup_time|date:"Y-m-d" }}{% endif %}</td>
             <th style="width: 8%; border: none;"></th>
         </tr>
         {% endfor %}

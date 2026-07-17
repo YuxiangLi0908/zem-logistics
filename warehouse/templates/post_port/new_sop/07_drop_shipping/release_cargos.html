@@ -148,16 +148,6 @@
         white-space: normal;
         line-height: 1.5;
     }
-    .verify-btn {
-        padding: 4px 12px;
-        font-size: 0.8rem;
-    }
-
-    .verified-status {
-        color: #28a745;
-        font-weight: 600;
-    }
-
     /* 地址和备注列限制宽度 */
     .address-col, .note-col {
         max-width: 200px;
@@ -343,12 +333,6 @@
         <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
             <i class="fas fa-file-export"></i> 导出未放行表格
         </button>
-        <button class="action-btn btn-indigo" onclick="batchSaveReleaseCommands()">
-            <i class="fas fa-save"></i> 批量保存指令
-        </button>
-        <button class="action-btn btn-success" onclick="batchUpdateVerifyStatus()">
-            <i class="fas fa-check-double"></i> 批量核实
-        </button>
         <button class="column-toggle-btn" id="columnToggleBtn" onclick="toggleColumnPanel()">
             <i class="fas fa-columns"></i> 列显示设置
         </button>
@@ -390,13 +374,10 @@
                     <th class="fleet-mark-col" data-column="6">唛头<span class="hide-column-btn" onclick="toggleColumn(6)">×</span></th>
                     <th class="address-col" data-column="7">详细地址<span class="hide-column-btn" onclick="toggleColumn(7)">×</span></th>
                     <th class="note-col" data-column="8">备注<span class="hide-column-btn" onclick="toggleColumn(8)">×</span></th>
-                    <th class="command-col" data-column="9">指令<span class="hide-column-btn" onclick="toggleColumn(9)">×</span></th>
-                    <th data-column="10">CBM<span class="hide-column-btn" onclick="toggleColumn(10)">×</span></th>
+                    <th data-column="9">CBM<span class="hide-column-btn" onclick="toggleColumn(9)">×</span></th>
                     <th data-column="11">件数<span class="hide-column-btn" onclick="toggleColumn(11)">×</span></th>
                     <th data-column="12">重量(lbs)<span class="hide-column-btn" onclick="toggleColumn(12)">×</span></th>
                     <th data-column="13">重量(kg)<span class="hide-column-btn" onclick="toggleColumn(13)">×</span></th>
-                    <th data-column="14">核实状态<span class="hide-column-btn" onclick="toggleColumn(14)">×</span></th>
-                    <th class="action-col" data-column="15">操作</th>
                 </tr>
             </thead>
 
@@ -436,10 +417,6 @@
                     <label for="col8Checkbox">备注</label>
                 </div>
                 <div class="column-toggle-item" onclick="toggleColumnFromPanel(9, this)">
-                    <input type="checkbox" id="col9Checkbox" checked>
-                    <label for="col9Checkbox">指令</label>
-                </div>
-                <div class="column-toggle-item" onclick="toggleColumnFromPanel(10, this)">
                     <input type="checkbox" id="col10Checkbox" checked>
                     <label for="col10Checkbox">CBM</label>
                 </div>
@@ -454,10 +431,6 @@
                 <div class="column-toggle-item" onclick="toggleColumnFromPanel(13, this)">
                     <input type="checkbox" id="col13Checkbox" checked>
                     <label for="col13Checkbox">重量(kg)</label>
-                </div>
-                <div class="column-toggle-item" onclick="toggleColumnFromPanel(14, this)">
-                    <input type="checkbox" id="col14Checkbox" checked>
-                    <label for="col14Checkbox">核实状态</label>
                 </div>
             </div>
             <tbody>
@@ -489,9 +462,6 @@
                         <input type="text" class="filter-input" placeholder="筛选备注..." data-column="7" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td data-column="9">
-                        <input type="text" class="filter-input" placeholder="筛选指令..." data-column="8" onkeyup="applyColumnFilter(this)">
-                    </td>
-                    <td data-column="10">
                         <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="9" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td data-column="11">
@@ -502,16 +472,6 @@
                     </td>
                     <td data-column="13">
                         <input type="text" class="filter-input" placeholder="筛选重量..." data-column="12" onkeyup="applyColumnFilter(this)">
-                    </td>
-                    <td data-column="14">
-                        <select class="filter-select" data-column="13" onchange="applyColumnFilter(this)">
-                            <option value="">全部状态</option>
-                            <option value="已核实">已核实</option>
-                            <option value="未核实">未核实</option>
-                        </select>
-                    </td>
-                    <td class="action-col" data-column="15">
-                        <!-- 操作列不需要筛选 -->
                     </td>
                 </tr>
 
@@ -525,12 +485,10 @@
                     data-item-model="{{ cargo.dropshipping_item_model_number|default:'' }}"
                     data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
-                    data-release-command="{{ cargo.ltl_release_command|default:'' }}"
                     data-cbm="{{ cargo.total_cbm|default:0 }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                     data-weight-kg="{{ cargo.total_weight_kg|default:0 }}"
-                    data-pcs="{{ cargo.total_pcs|default:0 }}"
-                    data-is-verify="{{ cargo.ltl_verify|default:0 }}">
+                    data-pcs="{{ cargo.total_pcs|default:0 }}">
                     <td class="checkbox-cell">
                         <input type="checkbox" class="cargo-checkbox" 
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -550,24 +508,7 @@
                     <td data-column="8" class="note-col" title="{{ cargo.note|default:'' }}">
                         {{ cargo.note|default_if_none:"-" }}
                     </td>
-                    <td data-column="9" class="command-col">
-                        <div class="command-input-wrapper">
-                            <textarea class="editable-textarea release-command-input"
-                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                                placeholder="输入未放行指令..."
-                                oninput="autoResizeTextarea(this)"
-                                rows="1">{{ cargo.ltl_release_command|default:'' }}</textarea>
-
-                            <button
-                                type="button"
-                                class="command-save-btn"
-                                title="保存指令"
-                                onclick="submitSingleReleaseCommand(this)">
-                                💾
-                            </button>
-                        </div>
-                    </td>
-                    <td data-column="10">
+                    <td data-column="9">
                         <span class="status-badge status-expired">{{ cargo.total_cbm|floatformat:3 }}</span>
                     </td>
                     <td data-column="11">{{ cargo.total_pcs|default:0 }}</td>
@@ -576,46 +517,6 @@
                     </td>
                     <td data-column="13">
                         <span class="weight-kg">{{ cargo.total_weight_kg|floatformat:2 }}</span>
-                    </td>
-                    <td data-column="14">
-                        {% if cargo.ltl_verify %}
-                            <span class="verified-status">
-                                <i class="fas fa-check-circle"></i> 已核实
-                            </span>
-                        {% else %}
-                            <span style="color: #dc3545;">
-                                <i class="fas fa-times-circle"></i> 未核实
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td data-column="15" class="action-col">
-                        {% if not cargo.ltl_verify %}
-                            <form method="post" action="" class="verify-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="verify_ltl_cargo">
-                                <input type="hidden" name="cargo_ids" value="{{ cargo.ids }}">
-                                <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
-                                <input type="hidden" name="ltl_verify" value="true">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="active_tab" value="cargo">
-                                <button type="submit" class="action-btn btn-success verify-btn">
-                                    <i class="fas fa-check"></i> 核实
-                                </button>
-                            </form>
-                        {% else %}
-                            <form method="post" action="" class="verify-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="verify_ltl_cargo">
-                                <input type="hidden" name="cargo_ids" value="{{ cargo.ids }}">
-                                <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
-                                <input type="hidden" name="ltl_verify" value="false">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="active_tab" value="cargo">
-                                <button type="submit" class="action-btn btn-warning verify-btn">
-                                    <i class="fas fa-undo"></i> 取消
-                                </button>
-                            </form>
-                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
@@ -640,29 +541,6 @@
     <input type="hidden" name="active_tab" value="cargo">
 </form>
 
-<!-- 修改指令的表单 -->
-<form id="releaseCommandForm" method="post">
-    {% csrf_token %}
-    <input type="hidden" name="release_commands" id="releaseCommandsInput">
-    <input type="hidden" name="step" value="save_releaseCommand">
-    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-    <input type="hidden" name="active_tab" value="cargo">
-    <!-- 用于单条保存 -->
-    <input type="hidden" name="cargo_id" id="main_cargoIdInput">
-    <input type="hidden" name="release_command" id="releaseCommandInput">
-    <!-- 用于批量保存 -->
-     <input type="hidden" name="batch_commands" id="batchCommandsInput">
-</form>
-
-<!-- 用于批量核实的隐藏表单 -->
-<form id="batchVerifyForm" method="post" style="display: none;">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="verify_ltl_cargo">
-    <input type="hidden" name="cargo_ids" id="batchVerifyCargoIds">
-    <input type="hidden" name="ltl_verify" value="true"> <!-- 固定为 true -->
-    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-    <input type="hidden" name="active_tab" value="cargo">
-</form>
 <script>
     // 使用IIFE避免变量污染
     (function() {
@@ -677,10 +555,7 @@
         function initializeUnscheduledPage() {
             updateSelectedCount();
 
-            // --- 新增：初始化时自动调整所有指令框的高度 ---
-            document.querySelectorAll('.release-command-input').forEach(textarea => {
-                release_autoResizeTextarea(textarea);
-            });
+            
             
             // 全选/取消全选
             const selectAllCheckbox = document.getElementById('unscheduled_selectAllCargos');
@@ -1172,99 +1047,9 @@
         window.clearAllFilters = clearAllFilters;
         window.applyColumnFilter = applyColumnFilter;
         window.updateSelectedCount = updateSelectedCount;
-        window.submitSingleReleaseCommand = submitSingleReleaseCommand;
-        window.batchSaveReleaseCommands = batchSaveReleaseCommands;
-        window.batchUpdateVerifyStatus = batchUpdateVerifyStatus;
         window.toggleColumn = toggleColumn;
         window.toggleColumnFromPanel = toggleColumnFromPanel;
         window.toggleColumnPanel = toggleColumnPanel;
         window.copySelectedReleaseRows = copySelectedReleaseRows;
     })(); // 立即执行
-
-    function submitSingleReleaseCommand(btn) {
-        const wrapper = btn.closest('.command-input-wrapper');
-        const textarea = wrapper.querySelector('.release-command-input');
-
-        const cargoId = textarea.dataset.id;
-        
-        const value = textarea.value.trim();
-
-        if (!cargoId) return;
-
-        document.getElementById('main_cargoIdInput').value = cargoId;
-        document.getElementById('releaseCommandInput').value = value;
-
-        document.getElementById('releaseCommandForm').submit();
-        
-    }
-    // 批量保存指令函数
-    function batchSaveReleaseCommands() {
-        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
-            .filter(checkbox => {
-                const row = checkbox.closest('tr');
-                return row.style.display !== 'none' && !row.classList.contains('filter-row');
-            });
-
-        if (selectedCheckboxes.length === 0) {
-            alert('请先选择要保存指令的货物');
-            return;
-        }
-
-        if (!confirm(`确认批量保存已选中的 ${selectedCheckboxes.length} 项指令吗？`)) {
-            return;
-        }
-
-        const commandsData = [];
-        selectedCheckboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            const textarea = row.querySelector('.release-command-input');
-            if (textarea) {
-                commandsData.push({
-                    cargo_id: textarea.dataset.id,
-                    command: textarea.value.trim()
-                });
-            }
-        });
-
-        // 将数组转为 JSON 字符串放入隐藏域
-        document.getElementById('batchCommandsInput').value = JSON.stringify(commandsData);
-        
-        // 清空单条保存的参数，避免干扰
-        document.getElementById('main_cargoIdInput').value = '';
-        document.getElementById('releaseCommandInput').value = '';
-
-        document.getElementById('releaseCommandForm').submit();
-    }
-    function batchUpdateVerifyStatus() {
-        // 1. 获取所有可见且被勾选的行
-        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
-            .filter(checkbox => {
-                const row = checkbox.closest('tr');
-                // 排除隐藏行和筛选行
-                return row.style.display !== 'none' && !row.classList.contains('filter-row');
-            });
-
-        if (selectedCheckboxes.length === 0) {
-            alert('请先选择要核实的货物');
-            return;
-        }
-
-        // 2. 确认操作
-        if (!confirm(`确认要批量核实选中的 ${selectedCheckboxes.length} 项记录吗？`)) {
-            return;
-        }
-
-        const cargoIds = [];
-
-        // 3. 解析 ID (区分普通货物和打板货物)
-        selectedCheckboxes.forEach(checkbox => {
-            const value = checkbox.value.trim();
-            cargoIds.push(value);
-        });
-
-        // 4. 填充并提交表单
-        document.getElementById('batchVerifyCargoIds').value = cargoIds.join(',');
-        
-        document.getElementById('batchVerifyForm').submit();
-    }
 </script>

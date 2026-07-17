@@ -156,6 +156,12 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     UTC_TZ = pytz.UTC
     BASE_ETA = UTC_TZ.localize(datetime(2026, 1, 19))
 
+    # 获取当前柜所属订单，判断是否为转运单
+    order_obj = await sync_to_async(
+        Order.objects.filter(container_number__container_number=container_number).first
+    )()
+    is_transfer_order = bool(order_obj and order_obj.order_type == "转运")
+
     if status == "non_palletized" and zem_name == "JINYU":
         vessel_prefetch_queryset = Vessel.objects.all()
         retrieval_prefetch_queryset = Retrieval.objects.all()
@@ -243,7 +249,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-cbm")
+            .order_by(*(["destination", "custom_delivery_method", "-cbm"] if is_transfer_order else ["-cbm"]))
         )
     elif status == "non_palletized" and zem_name != "JINYU":
         vessel_prefetch_queryset = Vessel.objects.all()
@@ -332,7 +338,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("destination", "custom_delivery_method", "-cbm")
+            .order_by(*(["destination", "custom_delivery_method", "-cbm"] if is_transfer_order else ["-cbm"]))
         )
     else:
         packing_list = []
@@ -432,7 +438,9 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 & mask_not_la
         )
 
-        df.loc[mask_clear_pcs, "pcs"] = ""
+        # 非转运才清空pcs，转运跳过pcs清空
+        if not is_transfer_order:
+            df.loc[mask_clear_pcs, "pcs"] = ""
 
         mask_note_empty = (df["original_note_from_remark"] == "")
         mask_clear_mark = mask_base & mask_note_empty

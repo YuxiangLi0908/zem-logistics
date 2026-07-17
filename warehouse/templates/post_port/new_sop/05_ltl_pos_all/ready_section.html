@@ -148,11 +148,8 @@
     <button type="button" class="fleet-action-btn" style="background-color: #27ae60 !important; color: white !important; margin-left: 0px;" onclick="openBatchDepartureModal()" id="batchDepartureBtn" disabled>
         <i class="fas fa-check-circle"></i> 批量出库
     </button>
-    <button type="button" class="fleet-action-btn" style="background-color: #28a745 !important; color: white !important; margin-left: 10px;" onclick="batchDownloadPickupList()" id="batchDownloadPickupBtn" disabled>
-        <i class="fas fa-file-download"></i> 批量下载拣货单
-    </button>
     <button type="button" class="fleet-action-btn" style="background-color: #17a2b8 !important; color: white !important; margin-left: 10px;" onclick="batchSaveCarrier()" id="batchSaveCarrierBtn" disabled>
-        <i class="fas fa-save"></i> 批量保存供应商
+        <i class="fas fa-save"></i> 保存carrier
     </button>
     <button type="button" class="fleet-action-btn" style="background-color: #6c757d !important; color: white !important; margin-left: 10px;" onclick="batchSavePickupTime()" id="batchSavePickupTimeBtn" disabled>
         <i class="fas fa-clock"></i> 保存提货时间
@@ -162,6 +159,12 @@
     </button>
     <button type="button" class="fleet-action-btn" style="background-color: #9c27b0 !important; color: white !important; margin-left: 10px;" onclick="batchUploadOtherFile()" id="batchUploadOtherFileBtn" disabled>
         <i class="fas fa-upload"></i> 上传其他文件
+    </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #e67e22 !important; color: white !important; margin-left: 10px;" onclick="batchPickupList()" id="batchPickupListBtn" disabled>
+        <i class="fas fa-file-alt"></i> 批量拣货单
+    </button>
+    <button type="button" class="fleet-action-btn" style="background-color: #1abc9c !important; color: white !important; margin-left: 10px;" onclick="batchBol()" id="batchBolBtn" disabled>
+        <i class="fas fa-file-word"></i> 批量BOL
     </button>
 </div>
 
@@ -173,7 +176,7 @@
                 <th>车次号</th>
                 <th>提货时间</th>
                 <th>预约批次</th>
-                <th>供应商</th>
+                <th>carrier</th>
                 <th>目的地</th>
                 <th>柜号</th>
                 <th>唛头</th>
@@ -198,15 +201,15 @@
                         </button>
                     </div>
                 </td>
-                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
-                <td><input type="text" class="header-search" placeholder="搜索供应商" data-column="3"></td>
-                <td><textarea class="header-search" placeholder="搜索目的地" data-column="4" rows="2"></textarea></td>
-                <td><textarea class="header-search" placeholder="搜索柜号" data-column="5" rows="2"></textarea></td>
-                <td><textarea class="header-search" placeholder="搜索唛头" data-column="6" rows="2"></textarea></td>
-                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
-                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="4"></td>
+                <td><textarea class="header-search" placeholder="搜索目的地" data-column="5" rows="2"></textarea></td>
+                <td><textarea class="header-search" placeholder="搜索柜号" data-column="6" rows="2"></textarea></td>
+                <td><textarea class="header-search" placeholder="搜索唛头" data-column="7" rows="2"></textarea></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="9"></td>
                 <td>
-                    <select class="header-search" data-column="9">
+                    <select class="header-search" data-column="10">
                         <option value="">全部</option>
                         <option value="True">需要Label</option>
                         <option value="False">不需要Label</option>
@@ -322,12 +325,8 @@
                                             <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
                                         </td>
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">
-                                            <select class="carrier-select" data-batch-number="{{ shipment.shipment_batch_number }}" data-shipment-id="" style="width: 100px;">
-                                                <option value="">请选择供应商</option>
-                                                {% for supplier in private_suppliers %}
-                                                    <option value="{{ supplier }}" {% if shipment.carrier == supplier %}selected{% endif %}>{{ supplier }}</option>
-                                                {% endfor %}
-                                            </select>
+                                            <input type="text" class="carrier-select" data-batch-number="{{ shipment.shipment_batch_number }}" data-shipment-id="" 
+                                                value="{{ shipment.carrier|default:'' }}" placeholder="carrier" style="width: 100px; padding: 4px;">
                                         </td>
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
 
@@ -414,12 +413,8 @@
                                                     <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
                                                 </td>
                                                 <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                    <select class="carrier-select" data-batch-number="{{ shipment.shipment_batch_number }}" data-shipment-id="" style="width: 100px;">
-                                                        <option value="">请选择供应商</option>
-                                                        {% for supplier in private_suppliers %}
-                                                            <option value="{{ supplier }}" {% if shipment.carrier == supplier %}selected{% endif %}>{{ supplier }}</option>
-                                                        {% endfor %}
-                                                    </select>
+                                                    <input type="text" class="carrier-select" data-batch-number="{{ shipment.shipment_batch_number }}" data-shipment-id="" 
+                                                        value="{{ shipment.carrier|default:'' }}" placeholder="carrier" style="width: 100px; padding: 4px;">
                                                 </td>
                                                 <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ shipment.destination }}
@@ -546,13 +541,18 @@
                                                                 </form>
                                                             {% endif %}
                                                         <div style="margin-top: 5px;">
+                                                            <label style="display: flex; align-items: center; gap: 5px; font-size: 0.75rem; margin-bottom: 5px;">
+                                                                <input type="checkbox" checked class="show-containers-check" data-fleet="{{ fleet_group.fleet_number }}">
+                                                                显示containers
+                                                            </label>
                                                             {% if fleet_group.carrier == 'Maersk' %}
                                                                 <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                                                     {% csrf_token %}
                                                                     <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
                                                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                                                     <input type="hidden" name="step" value="export_maersk_bol">
-                                                                    <button class="action-btn" style="
+                                                                    <input type="hidden" name="show_containers" value="true" class="show-containers-input">
+                                                                    <button class="action-btn" onclick="setShowContainers(this)" style="
                                                                         background: linear-gradient(135deg, #3498db, #2980b9);
                                                                         border: none;
                                                                         color: white;
@@ -578,7 +578,8 @@
                                                                     <input type="hidden" name="step" value="export_ltl_bol">
                                                                     <input type="hidden" name="active_tab" value="readyShip"> 
                                                                     <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                                    <button class="action-btn" style="
+                                                                    <input type="hidden" name="show_containers" value="true" class="show-containers-input">
+                                                                    <button class="action-btn" onclick="setShowContainers(this)" style="
                                                                         background: linear-gradient(135deg, #3498db, #2980b9);
                                                                         border: none;
                                                                         color: white;
@@ -601,22 +602,42 @@
                                                     {% endif %}
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
-                                                    <div class="other-file-upload" 
-                                                         data-fleet-number="{{ fleet_group.fleet_number }}"
-                                                         style="border: 2px dashed #ced4da; 
-                                                                border-radius: 8px; 
-                                                                padding: 10px; 
-                                                                text-align: center; 
-                                                                cursor: pointer;
-                                                                min-width: 100px;"
-                                                         ondragover="event.preventDefault(); this.style.borderColor='#28a745';"
-                                                         ondragleave="this.style.borderColor='#ced4da';"
-                                                         ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#ced4da';"
-                                                         onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
-                                                        <i class="fas fa-paperclip" style="font-size: 1.2rem; color: #6c757d;"></i>
-                                                        <div style="font-size: 0.75rem; color: #6c757d; margin-top: 4px;">上传其他文件</div>
-                                                        <div style="font-size: 0.65rem; color: #adb5bd; margin-top: 2px;">拖拽或点击</div>
-                                                    </div>
+                                                    {% if fleet_group.has_other_file %}
+                                                        <div class="other-file-upload" 
+                                                             data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                             style="border: 2px solid #28a745; 
+                                                                    background-color: #d4edda;
+                                                                    border-radius: 8px; 
+                                                                    padding: 10px; 
+                                                                    text-align: center; 
+                                                                    cursor: pointer;
+                                                                    min-width: 100px;"
+                                                             ondragover="event.preventDefault(); this.style.borderColor='#155724';"
+                                                             ondragleave="this.style.borderColor='#28a745';"
+                                                             ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#28a745';"
+                                                             onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
+                                                            <i class="fas fa-check-circle" style="font-size: 1.2rem; color: #28a745;"></i>
+                                                            <div style="font-size: 0.75rem; color: #155724; margin-top: 4px;">已上传</div>
+                                                            <div style="font-size: 0.65rem; color: #2d5a27; margin-top: 2px;">点击可重新上传</div>
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="other-file-upload" 
+                                                             data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                             style="border: 2px dashed #ced4da; 
+                                                                    border-radius: 8px; 
+                                                                    padding: 10px; 
+                                                                    text-align: center; 
+                                                                    cursor: pointer;
+                                                                    min-width: 100px;"
+                                                             ondragover="event.preventDefault(); this.style.borderColor='#28a745';"
+                                                             ondragleave="this.style.borderColor='#ced4da';"
+                                                             ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#ced4da';"
+                                                             onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
+                                                            <i class="fas fa-paperclip" style="font-size: 1.2rem; color: #6c757d;"></i>
+                                                            <div style="font-size: 0.75rem; color: #6c757d; margin-top: 4px;">上传其他文件</div>
+                                                            <div style="font-size: 0.65rem; color: #adb5bd; margin-top: 2px;">拖拽或点击</div>
+                                                        </div>
+                                                    {% endif %}
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                     <button class="action-btn" onclick="openCostModal('{{ fleet_group.fleet_number }}')"
@@ -816,6 +837,16 @@
 </div>
 
 <script>
+    function setShowContainers(btn) {
+        const form = btn.closest('form');
+        const fleetNumber = form.querySelector('input[name="fleet_number"]').value;
+        const check = document.querySelector(`input.show-containers-check[data-fleet="${fleetNumber}"]`);
+        const input = form.querySelector('input.show-containers-input');
+        if (check && input) {
+            input.value = check.checked ? 'true' : 'false';
+        }
+    }
+
     function openMaerskLabelModal(fleetNumber) {
         document.getElementById('maerskLabelFleetNumber').value = fleetNumber;
         const modal = new bootstrap.Modal(document.getElementById('maerskLabelModal'));
@@ -1295,7 +1326,7 @@
         let allColumnsMatch = true;
         
         // 需要支持多值搜索的列（添加了勾选框列后索引+1）
-        const multiValueColumns = ['4', '5', '6']; // 目的地、柜号、唛头
+        const multiValueColumns = ['5', '6', '7']; // 目的地、柜号、唛头
         
         // 检查每一列的筛选条件（AND关系）
         Object.keys(columnFilters).forEach(colIndex => {
@@ -1311,7 +1342,7 @@
             let cellText = cell.textContent.toLowerCase();
             
             // 处理特殊列（唛头有完整数据在data-full属性中）
-            if (colIndex === '6') { // 唛头列
+            if (colIndex === '7') { // 唛头列
                 const fullMarkings = cell.getAttribute('data-full') || cellText;
                 cellText = fullMarkings.toLowerCase();
             }
@@ -1404,7 +1435,7 @@
                 }
                 
                 // 对于唛头列，使用完整数据进行高亮
-                if (colIndex === '6') {
+                if (colIndex === '7') {
                     const fullData = cell.getAttribute('data-full') || cellText;
                     cellText = fullData;
                 }
@@ -1456,12 +1487,16 @@
         const pickupBtn = document.getElementById('batchSavePickupTimeBtn');
         const labelBtn = document.getElementById('batchSaveLabelBtn');
         const otherFileBtn = document.getElementById('batchUploadOtherFileBtn');
+        const pickupListBtn = document.getElementById('batchPickupListBtn');
+        const bolBtn = document.getElementById('batchBolBtn');
         if (btn) btn.disabled = !hasChecked;
         if (downloadBtn) downloadBtn.disabled = !hasChecked;
         if (carrierBtn) carrierBtn.disabled = !hasChecked;
         if (pickupBtn) pickupBtn.disabled = !hasChecked;
         if (labelBtn) labelBtn.disabled = !hasChecked;
         if (otherFileBtn) otherFileBtn.disabled = !hasChecked;
+        if (pickupListBtn) pickupListBtn.disabled = !hasChecked;
+        if (bolBtn) bolBtn.disabled = !hasChecked;
     }
 
     function getSelectedFleetNumbers() {
@@ -1613,28 +1648,10 @@
         form.submit();
     }
 
-    function batchDownloadPickupList() {
+    function batchPickupList() {
         const fleetNumbers = getSelectedFleetNumbers();
         if (fleetNumbers.length === 0) {
             alert('请先选择车次');
-            return;
-        }
-
-        const allShipmentBatches = [];
-        fleetNumbers.forEach(fleetNumber => {
-            const fleetData = collectFleetData(fleetNumber);
-            if (!fleetData || !fleetData.shipments) return;
-
-            fleetData.shipments.forEach(shipment => {
-                const shipmentBatch = shipment.shipment_batch_number;
-                if (shipmentBatch && !allShipmentBatches.includes(shipmentBatch)) {
-                    allShipmentBatches.push(shipmentBatch);
-                }
-            });
-        });
-
-        if (allShipmentBatches.length === 0) {
-            alert('没有找到预约批次号');
             return;
         }
 
@@ -1652,7 +1669,7 @@
         const stepInput = document.createElement('input');
         stepInput.type = 'hidden';
         stepInput.name = 'step';
-        stepInput.value = 'batch_download_pickup_list';
+        stepInput.value = 'batch_pickup_list';
         form.appendChild(stepInput);
 
         const warehouseInput = document.createElement('input');
@@ -1661,11 +1678,51 @@
         warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
         form.appendChild(warehouseInput);
 
-        const batchesInput = document.createElement('input');
-        batchesInput.type = 'hidden';
-        batchesInput.name = 'batch_shipment_batches';
-        batchesInput.value = JSON.stringify(allShipmentBatches);
-        form.appendChild(batchesInput);
+        const fleetNumbersInput = document.createElement('input');
+        fleetNumbersInput.type = 'hidden';
+        fleetNumbersInput.name = 'batch_fleet_numbers';
+        fleetNumbersInput.value = JSON.stringify(fleetNumbers);
+        form.appendChild(fleetNumbersInput);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    function batchBol() {
+        const fleetNumbers = getSelectedFleetNumbers();
+        if (fleetNumbers.length === 0) {
+            alert('请先选择车次');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'batch_bol';
+        form.appendChild(stepInput);
+
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = document.querySelector('input[name="warehouse"]')?.value || '';
+        form.appendChild(warehouseInput);
+
+        const fleetNumbersInput = document.createElement('input');
+        fleetNumbersInput.type = 'hidden';
+        fleetNumbersInput.name = 'batch_fleet_numbers';
+        fleetNumbersInput.value = JSON.stringify(fleetNumbers);
+        form.appendChild(fleetNumbersInput);
 
         document.body.appendChild(form);
         form.submit();

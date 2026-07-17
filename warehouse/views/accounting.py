@@ -13418,11 +13418,36 @@ class Accounting(View):
                 basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
 
             # 超重费
-            if float(order.container_number.weight_lbs) > 42000:
+            if warehouse_precise == "NJ 07001" and preport_carrier in ("东海岸", "GM") and float(
+                    order.container_number.weight_lbs) > 42000:
                 overweight = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {}).get(
                     'overweight', 0)
                 if isinstance(overweight, str):
                     overweight = overweight.replace("\n", ";")
+            elif warehouse_precise == "NJ 07001" and preport_carrier == "SNE" and container_type == "40HQ/GP" and 48000 >= float(
+                    order.container_number.weight_lbs) > 44000:
+                overweight = 150
+            elif warehouse_precise == "NJ 07001" and preport_carrier == "SNE" and container_type == "40HQ/GP" and float(
+                    order.container_number.weight_lbs) > 48000:
+                overweight = 200
+            elif warehouse_precise == "NJ 07001" and preport_carrier == "SNE" and container_type == "45HQ/GP" and float(
+                    order.container_number.weight_lbs) > 46000:
+                overweight = 150
+            elif warehouse_precise == "NJ 07001" and preport_carrier == "SNE" and container_type == "45HQ/GP" and float(
+                    order.container_number.weight_lbs) > 50000:
+                overweight = 200
+            elif warehouse_precise == "NJ 07001" and preport_carrier == "Best" and 58000 >= float(
+                    order.container_number.weight_lbs) > 51000:
+                overweight = 100
+            elif warehouse_precise == "NJ 07001" and preport_carrier == "Best" and float(
+                    order.container_number.weight_lbs) > 58000:
+                overweight = 200
+            elif warehouse_precise == "LA 91761" and preport_carrier == "ARM" and 48000 >= float(
+                    order.container_number.weight_lbs) > 43500:
+                overweight = 200
+            elif warehouse_precise == "LA 91761" and preport_carrier == "ARM" and float(
+                    order.container_number.weight_lbs) > 48000:
+                overweight = 300
 
             # 入库费
             arrive_fee = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {}).get(
