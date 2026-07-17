@@ -348,28 +348,6 @@
     <div id="order-packing-list-info-sec" style="display: none; width: 100%;">
         <div style="display: flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px;">
             {% if not selected_order.offload_id.offload_at and not selected_order.offload_id.offload_other_at %}
-                <div style="display: flex; gap:10px; align-items:center;">
-                    <form method="post" id='upload-form' enctype="multipart/form-data"
-                          style="font-size: 11px; display:flex; align-items:center; gap:8px;">
-                        {% csrf_token %}
-                        <span>导入模版:</span>
-                        {{ packing_list_upload_form.file }}
-                        <input type="hidden" name="step" value="upload_template">
-                        <input type="hidden" name="source" value="order_management">
-                        <input type="hidden" name="container_number"
-                               value="{{ selected_order.container_number.container_number }}">
-                        <button type="submit" class="btn btn-success"
-                                style="width: 100px; height: 35px; font-size: 12px;">上传清单
-                        </button>
-                    </form>
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="step" value="download_template">
-                        <button type="submit" class="btn btn-success"
-                                style="width: 100px; height: 35px; font-size: 12px;">下载模版
-                        </button>
-                    </form>
-                </div>
                 <div style="display:flex; gap:10px; align-items:center;">
                     <button type="button" id="add-more-btn" class="btn btn-success"
                             style="height: 35px; font-size: 12px;" onclick="addRowBelow()">
@@ -379,37 +357,10 @@
                             style="height: 35px; font-size: 12px;" onclick="rmLastRow()">
                         <i class="bi bi-dash-lg"></i> 删除选中行
                     </button>
-                    <button type="submit" form="packing-list-form" class="btn btn-primary"
-                            style="height: 35px; font-size: 12px; white-space: nowrap;"
-                            onclick="return processForm()">
-                        更新PackingList信息
-                    </button>
                 </div>
             {% else %}
                 {% if user.is_authenticated %}
                     {% if user.is_staff %}
-                        <div style="display: flex; gap:10px; align-items:center;">
-                            <form method="post" id='upload-form' enctype="multipart/form-data"
-                                  style="font-size: 11px; display:flex; align-items:center; gap:8px;">
-                                {% csrf_token %}
-                                <span>导入模版:</span>
-                                {{ packing_list_upload_form.file }}
-                                <input type="hidden" name="step" value="upload_template">
-                                <input type="hidden" name="source" value="order_management">
-                                <input type="hidden" name="container_number"
-                                       value="{{ selected_order.container_number.container_number }}">
-                                <button type="submit" class="btn btn-success"
-                                        style="width: 100px; height: 35px; font-size: 12px;">上传清单
-                                </button>
-                            </form>
-                            <form method="post" action="">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="download_template">
-                                <button type="submit" class="btn btn-success"
-                                        style="width: 100px; height: 35px; font-size: 12px;">下载模版
-                                </button>
-                            </form>
-                        </div>
                         <div style="display:flex; gap:10px; align-items:center;">
                             <button type="button" id="add-more-btn" class="btn btn-success"
                                     style="height: 35px; font-size: 12px;" onclick="addRowBelow()">

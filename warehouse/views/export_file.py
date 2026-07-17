@@ -332,7 +332,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-cbm")
+            .order_by("destination", "custom_delivery_method", "-cbm")
         )
     else:
         packing_list = []
