@@ -240,7 +240,11 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <i class="bi bi-heartbreak-fill status-icon status-pending"></i>
+                                {% if o.packing_list_updloaded%}
+                                    <i class="bi bi-file-check-fill status-icon status-complete"></i>
+                                {% else %}
+                                    <i class="bi bi-heartbreak-fill status-icon status-pending"></i>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}
