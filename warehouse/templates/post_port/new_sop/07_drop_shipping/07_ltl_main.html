@@ -525,6 +525,9 @@
                                 <div class="debug-check-status {% if check.pass %}pass{% else %}fail{% endif %}">
                                     {% if check.pass %}✓ 符合条件{% else %}✗ 不符合条件{% endif %}
                                 </div>
+                                {% if check.fail_details %}
+                                <div class="debug-check-details">{{ check.fail_details }}</div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -767,6 +770,14 @@
     .debug-check-status.fail {
         background: #ffcdd2;
         color: #c62828;
+    }
+
+    .debug-check-details {
+        font-size: 0.78rem;
+        color: #7f8c8d;
+        margin-top: 4px;
+        padding-left: 2px;
+        font-style: italic;
     }
 
     .debug-reason {
