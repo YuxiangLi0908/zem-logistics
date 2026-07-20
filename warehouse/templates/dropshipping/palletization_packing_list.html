@@ -47,7 +47,7 @@
                             {% if status == 'non_palletized' %}
                             <td class="td">{{ pl.model }}</td>
                             {% elif status == 'palletized' %}
-                                {% if " " in pl.model or "自提" in pl.model %}
+                                {% if " " in pl.model or "pickup" in pl.model %}
                                 <td id="model - {{ pl.id }}" class="td">
                                     <a href="#"
                                         onclick="showPalletFromLink(this)"
@@ -383,7 +383,7 @@ function showPallet(button) {
 
     var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
     tableBody.innerHTML = '';
-    if (button.model.includes('自提')) {
+    if (button.model.includes('pickup')) {
         var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
         var secondTh = theadTr.getElementsByTagName('th')[1];
         secondTh.style.display = 'none';
