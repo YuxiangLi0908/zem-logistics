@@ -309,54 +309,69 @@ class PostDrop(View):
             return template, context
 
         def get_cargo_info():
-            orders = Order.objects.filter(container_number__container_number__icontains=container_number)
+            orders = Order.objects.filter(container_number__container_number__icontains=container_number).select_related('retrieval_id', 'container_number')
             if not orders.exists():
                 return {'not_found': f'未找到柜号包含 "{container_number}" 的订单记录'}
             
             order_ids = orders.values_list('id', flat=True)
-            cargos = DropshipCargo.objects.filter(order_id__in=order_ids).select_related('warehouse')
+            cargos = DropshipCargo.objects.filter(order_id__in=order_ids).select_related('warehouse', 'order__retrieval_id')
             
             cargo_list = []
             for cargo in cargos:
+                cargo_order = cargo.order
+                retrieval_ok = False
+                if cargo_order and cargo_order.retrieval_id:
+                    retrieval_ok = (cargo_order.retrieval_id.planned_release_time is not None or 
+                                   cargo_order.retrieval_id.temp_t49_available_for_pickup)
+                
                 cargo_list.append({
                     'id': cargo.id,
                     'shipping_mark': cargo.shipping_mark or '-',
                     'model': cargo.model or '-',
                     'status': cargo.status,
-                    'warehouse_name': cargo.warehouse.name if cargo.warehouse else '-'
+                    'warehouse_name': cargo.warehouse.name if cargo.warehouse else '-',
+                    'retrieval_ok': retrieval_ok,
+                    'order_id': cargo_order.id if cargo_order else None
                 })
+            
+            if not cargo_list:
+                order_count = orders.count()
+                return {'not_found': f'Order表中找到 {order_count} 条该柜号的订单记录，但DropshipCargo表中没有对应的货物记录'}
             
             checks = []
             
-            warehouse_check_pass = any(c.get('warehouse_name', '') == warehouse for c in cargo_list)
+            warehouse_check_pass = all(c.get('warehouse_name', '') == warehouse for c in cargo_list)
+            warehouse_fail_cargos = [c for c in cargo_list if c.get('warehouse_name', '') != warehouse]
             checks.append({
                 'pass': warehouse_check_pass,
-                'description': f'仓库匹配: 货物仓库 = 当前选择仓库 ({warehouse})'
+                'description': f'仓库匹配: 所有货物仓库 = 当前选择仓库 ({warehouse})',
+                'fail_details': f'不匹配的货物ID: {", ".join(str(c["id"]) for c in warehouse_fail_cargos)}' if warehouse_fail_cargos else None
             })
             
-            retrieval_check_pass = False
-            for order in orders:
-                if order.retrieval_id:
-                    if order.retrieval_id.planned_release_time is not None or order.retrieval_id.temp_t49_available_for_pickup:
-                        retrieval_check_pass = True
-                        break
+            retrieval_check_pass = all(c.get('retrieval_ok', False) for c in cargo_list)
+            retrieval_fail_cargos = [c for c in cargo_list if not c.get('retrieval_ok', False)]
             checks.append({
                 'pass': retrieval_check_pass,
-                'description': 'Retrieval条件: planned_release_time不为空 或 temp_t49_available_for_pickup为True'
+                'description': 'Retrieval条件: 所有货物的order满足planned_release_time不为空 或 temp_t49_available_for_pickup为True',
+                'fail_details': f'不满足的货物ID: {", ".join(str(c["id"]) for c in retrieval_fail_cargos)}' if retrieval_fail_cargos else None
             })
             
             if page_type == 'release':
-                status_check_pass = any(c.get('status', '') == 'not_in_stock' for c in cargo_list)
+                status_check_pass = all(c.get('status', '') == 'not_in_stock' for c in cargo_list)
+                status_fail_cargos = [c for c in cargo_list if c.get('status', '') != 'not_in_stock']
                 checks.append({
                     'pass': status_check_pass,
-                    'description': '状态为 "not_in_stock": 货物状态包含未入库（未放行页面条件）'
+                    'description': '状态为 "not_in_stock": 所有货物状态为未入库',
+                    'fail_details': ('状态不符的货物ID: ' + ', '.join(f'{c["id"]}({c["status"]})' for c in status_fail_cargos)) if status_fail_cargos else None
                 })
                 is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
             else:
                 status_check_pass = all(c.get('status', '') != 'all_out' for c in cargo_list)
+                status_fail_cargos = [c for c in cargo_list if c.get('status', '') == 'all_out']
                 checks.append({
                     'pass': status_check_pass,
-                    'description': '状态不为 "all_out": 货物未全部出库（已放行页面条件）'
+                    'description': '状态不为 "all_out": 所有货物未全部出库',
+                    'fail_details': f'已全部出库的货物ID: {", ".join(str(c["id"]) for c in status_fail_cargos)}' if status_fail_cargos else None
                 })
                 is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
             
@@ -367,14 +382,14 @@ class PostDrop(View):
             else:
                 fail_reasons = []
                 if not warehouse_check_pass:
-                    fail_reasons.append('货物仓库与当前选择仓库不匹配')
+                    fail_reasons.append(f'部分货物仓库与当前选择仓库不匹配（货物ID: {", ".join(str(c["id"]) for c in warehouse_fail_cargos)}）')
                 if not retrieval_check_pass:
-                    fail_reasons.append('Retrieval记录不满足放行条件')
+                    fail_reasons.append(f'部分货物的order不满足Retrieval条件（货物ID: {", ".join(str(c["id"]) for c in retrieval_fail_cargos)}）')
                 if not status_check_pass:
                     if page_type == 'release':
-                        fail_reasons.append('货物状态不是 "not_in_stock"')
+                        fail_reasons.append('部分货物状态不是 "not_in_stock"（货物ID: ' + ', '.join(f'{c["id"]}({c["status"]})' for c in status_fail_cargos) + '）')
                     else:
-                        fail_reasons.append('货物状态为 "all_out"（全部出库）')
+                        fail_reasons.append(f'部分货物状态为 "all_out"（全部出库）（货物ID: {", ".join(str(c["id"]) for c in status_fail_cargos)}）')
                 reason = '、'.join(fail_reasons)
             
             return {
