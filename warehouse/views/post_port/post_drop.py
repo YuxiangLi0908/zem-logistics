@@ -174,6 +174,9 @@ class PostDrop(View):
         if step == "ltl_post_warehouse":
             template, context = await self.handle_ltl_unscheduled_pos_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "cargo_debug":
+            template, context = await self.handle_cargo_debug(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "verify_ltl_cargo":
             template, context = await self.handle_verify_ltl_cargo(request)
             return await sync_to_async(render)(request, template, context)
@@ -182,8 +185,8 @@ class PostDrop(View):
         elif step == "save_releaseCommand":
             template, context = await self.handle_save_releaseCommand(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "account_search":
-            template, context = await self.handle_account_search(request)
+        elif step == "drop_account_search":
+            template, context = await self.handle_drop_account_search(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "account_edit_fee":
             template, context = await self.handle_account_edit_fee(request)
@@ -280,6 +283,124 @@ class PostDrop(View):
         else:
             raise ValueError('wrong step',step)
         
+    async def handle_cargo_debug(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        '''分析柜号不在页面的原因'''
+        container_number = request.POST.get("container_number", "").strip()
+        warehouse = request.POST.get("warehouse", "")
+        page_type = request.POST.get("page_type", "release")
+        
+        debug_result = {
+            'container_number': container_number,
+            'warehouse': warehouse,
+            'page_type': page_type,
+            'not_found': None,
+            'found_message': None,
+            'cargo_count': 0,
+            'cargos': [],
+            'checks': [],
+            'is_in_page': False,
+            'reason': ''
+        }
+
+        if not container_number:
+            debug_result['not_found'] = '请输入柜号！'
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context['debug_result'] = debug_result
+            return template, context
+
+        def get_cargo_info():
+            orders = Order.objects.filter(container_number__container_number__icontains=container_number)
+            if not orders.exists():
+                return {'not_found': f'未找到柜号包含 "{container_number}" 的订单记录'}
+            
+            order_ids = orders.values_list('id', flat=True)
+            cargos = DropshipCargo.objects.filter(order_id__in=order_ids).select_related('warehouse')
+            
+            cargo_list = []
+            for cargo in cargos:
+                cargo_list.append({
+                    'id': cargo.id,
+                    'shipping_mark': cargo.shipping_mark or '-',
+                    'model': cargo.model or '-',
+                    'status': cargo.status,
+                    'warehouse_name': cargo.warehouse.name if cargo.warehouse else '-'
+                })
+            
+            checks = []
+            
+            warehouse_check_pass = any(c.warehouse_name == warehouse for c in cargo_list)
+            checks.append({
+                'pass': warehouse_check_pass,
+                'description': f'仓库匹配: 货物仓库 = 当前选择仓库 ({warehouse})'
+            })
+            
+            retrieval_check_pass = False
+            for order in orders:
+                if order.retrieval_id:
+                    if order.retrieval_id.planned_release_time is not None or order.retrieval_id.temp_t49_available_for_pickup:
+                        retrieval_check_pass = True
+                        break
+            checks.append({
+                'pass': retrieval_check_pass,
+                'description': 'Retrieval条件: planned_release_time不为空 或 temp_t49_available_for_pickup为True'
+            })
+            
+            if page_type == 'release':
+                status_check_pass = any(c.status == 'not_in_stock' for c in cargo_list)
+                checks.append({
+                    'pass': status_check_pass,
+                    'description': '状态为 "not_in_stock": 货物状态包含未入库（未放行页面条件）'
+                })
+                is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
+            else:
+                status_check_pass = all(c.status != 'all_out' for c in cargo_list)
+                checks.append({
+                    'pass': status_check_pass,
+                    'description': '状态不为 "all_out": 货物未全部出库（已放行页面条件）'
+                })
+                is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
+            
+            reason = ''
+            if is_in_page:
+                page_name = '未放行' if page_type == 'release' else '已放行'
+                reason = f'柜号应该在{page_name}页面中，请检查是否有其他筛选条件或分页问题'
+            else:
+                fail_reasons = []
+                if not warehouse_check_pass:
+                    fail_reasons.append('货物仓库与当前选择仓库不匹配')
+                if not retrieval_check_pass:
+                    fail_reasons.append('Retrieval记录不满足放行条件')
+                if not status_check_pass:
+                    if page_type == 'release':
+                        fail_reasons.append('货物状态不是 "not_in_stock"')
+                    else:
+                        fail_reasons.append('货物状态为 "all_out"（全部出库）')
+                reason = '、'.join(fail_reasons)
+            
+            return {
+                'cargos': cargo_list,
+                'checks': checks,
+                'is_in_page': is_in_page,
+                'reason': reason,
+                'found_message': f'找到 {len(cargo_list)} 条货物记录'
+            }
+
+        cargo_info = await sync_to_async(get_cargo_info)()
+        
+        if 'not_found' in cargo_info:
+            debug_result['not_found'] = cargo_info['not_found']
+        else:
+            debug_result['cargos'] = cargo_info['cargos']
+            debug_result['cargo_count'] = len(cargo_info['cargos'])
+            debug_result['checks'] = cargo_info['checks']
+            debug_result['is_in_page'] = cargo_info['is_in_page']
+            debug_result['reason'] = cargo_info['reason']
+            debug_result['found_message'] = cargo_info['found_message']
+
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context['debug_result'] = debug_result
+        return template, context
+
     async def handle_ltl_unscheduled_pos_post(
             self, request: HttpRequest, context: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -710,7 +831,7 @@ class PostDrop(View):
         context = {'success_messages': f'保存成功{num}组数据!'}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
-    async def handle_account_search(
+    async def handle_drop_account_search(
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """一件代发应收账单查询：根据筛选条件查询订单(主查order表)，
@@ -744,20 +865,15 @@ class PostDrop(View):
                 & Q(order_type="一件代发") 
                 & Q(vessel_id__vessel_etd__gte=start_date)
                 & Q(vessel_id__vessel_etd__lte=end_date)
-                & Q(offload_id__offload_at__isnull=False)
             )
             if warehouse_filter and warehouse_filter != 'None':
-                if "LA" in warehouse_filter:
-                    criteria &= Q(retrieval_id__retrieval_destination_precise__contains='LA')
-                else:
-                    criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse_filter)
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse_filter)
 
         # 3. 查询符合条件的订单（按柜号去重），主查 order 表
         base_orders = (
             Order.objects
             .select_related(
                 'retrieval_id', 
-                'offload_id', 
                 'container_number',
                 'customer_name',
                 'warehouse',
@@ -765,7 +881,6 @@ class PostDrop(View):
             .annotate(
                 retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
                 empty_returned_time=F("retrieval_id__empty_returned_at"),
-                offload_time=F("offload_id__offload_at"),
             )
             .filter(criteria)
             .distinct()
@@ -791,7 +906,7 @@ class PostDrop(View):
         ).prefetch_related(status_prefetch)
         all_invoices = await sync_to_async(list)(all_invoices_qs)
 
-         # --- 5. [安全机制] 批量创建缺失的 InvoiceStatus ---
+         # --- 5.  批量创建缺失的 InvoiceStatus ---
         missing_statuses = []
         invoices_needing_update = []
 
@@ -883,7 +998,6 @@ class PostDrop(View):
                     'finance_status_value': 'completed' if finance_status == 'completed' else 'unconfirmed',
                     'finance_status_display': '已完成' if finance_status == 'completed' else '未确认',
                     'has_invoice': bool(inv),
-                    'offload_time': order.offload_time,
                     'actual_retrieval_timestamp': order.retrieval_id.actual_retrieval_timestamp if order.retrieval_id else None,
                     'customer_name': order.customer_name.zem_name if order.customer_name else None,
                     'warehouse': order.warehouse.name if order.warehouse else None,
@@ -934,7 +1048,8 @@ class PostDrop(View):
     ) -> tuple[str, dict[str, Any]]:
         """一件代发应收账单：提拆费/库内费录入页面。
         前端通过表单提交 invoice_number 和 fee_type(preport/warehouse)。
-        根据 invoice_number 查询账单和已录费用，显示到 template_account_edit 页面。"""
+        根据 invoice_number 查询账单和已录费用，显示到 template_account_edit 页面。
+        逻辑：如果已有该类费用则直接读取显示；否则读取报价表作为参考。"""
         invoice_number = request.POST.get("invoice_number", "").strip()
         container_number = request.POST.get("container_number", "").strip()
         fee_type = request.POST.get("fee_type", "").strip()
@@ -945,20 +1060,17 @@ class PostDrop(View):
                 ra._create_invoice_and_status
             )(container_number)
             invoice_number = invoice.invoice_number
-            
 
-        # 查询账单
         invoice = await sync_to_async(
             Invoicev2.objects.select_related("container_number")
             .filter(invoice_number=invoice_number).first
         )()
 
         if not invoice:
-            template, context = await self.handle_account_search(request)
+            template, context = await self.handle_drop_account_search(request)
             context['error_messages'] = f"未找到账单号 {invoice_number} 对应的账单！"
             return template, context
 
-        # 确定 item_category
         if fee_type == "preport":
             item_category = "preport"
             fee_type_display = "提拆费"
@@ -966,164 +1078,10 @@ class PostDrop(View):
             item_category = "warehouse_other"
             fee_type_display = "库内费"
         else:
-            template, context = await self.handle_account_search(request)
+            template, context = await self.handle_drop_account_search(request)
             context['error_messages'] = f"未知的费用类型：{fee_type}！"
             return template, context
 
-        # 自动初始化费用项：如果账单状态未录入，自动创建默认费用
-        status_obj = await sync_to_async(InvoiceStatusv2.objects.filter(
-            invoice=invoice, invoice_type="receivable"
-        ).first)()
-        
-        if fee_type == "preport" and status_obj and status_obj.preport_status != "completed":
-            existing = await sync_to_async(InvoiceItemv2.objects.filter(
-                invoice_number=invoice, item_category="preport"
-            ).exists)()
-            if not existing:
-                dropship_quote = await sync_to_async(
-                    QuotationMaster.objects.filter(
-                        quote_type="receivable",
-                        effective_date__isnull=False,
-                    ).order_by("-effective_date").first
-                )()
-                
-                if dropship_quote:
-                    preport_fee_detail = await sync_to_async(
-                        FeeDetail.objects.filter(
-                            quotation_id=dropship_quote,
-                            fee_type="preport"
-                        ).first
-                    )()
-                    
-                    if preport_fee_detail and preport_fee_detail.details:
-                        for fee_code, fee_data in preport_fee_detail.details.items():
-                            await sync_to_async(InvoiceItemv2.objects.create)(
-                                container_number=invoice.container_number,
-                                invoice_number=invoice,
-                                invoice_type="receivable",
-                                item_category="preport",
-                                description=fee_data.get("description", fee_code),
-                                amount=fee_data.get("rate", 0),
-                                rate=fee_data.get("rate", 0),
-                                qty=1,
-                            )
-                    else:
-                        await sync_to_async(InvoiceItemv2.objects.create)(
-                            container_number=invoice.container_number,
-                            invoice_number=invoice,
-                            invoice_type="receivable",
-                            item_category="preport",
-                            description="提拆费",
-                            amount=950,
-                            rate=950,
-                            qty=1,
-                        )
-                else:
-                    await sync_to_async(InvoiceItemv2.objects.create)(
-                        container_number=invoice.container_number,
-                        invoice_number=invoice,
-                        invoice_type="receivable",
-                        item_category="preport",
-                        description="提拆费",
-                        amount=950,
-                        rate=950,
-                        qty=1,
-                    )
-                    
-        elif fee_type == "warehouse" and status_obj and status_obj.warehouse_other_status != "completed":
-            existing = await sync_to_async(InvoiceItemv2.objects.filter(
-                invoice_number=invoice, item_category="warehouse_other"
-            ).exists)()
-            if not existing:
-                total_pcs = 0
-                if invoice.container_number:
-                    pallets = await sync_to_async(list)(
-                        Pallet.objects.filter(
-                            container_number=invoice.container_number
-                        ).values("pcs")
-                    )
-                    if pallets:
-                        total_pcs = sum(p["pcs"] or 0 for p in pallets)
-                    else:
-                        packing_items = await sync_to_async(list)(
-                            PackingList.objects.filter(
-                                container_number=invoice.container_number
-                            ).values("pcs")
-                        )
-                        if packing_items:
-                            total_pcs = sum(p["pcs"] or 0 for p in packing_items)
-                
-                dropship_quote = await sync_to_async(
-                    QuotationMaster.objects.filter(
-                        quote_type="receivable",
-                        effective_date__isnull=False,
-                    ).order_by("-effective_date").first
-                )()
-                
-                if dropship_quote:
-                    warehouse_fee_detail = await sync_to_async(
-                        FeeDetail.objects.filter(
-                            quotation_id=dropship_quote,
-                            fee_type="warehouse"
-                        ).first
-                    )()
-                    
-                    if warehouse_fee_detail and warehouse_fee_detail.details:
-                        for fee_code, fee_data in warehouse_fee_detail.details.items():
-                            rate = fee_data.get("rate", 0)
-                            description = fee_data.get("description", fee_code)
-                            if "出库费" in description:
-                                amount = 0
-                            elif "仓储费" in description:
-                                amount = 0
-                            else:
-                                amount = 0
-                            
-                            await sync_to_async(InvoiceItemv2.objects.create)(
-                                container_number=invoice.container_number,
-                                invoice_number=invoice,
-                                invoice_type="receivable",
-                                item_category="warehouse_other",
-                                description=description,
-                                amount=amount,
-                                rate=rate,
-                            )
-                    else:
-                        warehouse_fees = [
-                            {"description": "出库费TBR", "rate": 3, "amount": 0},
-                            {"description": "出库费PCR", "rate": 1, "amount": 0},
-                            {"description": "仓储费TBR", "rate": 3.5, "amount": 0},
-                            {"description": "仓储费PCR", "rate": 3.5, "amount": 0},
-                        ]
-                        for fee in warehouse_fees:
-                            await sync_to_async(InvoiceItemv2.objects.create)(
-                                container_number=invoice.container_number,
-                                invoice_number=invoice,
-                                invoice_type="receivable",
-                                item_category="warehouse_other",
-                                description=fee["description"],
-                                amount=fee["amount"],
-                                rate=fee["rate"],
-                            )
-                else:
-                    warehouse_fees = [
-                        {"description": "出库费TBR", "rate": 3, "amount": 0},
-                        {"description": "出库费PCR", "rate": 1, "amount": 0},
-                        {"description": "仓储费TBR", "rate": 3.5, "amount": 0},
-                        {"description": "仓储费PCR", "rate": 3.5, "amount": 0},
-                    ]
-                    for fee in warehouse_fees:
-                        await sync_to_async(InvoiceItemv2.objects.create)(
-                            container_number=invoice.container_number,
-                            invoice_number=invoice,
-                            invoice_type="receivable",
-                            item_category="warehouse_other",
-                            description=fee["description"],
-                            amount=fee["amount"],
-                            rate=fee["rate"],
-                        )
-
-        # 查询已录费用
         items = await sync_to_async(list)(
             InvoiceItemv2.objects.filter(
                 invoice_number=invoice,
@@ -1131,13 +1089,77 @@ class PostDrop(View):
             ).order_by("id")
         )
 
-        # 查询柜号
+        has_existing_fee = len(items) > 0
+
+        if not has_existing_fee:
+            dropship_quote = await sync_to_async(
+                QuotationMaster.objects.filter(
+                    quote_type="receivable",
+                    effective_date__isnull=False,
+                ).order_by("-effective_date").first
+            )()
+
+            if fee_type == "preport":
+                if dropship_quote:
+                    preport_fee_detail = await sync_to_async(
+                        FeeDetail.objects.filter(
+                            quotation_id=dropship_quote,
+                            fee_type="preport"
+                        ).first
+                    )()
+                    if preport_fee_detail and preport_fee_detail.details:
+                        for fee_code, fee_data in preport_fee_detail.details.items():
+                            rate = fee_data.get("rate", 0)
+                            items.append({
+                                "description": fee_data.get("description", fee_code),
+                                "amount": rate,
+                                "rate": rate,
+                                "qty": 1,
+                                "is_new": True,
+                            })
+                    else:
+                        template, context = await self.handle_drop_account_search(request)
+                        context['error_messages'] = "报价表中未配置提拆费，请先配置报价表！"
+                        return template, context
+                else:
+                    template, context = await self.handle_drop_account_search(request)
+                    context['error_messages'] = "未找到有效的报价表，请先创建报价表！"
+                    return template, context
+
+            elif fee_type == "warehouse":
+                warehouse_rates = {}
+                if dropship_quote:
+                    warehouse_fee_detail = await sync_to_async(
+                        FeeDetail.objects.filter(
+                            quotation_id=dropship_quote,
+                            fee_type="warehouse"
+                        ).first
+                    )()
+                    if warehouse_fee_detail and warehouse_fee_detail.details:
+                        for fee_code, fee_data in warehouse_fee_detail.details.items():
+                            warehouse_rates[fee_code] = fee_data.get("rate", 0)
+                    else:
+                        template, context = await self.handle_drop_account_search(request)
+                        context['error_messages'] = "报价表中未配置库内费，请先配置报价表！"
+                        return template, context
+                else:
+                    template, context = await self.handle_drop_account_search(request)
+                    context['error_messages'] = "未找到有效的报价表，请先创建报价表！"
+                    return template, context
+
+                for desc, rate in warehouse_rates.items():
+                    items.append({
+                        "description": desc,
+                        "amount": 0,
+                        "rate": rate,
+                        "is_new": True,
+                    })
+
         container_number_str = (
             invoice.container_number.container_number
             if invoice.container_number else None
         )
 
-        # 查询仓库（订单 retrieval_id.retrieval_destination_precise）
         warehouse_name = None
         warehouse_precise = None
         if invoice.container_number:
@@ -1150,7 +1172,6 @@ class PostDrop(View):
                 if order.warehouse:
                     warehouse_name = order.warehouse.name
 
-        # 查询财务状态
         finance_status_value = None
         finance_status_display = "财务未确认，可编辑"
         is_editable = True
@@ -1166,75 +1187,60 @@ class PostDrop(View):
                 finance_status_display = "财务未确认，可编辑"
                 is_editable = True
 
-        # 计算当前总价
-        total_amount = sum((item.amount or 0) for item in items)
+        total_amount = sum((item.get("amount", 0) if isinstance(item, dict) else (item.amount or 0)) for item in items)
 
-        # 件数详情：库内费时读取 Pallet/PackingList，按唛头分组统计件数
-        piece_details = []
+        shipment_details = []
         if fee_type == "warehouse" and invoice.container_number:
-            pallets = await sync_to_async(list)(
-                Pallet.objects.select_related("shipment_batch_number")
-                .filter(container_number=invoice.container_number)
-                .values("shipping_mark", "pcs", "PO_ID", "shipment_batch_number__shipped_at")
+            cargos = await sync_to_async(list)(
+                DropshipCargo.objects.filter(
+                    container=invoice.container_number
+                ).select_related('container')
             )
-            if pallets:
-                grouped = {}
-                for p in pallets:
-                    mark = p["shipping_mark"] or "无唛头"
-                    if mark not in grouped:
-                        grouped[mark] = {"pcs": 0, "shipped_at": p.get("shipment_batch_number__shipped_at")}
-                    grouped[mark]["pcs"] += (p["pcs"] or 0)
-                    if p.get("shipment_batch_number__shipped_at"):
-                        if not grouped[mark]["shipped_at"] or p["shipment_batch_number__shipped_at"] > grouped[mark]["shipped_at"]:
-                            grouped[mark]["shipped_at"] = p["shipment_batch_number__shipped_at"]
-                piece_details = [
-                    {"shipping_mark": mark, "pcs": data["pcs"], "shipped_at": data["shipped_at"]}
-                    for mark, data in grouped.items()
-                ]
-            else:
-                packing_items = await sync_to_async(list)(
-                    PackingList.objects.select_related("shipment_batch_number")
-                    .filter(container_number=invoice.container_number)
-                    .values("shipping_mark", "pcs", "shipment_batch_number__shipped_at")
-                )
-                if packing_items:
-                    grouped = {}
-                    for p in packing_items:
-                        mark = p["shipping_mark"] or "无唛头"
-                        if mark not in grouped:
-                            grouped[mark] = {"pcs": 0, "shipped_at": p.get("shipment_batch_number__shipped_at")}
-                        grouped[mark]["pcs"] += (p["pcs"] or 0)
-                        if p.get("shipment_batch_number__shipped_at"):
-                            if not grouped[mark]["shipped_at"] or p["shipment_batch_number__shipped_at"] > grouped[mark]["shipped_at"]:
-                                grouped[mark]["shipped_at"] = p["shipment_batch_number__shipped_at"]
-                    piece_details = [
-                        {"shipping_mark": mark, "pcs": data["pcs"], "shipped_at": data["shipped_at"]}
-                        for mark, data in grouped.items()
-                    ]
 
-            if piece_details:
-                orders = await sync_to_async(list)(
-                    Order.objects.select_related("offload_id")
-                    .filter(container_number=invoice.container_number)
-                    .values("offload_id__offload_other_at")
-                )
-                offload_at = None
-                if orders:
-                    for o in orders:
-                        if o.get("offload_id__offload_other_at"):
-                            offload_at = o["offload_id__offload_other_at"]
-                            break
+            cargo_ids = [c.id for c in cargos]
 
-                for detail in piece_details:
-                    detail["offload_at"] = offload_at
-                    if offload_at and detail["shipped_at"]:
-                        storage_days = (detail["shipped_at"] - offload_at).days
-                        detail["storage_days"] = max(0, storage_days)
-                        detail["storage_months"] = max(1, (storage_days + 29) // 30)
-                    else:
-                        detail["storage_days"] = None
-                        detail["storage_months"] = None
-        piece_details_json = json.dumps(piece_details, ensure_ascii=False)
+            inventory_unpack = await sync_to_async(list)(
+                DropshipInventory.objects.filter(
+                    cargo_id__in=cargo_ids,
+                    transaction_type='unpack'
+                ).select_related('cargo')
+            )
+
+            unpack_map = {inv.cargo_id: inv.transaction_date for inv in inventory_unpack}
+
+            shipment_details_raw = await sync_to_async(list)(
+                DropshipShipmentDetail.objects.filter(
+                    cargo_id__in=cargo_ids
+                ).select_related('shipment', 'cargo')
+            )
+
+            for detail in shipment_details_raw:
+                cargo = detail.cargo
+                shipment = detail.shipment
+                unpack_date = unpack_map.get(cargo.id)
+
+                storage_days = None
+                storage_months = None
+                if unpack_date and shipment.shipped_at:
+                    storage_days = (shipment.shipped_at - unpack_date).days
+                    storage_months = max(1, (storage_days + 29) // 30)
+
+                shipment_details.append({
+                    "cargo_id": cargo.id,
+                    "model": cargo.model or '',
+                    "shipping_mark": cargo.shipping_mark or '',
+                    "pcs": detail.pcs,
+                    "shipment_batch": shipment.shipment_batch_number,
+                    "pickup_time": shipment.pickup_time,
+                    "shipped_at": shipment.shipped_at,
+                    "unpack_date": unpack_date,
+                    "storage_days": storage_days,
+                    "storage_months": storage_months,
+                    "outbound_category": "",
+                    "storage_category": "",
+                })
+
+        shipment_details_json = json.dumps(shipment_details, ensure_ascii=False, default=str)
 
         context = {
             "invoice_number": invoice_number,
@@ -1251,8 +1257,9 @@ class PostDrop(View):
             "items": items,
             "total_amount": total_amount,
             "delivery_type_display": "一件代发",
-            "piece_details": piece_details,
-            "piece_details_json": piece_details_json,
+            "has_existing_fee": has_existing_fee,
+            "shipment_details": shipment_details,
+            "shipment_details_json": shipment_details_json,
         }
         return self.template_account_edit, context
 
@@ -1379,7 +1386,7 @@ class PostDrop(View):
                         )
 
         # 返回账单主页面
-        template, context = await self.handle_account_search(request)
+        template, context = await self.handle_drop_account_search(request)
         context.update(messages)
         return template, context
 
@@ -1764,7 +1771,6 @@ class PostDrop(View):
             created_at=current_time_beijing,
             pickup_time=pickup_time.date(),
             total_pcs=total_pcs,
-            total_pallets=0,
             shipping_address='',
             contact_person='',
             contact_phone='',

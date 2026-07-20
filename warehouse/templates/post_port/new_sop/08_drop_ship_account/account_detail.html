@@ -319,9 +319,9 @@
     <div class="account-body">
         <div class="section-title">
             <i class="fas fa-list-ul"></i> 费用明细
-            {% if fee_type == 'warehouse' and piece_details %}
+            {% if fee_type == 'warehouse' and shipment_details %}
             <a href="javascript:void(0)" class="piece-detail-link" onclick="openPieceDetailModal()">
-                <i class="fas fa-info-circle"></i> 件数详情
+                <i class="fas fa-info-circle"></i> 出库详情
             </a>
             {% endif %}
         </div>
@@ -508,9 +508,9 @@
         }
     }
 
-    // 初始化件数详情数据
-    {% if piece_details_json %}
-    var pieceDetailData = {{ piece_details_json|safe }};
+    // 初始化出库详情数据
+    {% if shipment_details_json %}
+    var pieceDetailData = {{ shipment_details_json|safe }};
     {% endif %}
     // 页面加载时绑定已有行的输入事件
     document.addEventListener('DOMContentLoaded', function() {

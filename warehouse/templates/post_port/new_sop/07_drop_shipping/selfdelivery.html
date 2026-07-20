@@ -552,6 +552,19 @@
         <span style="display: inline-block; color: white; background-color: #3498db; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 8px; border: 2px solid #2980b9; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
             <span id="selfdel_filteredCount">{{ selfdel_cargos|length }}</span>
         </span>
+
+        <div class="debug-tool" style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+            <form method="post" action="" class="debug-form" style="display: flex; gap: 5px; align-items: center;">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="cargo_debug">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="page_type" value="selfdel">
+                <input type="text" name="container_number" placeholder="柜号" class="debug-input" style="padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.85rem; width: 120px;">
+                <button type="submit" class="debug-btn" style="padding: 6px 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                    <i class="fas fa-search"></i> 查询原因
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- 数据表格 -->

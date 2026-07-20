@@ -54,6 +54,9 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.offload import Offload
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.dropship_cargo import DropshipCargo
+from warehouse.models.dropship_shipment import DropshipShipment
+from warehouse.models.dropship_shipment_detail import DropshipShipmentDetail
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from django.db import transaction
 from asgiref.sync import sync_to_async
@@ -3329,6 +3332,9 @@ class ExceptionHandling(View):
             'Vessel': Vessel,
             'Offload': Offload,
             'Retrieval': Retrieval,
+            'DropshipCargo': DropshipCargo,
+            'DropshipShipment': DropshipShipment,
+            'DropshipShipmentDetail': DropshipShipmentDetail,
         }
         
         return model_map.get(table_name)
@@ -3339,12 +3345,10 @@ class ExceptionHandling(View):
             # 特殊处理：Offload 和 Retrieval 表，先从 Order 表找，然后通过外键找到
             if table_name in ['Offload', 'Retrieval'] and search_field == 'container_number':
                 def get_special_records():
-                    # 先查找 Order 表中匹配的记录
                     orders = Order.objects.filter(container_number__container_number__icontains=search_value)
                     if not orders.exists():
                         return []
                     
-                    # 获取所有唯一的外键ID
                     if table_name == 'Offload':
                         offload_ids = orders.values_list('offload_id', flat=True).distinct()
                         offload_ids = [oid for oid in offload_ids if oid is not None]
@@ -3358,6 +3362,19 @@ class ExceptionHandling(View):
                     return records
                 
                 return await sync_to_async(get_special_records)()
+            
+            if table_name == 'DropshipShipmentDetail' and search_field == 'container':
+                def get_detail_by_container():
+                    cargo_ids = DropshipCargo.objects.filter(
+                        container__container_number__icontains=search_value
+                    ).values_list('id', flat=True)
+                    records = list(DropshipShipmentDetail.objects.filter(
+                        cargo_id__in=cargo_ids
+                    ).values())
+                    logger.info(f"查询 DropshipShipmentDetail（通过柜号）成功，结果数：{len(records)}")
+                    return records
+                
+                return await sync_to_async(get_detail_by_container)()
 
             # 根据表名获取模型/历史管理器
             model = await self.get_model_by_name(table_name)
@@ -3700,6 +3717,20 @@ class ExceptionHandling(View):
             'Retrieval': [
                 ('id', 'ID'),
                 ('container_number', 'container_number')
+            ],
+            'DropshipCargo': [
+                ('id', 'ID'),
+                ('container', '柜号')
+            ],
+            'DropshipShipment': [
+                ('id', 'ID'),
+                ('shipment_batch_number', '预约批次号')
+            ],
+            'DropshipShipmentDetail': [
+                ('id', 'ID'),
+                ('container', '柜号'),
+                ('shipment', '预约批次'),
+                ('cargo', '货物')
             ]
         }
         

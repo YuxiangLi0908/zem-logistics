@@ -16,12 +16,15 @@
                 <table class="piece-detail-table">
                     <thead>
                         <tr>
-                            <th>唛头 (Shipping Mark)</th>
-                            <th style="width: 100px;">件数 (PCS)</th>
+                            <th style="width: 140px;">商品型号</th>
+                            <th style="width: 200px;">唛头</th>
+                            <th style="width: 100px;">出库件数</th>
+                            <th style="width: 150px;">预约批次号</th>
                             <th style="width: 130px;">入库时间</th>
-                            <th style="width: 130px;">出库时间</th>
-                            <th style="width: 100px;">仓储天数</th>
-                            <th style="width: 100px;">有效月数</th>
+                            <th style="width: 130px;">预计提货时间</th>
+                            <th style="width: 130px;">实际出库时间</th>
+                            <th style="width: 100px;">在库天数</th>
+                            <th style="width: 100px;">在库月份</th>
                         </tr>
                     </thead>
                     <tbody id="pieceDetailTableBody">
@@ -51,9 +54,13 @@
     .piece-detail-modal-content {
         background: #fff;
         border-radius: 14px;
-        width: 950px;
+        width: 1000px;
         max-height: 80vh;
-        margin: 5% auto;
+        margin: auto;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         animation: pieceDetailModalIn 0.3s ease-out;
         display: flex;
@@ -61,8 +68,8 @@
     }
 
     @keyframes pieceDetailModalIn {
-        from { transform: translateY(-30px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+        from { transform: translate(-50%, calc(-50% - 30px)); opacity: 0; }
+        to { transform: translate(-50%, -50%); opacity: 1; }
     }
 
     .piece-detail-modal-header {
@@ -209,22 +216,26 @@
 
         tbody.innerHTML = '';
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#999;">暂无出库记录</td></tr>';
             if (countEl) countEl.textContent = '共 0 条记录';
             return;
         }
 
         data.forEach(item => {
-            const offloadAt = item.offload_at ? formatDateTime(item.offload_at) : '-';
+            const unpackDate = item.unpack_date ? formatDateTime(item.unpack_date) : '-';
+            const pickupTime = item.pickup_time ? formatDateTime(item.pickup_time) : '-';
             const shippedAt = item.shipped_at ? formatDateTime(item.shipped_at) : '-';
             const storageDays = item.storage_days !== null ? item.storage_days : '-';
             const storageMonths = item.storage_months !== null ? item.storage_months : '-';
             
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td>${escapeHtml(item.model)}</td>
                 <td>${escapeHtml(item.shipping_mark)}</td>
                 <td>${item.pcs}</td>
-                <td>${offloadAt}</td>
+                <td>${escapeHtml(item.shipment_batch)}</td>
+                <td>${unpackDate}</td>
+                <td>${pickupTime}</td>
                 <td>${shippedAt}</td>
                 <td>${storageDays}</td>
                 <td>${storageMonths}</td>
