@@ -3345,7 +3345,7 @@ class ExceptionHandling(View):
             # 特殊处理：Offload 和 Retrieval 表，先从 Order 表找，然后通过外键找到
             if table_name in ['Offload', 'Retrieval'] and search_field == 'container_number':
                 def get_special_records():
-                    orders = Order.objects.filter(container_number__container_number__icontains=search_value)
+                    orders = Order.objects.filter(container_number__container_number=search_value)
                     if not orders.exists():
                         return []
                     
