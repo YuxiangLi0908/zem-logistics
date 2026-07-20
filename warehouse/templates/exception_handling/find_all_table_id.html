@@ -305,6 +305,9 @@
                 <option value="Vessel" {% if table_name == 'Vessel' %}selected{% endif %}>Vessel - 船运信息</option>
                 <option value="Offload" {% if table_name == 'Offload' %}selected{% endif %}>Offload - 卸柜信息</option>
                 <option value="Retrieval" {% if table_name == 'Retrieval' %}selected{% endif %}>Retrieval - 提柜信息</option>
+                <option value="DropshipCargo" {% if table_name == 'DropshipCargo' %}selected{% endif %}>DropshipCargo - 一件代发货物</option>
+                <option value="DropshipShipment" {% if table_name == 'DropshipShipment' %}selected{% endif %}>DropshipShipment - 一件代发出库批次</option>
+                <option value="DropshipShipmentDetail" {% if table_name == 'DropshipShipmentDetail' %}selected{% endif %}>DropshipShipmentDetail - 一件代发出库明细</option>
             </select>
 
             <select name="search_field" class="search-select" required id="search_field_select">
@@ -580,6 +583,20 @@
             'Retrieval': [
                 ['id', 'ID'],
                 ['container_number', '柜号']
+            ],
+            'DropshipCargo': [
+                ['id', 'ID'],
+                ['container', '柜号']
+            ],
+            'DropshipShipment': [
+                ['id', 'ID'],
+                ['shipment_batch_number', '预约批次号']
+            ],
+            'DropshipShipmentDetail': [
+                ['id', 'ID'],
+                ['container', '柜号'],
+                ['shipment', '预约批次'],
+                ['cargo', '货物']
             ]
         };
         
