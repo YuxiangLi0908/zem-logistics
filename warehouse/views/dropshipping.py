@@ -853,7 +853,7 @@ class Dropshipping(View):
         for p in pallet:
             # 处理运输方式特殊逻辑
             delivery_method = p.get("delivery_method", "")
-            if "自提" in delivery_method:
+            if "pickup" in delivery_method:
                 delivery_method = f"{delivery_method} - {p.get('shipping_mark', '')}"
 
             # 按固定顺序构建行数据
@@ -1101,7 +1101,7 @@ class Dropshipping(View):
                 new_po_ids = []
                 seq_num = 0
                 for dm, dest in zip(new_delivery_method, new_models):
-                    if dm == "自提" or dest == "自提":
+                    if dm == "pickup" or dest == "pickup":
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
@@ -1419,7 +1419,7 @@ class Dropshipping(View):
             .annotate(
                 custom_delivery_method=Case(
                     When(
-                        Q(delivery_method="自提") & ~Q(model="自提"),
+                        Q(delivery_method="pickup") & ~Q(model="pickup"),
                         then=Concat(
                             "delivery_method",
                             Value("-"),
@@ -1427,7 +1427,7 @@ class Dropshipping(View):
                         ),
                     ),
                     When(
-                        Q(delivery_method="自提") | Q(model="自提"),
+                        Q(delivery_method="pickup") | Q(model="pickup"),
                         then=Concat(
                             "delivery_method",
                             Value("-"),
@@ -1678,7 +1678,7 @@ class Dropshipping(View):
             .annotate(
                 custom_delivery_method=Case(
                     When(
-                        Q(delivery_method="自提") | Q(model="自提"),
+                        Q(delivery_method="pickup") | Q(model="pickup"),
                         then=Concat(
                             "delivery_method",
                             Value("-"),
@@ -1794,7 +1794,7 @@ class Dropshipping(View):
                 shipping_marks = row[1].strip()
                 new_marks = None
 
-                if "自提" in model:
+                if "pickup" in model:
                     model = "S/P"
                     marks = row[1].strip()
                     if marks:
@@ -1889,7 +1889,7 @@ class Dropshipping(View):
                 pcs /= 25
                 pcs *= n_label
                 label_count = int(pcs)
-                if "自提" in pl.get("model"):
+                if "pickup" in pl.get("model"):
                     model = "S/P"
                 else:
                     model = pl.get("model")
@@ -2016,7 +2016,7 @@ class Dropshipping(View):
                 .annotate(
                     custom_delivery_method=Case(
                         When(
-                            Q(delivery_method="自提") | Q(model="自提"),
+                            Q(delivery_method="pickup") | Q(model="pickup"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
@@ -2063,7 +2063,7 @@ class Dropshipping(View):
                 .annotate(
                     custom_delivery_method=Case(
                         When(
-                            Q(delivery_method="自提") | Q(model="自提"),
+                            Q(delivery_method="pickup") | Q(model="pickup"),
                             then=Concat(
                                 "delivery_method",
                                 Value("-"),
@@ -2553,7 +2553,7 @@ class Dropshipping(View):
         if container_number and destination and planned_release_time and request.POST.get(
                 "target_retrieval_timestamp") and request.POST.get("target_retrieval_timestamp_lower") and request.POST.get("retrieval_carrier").strip():
             retrieval.actual_release_status = True
-        if request.POST.get("retrieval_carrier") == "自提":
+        if request.POST.get("retrieval_carrier") == "pickup":
             if request.POST.get("target_retrieval_timestamp"):
                 ts = request.POST.get("target_retrieval_timestamp")
                 retrieval.target_retrieval_timestamp = self._parse_ts(ts, tzinfo)
@@ -3932,7 +3932,7 @@ class Dropshipping(View):
                 po_id: str = ""
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
-                if dm == "自提" or dest == "自提":
+                if dm == "pickup" or dest == "pickup":
                     po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
@@ -4117,7 +4117,7 @@ class Dropshipping(View):
             height_value = request.POST.get(f"height_{pl_id}")
 
             # Generate PO_ID
-            if d_m == "自提" or m == "自提":
+            if d_m == "pickup" or m == "pickup":
                 po_id_hkey = f"{container_number}-{d_m}-{m}"
                 po_id_seg = (
                     f"S{s_m[-4:]}"
@@ -4245,7 +4245,7 @@ class Dropshipping(View):
             s_m = cargo.shipping_mark
             m = cargo.model
 
-            if d_m == "自提" or m == "自提":
+            if d_m == "pickup" or m == "pickup":
                 po_id_seg = (
                     f"S{s_m[-4:]}"
                     if s_m
