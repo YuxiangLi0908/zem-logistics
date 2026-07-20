@@ -735,7 +735,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-cbm")
+            .order_by(*(["destination", "custom_delivery_method", "-cbm"]))
         )
     elif status == "palletized" and zem_name == "JINYU":
         packing_list = await sync_to_async(list)(
@@ -917,7 +917,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-cbm")
+            .order_by(*(["destination", "custom_delivery_method", "-cbm"]))
         )
         existing_po = {
             (plt["container_number__container_number"], plt["destination"])
