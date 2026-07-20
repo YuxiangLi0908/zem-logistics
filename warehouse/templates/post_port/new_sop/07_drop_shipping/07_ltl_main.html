@@ -513,9 +513,10 @@
                     </table>
                     {% endif %}
 
-                    <h5>筛选条件检查</h5>
+                    <h5>柜子层面条件检查</h5>
                     <div class="debug-checklist">
                         {% for check in debug_result.checks %}
+                        {% if check.level == 'container' %}
                         <div class="debug-check-item {% if check.pass %}pass{% else %}fail{% endif %}">
                             <div class="debug-check-icon">
                                 <i class="fas {% if check.pass %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
@@ -530,8 +531,33 @@
                                 {% endif %}
                             </div>
                         </div>
+                        {% endif %}
                         {% endfor %}
                     </div>
+
+                    {% if debug_result.container_checks_pass %}
+                    <h5>货物层面条件检查</h5>
+                    <div class="debug-checklist">
+                        {% for check in debug_result.checks %}
+                        {% if check.level == 'cargo' %}
+                        <div class="debug-check-item {% if check.pass %}pass{% else %}fail{% endif %}">
+                            <div class="debug-check-icon">
+                                <i class="fas {% if check.pass %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
+                            </div>
+                            <div class="debug-check-content">
+                                <div class="debug-check-title">{{ check.description }}</div>
+                                <div class="debug-check-status {% if check.pass %}pass{% else %}fail{% endif %}">
+                                    {% if check.pass %}✓ 全部符合{% else %}✗ 部分不符{% endif %}
+                                </div>
+                                {% if check.fail_details %}
+                                <div class="debug-check-details">{{ check.fail_details }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
 
                     <div class="debug-reason {% if debug_result.is_in_page %}success{% else %}error{% endif %}">
                         <i class="fas {% if debug_result.is_in_page %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
