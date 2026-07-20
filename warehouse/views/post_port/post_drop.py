@@ -360,16 +360,28 @@ class PostDrop(View):
             container_retrieval_pass = True
             container_retrieval_details = ''
             for order in orders:
-                retrieval_ok = False
                 if order.retrieval_id:
-                    retrieval_ok = (order.retrieval_id.planned_release_time is not None or 
-                                   order.retrieval_id.temp_t49_available_for_pickup)
-                if not retrieval_ok:
-                    container_retrieval_pass = False
-                    container_retrieval_details += f'订单ID:{order.id}(retrieval_ok:False); '
+                    planned_release_time_is_null = (order.retrieval_id.planned_release_time is None)
+                    temp_t49_is_false = (not order.retrieval_id.temp_t49_available_for_pickup)
+                    
+                    if page_type == 'release':
+                        if not (planned_release_time_is_null or temp_t49_is_false):
+                            container_retrieval_pass = False
+                            container_retrieval_details += f'订单ID:{order.id}(planned_release_time不为空且temp_t49为True); '
+                    else:
+                        if not (order.retrieval_id.planned_release_time is not None or order.retrieval_id.temp_t49_available_for_pickup):
+                            container_retrieval_pass = False
+                            container_retrieval_details += f'订单ID:{order.id}(planned_release_time为空且temp_t49为False); '
+                else:
+                    if page_type == 'release':
+                        container_retrieval_pass = False
+                        container_retrieval_details += f'订单ID:{order.id}(retrieval_id为空); '
+                    else:
+                        container_retrieval_pass = False
+                        container_retrieval_details += f'订单ID:{order.id}(retrieval_id为空); '
             checks.append({
                 'pass': container_retrieval_pass,
-                'description': '柜子Retrieval条件: 订单的retrieval_id满足planned_release_time不为空 或 temp_t49_available_for_pickup为True',
+                'description': '柜子Retrieval条件: ' + ('订单的retrieval_id满足planned_release_time为空 或 temp_t49_available_for_pickup为False（未放行）' if page_type == 'release' else '订单的retrieval_id满足planned_release_time不为空 或 temp_t49_available_for_pickup为True（已放行）'),
                 'fail_details': container_retrieval_details.rstrip('; ') if not container_retrieval_pass else None,
                 'level': 'container'
             })
@@ -501,8 +513,8 @@ class PostDrop(View):
     async def _get_release_cargos(self, warehouse: str) -> list:
         '''获取未放行货物数据'''
         base_criteria = Q(warehouse__name=warehouse) & Q(status='not_in_stock') & (
-            Q(order__retrieval_id__planned_release_time__isnull=False) |
-            Q(order__retrieval_id__temp_t49_available_for_pickup=True)
+            Q(order__retrieval_id__planned_release_time__isnull=True) |
+            Q(order__retrieval_id__temp_t49_available_for_pickup=False)
         )
 
         cargos_qs = DropshipCargo.objects.select_related(
