@@ -111,6 +111,7 @@ class PostDrop(View):
     template_account_rec = "post_port/new_sop/08_drop_ship_account/09_account_main.html"
     template_account_edit = "post_port/new_sop/08_drop_ship_account/account_detail.html"
     template_ltl_inventory = "post_port/new_sop/09_drop_ship_inventory/09_ltl_inventory.html"
+    template_return_process = "post_port/new_sop/07_drop_shipping/return_process.html"
 
 
     container_type = {
@@ -165,6 +166,12 @@ class PostDrop(View):
             warehouse_name = request.GET.get("warehouse", "")
             context = await self.handle_dropship_inventory(request, warehouse_name)
             return await sync_to_async(render)(request, self.template_ltl_inventory, context)
+        elif step == "return_process":
+            warehouse_name = request.GET.get("warehouse", "")
+            container = request.GET.get("container", "")
+            model = request.GET.get("model", "")
+            context = await self.handle_return_process(request, warehouse_name, container, model)
+            return await sync_to_async(render)(request, self.template_return_process, context)
         else:
             raise ValueError('wrong step',step)
 
@@ -177,6 +184,13 @@ class PostDrop(View):
         elif step == "cargo_debug":
             template, context = await self.handle_cargo_debug(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "handle_return":
+            template, context = await self.handle_return(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "return_process":
+            warehouse_name = request.POST.get("warehouse", "")
+            context = await self.handle_return_process(request, warehouse_name, "", "")
+            return await sync_to_async(render)(request, self.template_return_process, context)
         elif step == "verify_ltl_cargo":
             template, context = await self.handle_verify_ltl_cargo(request)
             return await sync_to_async(render)(request, template, context)
@@ -673,7 +687,7 @@ class PostDrop(View):
                 'shipment_batch_number': shipment.shipment_batch_number,
                 'total_pcs': shipment.total_pcs,
                 'pickup_time': shipment.pickup_time,
-                'pod_file': shipment.pod_file,
+                'pod_link': shipment.pod_link,
                 'pod_uploaded_at': shipment.pod_uploaded_at,
                 'details': [],
             }
@@ -1946,3 +1960,175 @@ class PostDrop(View):
                 context["inventory_records"] = inventory_data
 
         return context
+
+    async def handle_return_process(
+            self, request: HttpRequest, warehouse_name: str = "", container: str = "", model: str = ""
+    ) -> dict[str, Any]:
+        '''退货处理页面 - 展示货物列表和出库批次历史'''
+        context = {
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "warehouse": warehouse_name,
+            "container_search": container,
+            "model_search": model,
+            "cargo_list": [],
+        }
+        print(request.GET,warehouse_name,container,model)
+        if warehouse_name or container or model:
+            cargo_qs = DropshipCargo.objects.filter(
+                dropshipshipmentdetail__isnull=False
+            ).distinct()
+            
+            if warehouse_name:
+                warehouse_obj = await sync_to_async(ZemWarehouse.objects.filter(name=warehouse_name).first)()
+                if warehouse_obj:
+                    cargo_qs = cargo_qs.filter(warehouse=warehouse_obj)
+
+                
+            if container:
+                cargo_qs = cargo_qs.filter(container__container_number__icontains=container)
+            if model:
+                cargo_qs = cargo_qs.filter(model__icontains=model)
+            
+            cargo_list_raw = await sync_to_async(list)(
+                cargo_qs.select_related('container')
+                .values(
+                    'id',
+                    'shipping_mark',
+                    'model',
+                    'product_name',
+                    'pcs',
+                    'shipped_quantity',
+                    'returned_quantity',
+                    'status',
+                    'container__container_number',
+                )
+                .order_by('shipping_mark')
+            )
+            
+            cargo_ids = [c['id'] for c in cargo_list_raw]
+            
+            shipment_details = await sync_to_async(list)(
+                DropshipShipmentDetail.objects
+                .filter(cargo_id__in=cargo_ids)
+                .select_related('shipment')
+                .order_by('-shipment__shipped_at')
+                .values(
+                    'cargo_id',
+                    'shipment__shipment_batch_number',
+                    'pcs',
+                    'shipment__shipped_at',
+                )
+            )
+            
+            shipment_map = defaultdict(list)
+            for detail in shipment_details:
+                shipment_map[detail['cargo_id']].append({
+                    'shipment_batch_number': detail['shipment__shipment_batch_number'],
+                    'pcs': detail['pcs'],
+                    'shipped_at': detail['shipment__shipped_at'].strftime('%Y-%m-%d %H:%M:%S') if detail['shipment__shipped_at'] else '',
+                })
+            
+            STATUS_MAP = dict(DropshipCargo.STATUS_CHOICES)
+            
+            cargo_list = []
+            for cargo in cargo_list_raw:
+                cargo_list.append({
+                    'id': cargo['id'],
+                    'shipping_mark': cargo['shipping_mark'],
+                    'model': cargo['model'],
+                    'product_name': cargo['product_name'],
+                    'pcs': cargo['pcs'],
+                    'shipped_quantity': cargo['shipped_quantity'],
+                    'returned_quantity': cargo['returned_quantity'],
+                    'status': cargo['status'],
+                    'status_display': STATUS_MAP.get(cargo['status'], cargo['status']),
+                    'container__container_number': cargo['container__container_number'],
+                    'shipments': shipment_map.get(cargo['id'], []),
+                })
+            
+            context["cargo_list"] = cargo_list
+
+        return context
+
+    async def handle_return(
+            self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        '''处理退货请求 - 更新货物库存并生成流水记录'''
+        cargo_id = request.POST.get('cargo_id')
+        shipment_batch_number = request.POST.get('shipment_batch_number')
+        return_pcs = request.POST.get('return_pcs')
+        
+        if not cargo_id or not shipment_batch_number or not return_pcs:
+            context = await self.handle_return_process(request)
+            context['success_message'] = '参数错误！'
+            return self.template_return_process, context
+        
+        try:
+            cargo_id = int(cargo_id)
+            return_pcs = int(return_pcs)
+        except (ValueError, TypeError):
+            context = await self.handle_return_process(request)
+            context['success_message'] = '参数格式错误！'
+            return self.template_return_process, context
+        
+        if return_pcs <= 0:
+            context = await self.handle_return_process(request)
+            context['success_message'] = '退货件数必须大于0！'
+            return self.template_return_process, context
+        
+        cargo = await sync_to_async(DropshipCargo.objects.filter(id=cargo_id).first)()
+        if not cargo:
+            context = await self.handle_return_process(request)
+            context['success_message'] = '货物不存在！'
+            return self.template_return_process, context
+        
+        shipment = await sync_to_async(DropshipShipment.objects.filter(shipment_batch_number=shipment_batch_number).first)()
+        if not shipment:
+            context = await self.handle_return_process(request)
+            context['success_message'] = '出库批次不存在！'
+            return self.template_return_process, context
+        
+        shipment_detail = await sync_to_async(
+            DropshipShipmentDetail.objects.filter(shipment=shipment, cargo=cargo).first
+        )()
+        if not shipment_detail:
+            context = await self.handle_return_process(request)
+            context['success_message'] = '该货物不属于此出库批次！'
+            return self.template_return_process, context
+        
+        if return_pcs > shipment_detail.pcs:
+            context = await self.handle_return_process(request)
+            context['success_message'] = f'退货件数不能超过该批次出库件数({shipment_detail.pcs})！'
+            return self.template_return_process, context
+        
+        cargo.pcs += return_pcs
+        cargo.returned_quantity += return_pcs
+        
+        if cargo.pcs > 0 and cargo.status == 'all_out':
+            cargo.status = 'in_stock'
+        
+        await sync_to_async(cargo.save)()
+        
+        inventory = DropshipInventory(
+            cargo=cargo,
+            transaction_type='return',
+            pcs_change=return_pcs,
+            after_pcs=cargo.pcs,
+            shipment_detail=shipment_detail,
+            operator=request.user.username if request.user.is_authenticated else 'system',
+            note=f'退货处理 - 批次号: {shipment_batch_number}',
+            is_verify=True,
+            verfiy_pcs_change=return_pcs,
+            verify_pcs=cargo.pcs,
+        )
+        await sync_to_async(inventory.save)()
+        
+        warehouse_name = cargo.warehouse.name if cargo.warehouse else ""
+        context = await self.handle_return_process(request, warehouse_name)
+        context['success_message'] = f'退货成功！退货件数: {return_pcs}，货物ID: {cargo_id}'
+        
+        return self.template_return_process, context
