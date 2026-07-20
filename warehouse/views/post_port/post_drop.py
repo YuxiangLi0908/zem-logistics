@@ -344,15 +344,13 @@ class PostDrop(View):
             container_warehouse_pass = True
             container_warehouse_details = ''
             for order in orders:
-                order_warehouse = None
-                if order.container_number and order.container_number.warehouse:
-                    order_warehouse = order.container_number.warehouse.name
+                order_warehouse = order.warehouse.name if order.warehouse else None
                 if order_warehouse != warehouse:
                     container_warehouse_pass = False
                     container_warehouse_details += f'订单ID:{order.id}(仓库:{order_warehouse or "空"}); '
             checks.append({
                 'pass': container_warehouse_pass,
-                'description': f'柜子仓库匹配: 订单的container_number.warehouse = 当前选择仓库 ({warehouse})',
+                'description': f'柜子仓库匹配: 订单的warehouse = 当前选择仓库 ({warehouse})',
                 'fail_details': container_warehouse_details.rstrip('; ') if not container_warehouse_pass else None,
                 'level': 'container'
             })
