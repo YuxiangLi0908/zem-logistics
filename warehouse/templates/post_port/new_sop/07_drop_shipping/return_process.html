@@ -214,6 +214,26 @@
         transform: translateY(-1px);
     }
 
+    .returned-info {
+        display: inline-block;
+        padding: 4px 10px;
+        background: #fff3e0;
+        color: #e65100;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-right: 8px;
+    }
+
+    .returned-full {
+        display: inline-block;
+        padding: 6px 15px;
+        background: #e0e0e0;
+        color: #666;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: not-allowed;
+    }
+
     .return-modal {
         display: none;
         position: fixed;
@@ -283,6 +303,31 @@
     }
 
     .form-group input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 1rem;
+    }
+
+    .form-group-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .form-group-half {
+        flex: 1;
+    }
+
+    .form-group-half label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .form-group-half input {
         width: 100%;
         padding: 12px;
         border: 1px solid #ced4da;
@@ -468,8 +513,13 @@
                             <div class="shipment-item">
                                 <span class="batch-number">{{ shipment.shipment_batch_number }}</span>
                                 <span class="pcs-info">出库件数: {{ shipment.pcs }}</span>
+                                <span class="returned-info">已退件数: {{ shipment.returned_pcs }}</span>
                                 <span class="time-info">{{ shipment.shipped_at }}</span>
-                                <button class="return-btn" onclick="openReturnModal({{ cargo.id }}, '{{ shipment.shipment_batch_number }}', {{ shipment.pcs }})">退货</button>
+                                {% if shipment.available_pcs > 0 %}
+                                <button class="return-btn" onclick="openReturnModal({{ cargo.id }}, '{{ shipment.shipment_batch_number }}', {{ shipment.available_pcs }}, '{{ cargo.shipping_mark }}', '{{ cargo.model|default:'' }}')">退货</button>
+                                {% else %}
+                                <span class="returned-full">已退完</span>
+                                {% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -502,15 +552,21 @@
             <h3>退货处理</h3>
             <span class="close-modal" onclick="closeReturnModal()">&times;</span>
         </div>
-        <form id="returnForm" onsubmit="submitReturn(event)">
+        <form id="returnForm" method="post" action="" onsubmit="submitReturn(event)">
             <input type="hidden" id="modalCargoId" name="cargo_id">
             <input type="hidden" id="modalShipmentBatch" name="shipment_batch_number">
             <input type="hidden" name="step" value="handle_return">
             {% csrf_token %}
 
-            <div class="form-group">
-                <label>货物ID</label>
-                <input type="text" id="modalCargoIdDisplay" readonly>
+            <div class="form-group-row">
+                <div class="form-group-half">
+                    <label>唛头</label>
+                    <input type="text" id="modalShippingMark" readonly>
+                </div>
+                <div class="form-group-half">
+                    <label>商品型号</label>
+                    <input type="text" id="modalModel" readonly>
+                </div>
             </div>
 
             <div class="form-group">
@@ -518,17 +574,18 @@
                 <input type="text" id="modalShipmentBatchDisplay" readonly>
             </div>
 
-            <div class="form-group">
-                <label>该批次出库件数</label>
-                <input type="text" id="modalOriginalPcs" readonly>
-                <div class="info-text">退货件数不能超过该批次的出库件数</div>
+            <div class="form-group-row">
+                <div class="form-group-half">
+                    <label>该批次可退件数</label>
+                    <input type="text" id="modalOriginalPcs" readonly>
+                </div>
+                <div class="form-group-half">
+                    <label>退货件数</label>
+                    <input type="number" id="modalReturnPcs" name="return_pcs" min="1" required>
+                    <div id="returnPcsError" class="error-message"></div>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label>退货件数</label>
-                <input type="number" id="modalReturnPcs" name="return_pcs" min="1" required>
-                <div id="returnPcsError" class="error-message"></div>
-            </div>
+            <div class="info-text">退货件数不能超过该批次的可退件数</div>
 
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" onclick="closeReturnModal()">取消</button>
@@ -563,10 +620,11 @@ function searchCargo() {
     window.location.href = url;
 }
 
-function openReturnModal(cargoId, shipmentBatch, originalPcs) {
+function openReturnModal(cargoId, shipmentBatch, originalPcs, shippingMark, model) {
     document.getElementById('modalCargoId').value = cargoId;
     document.getElementById('modalShipmentBatch').value = shipmentBatch;
-    document.getElementById('modalCargoIdDisplay').value = cargoId;
+    document.getElementById('modalShippingMark').value = shippingMark || '';
+    document.getElementById('modalModel').value = model || '';
     document.getElementById('modalShipmentBatchDisplay').value = shipmentBatch;
     document.getElementById('modalOriginalPcs').value = originalPcs;
     document.getElementById('modalReturnPcs').value = '';
@@ -582,6 +640,11 @@ function closeReturnModal() {
 function submitReturn(event) {
     event.preventDefault();
     
+    var submitBtn = document.querySelector('#returnForm button[type="submit"]');
+    if (submitBtn.disabled) {
+        return;
+    }
+    
     var returnPcs = parseInt(document.getElementById('modalReturnPcs').value);
     var originalPcs = parseInt(document.getElementById('modalOriginalPcs').value);
     
@@ -595,6 +658,8 @@ function submitReturn(event) {
         return;
     }
     
+    submitBtn.disabled = true;
+    submitBtn.textContent = '提交中...';
     document.getElementById('returnForm').submit();
 }
 

@@ -22,6 +22,7 @@ class DropshipShipmentDetail(models.Model):
     )
     
     pcs = models.PositiveIntegerField(verbose_name="出库件数（件）")
+    returned_pcs = models.PositiveIntegerField(default=0, verbose_name="已退货件数")
     pallets = models.PositiveIntegerField(default=0, verbose_name="板数")
     
     note = models.TextField(null=True, blank=True, verbose_name="备注")

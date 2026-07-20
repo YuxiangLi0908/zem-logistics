@@ -839,7 +839,15 @@ class PostDrop(View):
                 delta = original_pcs - pcs
                 verify_pcs = max(0, cargo.pcs + delta)
                 cargo.pcs = verify_pcs
-                await sync_to_async(cargo.save)()
+            else:
+                verify_pcs = cargo.pcs
+            
+            if cargo.pcs == 0 and cargo.status != 'all_out':
+                cargo.status = 'all_out'
+            elif cargo.pcs > 0 and cargo.status == 'all_out':
+                cargo.status = 'in_stock'
+            
+            await sync_to_async(cargo.save)()
 
             inventory = await sync_to_async(DropshipInventory.objects.filter(id=inventory_id).first)()
             inventory.is_verify = True
@@ -2020,15 +2028,19 @@ class PostDrop(View):
                     'cargo_id',
                     'shipment__shipment_batch_number',
                     'pcs',
+                    'returned_pcs',
                     'shipment__shipped_at',
                 )
             )
             
             shipment_map = defaultdict(list)
             for detail in shipment_details:
+                available_pcs = detail['pcs'] - detail['returned_pcs']
                 shipment_map[detail['cargo_id']].append({
                     'shipment_batch_number': detail['shipment__shipment_batch_number'],
                     'pcs': detail['pcs'],
+                    'returned_pcs': detail['returned_pcs'],
+                    'available_pcs': available_pcs,
                     'shipped_at': detail['shipment__shipped_at'].strftime('%Y-%m-%d %H:%M:%S') if detail['shipment__shipped_at'] else '',
                 })
             
@@ -2080,7 +2092,7 @@ class PostDrop(View):
             context['success_message'] = '退货件数必须大于0！'
             return self.template_return_process, context
         
-        cargo = await sync_to_async(DropshipCargo.objects.filter(id=cargo_id).first)()
+        cargo = await sync_to_async(DropshipCargo.objects.filter(id=cargo_id).select_related('warehouse').first)()
         if not cargo:
             context = await self.handle_return_process(request)
             context['success_message'] = '货物不存在！'
@@ -2100,9 +2112,10 @@ class PostDrop(View):
             context['success_message'] = '该货物不属于此出库批次！'
             return self.template_return_process, context
         
-        if return_pcs > shipment_detail.pcs:
+        available_return_pcs = shipment_detail.pcs - shipment_detail.returned_pcs
+        if return_pcs > available_return_pcs:
             context = await self.handle_return_process(request)
-            context['success_message'] = f'退货件数不能超过该批次出库件数({shipment_detail.pcs})！'
+            context['success_message'] = f'退货件数不能超过该批次剩余可退件数({available_return_pcs})！'
             return self.template_return_process, context
         
         cargo.pcs += return_pcs
@@ -2112,6 +2125,9 @@ class PostDrop(View):
             cargo.status = 'in_stock'
         
         await sync_to_async(cargo.save)()
+        
+        shipment_detail.returned_pcs += return_pcs
+        await sync_to_async(shipment_detail.save)()
         
         inventory = DropshipInventory(
             cargo=cargo,
