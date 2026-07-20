@@ -174,6 +174,9 @@ class PostDrop(View):
         if step == "ltl_post_warehouse":
             template, context = await self.handle_ltl_unscheduled_pos_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "cargo_debug":
+            template, context = await self.handle_cargo_debug(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "verify_ltl_cargo":
             template, context = await self.handle_verify_ltl_cargo(request)
             return await sync_to_async(render)(request, template, context)
@@ -280,6 +283,124 @@ class PostDrop(View):
         else:
             raise ValueError('wrong step',step)
         
+    async def handle_cargo_debug(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        '''分析柜号不在页面的原因'''
+        container_number = request.POST.get("container_number", "").strip()
+        warehouse = request.POST.get("warehouse", "")
+        page_type = request.POST.get("page_type", "release")
+        
+        debug_result = {
+            'container_number': container_number,
+            'warehouse': warehouse,
+            'page_type': page_type,
+            'not_found': None,
+            'found_message': None,
+            'cargo_count': 0,
+            'cargos': [],
+            'checks': [],
+            'is_in_page': False,
+            'reason': ''
+        }
+
+        if not container_number:
+            debug_result['not_found'] = '请输入柜号！'
+            template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            context['debug_result'] = debug_result
+            return template, context
+
+        def get_cargo_info():
+            orders = Order.objects.filter(container_number__container_number__icontains=container_number)
+            if not orders.exists():
+                return {'not_found': f'未找到柜号包含 "{container_number}" 的订单记录'}
+            
+            order_ids = orders.values_list('id', flat=True)
+            cargos = DropshipCargo.objects.filter(order_id__in=order_ids).select_related('warehouse')
+            
+            cargo_list = []
+            for cargo in cargos:
+                cargo_list.append({
+                    'id': cargo.id,
+                    'shipping_mark': cargo.shipping_mark or '-',
+                    'model': cargo.model or '-',
+                    'status': cargo.status,
+                    'warehouse_name': cargo.warehouse.name if cargo.warehouse else '-'
+                })
+            
+            checks = []
+            
+            warehouse_check_pass = any(c.warehouse_name == warehouse for c in cargo_list)
+            checks.append({
+                'pass': warehouse_check_pass,
+                'description': f'仓库匹配: 货物仓库 = 当前选择仓库 ({warehouse})'
+            })
+            
+            retrieval_check_pass = False
+            for order in orders:
+                if order.retrieval_id:
+                    if order.retrieval_id.planned_release_time is not None or order.retrieval_id.temp_t49_available_for_pickup:
+                        retrieval_check_pass = True
+                        break
+            checks.append({
+                'pass': retrieval_check_pass,
+                'description': 'Retrieval条件: planned_release_time不为空 或 temp_t49_available_for_pickup为True'
+            })
+            
+            if page_type == 'release':
+                status_check_pass = any(c.status == 'not_in_stock' for c in cargo_list)
+                checks.append({
+                    'pass': status_check_pass,
+                    'description': '状态为 "not_in_stock": 货物状态包含未入库（未放行页面条件）'
+                })
+                is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
+            else:
+                status_check_pass = all(c.status != 'all_out' for c in cargo_list)
+                checks.append({
+                    'pass': status_check_pass,
+                    'description': '状态不为 "all_out": 货物未全部出库（已放行页面条件）'
+                })
+                is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
+            
+            reason = ''
+            if is_in_page:
+                page_name = '未放行' if page_type == 'release' else '已放行'
+                reason = f'柜号应该在{page_name}页面中，请检查是否有其他筛选条件或分页问题'
+            else:
+                fail_reasons = []
+                if not warehouse_check_pass:
+                    fail_reasons.append('货物仓库与当前选择仓库不匹配')
+                if not retrieval_check_pass:
+                    fail_reasons.append('Retrieval记录不满足放行条件')
+                if not status_check_pass:
+                    if page_type == 'release':
+                        fail_reasons.append('货物状态不是 "not_in_stock"')
+                    else:
+                        fail_reasons.append('货物状态为 "all_out"（全部出库）')
+                reason = '、'.join(fail_reasons)
+            
+            return {
+                'cargos': cargo_list,
+                'checks': checks,
+                'is_in_page': is_in_page,
+                'reason': reason,
+                'found_message': f'找到 {len(cargo_list)} 条货物记录'
+            }
+
+        cargo_info = await sync_to_async(get_cargo_info)()
+        
+        if 'not_found' in cargo_info:
+            debug_result['not_found'] = cargo_info['not_found']
+        else:
+            debug_result['cargos'] = cargo_info['cargos']
+            debug_result['cargo_count'] = len(cargo_info['cargos'])
+            debug_result['checks'] = cargo_info['checks']
+            debug_result['is_in_page'] = cargo_info['is_in_page']
+            debug_result['reason'] = cargo_info['reason']
+            debug_result['found_message'] = cargo_info['found_message']
+
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context['debug_result'] = debug_result
+        return template, context
+
     async def handle_ltl_unscheduled_pos_post(
             self, request: HttpRequest, context: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:

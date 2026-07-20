@@ -447,6 +447,312 @@
 </form>
 
 {% include 'post_port/new_sop/07_drop_shipping/modal/message_modal.html' %}
+
+<!-- 柜号查询原因弹框 -->
+<div id="cargoDebugModal" class="debug-modal">
+    <div class="debug-modal-content">
+        <div class="debug-modal-header">
+            <h3><i class="fas fa-search"></i> 柜号查询分析结果</h3>
+            <button type="button" class="debug-modal-close" onclick="closeDebugModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="debug-modal-body">
+            {% if debug_result %}
+            <div class="debug-container">
+                <div class="debug-section">
+                    <h4>基本信息</h4>
+                    <div class="debug-info">
+                        <span class="debug-label">柜号:</span>
+                        <span class="debug-value">{{ debug_result.container_number }}</span>
+                    </div>
+                    <div class="debug-info">
+                        <span class="debug-label">当前仓库:</span>
+                        <span class="debug-value">{{ debug_result.warehouse }}</span>
+                    </div>
+                    <div class="debug-info">
+                        <span class="debug-label">查询页面:</span>
+                        <span class="debug-value">{% if debug_result.page_type == 'release' %}未放行{% else %}已放行{% endif %}</span>
+                    </div>
+                </div>
+
+                <div class="debug-section">
+                    <h4>查询结果</h4>
+                    {% if debug_result.not_found %}
+                    <div class="debug-message error">
+                        <i class="fas fa-exclamation-circle"></i> {{ debug_result.not_found }}
+                    </div>
+                    {% else %}
+                    <div class="debug-message success">
+                        <i class="fas fa-check-circle"></i> {{ debug_result.found_message }}
+                    </div>
+
+                    <h5>货物记录 ({{ debug_result.cargo_count }}条)</h5>
+                    <table class="debug-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>唛头</th>
+                                <th>型号</th>
+                                <th>状态</th>
+                                <th>仓库</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cargo in debug_result.cargos %}
+                            <tr>
+                                <td>{{ cargo.id }}</td>
+                                <td>{{ cargo.shipping_mark }}</td>
+                                <td>{{ cargo.model }}</td>
+                                <td>{% if cargo.status == 'not_in_stock' %}未入库{% elif cargo.status == 'in_stock' %}在库{% elif cargo.status == 'all_out' %}全部出库{% endif %}</td>
+                                <td>{{ cargo.warehouse_name }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <h5>筛选条件检查</h5>
+                    <div class="debug-checklist">
+                        {% for check in debug_result.checks %}
+                        <div class="debug-check-item {% if check.pass %}pass{% else %}fail{% endif %}">
+                            <i class="fas {% if check.pass %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
+                            <span>{{ check.description }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <h5>不在当前页面的原因</h5>
+                    <div class="debug-reason {% if debug_result.is_in_page %}success{% else %}error{% endif %}">
+                        <i class="fas {% if debug_result.is_in_page %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                        {{ debug_result.reason }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .debug-modal {
+        display: none;
+        position: fixed;
+        z-index: 5000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(2px);
+    }
+
+    .debug-modal-content {
+        background: #fff;
+        border-radius: 12px;
+        width: 800px;
+        max-height: 80vh;
+        margin: auto;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        animation: modalIn 0.3s ease-out;
+    }
+
+    @keyframes modalIn {
+        from { transform: translate(-50%, calc(-50% - 20px)); opacity: 0; }
+        to { transform: translate(-50%, -50%); opacity: 1; }
+    }
+
+    .debug-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #4a6491, #2c3e50);
+        color: white;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .debug-modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .debug-modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .debug-modal-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .debug-modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .debug-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .debug-section h4 {
+        margin: 0 0 10px 0;
+        font-size: 1rem;
+        color: #4a6491;
+        border-bottom: 2px solid #f4d7d7;
+        padding-bottom: 5px;
+    }
+
+    .debug-section h5 {
+        margin: 15px 0 8px 0;
+        font-size: 0.9rem;
+        color: #2c3e50;
+    }
+
+    .debug-info {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .debug-label {
+        font-weight: 600;
+        color: #666;
+        min-width: 80px;
+    }
+
+    .debug-value {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+
+    .debug-message {
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .debug-message.success {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .debug-message.error {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .debug-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    .debug-table th {
+        background: #4a6491;
+        color: white;
+        padding: 8px 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .debug-table td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #eee;
+        color: #333;
+    }
+
+    .debug-table tr:nth-child(even) {
+        background: #f8f9fa;
+    }
+
+    .debug-checklist {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .debug-check-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .debug-check-item.pass {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .debug-check-item.fail {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .debug-reason {
+        padding: 12px 15px;
+        border-radius: 6px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .debug-reason.success {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .debug-reason.error {
+        background: #fff3e0;
+        color: #e65100;
+    }
+</style>
+
+<script>
+    function closeDebugModal() {
+        document.getElementById('cargoDebugModal').style.display = 'none';
+    }
+
+    {% if debug_result %}
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('cargoDebugModal').style.display = 'block';
+    });
+    {% endif %}
+
+    window.addEventListener('click', function(e) {
+        const modal = document.getElementById('cargoDebugModal');
+        if (e.target === modal) {
+            closeDebugModal();
+        }
+    });
+</script>
 {% include 'post_port/new_sop/07_drop_shipping/modal/bind_shipment_modal.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/addable_po_modal.html' %}
 {% include 'post_port/new_sop/07_drop_shipping/modal/add_po_modal.html' %}
