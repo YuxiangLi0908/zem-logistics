@@ -3933,14 +3933,14 @@ class Dropshipping(View):
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
                 if dm == "自提" or dest == "自提":
-                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
                         if sm.strip()
                         else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 else:
-                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
                 if po_id_hkey in po_id_hash:
                     po_id = po_id_hash.get(po_id_hkey)
