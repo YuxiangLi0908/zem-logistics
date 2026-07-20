@@ -487,6 +487,7 @@
                         <i class="fas fa-check-circle"></i> {{ debug_result.found_message }}
                     </div>
 
+                    {% if debug_result.cargo_count > 0 %}
                     <h5>货物记录 ({{ debug_result.cargo_count }}条)</h5>
                     <table class="debug-table">
                         <thead>
@@ -510,18 +511,25 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                    {% endif %}
 
                     <h5>筛选条件检查</h5>
                     <div class="debug-checklist">
                         {% for check in debug_result.checks %}
                         <div class="debug-check-item {% if check.pass %}pass{% else %}fail{% endif %}">
-                            <i class="fas {% if check.pass %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
-                            <span>{{ check.description }}</span>
+                            <div class="debug-check-icon">
+                                <i class="fas {% if check.pass %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
+                            </div>
+                            <div class="debug-check-content">
+                                <div class="debug-check-title">{{ check.description }}</div>
+                                <div class="debug-check-status {% if check.pass %}pass{% else %}fail{% endif %}">
+                                    {% if check.pass %}✓ 符合条件{% else %}✗ 不符合条件{% endif %}
+                                </div>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
 
-                    <h5>不在当前页面的原因</h5>
                     <div class="debug-reason {% if debug_result.is_in_page %}success{% else %}error{% endif %}">
                         <i class="fas {% if debug_result.is_in_page %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
                         {{ debug_result.reason }}
@@ -692,25 +700,72 @@
     .debug-checklist {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
     }
 
     .debug-check-item {
         display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 10px;
-        border-radius: 4px;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 8px;
         font-size: 0.85rem;
+        border: 1px solid transparent;
     }
 
     .debug-check-item.pass {
-        background: #e8f5e9;
-        color: #2e7d32;
+        background: #f1f8e9;
+        border-color: #c5e1a5;
     }
 
     .debug-check-item.fail {
-        background: #ffebee;
+        background: #fce4ec;
+        border-color: #f8bbd0;
+    }
+
+    .debug-check-icon {
+        font-size: 1.3rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    .debug-check-item.pass .debug-check-icon {
+        color: #4caf50;
+    }
+
+    .debug-check-item.fail .debug-check-icon {
+        color: #f44336;
+    }
+
+    .debug-check-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .debug-check-title {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.9rem;
+    }
+
+    .debug-check-status {
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        align-self: flex-start;
+    }
+
+    .debug-check-status.pass {
+        background: #c8e6c9;
+        color: #2e7d32;
+    }
+
+    .debug-check-status.fail {
+        background: #ffcdd2;
         color: #c62828;
     }
 
