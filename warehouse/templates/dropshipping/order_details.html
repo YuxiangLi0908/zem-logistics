@@ -349,13 +349,7 @@
         <div style="display: flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px;">
             {% if not selected_order.offload_id.offload_at %}
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <div style="
-                        color:#888;
-                        font-size:12px;
-                        margin-left:10px;
-                    ">
-                        提示：修改、删除 PackingList 信息需要先勾选对应行
-                    </div>
+
                     <button type="button"
                             onclick="openAddPackingListModal();"
                             class="btn"
@@ -386,6 +380,29 @@
                                 ">
                         删除选中行
                     </button>
+                    <button type="submit"
+                                    form="packing-list-form"
+                                    onclick="return processForm();"
+                                    class="btn"
+                                    style="
+                                    width:220px;
+                                    height:35px;
+                                    font-size:13px;
+                                    color:white;
+                                    background:#17a2b8;
+                                    border:none;
+                                    border-radius:5px;
+                                    cursor:pointer;
+                                ">
+                                更新选中PackingList信息
+                            </button>
+                    <div style="
+                        color:#888;
+                        font-size:12px;
+                        margin-left:10px;
+                    ">
+                        提示：修改、删除 PackingList 信息需要先勾选对应行
+                    </div>
                 </div>
             {% else %}
                 {% if user.is_authenticated %}
@@ -421,22 +438,13 @@
                                 ">
                                 删除选中行
                             </button>
-                            <button type="submit"
-                                    form="packing-list-form"
-                                    onclick="return processForm();"
-                                    class="btn"
-                                    style="
-                                    width:220px;
-                                    height:35px;
-                                    font-size:13px;
-                                    color:white;
-                                    background:#17a2b8;
-                                    border:none;
-                                    border-radius:5px;
-                                    cursor:pointer;
-                                ">
-                                更新选中PackingList信息
-                            </button>
+                            <div style="
+                                color:#888;
+                                font-size:12px;
+                                margin-left:10px;
+                            ">
+                                提示：修改、删除 PackingList 信息需要先勾选对应行
+                            </div>
                         </div>
                     {% endif %}
                 {% endif %}
