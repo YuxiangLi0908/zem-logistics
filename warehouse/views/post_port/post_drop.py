@@ -362,26 +362,28 @@ class PostDrop(View):
             for order in orders:
                 if order.retrieval_id:
                     planned_release_time_is_null = (order.retrieval_id.planned_release_time is None)
-                    temp_t49_is_false = (not order.retrieval_id.temp_t49_available_for_pickup)
+                    temp_t49_is_false_or_none = (order.retrieval_id.temp_t49_available_for_pickup is False or order.retrieval_id.temp_t49_available_for_pickup is None)
+                    
+                    meets_release_condition = (planned_release_time_is_null and temp_t49_is_false_or_none)
+                    
+                    planned_release_time_is_not_null = (order.retrieval_id.planned_release_time is not None)
+                    temp_t49_is_true = (order.retrieval_id.temp_t49_available_for_pickup is True)
+                    meets_selfdel_condition = (planned_release_time_is_not_null or temp_t49_is_true)
                     
                     if page_type == 'release':
-                        if not (planned_release_time_is_null or temp_t49_is_false):
+                        if not meets_release_condition:
                             container_retrieval_pass = False
-                            container_retrieval_details += f'订单ID:{order.id}(planned_release_time不为空且temp_t49为True); '
+                            container_retrieval_details += f'订单ID:{order.id}(planned_release_time={order.retrieval_id.planned_release_time}, temp_t49={order.retrieval_id.temp_t49_available_for_pickup}，不满足未放行条件); '
                     else:
-                        if not (order.retrieval_id.planned_release_time is not None or order.retrieval_id.temp_t49_available_for_pickup):
+                        if not meets_selfdel_condition:
                             container_retrieval_pass = False
-                            container_retrieval_details += f'订单ID:{order.id}(planned_release_time为空且temp_t49为False); '
+                            container_retrieval_details += f'订单ID:{order.id}(planned_release_time={order.retrieval_id.planned_release_time}, temp_t49={order.retrieval_id.temp_t49_available_for_pickup}，不满足已放行条件); '
                 else:
-                    if page_type == 'release':
-                        container_retrieval_pass = False
-                        container_retrieval_details += f'订单ID:{order.id}(retrieval_id为空); '
-                    else:
-                        container_retrieval_pass = False
-                        container_retrieval_details += f'订单ID:{order.id}(retrieval_id为空); '
+                    container_retrieval_pass = False
+                    container_retrieval_details += f'订单ID:{order.id}(retrieval_id为空); '
             checks.append({
                 'pass': container_retrieval_pass,
-                'description': '柜子Retrieval条件: ' + ('订单的retrieval_id满足planned_release_time为空 或 temp_t49_available_for_pickup为False（未放行）' if page_type == 'release' else '订单的retrieval_id满足planned_release_time不为空 或 temp_t49_available_for_pickup为True（已放行）'),
+                'description': '柜子Retrieval条件: ' + ('订单的retrieval_id满足planned_release_time为空 且 temp_t49_available_for_pickup为False/None（未放行页面条件）' if page_type == 'release' else '订单的retrieval_id满足planned_release_time不为空 或 temp_t49_available_for_pickup为True（已放行页面条件）'),
                 'fail_details': container_retrieval_details.rstrip('; ') if not container_retrieval_pass else None,
                 'level': 'container'
             })
@@ -513,7 +515,7 @@ class PostDrop(View):
     async def _get_release_cargos(self, warehouse: str) -> list:
         '''获取未放行货物数据'''
         base_criteria = Q(warehouse__name=warehouse) & Q(status='not_in_stock') & (
-            Q(order__retrieval_id__planned_release_time__isnull=True) |
+            Q(order__retrieval_id__planned_release_time__isnull=True) &
             Q(order__retrieval_id__temp_t49_available_for_pickup=False)
         )
 
