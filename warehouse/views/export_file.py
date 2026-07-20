@@ -735,7 +735,11 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by(*(["destination", "custom_delivery_method", "-cbm"]))
+            .order_by(
+                "destination",
+                "custom_delivery_method",
+                "-cbm",
+            )
         )
     elif status == "palletized" and zem_name == "JINYU":
         packing_list = await sync_to_async(list)(
@@ -917,7 +921,11 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by(*(["destination", "custom_delivery_method", "-cbm"]))
+            .order_by(
+                "destination",
+                "custom_delivery_method",
+                "-cbm",
+            )
         )
         existing_po = {
             (plt["container_number__container_number"], plt["destination"])
@@ -959,6 +967,20 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         axis=1,
     )
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
+    if zem_name != "JINYU":
+        df = df.sort_values(
+            by=["destination", "delivery_method", "cbm"],
+            ascending=[True, True, False],
+            ignore_index=True,
+        )
+    else:
+        df = df.sort_values(
+            by=["dropshipping_item_model_number", "delivery_method", "cbm"],
+            ascending=[True, True, False],
+            ignore_index=True,
+        )
+
+    # 然后再选择导出的列
     if zem_name == "JINYU":
         df = df[
             [
