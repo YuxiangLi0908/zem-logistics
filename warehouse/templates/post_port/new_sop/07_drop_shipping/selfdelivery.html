@@ -723,7 +723,7 @@
                     <td class="fleet-delivery-method-col" data-column="2">
                         <select class="method-select fleet-delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
-                            <option value="pickup" {% if cargo.delivery_method == "pickup" %}selected{% endif %}>客户自提</option>
+                            <option value="pickup" {% if cargo.delivery_method == "pickup" %}selected{% endif %}>自提</option>
                             <option value="self_ship" {% if cargo.delivery_method == "self_ship" %}selected{% endif %}>自发</option>
                         </select>
                     </td>

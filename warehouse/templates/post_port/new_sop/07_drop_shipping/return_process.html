@@ -1,0 +1,608 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .return-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .return-header {
+        background: linear-gradient(135deg, #0d3d5c, #1a5276);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .return-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .return-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 15px 25px;
+        border-radius: 10px;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95rem;
+        min-width: 150px;
+    }
+
+    .filter-controls button {
+        padding: 10px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .filter-controls button:hover {
+        background: #1b5e20;
+        transform: translateY(-1px);
+    }
+
+    .return-main {
+        padding: 25px;
+    }
+
+    .search-section {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+
+    .search-section input {
+        padding: 10px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        min-width: 200px;
+    }
+
+    .search-section button {
+        padding: 10px 25px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .search-section button:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .data-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .data-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+        background: #ffffff;
+    }
+
+    .data-table tbody tr:nth-child(odd) {
+        background: #fafafa;
+    }
+
+    .shipment-list {
+        margin-top: 10px;
+        padding-left: 20px;
+    }
+
+    .shipment-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 10px;
+        background: #e8f5e9;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+
+    .shipment-item span {
+        font-size: 0.9rem;
+    }
+
+    .shipment-item .batch-number {
+        font-weight: 600;
+        color: #1565c0;
+    }
+
+    .shipment-item .pcs-info {
+        color: #555;
+    }
+
+    .shipment-item .time-info {
+        color: #888;
+        font-size: 0.85rem;
+    }
+
+    .return-btn {
+        padding: 6px 15px;
+        background: #e53935;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+    }
+
+    .return-btn:hover {
+        background: #c62828;
+        transform: translateY(-1px);
+    }
+
+    .return-modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .return-modal-content {
+        background: #fff;
+        border-radius: 12px;
+        width: 500px;
+        margin: 15% auto;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: modalIn 0.3s ease-out;
+    }
+
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .return-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .return-modal-header h3 {
+        font-size: 1.2rem;
+        color: #333;
+    }
+
+    .close-modal {
+        font-size: 28px;
+        font-weight: bold;
+        color: #aaa;
+        cursor: pointer;
+    }
+
+    .close-modal:hover {
+        color: #333;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 1rem;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .form-group .info-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .modal-actions button {
+        padding: 10px 25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+
+    .btn-confirm {
+        background: #e53935;
+        color: white;
+    }
+
+    .btn-confirm:hover {
+        background: #c62828;
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+
+    .success-message {
+        color: #28a745;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #d4edda;
+        border-radius: 4px;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        min-width: 180px;
+    }
+
+    .warehouse-selector input {
+        padding: 8px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        min-width: 150px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #2980b9;
+    }
+
+    </style>
+
+<div class="return-system">
+    <div class="return-header">
+        <div class="return-logo">
+            <i class="fas fa-undo-alt"></i>
+            <span>退货处理</span>
+        </div>
+    </div>
+
+    <div class="return-main">
+        <form method="get" action="" class="warehouse-selector" onsubmit="return false;">
+            {% csrf_token %}
+            <label for="warehouse">仓库:</label>
+            <select name="warehouse" id="warehouse">
+                <option value="" {% if not warehouse %}selected{% endif %}>请选择</option>
+                {% for k, v in warehouse_options %}
+                <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                {% endfor %}
+            </select>
+            
+            <input type="text" id="containerInput" placeholder="柜号" value="{{ container_search }}">
+            <input type="text" id="modelInput" placeholder="商品型号" value="{{ model_search }}">
+            
+            <button type="button" onclick="searchCargo()">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </form>
+
+        {% if success_message %}
+        <div class="success-message">{{ success_message }}</div>
+        {% endif %}
+
+        {% if cargo_list %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>柜号</th>
+                    <th>型号</th>
+                    <th>唛头</th>
+                    <th>产品名称</th>
+                    <th>当前库存件数</th>
+                    <th>累计出库件数</th>
+                    <th>累计退货件数</th>
+                    <th>状态</th>
+                    <th>出库批次历史</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cargo in cargo_list %}
+                <tr>
+                    <td>{{ cargo.id }}</td>
+                    <td>{{ cargo.container__container_number|default:'' }}</td>
+                    <td>{{ cargo.model|default:'' }}</td>
+                    <td>{{ cargo.shipping_mark }}</td>
+                    <td>{{ cargo.product_name|default:'' }}</td>
+                    <td>{{ cargo.pcs }}</td>
+                    <td>{{ cargo.shipped_quantity }}</td>
+                    <td>{{ cargo.returned_quantity }}</td>
+                    <td>{{ cargo.status_display }}</td>
+                    <td>
+                        {% if cargo.shipments %}
+                        <div class="shipment-list">
+                            {% for shipment in cargo.shipments %}
+                            <div class="shipment-item">
+                                <span class="batch-number">{{ shipment.shipment_batch_number }}</span>
+                                <span class="pcs-info">出库件数: {{ shipment.pcs }}</span>
+                                <span class="time-info">{{ shipment.shipped_at }}</span>
+                                <button class="return-btn" onclick="openReturnModal({{ cargo.id }}, '{{ shipment.shipment_batch_number }}', {{ shipment.pcs }})">退货</button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <span style="color: #999;">无出库记录</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% elif warehouse %}
+        <div style="text-align: center; padding: 50px; color: #999;">
+            <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 15px;"></i>
+            <p>暂无符合条件的货物记录</p>
+            <p style="font-size: 0.9rem;">请尝试输入柜号或型号进行搜索</p>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 50px; color: #999;">
+            <i class="fas fa-warehouse" style="font-size: 3rem; margin-bottom: 15px;"></i>
+            <p>请先选择仓库</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="returnModal" class="return-modal">
+    <div class="return-modal-content">
+        <div class="return-modal-header">
+            <h3>退货处理</h3>
+            <span class="close-modal" onclick="closeReturnModal()">&times;</span>
+        </div>
+        <form id="returnForm" onsubmit="submitReturn(event)">
+            <input type="hidden" id="modalCargoId" name="cargo_id">
+            <input type="hidden" id="modalShipmentBatch" name="shipment_batch_number">
+            <input type="hidden" name="step" value="handle_return">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label>货物ID</label>
+                <input type="text" id="modalCargoIdDisplay" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>预约批次号</label>
+                <input type="text" id="modalShipmentBatchDisplay" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>该批次出库件数</label>
+                <input type="text" id="modalOriginalPcs" readonly>
+                <div class="info-text">退货件数不能超过该批次的出库件数</div>
+            </div>
+
+            <div class="form-group">
+                <label>退货件数</label>
+                <input type="number" id="modalReturnPcs" name="return_pcs" min="1" required>
+                <div id="returnPcsError" class="error-message"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeReturnModal()">取消</button>
+                <button type="submit" class="btn-confirm">确认退货</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function searchCargo() {
+    var container = document.getElementById('containerInput').value.trim();
+    var model = document.getElementById('modelInput').value.trim();
+    var warehouse = document.getElementById('warehouse').value;
+    
+    if (!warehouse && !container && !model) {
+        alert('请至少输入一个搜索条件（仓库、柜号或商品型号）');
+        return;
+    }
+    
+    var url = "{% url 'postdrop' %}?step=return_process";
+    var params = [];
+    
+    if (warehouse) params.push('warehouse=' + warehouse);
+    if (container) params.push('container=' + encodeURIComponent(container));
+    if (model) params.push('model=' + encodeURIComponent(model));
+    
+    if (params.length > 0) {
+        url += '&' + params.join('&');
+    }
+    
+    window.location.href = url;
+}
+
+function openReturnModal(cargoId, shipmentBatch, originalPcs) {
+    document.getElementById('modalCargoId').value = cargoId;
+    document.getElementById('modalShipmentBatch').value = shipmentBatch;
+    document.getElementById('modalCargoIdDisplay').value = cargoId;
+    document.getElementById('modalShipmentBatchDisplay').value = shipmentBatch;
+    document.getElementById('modalOriginalPcs').value = originalPcs;
+    document.getElementById('modalReturnPcs').value = '';
+    document.getElementById('returnPcsError').textContent = '';
+    
+    document.getElementById('returnModal').style.display = 'block';
+}
+
+function closeReturnModal() {
+    document.getElementById('returnModal').style.display = 'none';
+}
+
+function submitReturn(event) {
+    event.preventDefault();
+    
+    var returnPcs = parseInt(document.getElementById('modalReturnPcs').value);
+    var originalPcs = parseInt(document.getElementById('modalOriginalPcs').value);
+    
+    if (isNaN(returnPcs) || returnPcs <= 0) {
+        document.getElementById('returnPcsError').textContent = '请输入有效的退货件数';
+        return;
+    }
+    
+    if (returnPcs > originalPcs) {
+        document.getElementById('returnPcsError').textContent = '退货件数不能超过该批次的出库件数';
+        return;
+    }
+    
+    document.getElementById('returnForm').submit();
+}
+
+window.onclick = function(event) {
+    var modal = document.getElementById('returnModal');
+    if (event.target == modal) {
+        closeReturnModal();
+    }
+}
+</script>
+{% endblock %}
