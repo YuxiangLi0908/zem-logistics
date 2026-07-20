@@ -328,7 +328,7 @@ class PostDrop(View):
             
             checks = []
             
-            warehouse_check_pass = any(c.warehouse_name == warehouse for c in cargo_list)
+            warehouse_check_pass = any(c.get('warehouse_name', '') == warehouse for c in cargo_list)
             checks.append({
                 'pass': warehouse_check_pass,
                 'description': f'仓库匹配: 货物仓库 = 当前选择仓库 ({warehouse})'
@@ -346,14 +346,14 @@ class PostDrop(View):
             })
             
             if page_type == 'release':
-                status_check_pass = any(c.status == 'not_in_stock' for c in cargo_list)
+                status_check_pass = any(c.get('status', '') == 'not_in_stock' for c in cargo_list)
                 checks.append({
                     'pass': status_check_pass,
                     'description': '状态为 "not_in_stock": 货物状态包含未入库（未放行页面条件）'
                 })
                 is_in_page = warehouse_check_pass and status_check_pass and retrieval_check_pass
             else:
-                status_check_pass = all(c.status != 'all_out' for c in cargo_list)
+                status_check_pass = all(c.get('status', '') != 'all_out' for c in cargo_list)
                 checks.append({
                     'pass': status_check_pass,
                     'description': '状态不为 "all_out": 货物未全部出库（已放行页面条件）'
