@@ -166,6 +166,12 @@ class OrderCreation(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_order_packing_list_info_v1":
+            template, context = await self.handle_update_order_packing_list_info_post_v1(
+                request
+            )
+            return await sync_to_async(render)(request, template, context)
+
         elif step == "add_warehouse":
             return await self.add_warehouse(request)
 
@@ -2219,14 +2225,602 @@ class OrderCreation(View):
                         f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 elif dm == "客户自提" or dest == "客户自提":
-                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
                         if sm
                         else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 else:
-                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
+                if po_id_hkey in po_id_hash:
+                    po_id = po_id_hash.get(po_id_hkey)
+                else:
+                    container_tag = f"{container_number[:2].upper()}{container_number[-4:]}"
+
+                    random.seed(container_number[-4:])
+                    po_id = (
+                        f"{container_tag}"
+                        f"{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}"
+                        f"{po_id_seg}"
+                        f"{seq_num}"
+                    )
+                    po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
+                    po_id_hash[po_id_hkey] = po_id
+                    seq_num += 1
+                po_ids.append(po_id)
+            del po_id_hash, po_id, po_id_seg, po_id_hkey
+            total_weight_lbs_list = []
+            for lbs_str in request.POST.getlist("total_weight_lbs"):
+                if lbs_str.strip():  # 跳过空值
+                    try:
+                        total_weight_lbs_list.append(float(lbs_str))
+                    except ValueError:
+                        raise RuntimeError(f"无效的重量值: {lbs_str}，请输入数字")
+
+            total_weight_lbs_sum = sum(total_weight_lbs_list)
+            container = await sync_to_async(Container.objects.get)(
+                container_number=container_number
+            )
+            container.weight_lbs = total_weight_lbs_sum  # 假设Container模型有weight_lbs字段
+            await sync_to_async(container.save)()
+            pl_data = zip_longest(
+                request.POST.getlist("delivery_method"),
+                request.POST.getlist("shipping_mark"),
+                request.POST.getlist("fba_id"),
+                request.POST.getlist("ref_id"),
+                destination_list,
+                request.POST.getlist("address"),
+                request.POST.getlist("pcs"),
+                request.POST.getlist("total_weight_kg"),
+                request.POST.getlist("total_weight_lbs"),
+                request.POST.getlist("cbm"),
+                request.POST.getlist("note"),
+                request.POST.getlist("office_note"),
+                request.POST.getlist("long"),
+                request.POST.getlist("width"),
+                request.POST.getlist("height"),
+                request.POST.getlist("express_number"),
+                po_ids,
+                request.POST.getlist("delivery_window_start"),
+                request.POST.getlist("delivery_window_end"),
+                request.POST.getlist("delivery_type"),
+                fillvalue=""
+            )
+
+            def parse_decimal(value):
+                if not value or str(value).strip() == "":
+                    return None
+                try:
+                    return Decimal(str(value).strip())
+                except InvalidOperation:
+                    raise ValueError(f"无效的数值格式: {value}")
+
+            pl_to_create = [
+                PackingList(
+                    container_number=container,
+                    delivery_method=d[0],
+                    shipping_mark=d[1].strip(),
+                    fba_id=d[2].strip(),
+                    ref_id=d[3].strip(),
+                    destination=d[4],
+                    address=d[5],
+                    pcs=int(float(d[6])),
+                    total_weight_kg=d[7],
+                    total_weight_lbs=d[8],
+                    cbm=d[9],
+                    note=d[10],
+                    office_note=d[11],
+                    long=parse_decimal(d[12]),
+                    width=parse_decimal(d[13]),
+                    height=parse_decimal(d[14]),
+                    express_number=d[15],
+                    PO_ID=d[16],
+                    delivery_window_start=d[17] if d[17].strip() else None,
+                    delivery_window_end=d[18] if d[18].strip() else None,
+                    delivery_type=d[19],
+                )
+                for d in pl_data
+            ]
+
+            await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
+            # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
+            order.packing_list_updloaded = True
+            await sync_to_async(order.save)()
+            #每次更新pl清单，就判断柜子优先级
+            await self._update_container_unpacking_priority(container_number)
+        # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
+
+        # 因为上面已经将新的packing_list存到表里，所以直接去pl表查
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.filter(container_number__container_number=container)
+        )
+        po_checks = await sync_to_async(list)(
+            PoCheckEtaSeven.objects.filter(container_number__container_number=container)
+        )
+        #如果这个柜子的pl都删了，那么pocheck也要都删掉
+        if len(po_checks) == 0:
+            # po_check没有这个柜子，直接新建
+            for pl in packing_list:
+                po_check_dict = {
+                    "container_number": container,
+                    "vessel_eta": order.vessel_id.vessel_eta,
+                    "packing_list": pl,
+                    "time_status": True,
+                    "destination": pl.destination,
+                    "fba_id": pl.fba_id,
+                    "ref_id": pl.ref_id,
+                    "shipping_mark": pl.shipping_mark,
+                    # 其他的字段用默认值
+                }
+                new_obj = PoCheckEtaSeven(**po_check_dict)
+                await sync_to_async(new_obj.save)()
+        else:
+            for pl in packing_list:
+                # flag_num用来表示该pl是否在po_check中找到相同的记录，如果没找到，就在po_check新建这条，如果找到，就让po指向pl
+                flag_num = 0
+                for po in po_checks:
+                    if (
+                        (pl.shipping_mark == po.shipping_mark)
+                        and (pl.fba_id == po.fba_id)
+                        and (pl.ref_id == po.ref_id)
+                        and (pl.fba_id == po.fba_id)
+                        and (pl.destination == po.destination)
+                    ):
+                        flag_num = 1
+                        # 这里的判断是因为，pl和po判断相同的标准是唛头fba和目的地ref，可能pl中有多条这三个条件相同给的
+                        # 但是对于po_check表来说，是用来验证po的ref的，而且po_check只存了这三个关键信息表示pl，所以po_check无所谓指向具体的哪一条pl
+                        # 只要唛头fba目的地ref相同就行了，所以这里，每次遇到第一个po和pl相同且po没有指向pl，就令po指向这条pl
+                        check_packing_list = sync_to_async(
+                            lambda: bool(po.packing_list) == 0
+                        )
+                        is_empty = await check_packing_list()
+                        if is_empty:
+                            po.packing_list = pl
+                            await sync_to_async(po.save)()
+                            break
+                if flag_num == 0:
+                    # 如果po_check表没有这条po，新建这一条
+                    po_check_dict = {
+                        "container_number": container,
+                        "vessel_eta": (
+                            order.vessel_id.vessel_eta.date()
+                            if order.vessel_id.vessel_eta
+                            else None
+                        ),
+                        "packing_list": pl,
+                        "time_status": True,
+                        "destination": pl.destination,
+                        "fba_id": pl.fba_id,
+                        "ref_id": pl.ref_id,
+                        "shipping_mark": pl.shipping_mark,
+                        # 其他的字段用默认值
+                    }
+                    new_obj = PoCheckEtaSeven(**po_check_dict)
+                    await sync_to_async(new_obj.save)()
+
+            try:
+                criteria = models.Q(container_number__container_number=container)
+                if packing_list:
+                    criteria &= models.Q(packing_list=None)
+                # 对于po_check没有指向pl的，就删除
+                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(criteria)
+                for obj in await sync_to_async(list)(queryset):
+                    # 对每个对象执行删除操作
+                    await sync_to_async(obj.delete)()
+            except PoCheckEtaSeven.DoesNotExist:
+                raise ValueError("不存在")
+        # 更新完pl之后，更新container的delivery_type
+        # await self._confirm_delivery_type(container_number)
+        types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
+        new_type = types.pop() if len(types) == 1 else "mixed"
+        container = await sync_to_async(Container.objects.get, thread_sensitive=True)(
+            container_number=container_number
+        )
+        container.delivery_type = new_type
+        await sync_to_async(container.save, thread_sensitive=True)()
+
+        source = request.POST.get("source")
+        if source == "order_management":
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = container_number
+            mutable_get["step"] = "container_info_supplement"
+            request.GET = mutable_get
+            return await self.handle_order_management_container_get(request)
+        else:
+            return await self.handle_order_basic_info_get()
+
+    async def handle_update_order_packing_list_info_post_v1(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        '''订单列表-更新Packing List信息'''
+        container_number = request.POST.get("container_number")
+        order = await sync_to_async(
+            Order.objects.select_related(
+                "container_number", "offload_id", "vessel_id"
+            ).get
+        )(container_number__container_number=container_number)
+        container = order.container_number
+        operation = request.POST.get("operation", "update")
+
+        def get_post_list(name):
+            return request.POST.getlist(name)
+
+        def clean_destination(destination):
+            destination = (destination or "").strip()
+            if "WALMART" in destination.upper():
+                parts = destination.split("-")
+                return "Walmart-" + parts[1] if len(parts) > 1 else destination
+            return destination.upper()
+
+        def parse_decimal(value):
+            if not value or str(value).strip() == "":
+                return None
+            try:
+                return Decimal(str(value).strip())
+            except InvalidOperation:
+                raise ValueError(f"无效的数值格式: {value}")
+
+        def generate_po_ids(delivery_methods, shipping_marks, destinations):
+            po_ids = []
+            po_id_hash = {}
+            seq_num = 1
+            for dm, sm, dest in zip_longest(
+                delivery_methods, shipping_marks, destinations, fillvalue=""
+            ):
+                po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                    po_id_seg = (
+                        f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
+                    )
+                elif dm == "客户自提" or dest == "客户自提":
+                    po_id_seg = (
+                        f"S{sm[-4:]}"
+                        if sm
+                        else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
+                    )
+                else:
+                    po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
+
+                if po_id_hkey in po_id_hash:
+                    po_id = po_id_hash.get(po_id_hkey)
+                else:
+                    container_tag = f"{container_number[:2].upper()}{container_number[-4:]}"
+                    random.seed(container_number[-4:])
+                    po_id = (
+                        f"{container_tag}"
+                        f"{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}"
+                        f"{po_id_seg}"
+                        f"{seq_num}"
+                    )
+                    po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
+                    po_id_hash[po_id_hkey] = po_id
+                    seq_num += 1
+                po_ids.append(po_id)
+            return po_ids
+
+        selected_pl_ids = [
+            int(pl_id)
+            for pl_id in request.POST.getlist("is_packing_list_selected")
+            if pl_id
+        ]
+
+        if operation == "delete":
+            if not selected_pl_ids:
+                raise ValueError("请先勾选需要删除的PackingList")
+            await sync_to_async(
+                PoCheckEtaSeven.objects.filter(
+                    packing_list_id__in=selected_pl_ids,
+                    container_number__container_number=container_number,
+                ).delete
+            )()
+            await sync_to_async(
+                PackingList.objects.filter(
+                    id__in=selected_pl_ids,
+                    container_number__container_number=container_number,
+                ).delete
+            )()
+        elif operation == "add":
+            destination_list = [
+                clean_destination(dest) for dest in get_post_list("add_destination")
+            ]
+            po_ids = generate_po_ids(
+                get_post_list("add_delivery_method"),
+                get_post_list("add_shipping_mark"),
+                destination_list,
+            )
+            pl_data = zip_longest(
+                get_post_list("add_delivery_method"),
+                get_post_list("add_shipping_mark"),
+                get_post_list("add_fba_id"),
+                get_post_list("add_ref_id"),
+                destination_list,
+                get_post_list("add_address"),
+                get_post_list("add_pcs"),
+                get_post_list("add_total_weight_kg"),
+                get_post_list("add_total_weight_lbs"),
+                get_post_list("add_cbm"),
+                get_post_list("add_note"),
+                get_post_list("add_office_note"),
+                get_post_list("add_long"),
+                get_post_list("add_width"),
+                get_post_list("add_height"),
+                get_post_list("add_express_number"),
+                po_ids,
+                get_post_list("add_delivery_window_start"),
+                get_post_list("add_delivery_window_end"),
+                get_post_list("add_delivery_type"),
+                fillvalue="",
+            )
+            pl_to_create = [
+                PackingList(
+                    container_number=container,
+                    delivery_method=d[0],
+                    shipping_mark=d[1].strip(),
+                    fba_id=d[2].strip(),
+                    ref_id=d[3].strip(),
+                    destination=d[4],
+                    address=d[5],
+                    pcs=int(float(d[6])),
+                    total_weight_kg=d[7],
+                    total_weight_lbs=d[8],
+                    cbm=d[9],
+                    note=d[10],
+                    office_note=d[11],
+                    long=parse_decimal(d[12]),
+                    width=parse_decimal(d[13]),
+                    height=parse_decimal(d[14]),
+                    express_number=d[15],
+                    PO_ID=d[16],
+                    delivery_window_start=parse_date(d[17]) if d[17].strip() else None,
+                    delivery_window_end=parse_date(d[18]) if d[18].strip() else None,
+                    delivery_type=d[19],
+                )
+                for d in pl_data
+                if str(d[6]).strip()
+            ]
+            if not pl_to_create:
+                raise ValueError("请填写需要添加的PackingList")
+            await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
+            order.packing_list_updloaded = True
+            await sync_to_async(order.save)()
+        else:
+            pl_ids = selected_pl_ids
+            if not pl_ids:
+                raise ValueError("请先勾选需要更新的PackingList")
+            pl_id_idx_mapping = {pl_id: idx for idx, pl_id in enumerate(pl_ids)}
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    id__in=pl_ids,
+                    container_number__container_number=container_number,
+                )
+            )
+            destination_list = [
+                clean_destination(dest) for dest in get_post_list("destination")
+            ]
+            po_ids = generate_po_ids(
+                get_post_list("delivery_method"),
+                get_post_list("shipping_mark"),
+                destination_list,
+            )
+            updated_pl = []
+            for pl in packing_list:
+                idx = pl_id_idx_mapping[pl.id]
+                pl.delivery_method = get_post_list("delivery_method")[idx]
+                pl.delivery_type = get_post_list("delivery_type")[idx]
+                pl.shipping_mark = get_post_list("shipping_mark")[idx].strip()
+                pl.fba_id = get_post_list("fba_id")[idx].strip()
+                pl.ref_id = get_post_list("ref_id")[idx].strip()
+                pl.destination = destination_list[idx]
+                pl.address = get_post_list("address")[idx]
+                pl.pcs = int(float(get_post_list("pcs")[idx]))
+                pl.total_weight_kg = get_post_list("total_weight_kg")[idx]
+                pl.total_weight_lbs = get_post_list("total_weight_lbs")[idx]
+                pl.cbm = get_post_list("cbm")[idx]
+                pl.note = get_post_list("note")[idx]
+                pl.office_note = get_post_list("office_note")[idx]
+                pl.long = parse_decimal(get_post_list("long")[idx])
+                pl.width = parse_decimal(get_post_list("width")[idx])
+                pl.height = parse_decimal(get_post_list("height")[idx])
+                pl.express_number = get_post_list("express_number")[idx]
+                pl.PO_ID = po_ids[idx]
+                start_date_str = get_post_list("delivery_window_start")[idx].strip()
+                pl.delivery_window_start = (
+                    parse_date(start_date_str) if start_date_str else None
+                )
+                end_date_str = get_post_list("delivery_window_end")[idx].strip()
+                pl.delivery_window_end = (
+                    parse_date(end_date_str) if end_date_str else None
+                )
+                updated_pl.append(pl)
+            await sync_to_async(bulk_update_with_history)(
+                updated_pl,
+                PackingList,
+                fields=[
+                    "delivery_method",
+                    "delivery_type",
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "destination",
+                    "address",
+                    "pcs",
+                    "total_weight_kg",
+                    "total_weight_lbs",
+                    "cbm",
+                    "note",
+                    "office_note",
+                    "long",
+                    "width",
+                    "height",
+                    "express_number",
+                    "PO_ID",
+                    "delivery_window_start",
+                    "delivery_window_end",
+                ],
+            )
+            for pl in updated_pl:
+                await sync_to_async(
+                    PoCheckEtaSeven.objects.filter(packing_list=pl).update
+                )(
+                    destination=pl.destination,
+                    fba_id=pl.fba_id,
+                    ref_id=pl.ref_id,
+                    shipping_mark=pl.shipping_mark,
+                )
+
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.filter(container_number__container_number=container_number)
+        )
+        if operation == "add":
+            existing_po_pl_ids = set(
+                await sync_to_async(list)(
+                    PoCheckEtaSeven.objects.filter(
+                        container_number__container_number=container_number,
+                        packing_list__isnull=False,
+                    ).values_list("packing_list_id", flat=True)
+                )
+            )
+            for pl in packing_list:
+                if pl.id not in existing_po_pl_ids:
+                    await sync_to_async(PoCheckEtaSeven.objects.create)(
+                        container_number=container,
+                        vessel_eta=order.vessel_id.vessel_eta,
+                        packing_list=pl,
+                        time_status=True,
+                        destination=pl.destination,
+                        fba_id=pl.fba_id,
+                        ref_id=pl.ref_id,
+                        shipping_mark=pl.shipping_mark,
+                    )
+
+        container.weight_lbs = sum(float(pl.total_weight_lbs or 0) for pl in packing_list)
+        delivery_types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
+        container.delivery_type = delivery_types.pop() if len(delivery_types) == 1 else "mixed"
+        await sync_to_async(container.save)()
+        await self._update_container_unpacking_priority(container_number)
+
+        source = request.POST.get("source")
+        if source == "order_management":
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = container_number
+            mutable_get["step"] = "container_info_supplement"
+            request.GET = mutable_get
+            return await self.handle_order_management_container_get(request)
+        return await self.handle_order_basic_info_get()
+
+        if (
+                (offload.offload_at or offload.offload_other_at) and "pl_id" in request.POST
+        ):
+            updated_pl = []
+            pl_ids = request.POST.getlist("pl_id")
+            pl_id_idx_mapping = {int(pl_ids[i]): i for i in range(len(pl_ids))}
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    container_number__container_number=container_number
+                )
+            )
+            destination_list = request.POST.getlist("destination")
+            for idx, destination in enumerate(destination_list):
+                if "WALMART" in destination.upper():
+                    parts = destination.split("-")
+                    destination_list[idx] = "Walmart-" + parts[1]
+                else:
+                    destination_list[idx] = destination.upper().strip()
+            for pl in packing_list:
+                idx = pl_id_idx_mapping[pl.id]
+                pl.delivery_method = request.POST.getlist("delivery_method")[idx]
+                pl.delivery_type = request.POST.getlist("delivery_type")[idx]
+                pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
+                pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
+                pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
+                pl.destination = destination_list[idx]
+                pl.address = request.POST.getlist("address")[idx]
+                pl.note = request.POST.getlist("note")[idx]
+                pl.office_note = request.POST.getlist("office_note")[idx]
+                long = request.POST.getlist("long")[idx]
+                pl.long = Decimal(long) if long else None
+                width = request.POST.getlist("width")[idx]
+                pl.width = Decimal(width) if width else None
+
+                height = request.POST.getlist("height")[idx]
+                pl.height = Decimal(height) if height else None
+
+                pl.express_number = request.POST.getlist("express_number")[idx]
+                start_date_str = request.POST.getlist("delivery_window_start")[
+                    idx
+                ].strip()
+                pl.delivery_window_start = (
+                    parse_date(start_date_str) if start_date_str else None
+                )
+                end_date_str = request.POST.getlist("delivery_window_end")[idx].strip()
+                pl.delivery_window_end = (
+                    parse_date(end_date_str) if end_date_str else None
+                )
+                updated_pl.append(pl)
+            await sync_to_async(bulk_update_with_history)(
+                updated_pl,
+                PackingList,
+                fields=[
+                    "delivery_method",
+                    "delivery_type",
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "destination",
+                    "address",
+                    "note",
+                    "office_note",
+                    "long",
+                    "width",
+                    "height",
+                    "express_number",
+                    "delivery_window_start",
+                    "delivery_window_end",
+                ],
+            )
+        else:
+            # 没打板的，才考虑，判断是否有快递，然后修改为P1等级
+            await sync_to_async(
+                PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).delete
+            )()
+            destination_list = request.POST.getlist("destination")
+            for idx, destination in enumerate(destination_list):
+                if "WALMART" in destination.upper():
+                    parts = destination.split("-")
+                    destination_list[idx] = "Walmart-" + parts[1]
+                else:
+                    destination_list[idx] = destination.upper().strip()
+            # Generate PO_ID
+            po_ids = []
+            po_id_hash = {}
+            seq_num = 1
+            for dm, sm, dest in zip_longest(
+                    request.POST.getlist("delivery_method"),
+                    request.POST.getlist("shipping_mark"),
+                    destination_list,
+                    fillvalue='',
+            ):
+                po_id: str = ""
+                po_id_seg: str = ""
+                po_id_hkey: str = ""
+                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    po_id_seg = (
+                        f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
+                    )
+                elif dm == "客户自提" or dest == "客户自提":
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    po_id_seg = (
+                        f"S{sm[-4:]}"
+                        if sm
+                        else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
+                    )
+                else:
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
                 if po_id_hkey in po_id_hash:
                     po_id = po_id_hash.get(po_id_hkey)
