@@ -266,7 +266,7 @@
             <td style="width: 28%; word-break:break-all; border:1px solid black;">{{ p.shipping_mark|safe }}</td>
             <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pallet }}</td>
             <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pcs }}</td>
-            <td style="width: 10%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+            <td style="width: 10%; text-align:center; border:1px solid black; word-break:break-all;">{% if p.shipment_batch_number__fleet_number__carrier and p.shipment_batch_number__fleet_number__carrier != 'None' %}{{ p.shipment_batch_number__fleet_number__carrier }}{% endif %}</td>
             {% if "LA-91761" == warehouse %}
             <td style="width: 6%; text-align:center; border:1px solid black; word-break:break-all;">
                 {{ p.slot|default:"&nbsp;" }}

@@ -4478,7 +4478,8 @@ class PostNsop(View):
                     "shipping_mark",
                     "shipment_batch_number__note",
                     "slot",
-                    "shipment_batch_number__shipment_batch_number",  # 添加 shipment_batch_number
+                    "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__pickup_time",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
@@ -6130,6 +6131,7 @@ class PostNsop(View):
                     "shipment_batch_number__note",
                     "slot",
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__pickup_time",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
@@ -6340,7 +6342,33 @@ class PostNsop(View):
         
         pdf_buffer.seek(0)
         response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="batch_bol.pdf"'
+        
+        container_numbers = []
+        shipping_marks = []
+        destinations = set()
+        
+        for arm in all_arm_pickup:
+            container = arm.get("container_number__container_number", "")
+            if container and container not in container_numbers:
+                container_numbers.append(container)
+            
+            mark = arm.get("shipping_mark", "")
+            if mark and mark not in shipping_marks:
+                shipping_marks.append(mark)
+            
+            dest = arm.get("destination", "")
+            if dest:
+                destinations.add(dest)
+        
+        date_part = pickup_time if pickup_time else ""
+        container_part = "".join(container_numbers)
+        destination_part = "".join(destinations)
+        mark_part = "".join(shipping_marks)
+        
+        filename = f"{date_part}{container_part}{destination_part}{mark_part}BOL.pdf"
+        filename = filename.replace("/", "-").replace("\\", "-").replace(":", "-").replace("*", "-").replace("?", "-").replace('"', "-").replace("<", "-").replace(">", "-").replace("|", "-")
+        
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         response["X-Content-Type-Options"] = "nosniff"
         
         return response
@@ -6361,6 +6389,7 @@ class PostNsop(View):
             raise ValueError("供应商数据列表为空")
         
         updated_count = 0
+        fleet_updated_count = 0
         
         for item in carrier_data:
             batch_number = item.get('batch_number')
@@ -6369,12 +6398,21 @@ class PostNsop(View):
             if not batch_number or not carrier:
                 continue
             
-            updated = await sync_to_async(
-                lambda bn=batch_number, c=carrier: Shipment.objects.filter(shipment_batch_number=bn).update(carrier=c)
-            )()
-            updated_count += updated
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(shipment_batch_number=batch_number).select_related('fleet_number')
+            )
+            
+            for shipment in shipments:
+                shipment.carrier = carrier
+                await sync_to_async(shipment.save)()
+                updated_count += 1
+                
+                if shipment.fleet_number:
+                    shipment.fleet_number.carrier = carrier
+                    await sync_to_async(shipment.fleet_number.save)()
+                    fleet_updated_count += 1
         
-        context = {'success_messages': f"成功更新 {updated_count} 条记录的供应商"}
+        context = {'success_messages': f"成功更新 {updated_count} 条Shipment记录和 {fleet_updated_count} 条Fleet记录的供应商"}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def handle_batch_save_pickup_time(self, request: HttpRequest) -> HttpResponse:
