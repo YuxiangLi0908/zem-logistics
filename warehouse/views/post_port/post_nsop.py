@@ -6131,6 +6131,7 @@ class PostNsop(View):
                     "shipment_batch_number__note",
                     "slot",
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__pickup_time",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
@@ -6341,7 +6342,33 @@ class PostNsop(View):
         
         pdf_buffer.seek(0)
         response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="batch_bol.pdf"'
+        
+        container_numbers = []
+        shipping_marks = []
+        destinations = set()
+        
+        for arm in all_arm_pickup:
+            container = arm.get("container_number__container_number", "")
+            if container and container not in container_numbers:
+                container_numbers.append(container)
+            
+            mark = arm.get("shipping_mark", "")
+            if mark and mark not in shipping_marks:
+                shipping_marks.append(mark)
+            
+            dest = arm.get("destination", "")
+            if dest:
+                destinations.add(dest)
+        
+        date_part = pickup_time if pickup_time else ""
+        container_part = "".join(container_numbers)
+        destination_part = "".join(destinations)
+        mark_part = "".join(shipping_marks)
+        
+        filename = f"{date_part}{container_part}{destination_part}{mark_part}BOL.pdf"
+        filename = filename.replace("/", "-").replace("\\", "-").replace(":", "-").replace("*", "-").replace("?", "-").replace('"', "-").replace("<", "-").replace(">", "-").replace("|", "-")
+        
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         response["X-Content-Type-Options"] = "nosniff"
         
         return response
