@@ -1178,6 +1178,7 @@ class PostDrop(View):
                 QuotationMaster.objects.filter(
                     quote_type="receivable",
                     effective_date__isnull=False,
+                    is_dropship=True,
                 ).order_by("-effective_date").first
             )()
 

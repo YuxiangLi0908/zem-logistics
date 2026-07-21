@@ -363,7 +363,8 @@ class ReceivableAccounting(View):
         # 基础查询：应收报价表
         query = QuotationMaster.objects.filter(
             quote_type="receivable",
-            effective_date__lte=etd_date
+            effective_date__lte=etd_date,
+            is_dropship=False,
         )
 
         # 匹配逻辑
@@ -10703,6 +10704,7 @@ class ReceivableAccounting(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type='receivable',
+                is_dropship=False,
             )
             .order_by("-effective_date")
             .first()
@@ -10713,6 +10715,7 @@ class ReceivableAccounting(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -11066,6 +11069,7 @@ class ReceivableAccounting(View):
                     is_user_exclusive=True,
                     exclusive_user=customer_name,
                     quote_type=quote_type,
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -11078,6 +11082,7 @@ class ReceivableAccounting(View):
                         effective_date__lte=vessel_etd,
                         is_user_exclusive=False,
                         quote_type=quote_type,
+                        is_dropship=False,
                     )
                     .order_by("-effective_date")
                     .first()
@@ -11266,6 +11271,7 @@ class ReceivableAccounting(View):
                     is_user_exclusive=True,
                     exclusive_user=customer_name,
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -11276,6 +11282,7 @@ class ReceivableAccounting(View):
                         effective_date__lte=vessel_etd,
                         is_user_exclusive=False,  # 非用户专属的通用报价单
                         quote_type='receivable',
+                        is_dropship=False,
                     )
                     .order_by("-effective_date")
                     .first()
