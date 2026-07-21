@@ -4478,7 +4478,8 @@ class PostNsop(View):
                     "shipping_mark",
                     "shipment_batch_number__note",
                     "slot",
-                    "shipment_batch_number__shipment_batch_number",  # 添加 shipment_batch_number
+                    "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__pickup_time",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
