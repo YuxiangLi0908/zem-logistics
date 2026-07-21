@@ -106,6 +106,6 @@ class DropshipCargo (models.Model):
             models.Index(fields=['container']),
         ]
     def __str__(self):
-        return f"{self.shipping_mark} - {self.product_name} - {self.model}"
+        return f"{self.shipping_mark} - {self.product_name} - {self.model} - {self.pcs}"
 
     history = HistoricalRecords()

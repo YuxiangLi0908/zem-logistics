@@ -4374,7 +4374,7 @@ class PostNsop(View):
                         "pickup_file_content": str(
                             row.get("pickup_file_content", "")
                         ),
-                        "shipment_batch_number__pickup_time": row.get("shipment_batch_number__pickup_time"),
+                        "shipment_batch_number__pickup_time": row.get("shipment_batch_number__pickup_time") or row.get("appointment_datetime"),
                     }
                     for possible_key in (
                             "arm_pickup_group",
@@ -5410,6 +5410,8 @@ class PostNsop(View):
     async def generate_unique_batch_number(self, destination):
         """生成唯一的shipment_batch_number"""
         current_time = datetime.now()
+        
+        destination = destination.replace(" ", "") if destination else ""
 
         for i in range(10):
             batch_id = (
@@ -5417,7 +5419,7 @@ class PostNsop(View):
                     + current_time.strftime("%m%d%H%M%S")
                     + str(uuid.uuid4())[:2].upper()
             )
-            batch_number = batch_id.replace(" ", "").replace("/", "-").upper()
+            batch_number = batch_id.replace("/", "-").upper()
             exists = await sync_to_async(
                 Shipment.objects.filter(shipment_batch_number=batch_number).exists
             )()
