@@ -565,7 +565,7 @@ class PostDrop(View):
 
     async def _get_selfdel_cargos(self, warehouse: str) -> list:
         '''获取已放行货物数据'''       
-        base_criteria = Q(warehouse__name=warehouse) & ~Q(status='all_out') & (
+        base_criteria = Q(warehouse__name=warehouse) & ~Q(status='all_out') & Q(pcs__gt=0) & (
             Q(order__retrieval_id__planned_release_time__isnull=False) |
             Q(order__retrieval_id__temp_t49_available_for_pickup=True)
         )

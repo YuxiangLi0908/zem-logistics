@@ -879,12 +879,13 @@ class ShippingManagement(View):
                 fleet_pallet += shipment_pallet
                 fleet_pcs += shipment_pcs
                 # Shipment
+                destination = ISA_data["PO"][0]["destination"].replace(" ", "") if ISA_data["PO"][0]["destination"] else ""
                 batch_id = (
-                    ISA_data["PO"][0]["destination"]
+                    destination
                     + current_time.strftime("%m%d%H%M%S")
                     + str(uuid.uuid4())[:2].upper()
                 )
-                batch_id = batch_id.replace(" ", "").replace("/", "-").upper()
+                batch_id = batch_id.replace("/", "-").upper()
                 if ISA in db_shipment:
                     shipment = db_shipment[ISA]
                     destination = (
@@ -1214,7 +1215,7 @@ class ShippingManagement(View):
                         total_pallet += int(pl.get("total_n_pallet_est") // 1 + 1)
                     else:
                         total_pallet += int(pl.get("total_n_pallet_est") // 1)
-            destination = packing_list_selected[0].get("destination", "RDM")
+            destination = packing_list_selected[0].get("destination", "RDM").replace(" ", "") if packing_list_selected[0].get("destination", "RDM") else "RDM"
             batch_id = (
                 destination
                 + current_time.strftime("%m%d%H%M%S")
@@ -1223,7 +1224,7 @@ class ShippingManagement(View):
             disallowed_chars = "#%*：:<>?/|"  # 不允许的字符
             for char in disallowed_chars:
                 batch_id = batch_id.replace(char, "-")
-            batch_id = batch_id.replace(" ", "").upper()
+            batch_id = batch_id.upper()
             address = amazon_fba_locations.get(
                 destination, None
             )  # 查找亚马逊地址中是否有该地址
