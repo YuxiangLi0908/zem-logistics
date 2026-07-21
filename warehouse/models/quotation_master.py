@@ -28,6 +28,10 @@ class QuotationMaster(models.Model):
         blank=True,
         verbose_name="生效日期",
     )
+    is_dropship = models.BooleanField(
+        default=False,
+        verbose_name="是否一件代发",
+    )
 
     def __str__(self) -> str:
         return str(self.effective_date) + "-" + str(self.exclusive_user) + "-" + self.version

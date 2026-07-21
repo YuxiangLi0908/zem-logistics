@@ -1,4 +1,4 @@
-﻿import ast
+import ast
 import io
 import json
 import logging
@@ -9613,6 +9613,7 @@ class Accounting(View):
                 is_user_exclusive=True,
                 exclusive_user=customer.zem_name,
                 quote_type='receivable',
+                is_dropship=False,
             )
             .order_by("-effective_date")
             .first()
@@ -9623,6 +9624,7 @@ class Accounting(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -11219,6 +11221,7 @@ class Accounting(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type='receivable',
+                is_dropship=False,
             )
             .order_by("-effective_date")
             .first()
@@ -11229,6 +11232,7 @@ class Accounting(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -11350,6 +11354,7 @@ class Accounting(View):
                     is_user_exclusive=True,
                     exclusive_user=customer_name,
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -11360,6 +11365,7 @@ class Accounting(View):
                         effective_date__lte=vessel_etd,
                         is_user_exclusive=False,  # 非用户专属的通用报价单
                         quote_type='receivable',
+                        is_dropship=False,
                     )
                     .order_by("-effective_date")
                     .first()
@@ -11832,6 +11838,7 @@ class Accounting(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type='receivable',
+                is_dropship=False,
             )
             .order_by("-effective_date")
             .first()
@@ -11842,6 +11849,7 @@ class Accounting(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -12538,6 +12546,7 @@ class Accounting(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type='receivable',
+                is_dropship=False,
             )
             .order_by("-effective_date")
             .first()
@@ -12548,6 +12557,7 @@ class Accounting(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
                     quote_type='receivable',
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -13777,6 +13787,7 @@ class Accounting(View):
                     is_user_exclusive=True,
                     exclusive_user=customer_name,
                     quote_type=quote_type,
+                    is_dropship=False,
                 )
                 .order_by("-effective_date")
                 .first()
@@ -13787,6 +13798,7 @@ class Accounting(View):
                 quotation = (
                     QuotationMaster.objects.filter(
                         effective_date__lte=vessel_etd,
+                        is_dropship=False,
                         is_user_exclusive=False,
                         quote_type=quote_type,
                     )

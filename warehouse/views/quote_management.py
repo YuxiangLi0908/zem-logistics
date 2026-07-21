@@ -1477,6 +1477,8 @@ class QuoteManagement(View):
 
             if "一件代发" in excel_file.sheet_names:
                 df = excel_file.parse("一件代发")
+                quote.is_dropship = True
+                quote.save()
                 self.process_dropship_sheet(df, quote)
                 quotes = QuotationMaster.objects.filter(quote_type="receivable")
                 context = {"quotes": quotes}
