@@ -1539,9 +1539,21 @@
                         }
                     });
 
-                    const data = await resp.json().catch(() => null);
+                    const text = await resp.text();
+                    let data = null;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('JSON解析失败:', text);
+                    }
+
                     if (!resp.ok || !data) {
-                        const msg = (data && data.message) ? data.message : '查询失败';
+                        let msg = '查询失败';
+                        if (data && data.message) {
+                            msg = data.message;
+                        } else if (!resp.ok) {
+                            msg = `查询失败（HTTP ${resp.status}）`;
+                        }
                         alert(msg);
                         return;
                     }
@@ -1551,7 +1563,8 @@
                     }
                     openQuotationModal(data.html || '');
                 } catch (e) {
-                    alert('查询失败');
+                    console.error('查询报价异常:', e);
+                    alert(`查询失败：${e.message || '未知错误'}`);
                 } finally {
                     this.innerHTML = originalHtml;
                     this.disabled = false;

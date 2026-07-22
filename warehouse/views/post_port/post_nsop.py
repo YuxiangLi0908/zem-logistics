@@ -7353,7 +7353,10 @@ class PostNsop(View):
 
                 public_key = f"{warehouse}_PUBLIC"
                 if public_key not in fee_details:
-                    context = {"error_messages": f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'}
+                    message = f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
                     return await self.handle_td_shipment_post(request, context)
 
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
