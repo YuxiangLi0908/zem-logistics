@@ -1210,7 +1210,7 @@ class PostDrop(View):
                     return template, context
 
             elif fee_type == "warehouse":
-                warehouse_rates = {}
+                warehouse_fee_config = {}
                 if dropship_quote:
                     warehouse_fee_detail = await sync_to_async(
                         FeeDetail.objects.filter(
@@ -1219,8 +1219,7 @@ class PostDrop(View):
                         ).first
                     )()
                     if warehouse_fee_detail and warehouse_fee_detail.details:
-                        for fee_code, fee_data in warehouse_fee_detail.details.items():
-                            warehouse_rates[fee_code] = fee_data.get("rate", 0)
+                        warehouse_fee_config = warehouse_fee_detail.details
                     else:
                         template, context = await self.handle_drop_account_search(request)
                         context['error_messages'] = "报价表中未配置库内费，请先配置报价表！"
@@ -1230,11 +1229,11 @@ class PostDrop(View):
                     context['error_messages'] = "未找到有效的报价表，请先创建报价表！"
                     return template, context
 
-                for desc, rate in warehouse_rates.items():
+                for desc, fee_data in warehouse_fee_config.items():
                     items.append({
                         "description": desc,
                         "amount": 0,
-                        "rate": rate,
+                        "rate": fee_data.get("rate", 0),
                         "is_new": True,
                     })
 
@@ -1324,6 +1323,8 @@ class PostDrop(View):
                 })
 
         shipment_details_json = json.dumps(shipment_details, ensure_ascii=False, default=str)
+        warehouse_fee_config_dict = warehouse_fee_config if 'warehouse_fee_config' in locals() else {}
+        warehouse_fee_config_json = json.dumps(warehouse_fee_config_dict, ensure_ascii=False)
 
         context = {
             "invoice_number": invoice_number,
@@ -1343,6 +1344,8 @@ class PostDrop(View):
             "has_existing_fee": has_existing_fee,
             "shipment_details": shipment_details,
             "shipment_details_json": shipment_details_json,
+            "warehouse_fee_config": warehouse_fee_config_dict,
+            "warehouse_fee_config_json": warehouse_fee_config_json,
         }
         return self.template_account_edit, context
 
