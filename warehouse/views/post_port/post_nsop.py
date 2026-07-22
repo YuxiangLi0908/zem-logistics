@@ -7604,6 +7604,7 @@ class PostNsop(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type='receivable',
+                is_dropship=False
             )
             .order_by("-effective_date")
             .first()
@@ -7614,6 +7615,7 @@ class PostNsop(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,
                     quote_type='receivable',
+                    is_dropship=False
                 )
                 .order_by("-effective_date")
                 .first()
@@ -8009,6 +8011,7 @@ class PostNsop(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type=quote_type,
+                is_dropship=False
             )
             .order_by("-effective_date")
             .first()
@@ -8019,6 +8022,7 @@ class PostNsop(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type=quote_type,
+                is_dropship=False
             )
             .order_by("-effective_date")
             .first()
@@ -8031,6 +8035,7 @@ class PostNsop(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,
                     quote_type=quote_type,
+                    is_dropship=False
                 )
                 .order_by("-effective_date")
                 .first()
@@ -8625,6 +8630,13 @@ class PostNsop(View):
             lambda: Shipment.objects.filter(
                 pallet__isnull=True,
                 packinglist__isnull=True
+            ).delete()
+        )()
+
+        # 清理没有任何shipment关联的fleet记录
+        await sync_to_async(
+            lambda: Fleet.objects.filter(
+                shipment__isnull=True
             ).delete()
         )()
 
