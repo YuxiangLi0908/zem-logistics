@@ -15,7 +15,7 @@
     }
 
     .account-detail-container {
-        max-width: 1400px;
+        max-width: 1600px;
         margin: 20px auto;
         background: white;
         border-radius: 12px;
@@ -99,6 +99,39 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        justify-content: space-between;
+    }
+
+    .section-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .auto-generate-fee-btn {
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.9rem;
+        padding: 6px 14px;
+        background: linear-gradient(135deg, #2ecc71, #27ae60);
+        border-radius: 6px;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .auto-generate-fee-btn:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    }
+
+    .auto-generate-fee-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
     }
 
     .fee-table-container {
@@ -258,29 +291,151 @@
         color: #999;
     }
 
-    .piece-detail-link {
-        margin-left: auto;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #2e7d32;
-        text-decoration: none;
-        padding: 4px 12px;
-        border: 1px solid #2e7d32;
-        border-radius: 6px;
-        transition: all 0.2s;
-        display: inline-flex;
+    .select-all-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+    .row-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .fee-type-checkbox {
+        margin-right: 6px;
+        cursor: pointer;
+    }
+
+    .fee-type-item {
+        display: flex;
         align-items: center;
+        margin-bottom: 4px;
+    }
+
+    .piece-detail-table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .piece-detail-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1200px;
+    }
+
+    .piece-detail-table th {
+        background: #4a6491;
+        color: white;
+        padding: 12px 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .piece-detail-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+
+    .piece-detail-table tbody tr:hover {
+        background: #f5f5f5;
+    }
+
+    .piece-detail-table tbody tr.selected {
+        background: #e3f2fd;
+    }
+
+    .storage-days-input {
+        width: 80px;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .storage-days-input:focus {
+        outline: none;
+        border-color: #4a6491;
+        box-shadow: 0 0 0 0.2rem rgba(74, 100, 145, 0.15);
+    }
+
+    .fee-type-checkboxes {
+        display: flex;
+        flex-direction: column;
         gap: 4px;
     }
 
-    .piece-detail-link:hover {
-        background: #a52828;
-        color: #fff;
+    .fee-type-checkbox-item {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 2px 0;
+    }
+
+    .fee-type-checkbox-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin-right: 6px;
+        cursor: pointer;
+    }
+
+    .storage-months-cell {
+        font-weight: 600;
+        color: #4a6491;
+    }
+
+    .fee-types-cell {
+        max-width: 200px;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 12px 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .batch-actions label {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .batch-actions .fee-type-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-left: 10px;
+    }
+
+    .batch-actions .btn {
+        margin-left: auto;
+    }
+
+    .generated-fee-section {
+        display: none;
+    }
+
+    .generated-fee-section.show {
+        display: block;
     }
 </style>
 
 <div class="account-detail-container">
-    <!-- 头部信息 -->
     <div class="account-header">
         <div class="account-title">
             <i class="fas fa-file-invoice-dollar"></i>
@@ -315,15 +470,84 @@
         </div>
     </div>
 
-    <!-- 费用明细 -->
     <div class="account-body">
+        {% if fee_type == 'warehouse' and shipment_details %}
+        <div class="section-title">
+            <i class="fas fa-boxes"></i> 出库详情
+        </div>
+
+        <div class="batch-actions">
+            <div style="color: #666; font-size: 0.85rem;">
+                <div style="margin-bottom: 4px; font-weight: 600; color: #4a6491;">计算公式：</div>
+                {% for fee_name, fee_data in warehouse_fee_config.items %}
+                    <div>{{ fee_name }}（{{ fee_data.rate }}/{{ fee_data.unit }}）: {{ fee_data.formula }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="piece-detail-table-container">
+            <table class="piece-detail-table">
+                <thead>
+                    <tr>
+                        <th style="width: 140px;">商品型号</th>
+                        <th style="width: 200px;">唛头</th>
+                        <th style="width: 100px;">出库件数</th>
+                        <th style="width: 150px;">预约批次号</th>
+                        <th style="width: 130px;">入库时间</th>
+                        <th style="width: 130px;">预计提货时间</th>
+                        <th style="width: 130px;">实际出库时间</th>
+                        <th style="width: 100px;">在库天数</th>
+                        <th style="width: 100px;">在库月份</th>
+                        <th style="width: 200px;">费用类型</th>
+                        <th style="width: 120px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="pieceDetailTableBody">
+                    {% for item in shipment_details %}
+                    <tr>
+                        <td>{{ item.model|default:"-" }}</td>
+                        <td>{{ item.shipping_mark|default:"-" }}</td>
+                        <td>{{ item.pcs|default:"-" }}</td>
+                        <td>{{ item.shipment_batch|default:"-" }}</td>
+                        <td>{{ item.unpack_date|default:"-" }}</td>
+                        <td>{{ item.pickup_time|default:"-" }}</td>
+                        <td>{{ item.shipped_at|default:"-" }}</td>
+                        <td>
+                            <input type="number" class="storage-days-input" data-index="{{ forloop.counter0 }}" 
+                                   value="{{ item.storage_days|default:0 }}" min="0" step="1"
+                                   oninput="updateStorageMonths(this)">
+                        </td>
+                        <td class="storage-months-cell" data-index="{{ forloop.counter0 }}">
+                            {{ item.storage_months|default:1 }}
+                        </td>
+                        <td>
+                            <div class="fee-type-checkboxes">
+                                {% for fee_name, fee_data in warehouse_fee_config.items %}
+                                <label class="fee-type-checkbox-item">
+                                    <input type="checkbox" class="fee-type-checkbox" 
+                                           data-index="{{ forloop.parentloop.counter0 }}"
+                                           data-fee-name="{{ fee_name }}" 
+                                           data-rate="{{ fee_data.rate }}" 
+                                           data-formula="{{ fee_data.formula }}">
+                                    {{ fee_name }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-add" onclick="generateFeeItem({{ forloop.counter0 }})">
+                                <i class="fas fa-plus"></i> 生成
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
         <div class="section-title">
             <i class="fas fa-list-ul"></i> 费用明细
-            {% if fee_type == 'warehouse' and shipment_details %}
-            <a href="javascript:void(0)" class="piece-detail-link" onclick="openPieceDetailModal()">
-                <i class="fas fa-info-circle"></i> 出库详情
-            </a>
-            {% endif %}
         </div>
 
         <form method="post" action="{% url 'postdrop' %}" id="feeForm">
@@ -340,6 +564,7 @@
                             <th style="min-width: 140px;">仓点</th>
                             <th style="min-width: 110px;">实际单价</th>
                             <th style="min-width: 90px;">数量</th>
+                            <th style="min-width: 100px;">在库月份</th>
                             <th style="min-width: 110px;">附加费</th>
                             <th style="min-width: 120px;">总价</th>
                             <th style="min-width: 180px;">备注</th>
@@ -347,6 +572,7 @@
                         </tr>
                     </thead>
                     <tbody id="feeTableBody">
+                        {% if fee_type != 'warehouse' %}
                         {% for item in items %}
                         <tr class="fee-row">
                             <td>
@@ -362,6 +588,7 @@
                             <td>
                                 <input type="number" step="0.01" name="qty[]" class="fee-input fee-input-number qty-input" value="{{ item.qty|default:'' }}" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" {% if not is_editable %}disabled{% endif %}>
                             </td>
+                            <td>-</td>
                             <td>
                                 <input type="number" step="0.01" name="surcharges[]" class="fee-input fee-input-number surcharge-input" value="{{ item.surcharges|default:0 }}" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" {% if not is_editable %}disabled{% endif %}>
                             </td>
@@ -381,11 +608,12 @@
                         {% endfor %}
                         {% if not items %}
                         <tr id="emptyRow">
-                            <td colspan="8" class="empty-row">
+                            <td colspan="9" class="empty-row">
                                 <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
                                 <p>暂无费用明细{% if is_editable %}，点击下方"添加费用项目"开始录入{% endif %}</p>
                             </td>
                         </tr>
+                        {% endif %}
                         {% endif %}
                     </tbody>
                 </table>
@@ -414,7 +642,11 @@
 </div>
 
 <script>
-    // 计算单行总价 = 单价 * 数量 + 附加费（附加费可为负数）
+    var pieceDetailData = {{ shipment_details_json|safe }};
+    var warehouseFeeConfig = {{ warehouse_fee_config_json|safe }};
+    var warehouseName = "{{ warehouse_precise|default:warehouse_name|default:'' }}".replace(/"/g, '');
+    var isEditable = {% if is_editable %}true{% else %}false{% endif %};
+
     function calcRowTotal(row) {
         const rate = parseFloat(row.querySelector('.rate-input')?.value) || 0;
         const qty = parseFloat(row.querySelector('.qty-input')?.value) || 0;
@@ -425,7 +657,6 @@
         row.querySelector('.amount-display').textContent = totalRounded.toFixed(2);
     }
 
-    // 计算所有行的总价合计
     function calcGrandTotal() {
         let grandTotal = 0;
         document.querySelectorAll('.amount-hidden').forEach(input => {
@@ -434,16 +665,13 @@
         document.getElementById('grandTotal').textContent = (Math.round(grandTotal * 100) / 100).toFixed(2);
     }
 
-    // 重新计算单行及总价
     function recalcRow(row) {
         calcRowTotal(row);
         calcGrandTotal();
     }
 
-    // 添加费用行
     function addFeeRow() {
         const tbody = document.getElementById('feeTableBody');
-        // 移除空行提示
         const emptyRow = document.getElementById('emptyRow');
         if (emptyRow) {
             emptyRow.remove();
@@ -465,6 +693,7 @@
             <td>
                 <input type="number" step="0.01" name="qty[]" class="fee-input fee-input-number qty-input" value="0" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'">
             </td>
+            <td>-</td>
             <td>
                 <input type="number" step="0.01" name="surcharges[]" class="fee-input fee-input-number surcharge-input" value="0" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'">
             </td>
@@ -482,24 +711,21 @@
             </td>
         `;
         tbody.appendChild(tr);
-        // 给新行绑定输入事件
         [tr.querySelector('.rate-input'), tr.querySelector('.qty-input'), tr.querySelector('.surcharge-input')].forEach(input => {
             input.addEventListener('input', () => recalcRow(tr));
         });
         calcGrandTotal();
     }
 
-    // 删除费用行
     function removeRow(btn) {
         const row = btn.closest('tr');
         row.remove();
         calcGrandTotal();
-        // 如果删空了，显示空行提示
         const tbody = document.getElementById('feeTableBody');
         if (tbody.querySelectorAll('.fee-row').length === 0) {
             tbody.innerHTML = `
                 <tr id="emptyRow">
-                    <td colspan="8" class="empty-row">
+                    <td colspan="9" class="empty-row">
                         <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
                         <p>暂无费用明细，点击下方"添加费用项目"开始录入</p>
                     </td>
@@ -508,11 +734,177 @@
         }
     }
 
-    // 初始化出库详情数据
-    {% if shipment_details_json %}
-    var pieceDetailData = {{ shipment_details_json|safe }};
-    {% endif %}
-    // 页面加载时绑定已有行的输入事件
+    function calculateFee(feeConfig, shipmentItem) {
+        if (!feeConfig || !feeConfig.formula) return 0;
+        
+        const formula = feeConfig.formula;
+        const rate = parseFloat(feeConfig.rate) || 0;
+        const pcs = parseFloat(shipmentItem.pcs) || 0;
+        const days = parseFloat(shipmentItem.storage_days) || 0;
+        const months = parseFloat(shipmentItem.storage_months) || 1;
+
+        let formulaJs = formula
+            .replace(/单价/g, rate)
+            .replace(/出库件数/g, pcs)
+            .replace(/件数/g, pcs)
+            .replace(/天数/g, days)
+            .replace(/MAX\(([^)]+)\)/g, (match, p1) => {
+                const parts = p1.split(',').map(s => s.trim());
+                return `Math.max(${parts.join(', ')})`;
+            })
+            .replace(/⌈([^⌉]+)⌉/g, (match, p1) => {
+                return `Math.ceil(${p1})`;
+            })
+            .replace(/×/g, '*')
+            .replace(/÷/g, '/');
+
+        console.log('费用计算:', {
+            formula: formula,
+            formulaJs: formulaJs,
+            rate: rate,
+            pcs: pcs,
+            days: days,
+            months: months
+        });
+
+        try {
+            const result = eval(formulaJs);
+            console.log('计算结果:', result);
+            return result;
+        } catch (e) {
+            console.error('费用计算失败:', formula, e);
+            return 0;
+        }
+    }
+
+    function updateStorageMonths(input) {
+        const index = parseInt(input.dataset.index);
+        const days = parseInt(input.value) || 0;
+        const months = Math.max(1, Math.ceil(days / 30));
+        
+        const monthsCell = document.querySelector(`.storage-months-cell[data-index="${index}"]`);
+        if (monthsCell) {
+            monthsCell.textContent = months;
+        }
+        
+        if (pieceDetailData[index]) {
+            pieceDetailData[index].storage_days = days;
+            pieceDetailData[index].storage_months = months;
+        }
+    }
+
+    function generateFeeItem(index) {
+        const checkedFees = document.querySelectorAll(`.fee-type-checkbox[data-index="${index}"]:checked`);
+
+        if (checkedFees.length === 0) {
+            alert('请至少选择一项费用类型');
+            return;
+        }
+
+        const shipmentItem = pieceDetailData[index];
+        const storageDays = parseInt(shipmentItem.storage_days) || 0;
+
+        let needsDays = false;
+        checkedFees.forEach(feeCheckbox => {
+            const formula = feeCheckbox.dataset.formula || '';
+            if (formula.includes('天数')) {
+                needsDays = true;
+            }
+        });
+
+        if (needsDays && storageDays <= 0) {
+            alert('所选费用类型涉及在库天数，但在库天数为0，请先填写在库天数');
+            return;
+        }
+
+        const tbody = document.getElementById('feeTableBody');
+        const emptyRow = document.getElementById('emptyRow');
+        if (emptyRow) {
+            emptyRow.remove();
+        }
+
+        checkedFees.forEach(feeCheckbox => {
+            const feeName = feeCheckbox.dataset.feeName;
+            const feeRate = parseFloat(feeCheckbox.dataset.rate) || 0;
+            const feeFormula = feeCheckbox.dataset.formula || '';
+
+            const feeConfig = {
+                rate: feeRate,
+                formula: feeFormula
+            };
+
+            console.log('生成费用调试:', {
+                feeName: feeName,
+                feeRate: feeRate,
+                feeFormula: feeFormula,
+                shipmentItem: shipmentItem,
+                pcs: shipmentItem.pcs,
+                pcsParsed: parseInt(shipmentItem.pcs) || 0,
+                storageDays: shipmentItem.storage_days
+            });
+
+            const amount = calculateFee(feeConfig, shipmentItem);
+            const pcs = parseInt(shipmentItem.pcs) || 0;
+
+            const storageMonths = parseInt(shipmentItem.storage_months) || 0;
+
+            const tr = document.createElement('tr');
+            tr.className = 'fee-row';
+            tr.innerHTML = `
+                <td>
+                    <input type="hidden" name="item_id[]" value="">
+                    <input type="text" name="description[]" class="fee-input" value="${escapeHtml(feeName)}" ${isEditable ? '' : 'disabled'}>
+                </td>
+                <td>
+                    <input type="text" name="warehouse_code[]" class="fee-input" value="自提" ${isEditable ? '' : 'disabled'}>
+                </td>
+                <td>
+                    <input type="number" step="0.01" name="rate[]" class="fee-input fee-input-number rate-input" value="${feeRate}" ${isEditable ? '' : 'disabled'}>
+                </td>
+                <td>
+                    <input type="number" step="0.01" name="qty[]" class="fee-input fee-input-number qty-input" value="${pcs}" ${isEditable ? '' : 'disabled'}>
+                </td>
+                <td style="font-weight: 600; color: #4a6491;">${storageMonths || '-'}</td>
+                <td>
+                    <input type="number" step="0.01" name="surcharges[]" class="fee-input fee-input-number surcharge-input" value="0" ${isEditable ? '' : 'disabled'}>
+                </td>
+                <td class="fee-amount-cell">
+                    <input type="hidden" name="amount[]" class="amount-hidden" value="${parseFloat(amount.toFixed(2))}">
+                    <span class="amount-display">${parseFloat(amount.toFixed(2)).toFixed(2)}</span>
+                </td>
+                <td>
+                    <input type="text" name="note[]" class="fee-input" value="" ${isEditable ? '' : 'disabled'}>
+                </td>
+                <td>
+                    ${isEditable ? `<button type="button" class="delete-btn" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>` : ''}
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            const rateInput = tr.querySelector('.rate-input');
+            const qtyInput = tr.querySelector('.qty-input');
+            const surchargeInput = tr.querySelector('.surcharge-input');
+            if (rateInput) rateInput.addEventListener('input', () => recalcRow(tr));
+            if (qtyInput) qtyInput.addEventListener('input', () => recalcRow(tr));
+            if (surchargeInput) surchargeInput.addEventListener('input', () => recalcRow(tr));
+
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            tr.style.backgroundColor = '#e8f5e9';
+            setTimeout(() => {
+                tr.style.backgroundColor = '';
+            }, 2000);
+        });
+
+        calcGrandTotal();
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.fee-row').forEach(row => {
             const rateInput = row.querySelector('.rate-input');
@@ -523,7 +915,7 @@
             if (surchargeInput) surchargeInput.addEventListener('input', () => recalcRow(row));
         });
         calcGrandTotal();
+
     });
 </script>
-{% include 'post_port/new_sop/08_drop_ship_account/modal/piece_detail_modal.html' %}
 {% endblock %}

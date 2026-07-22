@@ -151,6 +151,63 @@
         flex-wrap: wrap;
     }
 
+    /* 统一时间选择弹框样式 */
+    .time-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .time-modal {
+        background-color: white;
+        border-radius: 8px;
+        padding: 24px;
+        width: 400px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .time-modal h3 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        color: #333;
+        font-size: 1.1rem;
+    }
+
+    .time-modal p {
+        margin-bottom: 16px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .time-modal input[type="datetime-local"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        margin-bottom: 20px;
+        box-sizing: border-box;
+    }
+
+    .time-modal input[type="datetime-local"]:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+
+    .time-modal-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+
     .batch-group {
         display: flex;
         align-items: center;
@@ -181,6 +238,20 @@
         <input type="hidden" name="active_tab" value="ready">
         <button type="submit" class="table-btn btn-success-small">批量确认送达</button>
     </form>
+</div>
+
+<!-- 统一时间选择弹框 -->
+<div class="time-modal-overlay" id="batchTimeModal">
+    <div class="time-modal">
+        <h3><i class="fas fa-clock"></i> 统一设置送达时间</h3>
+        <p>您选择的部分批次尚未设置送达时间，请为以下批次统一设置一个送达时间：</p>
+        <div id="missingTimeList" style="margin-bottom: 16px; max-height: 100px; overflow-y: auto; border: 1px solid #eee; padding: 8px; border-radius: 4px;"></div>
+        <input type="datetime-local" id="batchArrivedAt" required>
+        <div class="time-modal-buttons">
+            <button type="button" class="table-btn btn-danger-small" onclick="closeBatchTimeModal()">取消</button>
+            <button type="button" class="table-btn btn-success-small" onclick="confirmBatchTime()">确认</button>
+        </div>
+    </div>
 </div>
 
 <table class="data-table">
@@ -498,47 +569,111 @@
         }
     }
 
-    // 批量确认送达
+    let batchConfirmForm = null;
+
     function handleBatchConfirmDelivery(form) {
+        batchConfirmForm = form;
         const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
         if (checkboxes.length === 0) {
             alert('请至少选择一行数据！');
             return false;
         }
 
-        const formData = new FormData(form);
-        
-        // 收集所有选中的批次号和对应时间
-        let count = 0;
+        const hasTimeInputs = [];
+        const missingTimeInputs = [];
+
         checkboxes.forEach((cb) => {
             const fleetNumber = cb.value;
-            // 找到同一批次行中的时间输入框
             const timeInput = document.querySelector(`.arrived-time-input[data-fleet="${fleetNumber}"]`);
-            if (timeInput && timeInput.value) {
-                formData.append(`fleet_${count}`, fleetNumber);
-                formData.append(`arrived_at_${count}`, timeInput.value);
-                count++;
-            } else {
-                alert(`请先设置批次 ${fleetNumber} 的送达时间！`);
+            if (timeInput) {
+                if (timeInput.value) {
+                    hasTimeInputs.push({ fleetNumber, timeInput });
+                } else {
+                    missingTimeInputs.push({ fleetNumber, timeInput });
+                }
             }
         });
 
-        if (count === 0) {
-            alert('请先设置选中批次的送达时间！');
+        if (missingTimeInputs.length > 0) {
+            showBatchTimeModal(missingTimeInputs);
             return false;
         }
 
-        // 提交表单
+        submitBatchConfirmDelivery(hasTimeInputs);
+        return false;
+    }
+
+    function showBatchTimeModal(missingTimeInputs) {
+        const modal = document.getElementById('batchTimeModal');
+        const list = document.getElementById('missingTimeList');
+        
+        list.innerHTML = missingTimeInputs.map(item => 
+            `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">${item.fleetNumber}</div>`
+        ).join('');
+
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('batchArrivedAt').value = now.toISOString().slice(0, 16);
+
+        modal.style.display = 'flex';
+        window.missingTimeInputs = missingTimeInputs;
+    }
+
+    function closeBatchTimeModal() {
+        document.getElementById('batchTimeModal').style.display = 'none';
+        window.missingTimeInputs = null;
+    }
+
+    function confirmBatchTime() {
+        const timeInput = document.getElementById('batchArrivedAt');
+        const selectedTime = timeInput.value;
+
+        if (!selectedTime) {
+            alert('请选择送达时间！');
+            return;
+        }
+
+        const missingTimeInputs = window.missingTimeInputs || [];
+        missingTimeInputs.forEach(item => {
+            item.timeInput.value = selectedTime;
+        });
+
+        closeBatchTimeModal();
+
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        const allInputs = [];
+        checkboxes.forEach((cb) => {
+            const fleetNumber = cb.value;
+            const timeInput = document.querySelector(`.arrived-time-input[data-fleet="${fleetNumber}"]`);
+            if (timeInput && timeInput.value) {
+                allInputs.push({ fleetNumber, timeInput });
+            }
+        });
+
+        submitBatchConfirmDelivery(allInputs);
+    }
+
+    function submitBatchConfirmDelivery(inputs) {
+        if (inputs.length === 0) {
+            alert('没有可确认的批次！');
+            return;
+        }
+
+        const formData = new FormData(batchConfirmForm);
+        
+        inputs.forEach((item, index) => {
+            formData.append(`fleet_${index}`, item.fleetNumber);
+            formData.append(`arrived_at_${index}`, item.timeInput.value);
+        });
+
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', form.action, true);
+        xhr.open('POST', batchConfirmForm.action, true);
         xhr.onload = function() {
             if (xhr.status === 200) {
                 window.location.reload();
             }
         };
         xhr.send(formData);
-
-        return false;
     }
 
     // 关闭异常弹框函数
