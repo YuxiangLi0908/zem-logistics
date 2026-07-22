@@ -371,11 +371,17 @@
                         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
                         btn.disabled = true;
                         
-                        // 恢复按钮状态（如果提交失败）
-                        setTimeout(() => {
-                            btn.innerHTML = originalText;
-                            btn.disabled = false;
-                        }, 5000);
+                        // 设置全局变量标记正在提交
+                        window.isSubmittingShipment = true;
+                        
+                        // 设置提交完成后恢复按钮状态的函数
+                        window.restoreShipmentBtn = function() {
+                            if (btn) {
+                                btn.innerHTML = originalText;
+                                btn.disabled = false;
+                            }
+                            window.isSubmittingShipment = false;
+                        };
                     }
                     
                     // 如果有自定义提交回调，则调用回调函数
