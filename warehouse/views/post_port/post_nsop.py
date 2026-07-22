@@ -8470,6 +8470,13 @@ class PostNsop(View):
                 if not pallets:
                     continue
 
+                # 检查是否有货物已经绑定了shipment，如果有则跳过
+                has_existing_shipment = await sync_to_async(
+                    Pallet.objects.filter(id__in=id_list, shipment_batch_number__isnull=False).exists
+                )()
+                if has_existing_shipment:
+                    continue
+
                 for pallet in pallets:
                     total_weight += pallet.weight_lbs or 0
                     total_cbm += pallet.cbm or 0
@@ -8482,6 +8489,13 @@ class PostNsop(View):
                     PackingList.objects.filter(id__in=id_list)
                 )
                 if not pls:
+                    continue
+
+                # 检查是否有货物已经绑定了shipment，如果有则跳过
+                has_existing_shipment = await sync_to_async(
+                    PackingList.objects.filter(id__in=id_list, shipment_batch_number__isnull=False).exists
+                )()
+                if has_existing_shipment:
                     continue
 
                 for pl in pls:
@@ -8602,6 +8616,14 @@ class PostNsop(View):
                 operation_type="bind",
                 shipment_type="all"
             )
+
+        # 清理没有任何packinglist和pallet关联的shipment记录
+        await sync_to_async(
+            lambda: Shipment.objects.filter(
+                pallet__isnull=True,
+                packinglist__isnull=True
+            ).delete()
+        )()
 
         batch_preview = ', '.join(batch_numbers[:5])
         if len(batch_numbers) > 5:
