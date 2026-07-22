@@ -62,7 +62,7 @@
                         {% for field in records.0.station_fields %}
                         <th style="padding: 0.75rem;">{{ field }}</th>
                         {% endfor %}
-                        <th style="padding: 0.75rem;">变更内容</th>
+                        <th style="padding: 0.75rem; max-width: 40%; min-width: 300px;">变更内容</th>
                     </tr>
                     <tr style="position: sticky; top: 37px; background-color: #f8f9fa;">
                         <th style="padding: 0.5rem;">
@@ -123,14 +123,14 @@
                             {% endwith %}
                         </td>
                         {% endfor %}
-                        <td style="padding: 0.75rem; vertical-align: top;">
+                        <td style="padding: 0.75rem; vertical-align: top; word-break: break-word; max-width: 40%;">
                             {% if record.display_type == '创建' %}
                                 <div style="color: #198754; font-weight: 600; margin-bottom: 0.75rem;">新增记录</div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                                     {% for field, value in record.all_fields.items %}
                                         <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
                                             <span style="font-weight: 600; min-width: 80px; flex-shrink: 0;">{{ field }}：</span>
-                                            <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white;">{{ value|default:'-' }}</span>
+                                            <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white; word-break: break-word;">{{ value|default:'-' }}</span>
                                         </div>
                                     {% endfor %}
                                 </div>
@@ -141,16 +141,16 @@
                                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                                     {% for change in record.changes|slice:"half" %}
                                         {% if change.old_value != change.new_value %}
-                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                                             <span style="font-weight: 600; min-width: 60px;">{{ change.field }}：</span>
-                                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
                                                 {% if change.old_value %}
-                                                    <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #f8f9fa; color: #212529;">{{ change.old_value }}</span>
+                                                    <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #f8f9fa; color: #212529; word-break: break-word;">{{ change.old_value }}</span>
                                                 {% else %}
                                                     <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #6c757d; color: white;">新增</span>
                                                 {% endif %}
                                                 <span>→</span>
-                                                <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white;">{{ change.new_value }}</span>
+                                                <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white; word-break: break-word;">{{ change.new_value }}</span>
                                             </div>
                                         </div>
                                         {% endif %}
@@ -159,16 +159,16 @@
                                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                                     {% for change in record.changes|slice:":half" %}
                                         {% if change.old_value != change.new_value %}
-                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                                             <span style="font-weight: 600; min-width: 60px;">{{ change.field }}：</span>
-                                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
                                                 {% if change.old_value %}
-                                                    <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #f8f9fa; color: #212529;">{{ change.old_value }}</span>
+                                                    <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #f8f9fa; color: #212529; word-break: break-word;">{{ change.old_value }}</span>
                                                 {% else %}
                                                     <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #6c757d; color: white;">新增</span>
                                                 {% endif %}
                                                 <span>→</span>
-                                                <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white;">{{ change.new_value }}</span>
+                                                <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white; word-break: break-word;">{{ change.new_value }}</span>
                                             </div>
                                         </div>
                                         {% endif %}
