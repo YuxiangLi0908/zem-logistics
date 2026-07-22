@@ -798,6 +798,20 @@ class OrderQuantity(View):
         # 同步处理函数
         def _sync_get_attr(obj, attr_name):
             try:
+                # 特殊处理：appointment_id和master_shipment_batch_number显示对应的批次号
+                if attr_name in ["appointment_id", "master_shipment_batch_number"]:
+                    value = getattr(obj, attr_name, None)
+                    if value:
+                        try:
+                            # 查找对应的shipment记录
+                            from warehouse.models.shipment import Shipment
+                            shipment = Shipment.objects.filter(pk=value).first()
+                            if shipment and shipment.shipment_batch_number:
+                                return shipment.shipment_batch_number
+                        except Exception:
+                            pass
+                    return str(value) if value else "空"
+
                 # 先尝试直接获取外键ID而不触发查询
                 field_id = getattr(obj, f"{attr_name}_id", None)
 
