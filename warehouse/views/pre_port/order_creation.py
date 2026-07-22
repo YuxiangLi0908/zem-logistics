@@ -1651,7 +1651,7 @@ class OrderCreation(View):
                     else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                 )
             else:
-                po_id_hkey = f"{container_number}-{dm}-{dest}"
+                po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                 po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
             if po_id_hkey in po_id_hash:
                 po_id = po_id_hash.get(po_id_hkey)
@@ -2211,8 +2211,9 @@ class OrderCreation(View):
             po_ids = []
             po_id_hash = {}
             seq_num = 1
-            for dm, sm, dest in zip_longest(
+            for dm, dt, sm, dest in zip_longest(
                     request.POST.getlist("delivery_method"),
+                    request.POST.getlist("delivery_type"),
                     request.POST.getlist("shipping_mark"),
                     destination_list,
                     fillvalue='',
@@ -2221,19 +2222,28 @@ class OrderCreation(View):
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
                 if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
-                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    if dt == "public":
+                        po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    else:
+                        po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 elif dm == "客户自提" or dest == "客户自提":
-                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    if dt == "public":
+                        po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    else:
+                        po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
                         if sm
                         else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 else:
-                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    if dt == "public":
+                        po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    else:
+                        po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
                 if po_id_hkey in po_id_hash:
                     po_id = po_id_hash.get(po_id_hkey)
@@ -2463,14 +2473,17 @@ class OrderCreation(View):
             except InvalidOperation:
                 raise ValueError(f"无效的数值格式: {value}")
 
-        def generate_po_ids(delivery_methods, shipping_marks, destinations):
+        def generate_po_ids(delivery_methods, delivery_type, shipping_marks, destinations):
             po_ids = []
             po_id_hash = {}
             seq_num = 1
-            for dm, sm, dest in zip_longest(
-                delivery_methods, shipping_marks, destinations, fillvalue=""
+            for dm, dt, sm, dest in zip_longest(
+                delivery_methods, delivery_type, shipping_marks, destinations, fillvalue=""
             ):
-                po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                if dt == "public":
+                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                else:
+                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                 if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                     po_id_seg = (
                         f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
@@ -2528,6 +2541,7 @@ class OrderCreation(View):
             ]
             po_ids = generate_po_ids(
                 get_post_list("add_delivery_method"),
+                get_post_list("add_delivery_type"),
                 get_post_list("add_shipping_mark"),
                 destination_list,
             )
@@ -2808,12 +2822,24 @@ class OrderCreation(View):
                 po_id: str = ""
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
-                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"] and dt == "public":
+                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    po_id_seg = (
+                        f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
+                    )
+                elif dm in ["暂扣留仓(HOLD)", "暂扣留仓"] and dt == "other":
                     po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
-                elif dm == "客户自提" or dest == "客户自提":
+                elif dm == "客户自提" or dest == "客户自提" and dt == "public":
+                    po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    po_id_seg = (
+                        f"S{sm[-4:]}"
+                        if sm
+                        else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
+                    )
+                elif dm == "客户自提" or dest == "客户自提" and dt == "other":
                     po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
@@ -2821,7 +2847,10 @@ class OrderCreation(View):
                         else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                     )
                 else:
-                    po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
+                    if dt == "public":
+                        po_id_hkey = f"{container_number}-{dm}-{dest}"
+                    else:
+                        po_id_hkey = f"{container_number}-{dm}-{dest}-{sm}"
                     po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
                 if po_id_hkey in po_id_hash:
                     po_id = po_id_hash.get(po_id_hkey)
