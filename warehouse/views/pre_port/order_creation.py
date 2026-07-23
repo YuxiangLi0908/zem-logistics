@@ -2616,6 +2616,7 @@ class OrderCreation(View):
             ]
             po_ids = generate_po_ids(
                 get_post_list("delivery_method"),
+                get_post_list("delivery_type"),
                 get_post_list("shipping_mark"),
                 destination_list,
             )
