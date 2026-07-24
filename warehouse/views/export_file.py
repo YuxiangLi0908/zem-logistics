@@ -45,6 +45,7 @@ from openpyxl.worksheet.page import PageMargins
 from xhtml2pdf import pisa
 
 from warehouse.models.customer import Customer
+from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.vessel import Vessel
@@ -1440,6 +1441,25 @@ def export_do(request: HttpRequest) -> HttpResponse:
         pdf_response = export_do_branch(selected_orders)
         return pdf_response
 
+def export_do_dropshipping(request: HttpRequest) -> HttpResponse:
+    selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+    if selected_orders:
+        # 创建一个BytesIO对象来保存ZIP文件，我理解是前后端导出pdf只能响应一次，所以实现不了一次导出多个pdf，就将多个pdf合并为一个压缩包
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for container_number in selected_orders:
+                pdf_response = export_do_branch_dropshipping(container_number)
+                zip_file.writestr(f"DO_{container_number}.pdf", pdf_response.content)
+
+        # 设置HTTP响应，格式为压缩包
+        response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+        response["Content-Disposition"] = 'attachment; filename="orders.zip"'
+        zip_buffer.close()
+        return response
+    else:
+        selected_orders = request.POST.get("container_number")
+        pdf_response = export_do_branch_dropshipping(selected_orders)
+        return pdf_response
 
 def export_do_branch(container_number) -> Any:
     order = Order.objects.select_related(
@@ -1499,6 +1519,63 @@ def export_do_branch(container_number) -> Any:
         )
     return response
 
+def export_do_branch_dropshipping(container_number) -> Any:
+    order = Order.objects.select_related(
+        "container_number", "retrieval_id", "warehouse"
+    ).get(container_number__container_number=container_number)
+    container = order.container_number
+    dropship_cargo = DropshipCargo.objects.filter(
+        container__container_number=container_number
+    )
+    pcs, weight = 0, 0
+    for pl in dropship_cargo:
+        pcs += pl.pcs if pl.pcs else 0
+        weight += pl.total_weight_lbs if pl.total_weight_lbs else 0
+    retrieval = order.retrieval_id
+    vessel = order.vessel_id
+    warehouse = order.warehouse
+    detailedAddress = ""
+    file_path = "warehouse/utils/fba_fulfillment_center.yaml"
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            fba_data = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"YAML文件未找到，请检查路径：{file_path}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"YAML文件格式错误：{str(e)}")
+
+    if retrieval and hasattr(retrieval, "retrieval_destination_area"):
+        dest_area = retrieval.retrieval_destination_area.strip()  # 去除空格，避免匹配失败
+
+        if dest_area in fba_data:
+            fba_info = fba_data[dest_area]
+            detailedAddress = f"{dest_area} {fba_info['location']}, {fba_info['city']}, {fba_info['state']} {fba_info['zipcode']}"
+        else:
+            detailedAddress = dest_area
+    context = {
+        "order": order,
+        "retrieval": retrieval,
+        "vessel": vessel,
+        "detailedAddress": detailedAddress,
+        "container": container,
+        "warehouse": warehouse,
+        "pcs": pcs,
+        "weight": weight,
+    }
+    template_path = "export_file/do_template.html"
+    template = get_template(template_path)
+    html = template.render(context)
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="DO_{container_number}.pdf"'
+    )
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        raise ValueError(
+            "Error during PDF generation: %s" % pisa_status.err,
+            content_type="text/plain",
+        )
+    return response
 
 def export_invoice(
     request: HttpRequest,
