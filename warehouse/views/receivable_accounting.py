@@ -5940,35 +5940,6 @@ class ReceivableAccounting(View):
         )
 
         orders_list = list(base_orders)
-        
-        # --- 新增：柜号搜索时，检查未找到的原因 ---
-        search_fail_reasons = []
-        if container_number_filter and not orders_list:
-            container_exists = Order.objects.filter(
-                container_number__container_number=container_number_filter
-            ).exists()
-            
-            if not container_exists:
-                search_fail_reasons.append(f"柜号 '{container_number_filter}' 不存在于系统中")
-            else:
-                order = Order.objects.filter(
-                    container_number__container_number=container_number_filter
-                ).first()
-                
-                if order.cancel_notification:
-                    search_fail_reasons.append("该柜号已取消预报")
-                
-                if not order.retrieval_id or not order.retrieval_id.actual_retrieval_timestamp:
-                    search_fail_reasons.append("该柜号没有实际提柜时间")
-                
-                if order.order_type != '直送':
-                    if not order.offload_id or not order.offload_id.offload_at:
-                        search_fail_reasons.append("公仓未拆柜")
-                    if not order.offload_id or not order.offload_id.offload_other_at:
-                        search_fail_reasons.append("私仓未拆柜")
-            
-            if not search_fail_reasons:
-                search_fail_reasons.append("未找到符合条件的订单，请检查筛选条件")
     
         # 提取所有涉及的 Container IDs
         container_ids = set()
@@ -6154,6 +6125,43 @@ class ReceivableAccounting(View):
                 else:
                     # 都没有invoice_link，全部保留
                     filtered_order_data_list.extend(records)
+        
+        # --- 新增：柜号搜索时，检查最终未找到的原因 ---
+        search_fail_reasons = []
+        if container_number_filter and not filtered_order_data_list and not previous_order_data_list:
+            container_exists = Order.objects.filter(
+                container_number__container_number=container_number_filter
+            ).exists()
+            
+            if not container_exists:
+                search_fail_reasons.append(f"柜号 '{container_number_filter}' 不存在于系统中")
+            else:
+                order = Order.objects.filter(
+                    container_number__container_number=container_number_filter
+                ).first()
+                
+                if order.cancel_notification:
+                    search_fail_reasons.append("该柜号已取消预报")
+                
+                if not order.retrieval_id or not order.retrieval_id.actual_retrieval_timestamp:
+                    search_fail_reasons.append("该柜号没有实际提柜时间")
+                
+                if order.order_type != '直送':
+                    if not order.offload_id or not order.offload_id.offload_at:
+                        search_fail_reasons.append("公仓未拆柜")
+                    if not order.offload_id or not order.offload_id.offload_other_at:
+                        search_fail_reasons.append("私仓未拆柜")
+                
+                # 检查是否有invoice但已完成且待核销金额为0
+                has_invoice = Invoicev2.objects.filter(
+                    container_number__container_number=container_number_filter,
+                    is_master_bill=True
+                ).exists()
+                if has_invoice:
+                    search_fail_reasons.append("该柜号已有发票且财务状态已完成，待核销金额为0")
+            
+            if not search_fail_reasons:
+                search_fail_reasons.append("未找到符合条件的订单，请检查筛选条件")
         
         existing_customers = Customer.objects.all().order_by("zem_name")
         
