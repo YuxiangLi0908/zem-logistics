@@ -5827,6 +5827,10 @@ class ReceivableAccounting(View):
         if not container:
             raise ValueError('container表没有这个柜子')
         
+        # 直送订单不需要拆柜，直接返回True
+        if order.order_type == '直送':
+            return True
+        
         offload = order.offload_id
         if not offload:
             raise ValueError('offload表没有这个柜子')
@@ -5884,7 +5888,7 @@ class ReceivableAccounting(View):
         # --- 2. 构建查询条件 ---
         filter_rules = []  # 筛选规则描述
         
-        # 拆柜条件：直送不需要拆柜，非直送需要拆柜
+        # 拆柜条件：直送不需要拆柜，非直送需要拆柜（公仓或私仓任一即可）
         offload_criteria = (
             Q(order_type='直送') |
             (Q(offload_id__offload_at__isnull=False) & Q(offload_id__offload_other_at__isnull=False))
@@ -5900,7 +5904,7 @@ class ReceivableAccounting(View):
             filter_rules.append(f"柜号 = {container_number_filter}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓+私仓)")
+            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓或私仓)")
         else:
             criteria = (
                 Q(cancel_notification=False)
@@ -5912,7 +5916,7 @@ class ReceivableAccounting(View):
             filter_rules.append(f"ETD {start_date} ~ {end_date}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓+私仓)")
+            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓或私仓)")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
@@ -6153,12 +6157,24 @@ class ReceivableAccounting(View):
                         search_fail_reasons.append("私仓未拆柜")
                 
                 # 检查是否有invoice但已完成且待核销金额为0
-                has_invoice = Invoicev2.objects.filter(
+                invoices = Invoicev2.objects.filter(
                     container_number__container_number=container_number_filter,
                     is_master_bill=True
-                ).exists()
-                if has_invoice:
-                    search_fail_reasons.append("该柜号已有发票且财务状态已完成，待核销金额为0")
+                ).prefetch_related(
+                    Prefetch('invoicestatusv2_set', 
+                             queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+                             to_attr='receivable_status_list')
+                )
+                
+                for invoice in invoices:
+                    status_list = getattr(invoice, 'receivable_status_list', [])
+                    status_obj = status_list[0] if status_list else None
+                    finance_status = status_obj.finance_status if status_obj else None
+                    remain_offset = getattr(invoice, 'remain_offset', 0) or 0
+                    
+                    if finance_status == "completed" and remain_offset == 0:
+                        search_fail_reasons.append("该柜号已有发票且财务状态已完成，待核销金额为0")
+                        break
             
             if not search_fail_reasons:
                 search_fail_reasons.append("未找到符合条件的订单，请检查筛选条件")
