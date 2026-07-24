@@ -203,7 +203,7 @@ class Dropshipping(View):
             )
             return await sync_to_async(render)(request, template, context)
         elif step == "export_do":
-            return await sync_to_async(export_doexport_do_dropshipping)(request)
+            return await sync_to_async(export_do_dropshipping)(request)
         elif step == "export_details_by_destination":
             return await self.handle_export_details_by_destination(request)
         elif step == "delete_order":
