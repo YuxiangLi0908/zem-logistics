@@ -409,12 +409,6 @@ async function addSupplier() {
 
     const name = document.getElementById("supplierName").value.trim();
 
-    if (!name) {
-
-        alert("请输入供应商名称");
-        return;
-    }
-
     const formData = new FormData();
 
     formData.append("step", "add_supplier");
