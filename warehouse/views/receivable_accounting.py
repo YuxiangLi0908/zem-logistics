@@ -5883,31 +5883,36 @@ class ReceivableAccounting(View):
 
         # --- 2. 构建查询条件 ---
         filter_rules = []  # 筛选规则描述
+        
+        # 拆柜条件：直送不需要拆柜，非直送需要拆柜
+        offload_criteria = (
+            Q(order_type='直送') |
+            (Q(offload_id__offload_at__isnull=False) & Q(offload_id__offload_other_at__isnull=False))
+        )
+        
         if container_number_filter:
             criteria = (
                 Q(container_number__container_number=container_number_filter)
                 & Q(cancel_notification=False)
                 & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
-                & Q(offload_id__offload_at__isnull=False)
-                & Q(offload_id__offload_other_at__isnull=False)
+                & offload_criteria
             )
             filter_rules.append(f"柜号 = {container_number_filter}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("已拆柜(公仓+私仓)")
+            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓+私仓)")
         else:
             criteria = (
                 Q(cancel_notification=False)
                 & Q(vessel_id__vessel_etd__gte=start_date)
                 & Q(vessel_id__vessel_etd__lte=end_date)
                 & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
-                & Q(offload_id__offload_at__isnull=False)
-                & Q(offload_id__offload_other_at__isnull=False)
+                & offload_criteria
             )
             filter_rules.append(f"ETD {start_date} ~ {end_date}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("已拆柜(公仓+私仓)")
+            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓+私仓)")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
@@ -5916,7 +5921,6 @@ class ReceivableAccounting(View):
             if customer:
                 criteria &= Q(customer_name__zem_name=customer)
                 filter_rules.append(f"客户 = {customer}")
-
         # --- 3. 获取基础订单数据 ---
         base_orders = (
             Order.objects
