@@ -1411,10 +1411,6 @@ class OrderCreation(View):
 
     async def add_supplier(self, request):
         name = request.POST.get("name", "").strip()
-
-        if not name:
-            return JsonResponse({"success": False, "message": "供应商名称不能为空"})
-
         supplier = await sync_to_async(
             ContainerPickupCarrier.objects.filter(name=name).first
         )()
