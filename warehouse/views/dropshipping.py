@@ -66,7 +66,7 @@ from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import SHIPPING_LINE_OPTIONS, ADDITIONAL_CONTAINER, \
     DROPSHIPPING_PACKING_LIST_TEMP_COL_MAPPING, DELIVERY_METHOD_CODE, DROPSHIPPING_DELIVERY_METHOD_OPTIONS
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
-from warehouse.views.export_file import export_do
+from warehouse.views.export_file import export_do_dropshipping
 from warehouse.views.pre_port.pre_port_dash import PrePortDash
 from io import BytesIO
 from openpyxl.worksheet.page import PageMargins
@@ -203,7 +203,7 @@ class Dropshipping(View):
             )
             return await sync_to_async(render)(request, template, context)
         elif step == "export_do":
-            return await sync_to_async(export_do)(request)
+            return await sync_to_async(export_doexport_do_dropshipping)(request)
         elif step == "export_details_by_destination":
             return await self.handle_export_details_by_destination(request)
         elif step == "delete_order":
