@@ -1480,8 +1480,11 @@ class OrderCreation(View):
     ) -> tuple[Any, Any]:
         '''同行货物录入'''
         container_number = request.POST.get("container_number")
+        container_type = request.POST.get("container_type", '40HQ/GP')
         customer_name = request.POST.get("customer_name")
         warehouse = request.POST.get("warehouse")
+        order_type = request.POST.get("order_type", '转运')
+        retrieval_destination_precise = request.POST.get("retrieval_destination_precise", warehouse)
         # 现在用户直接选择完整的仓库代码，所以不需要转换
         warehouse_code = warehouse
         warehouse_des = warehouse.split("-")[0]
@@ -1491,7 +1494,6 @@ class OrderCreation(View):
             models.Q(zem_name=customer_name) | models.Q(accounting_name=customer_name)
         )
         created_at = datetime.now()
-        order_type = '转运'
         #检查柜号是否重复，如果重复就重新起柜号名，这里重新起步报错是因为，这本来就是系统给随机起的
         is_modify_con = False
         try:
@@ -1519,7 +1521,7 @@ class OrderCreation(View):
 
         container_data = {
             "container_number": container_number,
-            "container_type": '40HQ/GP',
+            "container_type": container_type,
             "weight_lbs": weights,
             "is_special_container": 'False',
             "is_expiry_guaranteed": 'False',
@@ -1531,7 +1533,7 @@ class OrderCreation(View):
         retrieval_data = {
             "retrieval_id": retrieval_id,
             "retrieval_destination_area": warehouse_des,
-            'retrieval_destination_precise': warehouse_code,
+            'retrieval_destination_precise': retrieval_destination_precise,
             'retrieval_carrier': '自取',
             'target_retrieval_timestamp': created_at,
             'target_retrieval_timestamp_lower': created_at,
@@ -1719,8 +1721,11 @@ class OrderCreation(View):
     ) -> tuple[Any, Any]:
         '''同行货物录入'''
         container_number = request.POST.get("container_number")
+        container_type = request.POST.get("container_type", '40HQ/GP')
         customer_name = request.POST.get("customer_name")
         warehouse = request.POST.get("warehouse")
+        order_type = request.POST.get("order_type", '转运')
+        retrieval_destination_precise = request.POST.get("retrieval_destination_precise", warehouse)
         # 现在用户直接选择完整的仓库代码，所以不需要转换
         warehouse_code = warehouse
         warehouse_des = warehouse.split("-")[0]
@@ -1730,7 +1735,6 @@ class OrderCreation(View):
             models.Q(zem_name=customer_name) | models.Q(accounting_name=customer_name)
         )
         created_at = datetime.now()
-        order_type = '转运'
         #检查柜号是否重复，如果重复就重新起柜号名，这里重新起步报错是因为，这本来就是系统给随机起的
         is_modify_con = False
         try:
@@ -1758,7 +1762,7 @@ class OrderCreation(View):
 
         container_data = {
             "container_number": container_number,
-            "container_type": '40HQ/GP',
+            "container_type": container_type,
             "weight_lbs": weights,
             "is_special_container": 'False',
             "is_expiry_guaranteed": 'False',
@@ -1770,7 +1774,7 @@ class OrderCreation(View):
         retrieval_data = {
             "retrieval_id": retrieval_id,
             "retrieval_destination_area": warehouse_des,
-            'retrieval_destination_precise': warehouse_code,
+            'retrieval_destination_precise': retrieval_destination_precise,
             'retrieval_carrier': '自取',
             'target_retrieval_timestamp': created_at,
             'target_retrieval_timestamp_lower': created_at,
