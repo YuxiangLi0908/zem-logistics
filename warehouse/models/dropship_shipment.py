@@ -6,7 +6,15 @@ from simple_history.models import HistoricalRecords
 
 class DropshipShipment(models.Model):
     """出库批次表 - 对应您的预约批次概念"""
+    STATUS_CHOICES = (
+        ('pending', '已预约'),
+        ('shipped', '已出库'),
+        ('completed', '已完结'),
+        ('cancelled', '已取消'),
+    )
+    
     shipment_batch_number = models.CharField(max_length=255, unique=True, verbose_name="预约批次号")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="状态")
     warehouse = models.ForeignKey('ZemWarehouse', on_delete=models.SET_NULL, null=True, verbose_name="出库仓库")
     
     # 时间
