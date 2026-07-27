@@ -35,3 +35,5 @@ class DropshipShipment(models.Model):
         indexes = [
             models.Index(fields=['shipment_batch_number']),
         ]
+    
+    history = HistoricalRecords()
