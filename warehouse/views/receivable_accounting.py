@@ -3755,7 +3755,16 @@ class ReceivableAccounting(View):
         try:
             pickup_fee = fee_detail.details[warehouse][pick_subkey]
         except KeyError:
-            raise ValueError('报价表未匹配到提拆费用')
+            error_msg = '报价表未匹配到提拆费用'
+            if not warehouse:
+                error_msg += '，入库仓库为空'
+            elif warehouse not in fee_detail.details:
+                error_msg += f'，入库仓库 "{warehouse}" 不在报价表中'
+            if not pick_subkey:
+                error_msg += '，柜型为空'
+            elif warehouse in fee_detail.details and pick_subkey not in fee_detail.details[warehouse]:
+                error_msg += f'，柜型 "{pick_subkey}" 在仓库 "{warehouse}" 的报价表中不存在'
+            raise ValueError(error_msg)
         
         # 获取当前登录用户
         registered_user = request.user.username if request.user.is_authenticated else None
