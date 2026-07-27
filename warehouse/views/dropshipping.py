@@ -1190,7 +1190,7 @@ class Dropshipping(View):
 
             # 批量更新&批量创建
             if update_list:
-                await sync_to_async(DropshipCargo.objects.bulk_update)(update_list, ["pallets"])
+                await sync_to_async(DropshipCargo.objects.bulk_update)(update_list, ["pallets", "status"])
             if inventory_create_list:
                 await sync_to_async(DropshipInventory.objects.bulk_create)(inventory_create_list)
 
