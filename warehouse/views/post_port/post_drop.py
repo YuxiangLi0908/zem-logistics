@@ -1941,7 +1941,7 @@ class PostDrop(View):
                 inventory_records = await sync_to_async(list)(
                     DropshipInventory.objects
                     .filter(cargo__warehouse=warehouse_obj)
-                    .select_related('cargo', 'shipment_detail', 'shipment_detail__shipment')
+                    .select_related('cargo', 'cargo__container', 'shipment_detail', 'shipment_detail__shipment')
                     .order_by('-transaction_date')
                 )
                 
@@ -1951,6 +1951,10 @@ class PostDrop(View):
                     if record.shipment_detail and record.shipment_detail.shipment:
                         shipment_batch = record.shipment_detail.shipment.shipment_batch_number
                     
+                    container_number = ""
+                    if record.cargo.container:
+                        container_number = record.cargo.container.container_number
+                    
                     transaction_type_display = dict(record.TRANSACTION_TYPES).get(record.transaction_type, record.transaction_type)
                     
                     inventory_data.append({
@@ -1958,6 +1962,7 @@ class PostDrop(View):
                         'transaction_type': transaction_type_display,
                         'transaction_type_code': record.transaction_type,
                         'transaction_date': record.transaction_date,
+                        'container_number': container_number,
                         'shipping_mark': record.cargo.shipping_mark,
                         'model': record.cargo.model,
                         'pcs_change': record.pcs_change,
