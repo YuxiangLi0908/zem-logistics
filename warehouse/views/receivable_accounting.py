@@ -2920,11 +2920,45 @@ class ReceivableAccounting(View):
                 return self.template_fix_account_entry, context
         
         # 匹配柜型
-        container = Container.objects.get(container_number=order.container_number)
-        match = re.match(r"\d+", container.container_type)
-        if not match:
+        if not order.container_number:
             context.update({
-                "error_messages": "柜型格式错误，请修改！",
+                "error_messages": "该订单未关联柜号，请检查！",
+                'is_fix_page': True
+            })
+            return self.template_fix_account_entry, context
+        
+        try:
+            if isinstance(order.container_number, Container):
+                container = order.container_number
+            else:
+                container_number_str = str(order.container_number) if order.container_number else ''
+                container = Container.objects.get(container_number=container_number_str)
+            
+            if not container.container_type:
+                context.update({
+                    "error_messages": f"柜号 '{container.container_number}' 的柜型为空，请修改！",
+                    'is_fix_page': True
+                })
+                return self.template_fix_account_entry, context
+            
+            match = re.match(r"\d+", container.container_type)
+            if not match:
+                context.update({
+                    "error_messages": f"柜号 '{container.container_number}' 的柜型 '{container.container_type}' 格式错误，柜型应以数字开头，请修改！",
+                    'is_fix_page': True
+                })
+                return self.template_fix_account_entry, context
+        except Container.DoesNotExist:
+            container_number_str = str(order.container_number) if order.container_number else '未知'
+            context.update({
+                "error_messages": f"柜号 '{container_number_str}' 不存在于系统中，请检查！",
+                'is_fix_page': True
+            })
+            return self.template_fix_account_entry, context
+        except Exception as e:
+            container_number_str = str(order.container_number) if order.container_number else '未知'
+            context.update({
+                "error_messages": f"获取柜号 '{container_number_str}' 的信息时出错: {str(e)}",
                 'is_fix_page': True
             })
             return self.template_fix_account_entry, context
