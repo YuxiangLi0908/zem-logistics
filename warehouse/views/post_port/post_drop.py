@@ -294,6 +294,10 @@ class PostDrop(View):
             # 确认出库
             template, context = await self.handle_confirm_shipment(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "cancel_shipment":
+            # 取消预约
+            template, context = await self.handle_cancel_shipment(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             raise ValueError('wrong step',step)
         
@@ -689,6 +693,7 @@ class PostDrop(View):
                 'pickup_time': shipment.pickup_time,
                 'pod_link': shipment.pod_link,
                 'pod_uploaded_at': shipment.pod_uploaded_at,
+                'status': shipment.status,
                 'details': [],
             }
 
@@ -752,6 +757,7 @@ class PostDrop(View):
         )
         shipment.pod_link = link
         shipment.pod_uploaded_at = timezone.now()
+        shipment.status = 'completed'
         await sync_to_async(shipment.save)()
 
     async def handle_batch_pod_upload(
@@ -827,6 +833,18 @@ class PostDrop(View):
             context.update({'error_messages': '未找到该预约批次!'})
             return await self.handle_ltl_unscheduled_pos_post(request, context)
 
+        unstocked_cargos = []
+        for detail_data in cargo_details:
+            cargo_id = detail_data.get('cargo_id')
+            cargo = await sync_to_async(DropshipCargo.objects.filter(id=cargo_id).first)()
+            if cargo and cargo.status != 'in_stock':
+                container_number = cargo.container.container_number if cargo.container else '未知柜号'
+                unstocked_cargos.append(f'柜号 {container_number} 的唛头 "{cargo.shipping_mark}" 的货还未入库')
+
+        if unstocked_cargos:
+            context.update({'error_messages': '; '.join(unstocked_cargos) + '，不能进行出库操作'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
         total_pcs = 0
         for detail_data in cargo_details:
             cargo_id = detail_data.get('cargo_id')
@@ -862,10 +880,64 @@ class PostDrop(View):
 
         shipment.total_pcs = total_pcs
         shipment.shipped_at = ship_time
+        shipment.status = 'shipped'
         await sync_to_async(shipment.save)()
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
         context.update({"success_messages": f'批次 {batch_number} 出库确认成功!'})
+        return template, context
+
+    async def handle_cancel_shipment(
+            self, request: HttpRequest, context: dict | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        '''取消预约批次处理 - 还原库存并删除相关记录'''
+        if not context:
+            context = {}
+
+        batch_number = request.POST.get('shipment_batch_number')
+        if not batch_number:
+            context.update({'error_messages': '预约批次号未获取到!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        shipment = await sync_to_async(DropshipShipment.objects.filter(shipment_batch_number=batch_number).first)()
+        if not shipment:
+            context.update({'error_messages': '未找到该预约批次!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        if shipment.status != 'pending':
+            context.update({'error_messages': f'该批次当前状态为 "{dict(shipment.STATUS_CHOICES).get(shipment.status, shipment.status)}"，无法取消!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        details = await sync_to_async(list)(
+            DropshipShipmentDetail.objects.filter(shipment=shipment).select_related('cargo')
+        )
+
+        for detail in details:
+            cargo = detail.cargo
+            restored_pcs = cargo.pcs + detail.pcs
+            cargo.pcs = restored_pcs
+            await sync_to_async(cargo.save)()
+
+            detail.pcs = 0
+            await sync_to_async(detail.save)()
+
+            inventory = await sync_to_async(
+                DropshipInventory.objects
+                .filter(cargo=cargo, transaction_type='pick', shipment_detail=detail)
+                .first
+            )()
+            if inventory:
+                inventory.is_verify = True
+                inventory.verfiy_pcs_change = 0
+                inventory.verify_pcs = restored_pcs
+                await sync_to_async(inventory.save)()
+
+        shipment.status = 'cancelled'
+        shipment.total_pcs = 0
+        await sync_to_async(shipment.save)()
+
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context.update({"success_messages": f'批次 {batch_number} 取消预约成功!'})
         return template, context
 
     async def handle_verify_ltl_cargo(
@@ -1210,7 +1282,7 @@ class PostDrop(View):
                     return template, context
 
             elif fee_type == "warehouse":
-                warehouse_rates = {}
+                warehouse_fee_config = {}
                 if dropship_quote:
                     warehouse_fee_detail = await sync_to_async(
                         FeeDetail.objects.filter(
@@ -1219,8 +1291,7 @@ class PostDrop(View):
                         ).first
                     )()
                     if warehouse_fee_detail and warehouse_fee_detail.details:
-                        for fee_code, fee_data in warehouse_fee_detail.details.items():
-                            warehouse_rates[fee_code] = fee_data.get("rate", 0)
+                        warehouse_fee_config = warehouse_fee_detail.details
                     else:
                         template, context = await self.handle_drop_account_search(request)
                         context['error_messages'] = "报价表中未配置库内费，请先配置报价表！"
@@ -1230,11 +1301,11 @@ class PostDrop(View):
                     context['error_messages'] = "未找到有效的报价表，请先创建报价表！"
                     return template, context
 
-                for desc, rate in warehouse_rates.items():
+                for desc, fee_data in warehouse_fee_config.items():
                     items.append({
                         "description": desc,
                         "amount": 0,
-                        "rate": rate,
+                        "rate": fee_data.get("rate", 0),
                         "is_new": True,
                     })
 
@@ -1324,6 +1395,8 @@ class PostDrop(View):
                 })
 
         shipment_details_json = json.dumps(shipment_details, ensure_ascii=False, default=str)
+        warehouse_fee_config_dict = warehouse_fee_config if 'warehouse_fee_config' in locals() else {}
+        warehouse_fee_config_json = json.dumps(warehouse_fee_config_dict, ensure_ascii=False)
 
         context = {
             "invoice_number": invoice_number,
@@ -1343,6 +1416,8 @@ class PostDrop(View):
             "has_existing_fee": has_existing_fee,
             "shipment_details": shipment_details,
             "shipment_details_json": shipment_details_json,
+            "warehouse_fee_config": warehouse_fee_config_dict,
+            "warehouse_fee_config_json": warehouse_fee_config_json,
         }
         return self.template_account_edit, context
 
@@ -1938,7 +2013,7 @@ class PostDrop(View):
                 inventory_records = await sync_to_async(list)(
                     DropshipInventory.objects
                     .filter(cargo__warehouse=warehouse_obj)
-                    .select_related('cargo', 'shipment_detail', 'shipment_detail__shipment')
+                    .select_related('cargo', 'cargo__container', 'shipment_detail', 'shipment_detail__shipment')
                     .order_by('-transaction_date')
                 )
                 
@@ -1948,6 +2023,10 @@ class PostDrop(View):
                     if record.shipment_detail and record.shipment_detail.shipment:
                         shipment_batch = record.shipment_detail.shipment.shipment_batch_number
                     
+                    container_number = ""
+                    if record.cargo.container:
+                        container_number = record.cargo.container.container_number
+                    
                     transaction_type_display = dict(record.TRANSACTION_TYPES).get(record.transaction_type, record.transaction_type)
                     
                     inventory_data.append({
@@ -1955,6 +2034,7 @@ class PostDrop(View):
                         'transaction_type': transaction_type_display,
                         'transaction_type_code': record.transaction_type,
                         'transaction_date': record.transaction_date,
+                        'container_number': container_number,
                         'shipping_mark': record.cargo.shipping_mark,
                         'model': record.cargo.model,
                         'pcs_change': record.pcs_change,

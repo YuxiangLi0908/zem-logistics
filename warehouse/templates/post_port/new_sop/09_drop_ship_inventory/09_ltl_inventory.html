@@ -209,7 +209,7 @@
     <div class="inventory-header">
         <div class="inventory-logo">
             <i class="fas fa-clipboard-list"></i>
-            <span>库存流水查询</span>
+            <span>一件代发库存流水</span>
         </div>
         <form method="POST" class="filter-controls">
             {% csrf_token %}
@@ -234,6 +234,7 @@
                 <tr>
                     <th>操作类型</th>
                     <th>操作时间</th>
+                    <th>柜号</th>
                     <th>唛头</th>
                     <th>商品型号</th>
                     <th>预计件数变动</th>
@@ -256,6 +257,7 @@
                     <td><input type="text" class="search-input" placeholder="搜索..." data-column="8"></td>
                     <td><input type="text" class="search-input" placeholder="搜索..." data-column="9"></td>
                     <td><input type="text" class="search-input" placeholder="搜索..." data-column="10"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索..." data-column="11"></td>
                 </tr>
             </thead>
             <tbody>
@@ -267,6 +269,7 @@
                         </span>
                     </td>
                     <td>{{ record.transaction_date|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ record.container_number|default:'' }}</td>
                     <td>{{ record.shipping_mark|default:'' }}</td>
                     <td>{{ record.model|default:'' }}</td>
                     <td>

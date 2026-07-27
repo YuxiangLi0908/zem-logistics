@@ -5038,6 +5038,13 @@ class ExceptionHandling(View):
                         ).update(shipment_batch_number=None)
                     )
                 )()
+                
+                # 删除关联的 fleet 记录
+                if shipment.fleet_number:
+                    await sync_to_async(
+                        lambda: Fleet.objects.filter(id=shipment.fleet_number.id).delete()
+                    )()
+                
                 await sync_to_async(shipment.delete)()
                 messages.success(request, "批次号删除成功")
             else:
@@ -5051,12 +5058,15 @@ class ExceptionHandling(View):
                 if has_related_data:
                     messages.error(request, "存在po绑定在这条约上，不能直接删除！")
                     del_able = False
-                if shipment.fleet_number:
-                    messages.error(request, "这条约已排车，不能直接删除！")
-                    del_able = False
 
                 if del_able:
                     try:
+                        # 删除关联的 fleet 记录
+                        if shipment.fleet_number:
+                            await sync_to_async(
+                                lambda: Fleet.objects.filter(id=shipment.fleet_number.id).delete()
+                            )()
+                        
                         await sync_to_async(shipment.delete)()
                         messages.success(request, "记录删除成功")
                     except Exception as e:

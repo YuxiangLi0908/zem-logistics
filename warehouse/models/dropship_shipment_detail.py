@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.core.validators import DecimalValidator, MinValueValidator
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from .dropship_shipment import DropshipShipment
 
@@ -33,3 +34,5 @@ class DropshipShipmentDetail(models.Model):
             models.Index(fields=['shipment']),
             models.Index(fields=['cargo']),
         ]
+    
+    history = HistoricalRecords()

@@ -3755,7 +3755,16 @@ class ReceivableAccounting(View):
         try:
             pickup_fee = fee_detail.details[warehouse][pick_subkey]
         except KeyError:
-            raise ValueError('报价表未匹配到提拆费用')
+            error_msg = '报价表未匹配到提拆费用'
+            if not warehouse:
+                error_msg += '，入库仓库为空'
+            elif warehouse not in fee_detail.details:
+                error_msg += f'，入库仓库 "{warehouse}" 不在报价表中'
+            if not pick_subkey:
+                error_msg += '，柜型为空'
+            elif warehouse in fee_detail.details and pick_subkey not in fee_detail.details[warehouse]:
+                error_msg += f'，柜型 "{pick_subkey}" 在仓库 "{warehouse}" 的报价表中不存在'
+            raise ValueError(error_msg)
         
         # 获取当前登录用户
         registered_user = request.user.username if request.user.is_authenticated else None
@@ -5827,6 +5836,10 @@ class ReceivableAccounting(View):
         if not container:
             raise ValueError('container表没有这个柜子')
         
+        # 直送订单不需要拆柜，直接返回True
+        if order.order_type == '直送':
+            return True
+        
         offload = order.offload_id
         if not offload:
             raise ValueError('offload表没有这个柜子')
@@ -5883,31 +5896,36 @@ class ReceivableAccounting(View):
 
         # --- 2. 构建查询条件 ---
         filter_rules = []  # 筛选规则描述
+        
+        # 拆柜条件：直送不需要拆柜，非直送需要拆柜（公仓或私仓任一即可）
+        offload_criteria = (
+            Q(order_type='直送') |
+            (Q(offload_id__offload_at__isnull=False) & Q(offload_id__offload_other_at__isnull=False))
+        )
+        
         if container_number_filter:
             criteria = (
                 Q(container_number__container_number=container_number_filter)
                 & Q(cancel_notification=False)
                 & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
-                & Q(offload_id__offload_at__isnull=False)
-                & Q(offload_id__offload_other_at__isnull=False)
+                & offload_criteria
             )
             filter_rules.append(f"柜号 = {container_number_filter}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("已拆柜(公仓+私仓)")
+            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓或私仓)")
         else:
             criteria = (
                 Q(cancel_notification=False)
                 & Q(vessel_id__vessel_etd__gte=start_date)
                 & Q(vessel_id__vessel_etd__lte=end_date)
                 & Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
-                & Q(offload_id__offload_at__isnull=False)
-                & Q(offload_id__offload_other_at__isnull=False)
+                & offload_criteria
             )
             filter_rules.append(f"ETD {start_date} ~ {end_date}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("已拆柜(公仓+私仓)")
+            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓或私仓)")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
@@ -5916,7 +5934,6 @@ class ReceivableAccounting(View):
             if customer:
                 criteria &= Q(customer_name__zem_name=customer)
                 filter_rules.append(f"客户 = {customer}")
-
         # --- 3. 获取基础订单数据 ---
         base_orders = (
             Order.objects
@@ -6122,6 +6139,55 @@ class ReceivableAccounting(View):
                     # 都没有invoice_link，全部保留
                     filtered_order_data_list.extend(records)
         
+        # --- 新增：柜号搜索时，检查最终未找到的原因 ---
+        search_fail_reasons = []
+        if container_number_filter and not filtered_order_data_list and not previous_order_data_list:
+            container_exists = Order.objects.filter(
+                container_number__container_number=container_number_filter
+            ).exists()
+            
+            if not container_exists:
+                search_fail_reasons.append(f"柜号 '{container_number_filter}' 不存在于系统中")
+            else:
+                order = Order.objects.filter(
+                    container_number__container_number=container_number_filter
+                ).first()
+                
+                if order.cancel_notification:
+                    search_fail_reasons.append("该柜号已取消预报")
+                
+                if not order.retrieval_id or not order.retrieval_id.actual_retrieval_timestamp:
+                    search_fail_reasons.append("该柜号没有实际提柜时间")
+                
+                if order.order_type != '直送':
+                    if not order.offload_id or not order.offload_id.offload_at:
+                        search_fail_reasons.append("公仓未拆柜")
+                    if not order.offload_id or not order.offload_id.offload_other_at:
+                        search_fail_reasons.append("私仓未拆柜")
+                
+                # 检查是否有invoice但已完成且待核销金额为0
+                invoices = Invoicev2.objects.filter(
+                    container_number__container_number=container_number_filter,
+                    is_master_bill=True
+                ).prefetch_related(
+                    Prefetch('invoicestatusv2_set', 
+                             queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+                             to_attr='receivable_status_list')
+                )
+                
+                for invoice in invoices:
+                    status_list = getattr(invoice, 'receivable_status_list', [])
+                    status_obj = status_list[0] if status_list else None
+                    finance_status = status_obj.finance_status if status_obj else None
+                    remain_offset = getattr(invoice, 'remain_offset', 0) or 0
+                    
+                    if finance_status == "completed" and remain_offset == 0:
+                        search_fail_reasons.append("该柜号已有发票且财务状态已完成，待核销金额为0")
+                        break
+            
+            if not search_fail_reasons:
+                search_fail_reasons.append("未找到符合条件的订单，请检查筛选条件")
+        
         existing_customers = Customer.objects.all().order_by("zem_name")
         
         context.update({
@@ -6134,6 +6200,7 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "existing_customers": existing_customers,
             "container_number_filter": container_number_filter,
+            "search_fail_reasons": search_fail_reasons,
             "filter_rules": filter_rules,
         })
         return self.template_fix_account_entry, context

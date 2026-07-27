@@ -7353,7 +7353,10 @@ class PostNsop(View):
 
                 public_key = f"{warehouse}_PUBLIC"
                 if public_key not in fee_details:
-                    context = {"error_messages": f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'}
+                    message = f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
                     return await self.handle_td_shipment_post(request, context)
 
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
@@ -7601,6 +7604,7 @@ class PostNsop(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type='receivable',
+                is_dropship=False
             )
             .order_by("-effective_date")
             .first()
@@ -7611,6 +7615,7 @@ class PostNsop(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,
                     quote_type='receivable',
+                    is_dropship=False
                 )
                 .order_by("-effective_date")
                 .first()
@@ -8006,6 +8011,7 @@ class PostNsop(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type=quote_type,
+                is_dropship=False
             )
             .order_by("-effective_date")
             .first()
@@ -8016,6 +8022,7 @@ class PostNsop(View):
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
                 quote_type=quote_type,
+                is_dropship=False
             )
             .order_by("-effective_date")
             .first()
@@ -8028,6 +8035,7 @@ class PostNsop(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,
                     quote_type=quote_type,
+                    is_dropship=False
                 )
                 .order_by("-effective_date")
                 .first()
@@ -8470,6 +8478,13 @@ class PostNsop(View):
                 if not pallets:
                     continue
 
+                # 检查是否有货物已经绑定了shipment，如果有则跳过
+                has_existing_shipment = await sync_to_async(
+                    Pallet.objects.filter(id__in=id_list, shipment_batch_number__isnull=False).exists
+                )()
+                if has_existing_shipment:
+                    continue
+
                 for pallet in pallets:
                     total_weight += pallet.weight_lbs or 0
                     total_cbm += pallet.cbm or 0
@@ -8482,6 +8497,13 @@ class PostNsop(View):
                     PackingList.objects.filter(id__in=id_list)
                 )
                 if not pls:
+                    continue
+
+                # 检查是否有货物已经绑定了shipment，如果有则跳过
+                has_existing_shipment = await sync_to_async(
+                    PackingList.objects.filter(id__in=id_list, shipment_batch_number__isnull=False).exists
+                )()
+                if has_existing_shipment:
                     continue
 
                 for pl in pls:
@@ -8602,6 +8624,21 @@ class PostNsop(View):
                 operation_type="bind",
                 shipment_type="all"
             )
+
+        # 清理没有任何packinglist和pallet关联的shipment记录
+        await sync_to_async(
+            lambda: Shipment.objects.filter(
+                pallet__isnull=True,
+                packinglist__isnull=True
+            ).delete()
+        )()
+
+        # 清理没有任何shipment关联的fleet记录
+        await sync_to_async(
+            lambda: Fleet.objects.filter(
+                shipment__isnull=True
+            ).delete()
+        )()
 
         batch_preview = ', '.join(batch_numbers[:5])
         if len(batch_numbers) > 5:

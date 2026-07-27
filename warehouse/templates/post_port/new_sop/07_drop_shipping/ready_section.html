@@ -63,6 +63,18 @@
     .ship-btn:hover {
         background-color: #2ecc71;
     }
+    .cancel-btn {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+    .cancel-btn:hover {
+        background-color: #c0392b;
+    }
     .ship-time-input {
         padding: 4px 8px;
         border: 1px solid #ced4da;
@@ -87,6 +99,7 @@
                 <th>总件数</th>
                 <th>件数</th>
                 <th>确认出库</th>
+                <th>取消预约</th>
             </tr>
             <tr class="search-row">
                 <td><input type="text" class="header-search" placeholder="搜索批次号" data-column="0"></td>
@@ -94,6 +107,7 @@
                 <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="2"></td>
                 <td><input type="text" class="header-search" placeholder="搜索总件数" data-column="3"></td>
                 <td><input type="text" class="header-search" placeholder="搜索件数" data-column="4"></td>
+                <td></td>
                 <td></td>
             </tr>
         </thead>
@@ -135,6 +149,11 @@
                         </div>
                     </td>
                     {% endif %}
+                    {% if forloop.first %}
+                    <td rowspan="{{ detail_count }}" class="batch-cell">
+                        <button class="cancel-btn" onclick="cancelShipment('{{ shipment.shipment_batch_number }}')">取消排约</button>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
                 {% endwith %}
@@ -154,6 +173,13 @@
     <input type="hidden" name="shipment_batch_number" id="shipment_batch_number">
     <input type="hidden" name="ship_time" id="ship_time">
     <input type="hidden" name="cargo_details" id="cargo_details">
+</form>
+
+<form method="post" action="" id="cancelShipmentForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="cancel_shipment">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="shipment_batch_number" id="cancel_shipment_batch_number">
 </form>
 
 <script>
@@ -216,5 +242,14 @@
         document.getElementById('cargo_details').value = JSON.stringify(cargoDetails);
         
         document.getElementById('shipmentForm').submit();
+    }
+
+    function cancelShipment(batchNumber) {
+        if (!confirm('确定要取消该预约批次吗？取消后库存将被还原。')) {
+            return;
+        }
+        
+        document.getElementById('cancel_shipment_batch_number').value = batchNumber;
+        document.getElementById('cancelShipmentForm').submit();
     }
 </script>
