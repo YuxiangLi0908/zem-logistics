@@ -3847,6 +3847,13 @@ class Dropshipping(View):
             )
             return response
 
+    def convert_delivery_method(self, dm: str) -> str:
+        if dm == "自提":
+            return "pickup"
+        elif dm == "自发":
+            return "self_ship"
+        return dm
+
     async def handle_update_order_packing_list_info_post_v1(
             self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -3873,25 +3880,38 @@ class Dropshipping(View):
                     container__container_number=container_number
                 )
             )
+            # 取出原始delivery_method数组
+            dm_list = request.POST.getlist("delivery_method")
+            dt_list = request.POST.getlist("delivery_type")
+            sm_list = request.POST.getlist("shipping_mark")
+            model_list = request.POST.getlist("model")
+            product_name_list = request.POST.getlist("product_name")
+            address_list = request.POST.getlist("address")
+            note_list = request.POST.getlist("note")
+            long_list = request.POST.getlist("long")
+            width_list = request.POST.getlist("width")
+            height_list = request.POST.getlist("height")
+
             for pl in dropship_cargo:
                 idx = pl_id_idx_mapping[pl.id]
-                pl.delivery_method = request.POST.getlist("delivery_method")[idx]
-                pl.delivery_type = request.POST.getlist("delivery_type")[idx]
+                # ==========改动点：转换delivery_method==========
+                raw_dm = dm_list[idx]
+                pl.delivery_method = self.convert_delivery_method(raw_dm)
+                pl.delivery_type = dt_list[idx]
 
-                # 【这段你写的是正确的，保留】
-                sm_val = request.POST.getlist("shipping_mark")[idx].strip()
-                model_val = request.POST.getlist("model")[idx].strip()
+                sm_val = sm_list[idx].strip()
+                model_val = model_list[idx].strip()
                 pl.shipping_mark = sm_val if sm_val else model_val
-                pl.product_name = request.POST.getlist("product_name")[idx].strip()
+                pl.product_name = product_name_list[idx].strip()
                 pl.model = model_val
 
-                pl.address = request.POST.getlist("address")[idx]
-                pl.note = request.POST.getlist("note")[idx]
-                long = request.POST.getlist("long")[idx]
+                pl.address = address_list[idx]
+                pl.note = note_list[idx]
+                long = long_list[idx]
                 pl.long = Decimal(long) if long else None
-                width = request.POST.getlist("width")[idx]
+                width = width_list[idx]
                 pl.width = Decimal(width) if width else None
-                height = request.POST.getlist("height")[idx]
+                height = height_list[idx]
                 pl.height = Decimal(height) if height else None
 
                 updated_pl.append(pl)
@@ -3922,13 +3942,18 @@ class Dropshipping(View):
             po_ids = []
             po_id_hash = {}
             seq_num = 1
-            # 修复：这里不要替换shipping_mark数组，保持原生下标对齐
-            for dm, sm, dest in zip_longest(
-                    request.POST.getlist("delivery_method"),
-                    request.POST.getlist("shipping_mark"),
-                    request.POST.getlist("model"),
+            # ==========改动点：循环时先转换dm==========
+            raw_dm_list = request.POST.getlist("delivery_method")
+            sm_list = request.POST.getlist("shipping_mark")
+            model_list = request.POST.getlist("model")
+
+            for raw_dm, sm, dest in zip_longest(
+                    raw_dm_list,
+                    sm_list,
+                    model_list,
                     fillvalue='',
             ):
+                dm = self.convert_delivery_method(raw_dm)  # 中文转英文编码
                 po_id: str = ""
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
@@ -3975,9 +4000,12 @@ class Dropshipping(View):
             container.weight_lbs = total_weight_lbs_sum
             await sync_to_async(container.save)()
 
-            # 修复：zip_longest参数恢复原生，不替换数组
+            # 构建pl_data，这里需要提前转换整条delivery_method数组
+            converted_delivery_method = [self.convert_delivery_method(item) for item in
+                                         request.POST.getlist("delivery_method")]
+
             pl_data = zip_longest(
-                request.POST.getlist("delivery_method"),
+                converted_delivery_method,  # 已经转换好英文编码
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("product_name"),
                 request.POST.getlist("model"),
@@ -4008,8 +4036,7 @@ class Dropshipping(View):
                     container=container,
                     order=order,
                     warehouse=warehouse,
-                    delivery_method=d[0],
-                    # 空唛头自动取model(d[3])
+                    delivery_method=d[0],  # 已经是pickup/self_ship
                     shipping_mark=d[1].strip() if d[1].strip() else d[3].strip(),
                     product_name=d[2],
                     model=d[3].strip(),
@@ -4054,32 +4081,24 @@ class Dropshipping(View):
     ) -> tuple[Any, Any]:
 
         container_number = request.POST.get("container_number")
-
         selected_ids = request.POST.get("selected_pl_ids", "")
-
-        selected_ids = [int(i) for i in selected_ids.split(",") if i]
-
+        selected_ids = [int(i) for i in selected_ids.split(",") if i.strip()]
         delete_ids = request.POST.get("delete_pl_ids")
 
-
-        # 删除
+        # 删除分支
         if delete_ids:
-            ids = [int(i) for i in delete_ids.split(",") if i]
-            await sync_to_async(
-                DropshipCargo.objects.filter(id__in=ids).delete
-            )()
+            ids = [int(i) for i in delete_ids.split(",") if i.strip()]
+            await sync_to_async(DropshipCargo.objects.filter(id__in=ids).delete)()
             source = request.POST.get("source")
-
             if source == "order_management":
                 mutable_get = request.GET.copy()
                 mutable_get["container_number"] = container_number
                 mutable_get["step"] = "container_info_supplement"
                 request.GET = mutable_get
                 return await self.handle_order_management_container_get(request)
-
             return await self.handle_order_basic_info_get()
 
-        # 查询已有DropshipCargo
+        # 查询已有数据
         cargo_dict = {
             cargo.id: cargo
             for cargo in await sync_to_async(list)(
@@ -4088,35 +4107,34 @@ class Dropshipping(View):
         }
 
         order = await sync_to_async(
-            Order.objects.select_related(
-                "container_number",
-                "warehouse",
-            ).get
+            Order.objects.select_related("container_number", "warehouse").get
         )(container_number__container_number=container_number)
-        container = await sync_to_async(Container.objects.get)(
-            container_number=container_number
-        )
+        container = await sync_to_async(Container.objects.get)(container_number=container_number)
         warehouse = order.warehouse if order.warehouse_id else None
 
         update_list = []
         po_id_hash = {}
         seq_num = 1
+
         for pl_id in selected_ids:
-            d_m = request.POST.get(f"delivery_method_{pl_id}")
-            s_m = request.POST.get(f"shipping_mark_{pl_id}")
-            p_name = request.POST.get(f"product_name_{pl_id}")
-            m = request.POST.get(f"model_{pl_id}")
-            addr = request.POST.get(f"address_{pl_id}")
-            pcs = request.POST.get(f"pcs_{pl_id}")
+            d_m_raw = request.POST.get(f"delivery_method_{pl_id}", "")
+            s_m = request.POST.get(f"shipping_mark_{pl_id}", "")
+            p_name = request.POST.get(f"product_name_{pl_id}", "")
+            m = request.POST.get(f"model_{pl_id}", "")
+            addr = request.POST.get(f"address_{pl_id}", "")
+            pcs_str = request.POST.get(f"pcs_{pl_id}", "0")
             kg = request.POST.get(f"total_weight_kg_{pl_id}")
             lbs = request.POST.get(f"total_weight_lbs_{pl_id}")
             cbm = request.POST.get(f"cbm_{pl_id}")
-            note = request.POST.get(f"note_{pl_id}")
+            note = request.POST.get(f"note_{pl_id}", "")
             long_value = request.POST.get(f"long_{pl_id}")
             width_value = request.POST.get(f"width_{pl_id}")
             height_value = request.POST.get(f"height_{pl_id}")
 
-            # Generate PO_ID
+            # =========【重点修复：先转换，再生成PO_ID】=========
+            d_m = self.convert_delivery_method(d_m_raw)
+
+            # Generate PO_ID（现在d_m一定是pickup/self_ship/原始英文）
             if d_m == "pickup" or m == "pickup":
                 po_id_hkey = f"{container_number}-{d_m}-{m}"
                 po_id_seg = (
@@ -4127,11 +4145,11 @@ class Dropshipping(View):
             else:
                 po_id_hkey = f"{container_number}-{d_m}-{m}"
                 po_id_seg = f"{DELIVERY_METHOD_CODE.get(d_m, 'UN')}{m.replace(' ', '').split('-')[-1]}"
+
             if po_id_hkey in po_id_hash:
                 po_id = po_id_hash.get(po_id_hkey)
             else:
                 container_tag = f"{container_number[:2].upper()}{container_number[-4:]}"
-
                 random.seed(container_number[-4:])
                 po_id = (
                     f"{container_tag}"
@@ -4144,11 +4162,8 @@ class Dropshipping(View):
                 seq_num += 1
 
             if pl_id:
-                # 更新
                 cargo = cargo_dict[int(pl_id)]
-
             else:
-                # 新增
                 cargo = DropshipCargo(
                     container=container,
                     order=order,
@@ -4157,34 +4172,41 @@ class Dropshipping(View):
 
             cargo.delivery_method = d_m
             cargo.delivery_type = "一件代发"
-            cargo.shipping_mark = (
-                s_m.strip()
-                if s_m and s_m.strip()
-                else m.strip()
-            )
+            cargo.shipping_mark = s_m.strip() if s_m.strip() else m.strip()
             cargo.product_name = p_name
             cargo.model = m
             cargo.address = addr
-            cargo.pcs = int(float(pcs))
+
+            # pcs容错
+            try:
+                cargo.pcs = int(float(pcs_str))
+            except (ValueError, TypeError):
+                cargo.pcs = 0
+
             cargo.total_weight_kg = kg
             cargo.total_weight_lbs = lbs
             cargo.cbm = cbm
             cargo.note = note
 
-            cargo.long = Decimal(long_value) if long_value else None
-            cargo.width = Decimal(width_value) if width_value else None
-            cargo.height = Decimal(height_value) if height_value else None
+            def safe_decimal(val):
+                if not val or not str(val).strip():
+                    return None
+                try:
+                    return Decimal(str(val).strip())
+                except InvalidOperation:
+                    return None
 
+            cargo.long = safe_decimal(long_value)
+            cargo.width = safe_decimal(width_value)
+            cargo.height = safe_decimal(height_value)
             cargo.PO_ID = po_id
 
             if pl_id:
                 update_list.append(cargo)
 
-        # 6. 批量更新
+        # 批量更新
         if update_list:
-            await sync_to_async(
-                bulk_update_with_history
-            )(
+            await sync_to_async(bulk_update_with_history)(
                 update_list,
                 DropshipCargo,
                 fields=[
@@ -4208,39 +4230,48 @@ class Dropshipping(View):
 
         # 新增 Packing List
         if request.POST.get("is_add") == "1":
-
             cargo = DropshipCargo(
                 container=container,
                 order=order,
                 warehouse=warehouse,
             )
 
-            cargo.delivery_method = request.POST.get("delivery_method")
+            delivery_method_raw = request.POST.get("delivery_method", "")
+            delivery_method = self.convert_delivery_method(delivery_method_raw)
+            cargo.delivery_method = delivery_method
             cargo.delivery_type = "一件代发"
 
-            shipping_mark = request.POST.get("shipping_mark")
-            model = request.POST.get("model")
-
-            cargo.shipping_mark = (
-                shipping_mark.strip()
-                if shipping_mark and shipping_mark.strip()
-                else model.strip()
-            )
-
-            cargo.product_name = request.POST.get("product_name")
+            shipping_mark = request.POST.get("shipping_mark", "")
+            model = request.POST.get("model", "")
+            cargo.shipping_mark = shipping_mark.strip() if shipping_mark.strip() else model.strip()
+            cargo.product_name = request.POST.get("product_name", "")
             cargo.model = model
-            cargo.address = request.POST.get("address")
-            cargo.pcs = int(float(request.POST.get("pcs") or 0))
+            cargo.address = request.POST.get("address", "")
+
+            pcs_str = request.POST.get("pcs", "0")
+            try:
+                cargo.pcs = int(float(pcs_str))
+            except (ValueError, TypeError):
+                cargo.pcs = 0
+
             cargo.total_weight_kg = request.POST.get("total_weight_kg")
             cargo.total_weight_lbs = request.POST.get("total_weight_lbs")
             cargo.cbm = request.POST.get("cbm")
-            cargo.note = request.POST.get("note")
+            cargo.note = request.POST.get("note", "")
 
-            cargo.long = Decimal(request.POST.get("long")) if request.POST.get("long") else None
-            cargo.width = Decimal(request.POST.get("width")) if request.POST.get("width") else None
-            cargo.height = Decimal(request.POST.get("height")) if request.POST.get("height") else None
+            def safe_decimal(val):
+                if not val or not str(val).strip():
+                    return None
+                try:
+                    return Decimal(str(val).strip())
+                except InvalidOperation:
+                    return None
 
-            # 生成 PO_ID
+            cargo.long = safe_decimal(request.POST.get("long"))
+            cargo.width = safe_decimal(request.POST.get("width"))
+            cargo.height = safe_decimal(request.POST.get("height"))
+
+            # 生成PO_ID
             d_m = cargo.delivery_method
             s_m = cargo.shipping_mark
             m = cargo.model
@@ -4248,7 +4279,7 @@ class Dropshipping(View):
             if d_m == "pickup" or m == "pickup":
                 po_id_seg = (
                     f"S{s_m[-4:]}"
-                    if s_m
+                    if s_m.strip()
                     else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=6))}"
                 )
             else:
@@ -4264,24 +4295,21 @@ class Dropshipping(View):
                 f"{po_id_seg}"
                 "1",
             )
-
             await sync_to_async(cargo.save)()
 
+        # 汇总柜重
         total_weight_lbs_sum = await sync_to_async(
             lambda: DropshipCargo.objects.filter(
                 container__container_number=container_number,
                 delivery_type="一件代发",
-            ).aggregate(
-                total=Sum("total_weight_lbs")
-            )["total"] or 0
+            ).aggregate(total=Sum("total_weight_lbs"))["total"] or 0
         )()
         container.weight_lbs = total_weight_lbs_sum
         container.delivery_type = "一件代发"
         await sync_to_async(container.save)()
 
-        # 8. 返回页面
+        # 页面跳转
         source = request.POST.get("source")
-
         if source == "order_management":
             mutable_get = request.GET.copy()
             mutable_get["container_number"] = container_number
