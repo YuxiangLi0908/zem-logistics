@@ -62,3 +62,5 @@ class DropshipInventory(models.Model):
             models.Index(fields=['transaction_date']),
             models.Index(fields=['cargo', 'transaction_date']),
         ]
+    
+    history = HistoricalRecords()
