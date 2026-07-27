@@ -244,6 +244,7 @@
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="offload_id" value="{{ order.offload_id.id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
@@ -262,6 +263,7 @@
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="offload_id" value="{{ order.offload_id.id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
