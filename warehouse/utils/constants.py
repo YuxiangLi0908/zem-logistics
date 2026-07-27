@@ -107,8 +107,8 @@ DELIVERY_METHOD_OPTIONS = [
 ]
 
 DROPSHIPPING_DELIVERY_METHOD_OPTIONS = [
-    ("自提", "自提"),
-    ("自发", "自发"),
+    ("自提", "pickup"),
+    ("自发", "self_ship"),
 ]
 
 DELIVERY_METHOD_CODE = {
