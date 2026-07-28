@@ -7226,40 +7226,79 @@ class PostNsop(View):
             return await self.handle_td_shipment_post(request, context)
 
         for po in combined_list:
-            # 遍历依次查找报价
-            container_number = po['container_number__container_number']
+            try:
+                # 遍历依次查找报价
+                container_number = po['container_number__container_number']
 
-            destination_str = po['destination']
-            destination = await self._process_destination_wlm(destination_str)
-            order = await sync_to_async(
-                lambda cn=container_number: Order.objects.select_related(
-                    'retrieval_id',  # 预加载retrieval_id
-                    'vessel_id',
-                    'customer_name'  # 预加载customer_name
-                ).filter(
-                    container_number__container_number=cn
-                ).first()
-            )()
-            if not order:
-                message = f"柜号{container_number}未找到对应的Order记录，无法查询报价"
-                if is_ajax:
-                    return JsonResponse({"success": False, "message": message}, status=400)
-                context = {"error_messages": message}
-                return await self.handle_td_shipment_post(request, context)
-            if not order.retrieval_id:
-                message = f"柜号{container_number}的Order({order.id})缺少retrieval_id（预报仓库信息），无法查询报价"
-                if is_ajax:
-                    return JsonResponse({"success": False, "message": message}, status=400)
-                context = {"error_messages": message}
-                return await self.handle_td_shipment_post(request, context)
-            # 2026/4/8 claire说报价应该都要按照预报的仓库查找，不按照实际所在地查找
-            warehouse = order.retrieval_id.retrieval_destination_area
-            if not warehouse:
-                message = f"柜号{container_number}的Order({order.id})的retrieval_id({order.retrieval_id_id})缺少retrieval_destination_area（预报仓区），无法查询报价"
-                if is_ajax:
-                    return JsonResponse({"success": False, "message": message}, status=400)
-                context = {"error_messages": message}
-                return await self.handle_td_shipment_post(request, context)
+                destination_str = po['destination']
+                destination = await self._process_destination_wlm(destination_str)
+                order = await sync_to_async(
+                    lambda cn=container_number: Order.objects.select_related(
+                        'retrieval_id',
+                        'vessel_id',
+                        'customer_name'
+                    ).filter(
+                        container_number__container_number=cn
+                    ).first()
+                )()
+                if not order:
+                    quotation_table_data.append({
+                        'container_number': container_number or '-',
+                        'order_type': '-',
+                        'is_combina': False,
+                        'is_combina_reason': None,
+                        'destination': destination or '-',
+                        'cbm': po['total_cbm'],
+                        'total_pallets': po['total_pallets'],
+                        'rate': None,
+                        'amount': None,
+                        'type': '查询失败',
+                        'region': None,
+                        'warehouse': '-',
+                        'is_niche_warehouse': None,
+                        'quotation_name': '-',
+                        'error_reason': f"柜号{container_number}未找到对应的Order记录，无法查询报价",
+                    })
+                    continue
+                if not order.retrieval_id:
+                    quotation_table_data.append({
+                        'container_number': container_number or '-',
+                        'order_type': order.order_type,
+                        'is_combina': False,
+                        'is_combina_reason': None,
+                        'destination': destination or '-',
+                        'cbm': po['total_cbm'],
+                        'total_pallets': po['total_pallets'],
+                        'rate': None,
+                        'amount': None,
+                        'type': '查询失败',
+                        'region': None,
+                        'warehouse': '-',
+                        'is_niche_warehouse': None,
+                        'quotation_name': '-',
+                        'error_reason': f"柜号{container_number}的Order({order.id})缺少retrieval_id（预报仓库信息），无法查询报价",
+                    })
+                    continue
+                warehouse = order.retrieval_id.retrieval_destination_area
+                if not warehouse:
+                    quotation_table_data.append({
+                        'container_number': container_number or '-',
+                        'order_type': order.order_type,
+                        'is_combina': False,
+                        'is_combina_reason': None,
+                        'destination': destination or '-',
+                        'cbm': po['total_cbm'],
+                        'total_pallets': po['total_pallets'],
+                        'rate': None,
+                        'amount': None,
+                        'type': '查询失败',
+                        'region': None,
+                        'warehouse': '-',
+                        'is_niche_warehouse': None,
+                        'quotation_name': '-',
+                        'error_reason': f"柜号{container_number}的Order({order.id})的retrieval_id({order.retrieval_id_id})缺少retrieval_destination_area（预报仓区），无法查询报价",
+                    })
+                    continue
             # if po['source'] == 'packinglist':
             #     warehouse = order.retrieval_id.retrieval_destination_area
             # else:
@@ -7271,187 +7310,319 @@ class PostNsop(View):
             #         context = {"error_messages": message}
             #         return await self.handle_td_shipment_post(request, context)
 
-            customer_name = order.customer_name.zem_name if order.customer_name else None
-            if not order.vessel_id:
-                message = f"柜号{container_number}的Order({order.id})缺少vessel_id（船期信息），无法查询报价"
-                if is_ajax:
-                    return JsonResponse({"success": False, "message": message}, status=400)
-                context = {"error_messages": message}
-                return await self.handle_td_shipment_post(request, context)
-            # 查找报价表
-            quotations = await self._get_fee_details(order, warehouse, customer_name)
-            if isinstance(quotations, dict) and quotations.get("error_messages"):
-                message = quotations["error_messages"]
-                if is_ajax:
-                    return JsonResponse({"success": False, "message": message}, status=400)
-                context = {"error_messages": message}
-                return await self.handle_td_shipment_post(request, context)
-            fee_details = quotations['fees']
-
-            is_combina = False
-            is_combina_reason = None
-            container = None
-            if order.order_type == "转运组合":
-                try:
-                    container = await sync_to_async(
-                        lambda: Container.objects.get(container_number=container_number)
-                    )()
-                except Container.DoesNotExist:
-                    message = f"柜号{container_number}在Container表中不存在，无法查询组合柜报价"
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
-                except Exception as e:
-                    message = f"获取柜号{container_number}的Container记录时出错: {str(e)}"
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
-                if not container:
-                    message = f"柜号{container_number}的Container记录为空，无法查询组合柜报价"
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
-                if container.manually_order_type == "转运组合":
-                    is_combina = True
-                elif container.manually_order_type == "转运":
-                    is_combina = False
-                else:
-                    combina_context, is_combina, is_combina_reason = await self._is_combina(
-                        container, order, warehouse
-                    )
-                    if (
-                            isinstance(combina_context, dict)
-                            and combina_context.get("error_messages")
-                    ):
-                        message = combina_context["error_messages"]
-                        if is_ajax:
-                            return JsonResponse({"success": False, "message": message}, status=400)
-                        context = {"error_messages": message}
-                        return await self.handle_td_shipment_post(request, context)
-
-            non_combina_table = True
-
-            if is_combina:
-                # 组合柜计算
-                combina_key = f"{warehouse}_COMBINA"
-                if combina_key not in fee_details:
-                    message = f"{warehouse}_COMBINA-{container_number}未找到组合柜报价表！"
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
-
-                rules = fee_details.get(combina_key).details
-
-                container_type = container.container_type or ''
-                if not container_type:
-                    message = f"柜号{container_number}的柜型为空，无法查询组合柜报价"
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
-                container_type_temp = 0 if "40" in container_type else 1
-                total_container_cbm = await sync_to_async(
-                    lambda: PackingList.objects
-                            .filter(container_number=container)
-                            .aggregate(
-                        total_cbm_sum=Round(
-                            Sum('cbm'),
-                            2,
-                            output_field=FloatField()
-                        )
-                    )['total_cbm_sum'] or 0.0
-                )()
-                cbm = float(po['total_cbm'])
-                temp_table = await self._process_combina_quote(po, cbm, float(total_container_cbm), rules,
-                                                               container_type_temp, warehouse,
-                                                               quotations.get("filename"))
-                if temp_table:
-                    non_combina_table = False
-                    quotation_table_data.append(temp_table)
-
-                rules = fee_details.get(combina_key).details
-
-            if non_combina_table:
-                # 不管符不符合转运，没按组合柜计到费，就按转运方式计算
-
-                public_key = f"{warehouse}_PUBLIC"
-                if public_key not in fee_details:
-                    message = f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
-
-                rules = fee_details.get(f"{warehouse}_PUBLIC").details
-                niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
-                if destination in niche_warehouse:
-                    is_niche_warehouse = True
-                else:
-                    is_niche_warehouse = False
-
-                # LA和其他的存储格式有点区别
-                details = (
-                    {"LA_AMAZON": rules}
-                    if "LA" in warehouse and "LA_AMAZON" not in rules
-                    else rules
-                )
-                delivery_category = None
-                rate_found = False
-                for category, zones in details.items():
-                    for zone, locations in zones.items():
-                        if destination in locations:
-                            if "AMAZON" in category:
-                                delivery_category = "amazon"
-                                rate = zone
-                                rate_found = True
-                            elif "WALMART" in category:
-                                delivery_category = "walmart"
-                                rate = zone
-                                rate_found = True
-                    if rate_found:
-                        break
-
-                if rate_found:
-                    # 找到报价
-                    rate = float(rate) if rate else 0.0
+                customer_name = order.customer_name.zem_name if order.customer_name else None
+                if not order.vessel_id:
                     quotation_table_data.append({
-                        'container_number': po['container_number__container_number'],
+                        'container_number': container_number or '-',
                         'order_type': order.order_type,
-                        'is_combina': is_combina,
-                        'is_combina_reason': is_combina_reason,
-                        'destination': destination,
-                        'cbm': po['total_cbm'],
-                        'total_pallets': po['total_pallets'],
-                        'rate': rate,
-                        'amount': rate * po['total_pallets'],
-                        'type': delivery_category,
-                        'region': None,
-                        'warehouse': warehouse,
-                        'is_niche_warehouse': is_niche_warehouse,
-                        'quotation_name': quotations['filename'],
-                    })
-                    quote_total += rate * po['total_pallets']
-                else:
-                    quotation_table_data.append({
-                        'container_number': po['container_number__container_number'],
-                        'order_type': order.order_type,
-                        'is_combina': is_combina,
-                        'is_combina_reason': is_combina_reason,
-                        'destination': destination,
+                        'is_combina': False,
+                        'is_combina_reason': None,
+                        'destination': destination or '-',
                         'cbm': po['total_cbm'],
                         'total_pallets': po['total_pallets'],
                         'rate': None,
                         'amount': None,
-                        'type': '未找到报价',
+                        'type': '查询失败',
                         'region': None,
                         'warehouse': warehouse,
                         'is_niche_warehouse': None,
-                        'quotation_name': quotations.get("filename"),
+                        'quotation_name': '-',
+                        'error_reason': f"柜号{container_number}的Order({order.id})缺少vessel_id（船期信息），无法查询报价",
                     })
+                    continue
+                quotations = await self._get_fee_details(order, warehouse, customer_name)
+                if isinstance(quotations, dict) and quotations.get("error_messages"):
+                    quotation_table_data.append({
+                        'container_number': container_number or '-',
+                        'order_type': order.order_type,
+                        'is_combina': False,
+                        'is_combina_reason': None,
+                        'destination': destination or '-',
+                        'cbm': po['total_cbm'],
+                        'total_pallets': po['total_pallets'],
+                        'rate': None,
+                        'amount': None,
+                        'type': '查询失败',
+                        'region': None,
+                        'warehouse': warehouse,
+                        'is_niche_warehouse': None,
+                        'quotation_name': '-',
+                        'error_reason': quotations["error_messages"],
+                    })
+                    continue
+                fee_details = quotations['fees']
+
+                is_combina = False
+                is_combina_reason = None
+                container = None
+                if order.order_type == "转运组合":
+                    try:
+                        container = await sync_to_async(
+                            lambda: Container.objects.get(container_number=container_number)
+                        )()
+                    except Container.DoesNotExist:
+                        quotation_table_data.append({
+                            'container_number': container_number or '-',
+                            'order_type': order.order_type,
+                            'is_combina': False,
+                            'is_combina_reason': None,
+                            'destination': destination or '-',
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '查询失败',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename", "-"),
+                            'error_reason': f"柜号{container_number}在Container表中不存在，无法查询组合柜报价",
+                        })
+                        continue
+                    except Exception as e:
+                        quotation_table_data.append({
+                            'container_number': container_number or '-',
+                            'order_type': order.order_type,
+                            'is_combina': False,
+                            'is_combina_reason': None,
+                            'destination': destination or '-',
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '查询失败',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename", "-"),
+                            'error_reason': f"获取柜号{container_number}的Container记录时出错: {str(e)}",
+                        })
+                        continue
+                    if not container:
+                        quotation_table_data.append({
+                            'container_number': container_number or '-',
+                            'order_type': order.order_type,
+                            'is_combina': False,
+                            'is_combina_reason': None,
+                            'destination': destination or '-',
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '查询失败',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename", "-"),
+                            'error_reason': f"柜号{container_number}的Container记录为空，无法查询组合柜报价",
+                        })
+                        continue
+                    if container.manually_order_type == "转运组合":
+                        is_combina = True
+                    elif container.manually_order_type == "转运":
+                        is_combina = False
+                    else:
+                        combina_context, is_combina, is_combina_reason = await self._is_combina(
+                            container, order, warehouse
+                        )
+                        if (
+                                isinstance(combina_context, dict)
+                                and combina_context.get("error_messages")
+                        ):
+                            quotation_table_data.append({
+                                'container_number': container_number or '-',
+                                'order_type': order.order_type,
+                                'is_combina': False,
+                                'is_combina_reason': None,
+                                'destination': destination or '-',
+                                'cbm': po['total_cbm'],
+                                'total_pallets': po['total_pallets'],
+                                'rate': None,
+                                'amount': None,
+                                'type': '查询失败',
+                                'region': None,
+                                'warehouse': warehouse,
+                                'is_niche_warehouse': None,
+                                'quotation_name': quotations.get("filename", "-"),
+                                'error_reason': combina_context["error_messages"],
+                            })
+                            continue
+
+                non_combina_table = True
+
+                if is_combina:
+                    combina_key = f"{warehouse}_COMBINA"
+                    if combina_key not in fee_details:
+                        quotation_table_data.append({
+                            'container_number': container_number or '-',
+                            'order_type': order.order_type,
+                            'is_combina': True,
+                            'is_combina_reason': is_combina_reason,
+                            'destination': destination or '-',
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '查询失败',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename", "-"),
+                            'error_reason': f"{warehouse}_COMBINA-{container_number}未找到组合柜报价表！",
+                        })
+                        continue
+
+                    rules = fee_details.get(combina_key).details
+
+                    container_type = container.container_type or ''
+                    if not container_type:
+                        quotation_table_data.append({
+                            'container_number': container_number or '-',
+                            'order_type': order.order_type,
+                            'is_combina': True,
+                            'is_combina_reason': is_combina_reason,
+                            'destination': destination or '-',
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '查询失败',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename", "-"),
+                            'error_reason': f"柜号{container_number}的柜型为空，无法查询组合柜报价",
+                        })
+                        continue
+                    container_type_temp = 0 if "40" in container_type else 1
+                    total_container_cbm = await sync_to_async(
+                        lambda: PackingList.objects
+                                .filter(container_number=container)
+                                .aggregate(
+                            total_cbm_sum=Round(
+                                Sum('cbm'),
+                                2,
+                                output_field=FloatField()
+                            )
+                        )['total_cbm_sum'] or 0.0
+                    )()
+                    cbm = float(po['total_cbm'])
+                    temp_table = await self._process_combina_quote(po, cbm, float(total_container_cbm), rules,
+                                                                   container_type_temp, warehouse,
+                                                                   quotations.get("filename"))
+                    if temp_table:
+                        non_combina_table = False
+                        temp_table['error_reason'] = None
+                        quotation_table_data.append(temp_table)
+
+                if non_combina_table:
+                    public_key = f"{warehouse}_PUBLIC"
+                    if public_key not in fee_details:
+                        quotation_table_data.append({
+                            'container_number': container_number or '-',
+                            'order_type': order.order_type,
+                            'is_combina': is_combina,
+                            'is_combina_reason': is_combina_reason,
+                            'destination': destination or '-',
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '查询失败',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename", "-"),
+                            'error_reason': f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！',
+                        })
+                        continue
+
+                    rules = fee_details.get(f"{warehouse}_PUBLIC").details
+                    niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+                    if destination in niche_warehouse:
+                        is_niche_warehouse = True
+                    else:
+                        is_niche_warehouse = False
+
+                    details = (
+                        {"LA_AMAZON": rules}
+                        if "LA" in warehouse and "LA_AMAZON" not in rules
+                        else rules
+                    )
+                    delivery_category = None
+                    rate_found = False
+                    for category, zones in details.items():
+                        for zone, locations in zones.items():
+                            if destination in locations:
+                                if "AMAZON" in category:
+                                    delivery_category = "amazon"
+                                    rate = zone
+                                    rate_found = True
+                                elif "WALMART" in category:
+                                    delivery_category = "walmart"
+                                    rate = zone
+                                    rate_found = True
+                        if rate_found:
+                            break
+
+                    if rate_found:
+                        rate = float(rate) if rate else 0.0
+                        quotation_table_data.append({
+                            'container_number': po['container_number__container_number'],
+                            'order_type': order.order_type,
+                            'is_combina': is_combina,
+                            'is_combina_reason': is_combina_reason,
+                            'destination': destination,
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': rate,
+                            'amount': rate * po['total_pallets'],
+                            'type': delivery_category,
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': is_niche_warehouse,
+                            'quotation_name': quotations['filename'],
+                            'error_reason': None,
+                        })
+                        quote_total += rate * po['total_pallets']
+                    else:
+                        quotation_table_data.append({
+                            'container_number': po['container_number__container_number'],
+                            'order_type': order.order_type,
+                            'is_combina': is_combina,
+                            'is_combina_reason': is_combina_reason,
+                            'destination': destination,
+                            'cbm': po['total_cbm'],
+                            'total_pallets': po['total_pallets'],
+                            'rate': None,
+                            'amount': None,
+                            'type': '未找到报价',
+                            'region': None,
+                            'warehouse': warehouse,
+                            'is_niche_warehouse': None,
+                            'quotation_name': quotations.get("filename"),
+                            'error_reason': f"仓点 {destination} 在报价表中未找到对应的报价",
+                        })
+
+            except Exception as e:
+                quotation_table_data.append({
+                    'container_number': po.get('container_number__container_number', '-') or '-',
+                    'order_type': '-',
+                    'is_combina': False,
+                    'is_combina_reason': None,
+                    'destination': po.get('destination', '-') or '-',
+                    'cbm': po.get('total_cbm', 0),
+                    'total_pallets': po.get('total_pallets', 0),
+                    'rate': None,
+                    'amount': None,
+                    'type': '查询失败',
+                    'region': None,
+                    'warehouse': '-',
+                    'is_niche_warehouse': None,
+                    'quotation_name': '-',
+                    'error_reason': f"程序异常: {str(e)}",
+                })
+                continue
 
         quotation_table_data = sorted(
             quotation_table_data,
