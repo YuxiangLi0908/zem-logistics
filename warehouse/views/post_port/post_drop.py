@@ -624,7 +624,7 @@ class PostDrop(View):
             details = await sync_to_async(list)(
                 DropshipShipmentDetail.objects
                 .filter(shipment=shipment)
-                .select_related('cargo')
+                .select_related('cargo', 'cargo__container')
             )
 
             shipment_data = {
@@ -648,9 +648,14 @@ class PostDrop(View):
                     .first
                 )()
 
+                container_number = ''
+                if cargo.container:
+                    container_number = cargo.container.container_number if cargo.container.container_number else ''
+
                 shipment_data['details'].append({
                     'cargo_id': cargo.id,
                     'detail_id': detail.id,
+                    'container_number': container_number,
                     'model': cargo.model or '',
                     'shipping_mark': cargo.shipping_mark or '',
                     'pcs': detail.pcs,
@@ -660,6 +665,9 @@ class PostDrop(View):
                     'inventory_after_pcs': inventory.after_pcs if inventory else 0,
                 })
 
+            if not details:
+                continue
+            
             shipment_data['models'] = ', '.join([m for m in models_set if m])
             shipment_data['shipping_marks'] = ', '.join([m for m in marks_set if m])
 
@@ -684,7 +692,7 @@ class PostDrop(View):
             details = await sync_to_async(list)(
                 DropshipShipmentDetail.objects
                 .filter(shipment=shipment)
-                .select_related('cargo')
+                .select_related('cargo', 'cargo__container')
             )
 
             shipment_data = {
@@ -1911,7 +1919,15 @@ class PostDrop(View):
         destination_for_batch = first_mark if first_mark else 'DROPSHIP'
 
         pn = PostNsop()
-        batch_number = await pn.generate_unique_batch_number(destination_for_batch)
+        max_retries = 10
+        batch_number = ''
+        for _ in range(max_retries):
+            batch_number = await pn.generate_unique_batch_number(destination_for_batch)
+            exists = await sync_to_async(
+                DropshipShipment.objects.filter(shipment_batch_number=batch_number).exists
+            )()
+            if not exists:
+                break
 
         total_pcs = sum(item.get('pcs', 0) for item in cargo_pcs_data)
 

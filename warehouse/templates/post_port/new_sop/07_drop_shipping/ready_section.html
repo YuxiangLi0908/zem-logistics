@@ -94,6 +94,7 @@
         <thead>
             <tr>
                 <th>预约批次号</th>
+                <th>柜号</th>
                 <th>商品型号</th>
                 <th>唛头</th>
                 <th>总件数</th>
@@ -103,10 +104,11 @@
             </tr>
             <tr class="search-row">
                 <td><input type="text" class="header-search" placeholder="搜索批次号" data-column="0"></td>
-                <td><input type="text" class="header-search" placeholder="搜索商品型号" data-column="1"></td>
-                <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="2"></td>
-                <td><input type="text" class="header-search" placeholder="搜索总件数" data-column="3"></td>
-                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="1"></td>
+                <td><input type="text" class="header-search" placeholder="搜索商品型号" data-column="2"></td>
+                <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索总件数" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="5"></td>
                 <td></td>
                 <td></td>
             </tr>
@@ -124,6 +126,7 @@
                         {% endif %}
                     </td>
                     {% endif %}
+                    <td>{{ detail.container_number|default:"-" }}</td>
                     <td>{{ detail.model }}</td>
                     <td class="markings-col">{{ detail.shipping_mark }}</td>
                     {% if forloop.first %}
@@ -159,7 +162,7 @@
                 {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; color:#aaa; padding: 40px;">暂无待出库批次</td>
+                    <td colspan="7" style="text-align:center; color:#aaa; padding: 40px;">暂无待出库批次</td>
                 </tr>
             {% endfor %}
         </tbody>
