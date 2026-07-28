@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import json
+import math
 import os
 import string
 import uuid
@@ -1878,17 +1879,9 @@ class Dropshipping(View):
             for pl in dropship_cargo:
                 delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
                 pcs = pl.get("pcs") or 0
+                pallet_cnt = math.ceil(pcs / 25.0)  # 向上取整算出板数，不满25件也要占1板
+                label_count = pallet_cnt * n_label  # 每板4张标签
 
-                remainder = pcs % 1
-                pcs = int(pcs)
-                if pcs % 2:
-                    pcs += pcs % 2
-                elif remainder:
-                    pcs += 2
-
-                pcs /= 25
-                pcs *= n_label
-                label_count = int(pcs)
                 if "pickup" in pl.get("model"):
                     model = "S/P"
                 else:

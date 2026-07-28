@@ -3,6 +3,7 @@ import base64
 import io
 import json
 import logging
+import math
 import random
 import re
 import string
@@ -2835,17 +2836,8 @@ class Palletization(View):
                 delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
                 if customer_name == "JINYU":
                     pcs = pl.get("pcs") or 0
-
-                    remainder = pcs % 1
-                    pcs = int(pcs)
-                    if pcs % 2:
-                        pcs += pcs % 2
-                    elif remainder:
-                        pcs += 2
-
-                    pcs /= 25
-                    pcs *= n_label
-                    label_count = int(pcs)
+                    pallet_cnt = math.ceil(pcs / 25.0)  # 向上取整算出板数，不满25件也要占1板
+                    label_count = pallet_cnt * n_label  # 每板4张标签
                 else:
                     cbm = pl.get("cbm")
                     remainder = cbm % 1
