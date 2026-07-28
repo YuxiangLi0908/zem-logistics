@@ -2,7 +2,7 @@ import base64
 import json
 import math
 from datetime import datetime, timedelta
-
+import io
 import barcode
 from barcode.writer import ImageWriter
 from django.template.loader import get_template
