@@ -502,6 +502,7 @@
                                 <th class="th" data-column="customer">客户</th>
                                 <th class="th" data-column="container">柜号</th>
                                 <th class="th" data-column="warehouse">仓库</th>
+                                <th class="th" data-column="inbound-days">入库时间</th>
                                 <th class="th" data-column="invoice-number">账单号</th>
                                 <th class="th" data-column="preport-fee">提拆费</th>
                                 <th class="th" data-column="wh-fee">库内费</th>
@@ -517,7 +518,10 @@
                                     <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'pending-table')">
                                 </th>
                                 <th class="th">
-                                    <input type="text" class="search-input" placeholder="搜索账单号..." oninput="filterTable(this, 3, 'pending-table')">
+                                    <input type="text" class="search-input" placeholder="搜索入库时间..." oninput="filterTable(this, 3, 'pending-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索账单号..." oninput="filterTable(this, 4, 'pending-table')">
                                 </th>
                                 <th class="th"></th>
                                 <th class="th"></th>
@@ -529,11 +533,19 @@
                                 <tr data-customer="{{ item.customer_name|default:''|lower }}"
                                     data-container="{{ item.container_number|default:''|lower }}"
                                     data-warehouse="{{ item.warehouse|default:''|lower }}"
+                                    data-inbound_days="{{ item.inbound_days|default:''|lower }}"
                                     data-invoice_number="{{ item.invoice_number|default:''|lower }}"
                                     {% if item.preport_status == 'rejected' or item.warehouse_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                     <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
                                     <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
                                     <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
+                                    <td class="td" data-column="inbound-days">
+                                        {% if item.inbound_days is not None %}
+                                            {{ item.inbound_days }}天
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
                                     <td class="td" data-column="invoice-number">{{ item.invoice_number|default:"-" }}</td>
                                     <td class="td" data-column="preport-fee">
                                         <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
@@ -571,7 +583,7 @@
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="6" class="empty-row">
+                                    <td colspan="7" class="empty-row">
                                         <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
                                         <p>暂无待录入订单</p>
                                     </td>
@@ -595,6 +607,7 @@
                                 <th class="th" data-column="customer">客户</th>
                                 <th class="th" data-column="container">柜号</th>
                                 <th class="th" data-column="warehouse">仓库</th>
+                                <th class="th" data-column="inbound-days">入库时间</th>
                                 <th class="th" data-column="invoice-number">账单号</th>
                                 <th class="th" data-column="preport-fee">提拆费</th>
                                 <th class="th" data-column="wh-fee">库内费</th>
@@ -611,7 +624,10 @@
                                     <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'recorded-table')">
                                 </th>
                                 <th class="th">
-                                    <input type="text" class="search-input" placeholder="搜索账单号..." oninput="filterTable(this, 3, 'recorded-table')">
+                                    <input type="text" class="search-input" placeholder="搜索入库时间..." oninput="filterTable(this, 3, 'recorded-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" class="search-input" placeholder="搜索账单号..." oninput="filterTable(this, 4, 'recorded-table')">
                                 </th>
                                 <th class="th"></th>
                                 <th class="th"></th>
@@ -630,11 +646,19 @@
                                 <tr data-customer="{{ item.customer_name|default:''|lower }}"
                                     data-container="{{ item.container_number|default:''|lower }}"
                                     data-warehouse="{{ item.warehouse|default:''|lower }}"
+                                    data-inbound_days="{{ item.inbound_days|default:''|lower }}"
                                     data-invoice_number="{{ item.invoice_number|default:''|lower }}"
                                     data-finance_status="{{ item.finance_status_value|default:'unconfirmed' }}">
                                     <td class="td" data-column="customer">{{ item.customer_name|default:"-" }}</td>
                                     <td class="td" data-column="container">{{ item.container_number|default:"-" }}</td>
                                     <td class="td" data-column="warehouse">{{ item.warehouse|default:"-" }}</td>
+                                    <td class="td" data-column="inbound-days">
+                                        {% if item.inbound_days is not None %}
+                                            {{ item.inbound_days }}天
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
                                     <td class="td" data-column="invoice-number">{{ item.invoice_number|default:"-" }}</td>
                                     <td class="td" data-column="preport-fee">
                                         <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
@@ -677,7 +701,7 @@
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="7" class="empty-row">
+                                    <td colspan="8" class="empty-row">
                                         <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
                                         <p>暂无已录入订单</p>
                                     </td>
@@ -708,14 +732,14 @@
 
     // 全局变量存储每个表格的筛选状态
     const tableFilters = {
-        'pending-table': { customer: '', container: '', warehouse: '', invoice_number: '' },
-        'recorded-table': { customer: '', container: '', warehouse: '', invoice_number: '', finance_status: '' }
+        'pending-table': { customer: '', container: '', warehouse: '', inbound_days: '', invoice_number: '' },
+        'recorded-table': { customer: '', container: '', warehouse: '', inbound_days: '', invoice_number: '', finance_status: '' }
     };
 
     // 列名映射
     const columnMaps = {
-        'pending-table': ['customer', 'container', 'warehouse', 'invoice_number', '', ''],
-        'recorded-table': ['customer', 'container', 'warehouse', 'invoice_number', '', '', 'finance_status']
+        'pending-table': ['customer', 'container', 'warehouse', 'inbound_days', 'invoice_number', '', ''],
+        'recorded-table': ['customer', 'container', 'warehouse', 'inbound_days', 'invoice_number', '', '', 'finance_status']
     };
 
     // 通用文本搜索函数

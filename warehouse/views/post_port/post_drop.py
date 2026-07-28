@@ -1125,6 +1125,33 @@ class PostDrop(View):
                 container_ids.add(order.container_number_id)
         container_ids = list(container_ids)
 
+        # --- 3.5 预计算入库天数 ---
+        container_inbound_days_map = {}
+        if container_ids:
+            inbound_data = await sync_to_async(
+                lambda: list(
+                    DropshipCargo.objects
+                    .filter(container_id__in=container_ids)
+                    .values('container_id')
+                    .annotate(
+                        first_unpack_date=Min(
+                            'dropshipinventory__transaction_date',
+                            filter=Q(dropshipinventory__transaction_type='unpack')
+                        )
+                    )
+                )
+            )()
+            today = datetime.now().date()
+            for row in inbound_data:
+                cid = row['container_id']
+                unpack_date = row['first_unpack_date']
+                if unpack_date:
+                    if isinstance(unpack_date, datetime):
+                        unpack_date = unpack_date.date()
+                    container_inbound_days_map[cid] = (today - unpack_date).days
+                else:
+                    container_inbound_days_map[cid] = None
+
         # --- 4. 批量获取 Invoice 和 InvoiceStatus ---
         status_prefetch = Prefetch(
             'invoicestatusv2_set',
@@ -1216,6 +1243,8 @@ class PostDrop(View):
                     'invoice_number': inv.invoice_number if inv else None,
                     'invoice_id': inv.id if inv else None,
                     'invoice_created_at': created_at,
+                    # 入库天数
+                    'inbound_days': container_inbound_days_map.get(order.container_number_id),
                     # 提拆费 / 库内费（来自账单 Invoicev2）
                     'preport_amount': inv.receivable_preport_amount if inv else None,
                     'wh_other_amount': inv.receivable_wh_other_amount if inv else None,
