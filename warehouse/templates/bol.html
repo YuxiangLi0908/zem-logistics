@@ -129,9 +129,9 @@
 
 <script>
     function filterTable() {
-        var shipmentInput = document.getElementById("shipmentSearchInput").value.toUpperCase();
-        var destInput = document.getElementById("destSearchInput").value.toUpperCase();
-        var appIdInput = document.getElementById("appIdSearchInput").value.toUpperCase();
+        var shipmentInput = document.getElementById("shipmentSearchInput").value.trim().toUpperCase();
+        var destInput = document.getElementById("destSearchInput").value.trim().toUpperCase();
+        var appIdInput = document.getElementById("appIdSearchInput").value.trim().toUpperCase();
         tr = document.querySelectorAll("#shipment-list-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
