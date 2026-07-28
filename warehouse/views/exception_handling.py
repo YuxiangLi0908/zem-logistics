@@ -4619,12 +4619,25 @@ class ExceptionHandling(View):
         try:
             # 根据查询类型构建查询条件
             if search_type == 'batch':
-                # 按批次号查询
-                shipment = await sync_to_async(
-                    lambda: Shipment.objects.select_related('fleet_number').get(shipment_batch_number=search_value)
+                # 按批次号查询（包含查询）
+                shipments = await sync_to_async(
+                    lambda: list(Shipment.objects.select_related('fleet_number').filter(shipment_batch_number__icontains=search_value))
                 )()
                 context['search_type'] = 'batch'
                 context['search_value'] = search_value
+                if not shipments:
+                    messages.error(request, f"未找到包含批次号 '{search_value}' 的相关数据")
+                    return self.template_post_port_status, context
+                context['shipments'] = shipments
+                context['search_batch_number'] = search_value
+                
+                # 计算每个shipment的状态和可用操作
+                valid_load_type_values = [v for k, v in LOAD_TYPE_OPTIONS]
+                for s in shipments:
+                    s.current_status = await self.get_shipment_status(s)
+                    s.status_display = await self.get_status_display_name(s.current_status)
+                    s.available_operations = await self.get_available_operations(s.current_status)
+                    s.is_load_type_valid = s.load_type in valid_load_type_values
             elif search_type == 'shipment_id':
                 shipment = await sync_to_async(
                     lambda: Shipment.objects.select_related('fleet_number').get(id=search_value)
@@ -4668,7 +4681,7 @@ class ExceptionHandling(View):
                 context['search_value'] = search_value
                 context['invoicestatus_object'] = invoicestatus_object
                 
-            if search_type != 'fleet' and search_type != 'invoicestatus':
+            if search_type != 'fleet' and search_type != 'invoicestatus' and search_type != 'batch':
                 # 将单个shipment对象放入列表中，保持前端模板的一致性
                 context['shipments'] = [shipment]
                 context['search_batch_number'] = search_value
@@ -4685,12 +4698,12 @@ class ExceptionHandling(View):
         except MultipleObjectsReturned:
             messages.error(request, f"找到多个匹配的记录，请核实查询条件：{search_value}")
         except ObjectDoesNotExist:
-            if search_type == 'batch':
-                messages.error(request, f"未找到批次号 '{search_value}' 的相关数据")
-            elif search_type == 'shipment_id':
+            if search_type == 'shipment_id':
                 messages.error(request, f"未找到id为 '{search_value}' 的预约批次数据")
-            else:
+            elif search_type == 'appointment':
                 messages.error(request, f"未找到预约号 '{search_value}' 的相关数据")
+            else:
+                messages.error(request, f"未找到 '{search_value}' 的相关数据")
         
         return self.template_post_port_status, context
     
