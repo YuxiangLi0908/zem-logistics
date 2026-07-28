@@ -4,6 +4,7 @@ import copy
 import csv
 import io
 import json
+import math
 import os
 import platform
 import re
@@ -4896,6 +4897,11 @@ class FleetManagement(View):
 
                 if pl.ref_id:
                     pl.ref_id = pl.ref_id.replace(",", "<br>").replace("/", "<br>")
+
+                if pl.cbm and pl.cbm > 0:
+                    pl.count = math.ceil(pl.cbm / 1.8)
+                else:
+                    pl.count = 0
         
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
@@ -5033,6 +5039,13 @@ class FleetManagement(View):
 
                 if pl.ref_id:
                     pl.ref_id = pl.ref_id.replace("/", "\n")
+
+                if pl.cbm and pl.cbm > 0:
+                    pl.count = math.ceil(pl.cbm / 1.8)
+                elif pl.n_pallet:
+                    pl.count = pl.n_pallet
+                else:
+                    pl.count = 0
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
             if warehouse
