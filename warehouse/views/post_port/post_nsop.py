@@ -9,6 +9,7 @@ import uuid
 import pytz
 import os
 import random
+import traceback
 import xml.etree.ElementTree as ET
 import platform
 import matplotlib.pyplot as plt
@@ -7605,6 +7606,12 @@ class PostNsop(View):
                         })
 
             except Exception as e:
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    last_frame = tb[-1]
+                    error_location = f"{last_frame.filename}:{last_frame.lineno} 行，代码: {last_frame.line.strip() if last_frame.line else '未知'}"
+                else:
+                    error_location = "未知位置"
                 quotation_table_data.append({
                     'container_number': po.get('container_number__container_number', '-') or '-',
                     'order_type': '-',
@@ -7620,7 +7627,7 @@ class PostNsop(View):
                     'warehouse': '-',
                     'is_niche_warehouse': None,
                     'quotation_name': '-',
-                    'error_reason': f"程序异常: {str(e)}",
+                    'error_reason': f"程序异常: {str(e)} | 位置: {error_location}",
                 })
                 continue
 
