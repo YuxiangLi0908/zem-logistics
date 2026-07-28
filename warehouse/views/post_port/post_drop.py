@@ -1010,12 +1010,11 @@ class PostDrop(View):
                     await sync_to_async(cargo.save)()
 
         shipment.status = 'pending'
-        shipment.total_pcs = 0
         shipment.shipped_at = None
         await sync_to_async(shipment.save)()
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
-        context.update({"success_messages": f'批次 {batch_number} 取消出库成功，已还原所有数据!'})
+        context.update({"success_messages": f'批次 {batch_number} 取消出库成功!'})
         return template, context
 
     async def handle_verify_ltl_cargo(
