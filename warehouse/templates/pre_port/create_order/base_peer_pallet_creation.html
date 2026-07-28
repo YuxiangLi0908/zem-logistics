@@ -473,6 +473,17 @@
                     </div>
                     
                     <div class="peer-form-group">
+                        <label for="container_type" class="peer-label">柜型</label>
+                        <select name="container_type" id="container_type" class="peer-form-control" required>
+                            <option value="">请选择柜型</option>
+                            <option value="45HQ/GP" {% if container_type == '45HQ/GP' %}selected{% endif %}>45HQ/GP</option>
+                            <option value="40HQ/GP" {% if container_type == '40HQ/GP' %}selected{% endif %}>40HQ/GP</option>
+                            <option value="20GP" {% if container_type == '20GP' %}selected{% endif %}>20GP</option>
+                            <option value="53HQ" {% if container_type == '53HQ' %}selected{% endif %}>53HQ</option>
+                        </select>
+                    </div>
+                    
+                    <div class="peer-form-group">
                         <label for="customer" class="peer-label">客户名</label>
                         <select name="customer_name" id="customer_select" class="peer-form-control" required>
                             <option value="">请选择客户</option>
@@ -483,11 +494,30 @@
                     </div>
                     
                     <div class="peer-form-group">
+                        <label for="order_type" class="peer-label">订单类型</label>
+                        <select name="order_type" id="order_type" class="peer-form-control" required>
+                            <option value="">请选择订单类型</option>
+                            <option value="转运" {% if order_type == '转运' %}selected{% endif %}>转运</option>
+                            <option value="直送" {% if order_type == '直送' %}selected{% endif %}>直送</option>
+                        </select>
+                    </div>
+                    
+                    <div class="peer-form-group">
                         <label for="warehouse" class="peer-label">仓库</label>
                         <select name="warehouse" id="warehouse" class="peer-form-control" required>
                             <option value="">请选择仓库</option>
                             {% for k, v in warehouse_options %}
                             <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="peer-form-group">
+                        <label for="retrieval_destination_precise" class="peer-label">入库仓库</label>
+                        <select name="retrieval_destination_precise" id="retrieval_destination_precise" class="peer-form-control" required>
+                            <option value="">请选择入库仓库</option>
+                            {% for k, v in warehouse_options %}
+                            <option value="{{ v }}" {% if retrieval_destination_precise == v %}selected{% endif %}>{{ k }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -644,9 +674,9 @@
         let firstInvalid = null;
 
         document.querySelectorAll('input, select').forEach(el => {
-            if (el.type === 'hidden' || el.type === 'date' || el.name === 'csrfmiddlewaretoken'  || el.type === 'file') return;
+                if (el.type === 'hidden' || el.type === 'date' || el.name === 'csrfmiddlewaretoken' || el.type === 'file') return;
 
-            if (!el.value.trim()) {
+                if (!el.value.trim()) {
                 isValid = false;
                 if (!firstInvalid) firstInvalid = el;
                 el.style.border = "2px solid red";
