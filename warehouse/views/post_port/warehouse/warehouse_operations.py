@@ -26,6 +26,7 @@ from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from sqlalchemy.sql.functions import current_time
 
 from warehouse.models.container import Container
+from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.models.export_unpacking_cabinets import ExportUnpackingCabinets
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
@@ -35,6 +36,7 @@ from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.views.dropshipping import Dropshipping
 from warehouse.views.export_file import export_palletization_list, export_palletization_list_v2
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
@@ -98,11 +100,34 @@ class WarehouseOperations(View):
             elif action_type == 'render':
                 template, context = await self.warehousing_operation_down_render(request)
                 return await sync_to_async(render)(request, template, context)
+        elif step == "export_palletization_list_dropshipping":
+            action_type = request.POST.get('action_type', 'export')
+            dp = Dropshipping()
+            # 1. 第一次请求：执行导出操作
+            if action_type == 'export':
+                response_down = await dp.export_palletization_list(request)
+                response_down['X-Action'] = 'export'
+                return response_down
+            elif action_type == 'new_export':
+                response_down = await dp.export_palletization_list_v2(request)
+                response_down['X-Action'] = 'new_export'
+                return response_down
+            # 2. 第二次请求：执行更新并返回页面
+            elif action_type == 'render':
+                template, context = await self.warehousing_operation_down_render(request)
+                return await sync_to_async(render)(request, template, context)
+
         elif step == "export_pallet_label":
             palletization_view = Palletization()
             return await palletization_view._export_pallet_label(request)
+        elif step == "export_pallet_label_dropshipping":
+            dp = Dropshipping()
+            return await dp._export_pallet_label(request)
         elif step == "update_warehouse":
             template, context = await self.warehousing_operation_update(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_warehouse_dropshipping":
+            template, context = await self.warehousing_operation_update_dropshipping(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "warehouse_daily_get":
             template, context = await self.warehousing_operation_post(request)
@@ -271,6 +296,10 @@ class WarehouseOperations(View):
                 .order_by("name")
                 .values_list("name", "name")
             ),
+            "delivery_types": [
+                ("转运", "转运"),
+                ("一件代发", "一件代发")
+            ]
         }
         return self.template_warehousing_operation, context
 
@@ -281,6 +310,7 @@ class WarehouseOperations(View):
         current_time = timezone.now()  # 改用带时区的当前时间，避免时区偏差
         future_four_days = current_time + timedelta(days=4)
         warehouse = request.POST.get("warehouse_filter", None)
+        delivery_type = request.POST.get("delivery_type_filter", None)
         ORDER_FILTER_CRITERIA = (
                 Q(
                     offload_id__offload_required=True,
@@ -290,6 +320,27 @@ class WarehouseOperations(View):
                         timezone.datetime(2025, 1, 1)
                     ),
                 )
+                & ~Q(order_type="一件代发")
+                & (
+                        Q(offload_id__offload_at__isnull=True)
+                        | Q(offload_id__offload_other_at__isnull=True)
+                )
+                & (
+                        Q(retrieval_id__temp_t49_available_for_pickup=True)
+                        | Q(vessel_id__vessel_eta__lte=future_four_days)
+                )
+        )
+
+        ORDER_FILTER_CRITERIA_DROPSHIPPING = (
+                Q(
+                    offload_id__offload_required=True,
+                    cancel_notification=False,
+                    warehouse__name=warehouse,
+                    created_at__gte=timezone.make_aware(
+                        timezone.datetime(2025, 1, 1)
+                    ),
+                )
+                & Q(order_type="一件代发")
                 & (
                         Q(offload_id__offload_at__isnull=True)
                         | Q(offload_id__offload_other_at__isnull=True)
@@ -417,8 +468,115 @@ class WarehouseOperations(View):
                 total_count += len(ret.filtered_orders)
             return retrieval, total_count
 
-        # 异步调用同步函数（原有逻辑保留）
-        retrieval, total_count = await sync_to_async(sync_get_retrieval_and_count)()
+        def sync_get_retrieval_and_count_dropshipping():
+            MAX_VALID_DATETIME = datetime(2050, 12, 31, 23, 59, 59)
+            # 【直接主查询 Order，不再从DropshipCargo往上找】
+            order_queryset = (
+                Order.objects.select_related(
+                    "customer_name",
+                    "container_number",
+                    "retrieval_id",
+                    "offload_id",
+                    "warehouse",
+                    "vessel_id"
+                )
+                .filter(ORDER_FILTER_CRITERIA_DROPSHIPPING)
+                .only(
+                    "container_number", "unpacking_priority",
+                    "offload_id", "customer_name__zem_code",
+                    "retrieval_id", "warehouse", "vessel_id"
+                )
+                .annotate(
+                    priority_order=Case(
+                        When(unpacking_priority="P1", then=Value(1)),
+                        When(unpacking_priority="P2", then=Value(2)),
+                        When(unpacking_priority="P3", then=Value(3)),
+                        When(unpacking_priority="P4", then=Value(4)),
+                        default=Value(5),
+                        output_field=IntegerField()
+                    ),
+                    timeout_threshold=Case(
+                        When(
+                            unpacking_priority__in=["P1", "P2", "P3"],
+                            then=F("retrieval_id__actual_retrieval_timestamp") + timedelta(hours=24)
+                        ),
+                        When(
+                            unpacking_priority="P4",
+                            then=F("retrieval_id__actual_retrieval_timestamp") + timedelta(hours=48)
+                        ),
+                        default=Value(timezone.make_aware(MAX_VALID_DATETIME)),
+                        output_field=DateTimeField()
+                    ),
+                    is_overtime_unpacked=Case(
+                        When(
+                            Q(timeout_threshold__lt=current_time) &
+                            ~Q(offload_id__unpacking_status__in=["1", "3", "4"]),
+                            then=Value(1)
+                        ),
+                        default=Value(0),
+                        output_field=IntegerField()
+                    )
+                )
+                .order_by("-is_overtime_unpacked", "priority_order")
+            )
+
+            retrieval = (
+                Offload.objects.prefetch_related(
+                    Prefetch(
+                        "order",
+                        queryset=order_queryset,
+                        to_attr="filtered_orders"
+                    )
+                )
+                .only(
+                    "arrival_location", "unpacking_status", "id"
+                )
+                .annotate(
+                    status_order=Case(
+                        When(unpacking_status="2", then=Value(1)),
+                        When(unpacking_status="0", then=Value(2)),
+                        When(unpacking_status="3", then=Value(3)),
+                        When(unpacking_status="1", then=Value(4)),
+                        When(unpacking_status="4", then=Value(5)),
+                        default=Value(6),
+                        output_field=IntegerField()
+                    ),
+                    has_overtime_order=Case(
+                        When(
+                            id__in=order_queryset.filter(is_overtime_unpacked=1).values_list("offload_id", flat=True),
+                            then=Value(1)
+                        ),
+                        default=Value(0),
+                        output_field=IntegerField()
+                    ),
+                    min_priority_order=Min(
+                        Case(
+                            When(order__unpacking_priority="P1", then=Value(1)),
+                            When(order__unpacking_priority="P2", then=Value(2)),
+                            When(order__unpacking_priority="P3", then=Value(3)),
+                            When(order__unpacking_priority="P4", then=Value(4)),
+                            default=Value(5),
+                            output_field=IntegerField()
+                        )
+                    )
+                )
+                .order_by(
+                    "-has_overtime_order",
+                    "status_order",
+                    "min_priority_order"
+                )
+            )
+
+            total_count = 0
+            for ret in retrieval:
+                total_count += len(ret.filtered_orders)
+            return retrieval, total_count
+
+        if delivery_type == "转运":
+            # 异步调用同步函数（原有逻辑保留）
+            retrieval, total_count = await sync_to_async(sync_get_retrieval_and_count)()
+        else:
+            retrieval, total_count = await sync_to_async(sync_get_retrieval_and_count_dropshipping)()
 
         context = {
             'retrieval': retrieval,
@@ -427,7 +585,12 @@ class WarehouseOperations(View):
                 .order_by("name")
                 .values_list("name", "name")
             ),
+            "delivery_types": [
+                ("转运", "转运"),
+                ("一件代发", "一件代发")
+            ],
             'warehouse': request.POST.get('warehouse_filter'),
+            'delivery_type': request.POST.get('delivery_type_filter'),
             'total_count': total_count,
             'current_time': current_time  # 传递当前时间到前端（可选，用于前端二次验证）
         }
@@ -441,7 +604,7 @@ class WarehouseOperations(View):
 
             # 1. 定义更新Retrieval表的同步函数
             def sync_update_single():
-                return Offload.objects.filter(offload_id=offload_id).update(
+                return Offload.objects.filter(id=offload_id).update(
                     arrival_location=arrival_location,
                     unpacking_status=unpacking_status
                 )
@@ -449,7 +612,55 @@ class WarehouseOperations(View):
             # 2. 定义更新Offload表的同步函数
             def sync_update_single_offload():
                 related_orders = Order.objects.filter(
-                    offload_id__offload_id=offload_id,
+                    offload_id=offload_id,
+                    offload_id__warehouse_unpacked_time__isnull=True
+                ).select_related('offload_id')
+
+                if related_orders.exists():
+                    current_time = timezone.now()
+                    updated_count = 0
+                    for order in related_orders:
+                        order.offload_id.warehouse_unpacked_time = current_time
+                        order.offload_id.save()
+                        updated_count += 1
+                    return updated_count  # 返回更新的记录数
+                return 0
+
+            # 3. 包装同步函数为异步函数
+            async_update = sync_to_async(sync_update_single, thread_sensitive=True)
+            # 关键：必须为sync_update_single_offload也创建异步包装
+            async_update_offload = sync_to_async(sync_update_single_offload, thread_sensitive=True)
+
+            # 4. 执行更新操作（通过包装后的异步函数）
+            affected_rows = await async_update()
+
+            # 5. 已拆柜状态时，执行Offload更新
+            if unpacking_status == "1" or unpacking_status == "2":
+                offload_affected = await async_update_offload()
+
+        except Exception as e:
+            self.logger.error(f"更新记录{offload_id}时发生错误：{str(e)}", exc_info=True)
+
+        template, context = await self.warehousing_operation_post(request)
+        return template, context
+
+    async def warehousing_operation_update_dropshipping(self, request: HttpRequest):
+        try:
+            offload_id = request.POST.get('offload_id', '').strip()
+            arrival_location = request.POST.get('arrival_location', '').strip()
+            unpacking_status = request.POST.get('unpacking_status', '').strip()
+
+            # 1. 定义更新Retrieval表的同步函数
+            def sync_update_single():
+                return Offload.objects.filter(id=offload_id).update(
+                    arrival_location=arrival_location,
+                    unpacking_status=unpacking_status
+                )
+
+            # 2. 定义更新Offload表的同步函数
+            def sync_update_single_offload():
+                related_orders = Order.objects.filter(
+                    offload_id=offload_id,
                     offload_id__warehouse_unpacked_time__isnull=True
                 ).select_related('offload_id')
 
