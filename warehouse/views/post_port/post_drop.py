@@ -614,7 +614,7 @@ class PostDrop(View):
 
         dropship_shipments = await sync_to_async(list)(
             DropshipShipment.objects
-            .filter(warehouse=warehouse_obj, shipped_at__isnull=True)
+            .filter(warehouse=warehouse_obj, shipped_at__isnull=True,status='pending')
             .select_related('warehouse')
             .order_by('-created_at')
         )
@@ -1846,9 +1846,6 @@ class PostDrop(View):
         
         cargo_pcs_data_json = request.POST.get('cargo_pcs_data', '[]').strip()
         shipment_appointment = request.POST.get('shipment_appointment', '').strip()
-        carrier = request.POST.get('carrier', '').strip()
-        arm_bol = request.POST.get('arm_bol', '').strip()
-        shipment_type = request.POST.get('shipment_type', '客户自提').strip()
         warehouse = request.POST.get('warehouse')
 
         if not shipment_appointment:
@@ -1906,17 +1903,12 @@ class PostDrop(View):
         if not warehouse_obj and cargos:
             warehouse_obj = cargos[0].warehouse
 
-        item_models = []
-        for item in cargo_pcs_data:
-            if 'cargo_id' in item:
-                try:
-                    cargo_id = int(item['cargo_id'])
-                    cargo = cargo_map.get(cargo_id)
-                    if cargo and cargo.model:
-                        item_models.append(cargo.model)
-                except (ValueError, TypeError):
-                    continue
-        destination_for_batch = '-'.join(item_models[:3]) if item_models else 'DROPSHIP'
+        first_mark = ''
+        if cargos and cargos[0].shipping_mark:
+            mark = cargos[0].shipping_mark
+            first_mark = mark[-4:] if len(mark) >= 4 else mark
+        
+        destination_for_batch = first_mark if first_mark else 'DROPSHIP'
 
         pn = PostNsop()
         batch_number = await pn.generate_unique_batch_number(destination_for_batch)
