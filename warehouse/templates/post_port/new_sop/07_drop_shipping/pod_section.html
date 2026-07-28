@@ -109,6 +109,20 @@
         text-align: center;
         vertical-align: middle !important;
     }
+    .cancel-outbound-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s;
+        width: 100%;
+    }
+    .cancel-outbound-btn:hover {
+        background: #c0392b;
+    }
 </style>
 
 <div class="table-container">
@@ -130,6 +144,7 @@
                 <th>唛头</th>
                 <th>总件数</th>
                 <th>上传POD</th>
+                <th>取消出库</th>
             </tr>
             <tr class="search-row">
                 <td></td>
@@ -137,6 +152,7 @@
                 <td><input type="text" class="header-search" placeholder="搜索商品型号" data-column="2"></td>
                 <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="3"></td>
                 <td><input type="text" class="header-search" placeholder="搜索总件数" data-column="4"></td>
+                <td></td>
                 <td></td>
             </tr>
         </thead>
@@ -178,12 +194,17 @@
                         </div>
                     </td>
                     {% endif %}
+                    {% if forloop.first %}
+                    <td rowspan="{{ detail_count }}" class="batch-cell" style="text-align:center; vertical-align: middle;">
+                        <button class="cancel-outbound-btn" onclick="cancelOutbound('{{ shipment.shipment_batch_number }}')">取消出库</button>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
                 {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; color:#aaa; padding: 40px;">暂无待传POD批次</td>
+                    <td colspan="7" style="text-align:center; color:#aaa; padding: 40px;">暂无待传POD批次</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -194,6 +215,13 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="batch_pod_upload">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+</form>
+
+<form method="post" id="cancelOutboundForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="cancel_outbound_after_confirm">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="shipment_batch_number" id="cancelOutboundBatchNumber">
 </form>
 
 <script>
@@ -350,5 +378,15 @@
         };
         
         xhr.send(formData);
+    }
+
+    function cancelOutbound(shipmentBatchNumber) {
+        if (!confirm('确定要取消该批次的出库操作吗？此操作将还原出库时的所有数据变更。')) {
+            return;
+        }
+
+        var form = document.getElementById('cancelOutboundForm');
+        document.getElementById('cancelOutboundBatchNumber').value = shipmentBatchNumber;
+        form.submit();
     }
 </script>
