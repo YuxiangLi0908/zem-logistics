@@ -7290,10 +7290,30 @@ class PostNsop(View):
 
             is_combina = False
             is_combina_reason = None
+            container = None
             if order.order_type == "转运组合":
-                container = await sync_to_async(
-                    lambda: Container.objects.get(container_number=container_number)
-                )()
+                try:
+                    container = await sync_to_async(
+                        lambda: Container.objects.get(container_number=container_number)
+                    )()
+                except Container.DoesNotExist:
+                    message = f"柜号{container_number}在Container表中不存在，无法查询组合柜报价"
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
+                    return await self.handle_td_shipment_post(request, context)
+                except Exception as e:
+                    message = f"获取柜号{container_number}的Container记录时出错: {str(e)}"
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
+                    return await self.handle_td_shipment_post(request, context)
+                if not container:
+                    message = f"柜号{container_number}的Container记录为空，无法查询组合柜报价"
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
+                    return await self.handle_td_shipment_post(request, context)
                 if container.manually_order_type == "转运组合":
                     is_combina = True
                 elif container.manually_order_type == "转运":
@@ -7326,7 +7346,14 @@ class PostNsop(View):
 
                 rules = fee_details.get(combina_key).details
 
-                container_type_temp = 0 if "40" in container.container_type else 1
+                container_type = container.container_type or ''
+                if not container_type:
+                    message = f"柜号{container_number}的柜型为空，无法查询组合柜报价"
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
+                    return await self.handle_td_shipment_post(request, context)
+                container_type_temp = 0 if "40" in container_type else 1
                 total_container_cbm = await sync_to_async(
                     lambda: PackingList.objects
                             .filter(container_number=container)
@@ -7596,7 +7623,8 @@ class PostNsop(View):
         plts["total_cbm"] = round(float(plts.get("total_cbm") or 0.0), 2)
         plts["total_weight"] = round(float(plts.get("total_weight") or 0.0), 2)
         if plts["total_cbm"] == 0.0:
-            raise ValueError(f"{container.container_number} total_cbm是0")
+            context.update({"error_messages": f"柜号{container.container_number}的total_cbm是0，无法计算组合柜"})
+            return context, None, None
         # 获取匹配的报价表
         matching_quotation = await sync_to_async(
             lambda: QuotationMaster.objects.filter(
@@ -7716,13 +7744,15 @@ class PostNsop(View):
 
         filtered_destinations = self._filter_ups_destinations(destinations)
         if combina_region_count + non_combina_region_count != len(filtered_destinations):
-            raise ValueError(
-                f"计算组合柜和非组合柜区域有误\n"
+            error_msg = (
+                f"柜号{container.container_number}计算组合柜和非组合柜区域有误\n"
                 f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
                 f"非组合柜目的地：{filtered_non_destinations}，数量：{non_combina_region_count}\n"
                 f"目的地集合：{filtered_destinations}\n"
                 f"目的地总数：{len(filtered_destinations)}"
             )
+            context.update({"error_messages": error_msg})
+            return context, None, None
         sum_region_count = non_combina_region_count + combina_region_count
         if sum_region_count > uncombina_threshold:
             # 当非组合柜的区域数量超出时，不能按转运组合
