@@ -1,7 +1,14 @@
+import base64
+import json
+import math
 from datetime import datetime, timedelta
+
+import barcode
+from barcode.writer import ImageWriter
+from django.template.loader import get_template
 from django.utils import timezone
 import pytz
-from typing import Any, Coroutine, Tuple
+from typing import Any, Coroutine, Tuple, io
 import os, re
 import aiohttp
 import cgi
@@ -20,10 +27,11 @@ from django.http import HttpRequest, HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import redirect, render
 from django.views import View
 from django.db.models import Sum, Count, F, FloatField, IntegerField, CharField, Value, Case, When
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Concat
 from django.db.models.functions import Coalesce
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from sqlalchemy.sql.functions import current_time
+from xhtml2pdf import pisa
 
 from warehouse.models.container import Container
 from warehouse.models.dropship_cargo import DropshipCargo
@@ -51,6 +59,8 @@ from warehouse.utils.constants import (
     SYSTEM_FOLDER,
     APP_ENV
 )
+from warehouse.views.pre_port.pre_port_dash import PrePortDash
+
 
 class WarehouseOperations(View):
     template_warehousing_operation = "post_port/warehouse_operations/01_warehousing_operation.html"
@@ -121,8 +131,7 @@ class WarehouseOperations(View):
             palletization_view = Palletization()
             return await palletization_view._export_pallet_label(request)
         elif step == "export_pallet_label_dropshipping":
-            dp = Dropshipping()
-            return await dp._export_pallet_label(request)
+            return await self._export_pallet_label(request)
         elif step == "update_warehouse":
             template, context = await self.warehousing_operation_update(request)
             return await sync_to_async(render)(request, template, context)
@@ -288,6 +297,254 @@ class WarehouseOperations(View):
             await async_update(offload_id)
         template, context = await self.warehousing_operation_post(request)
         return template, context
+
+    async def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
+        data = []
+        container_number = request.POST.get("container_number")
+        customerInfo = request.POST.get("customerInfo")
+
+        # ======================
+        # 内置：唛头自动截断（最多 3 行，多余省略）
+        # ======================
+        def truncate_marks(marks_str, max_lines=3, max_chars=80):
+            if not marks_str:
+                return marks_str
+            # 分离 TTT 后缀（保留不删）
+            ttt_part = ""
+            if "TTT" in marks_str:
+                idx = marks_str.index("TTT")
+                ttt_part = marks_str[idx:]
+                marks_str = marks_str[:idx]
+            # 按行切割
+            lines = [line.strip() for line in marks_str.split("\n") if line.strip()]
+            # 保留前 N 行
+            keep_lines = lines[:max_lines]
+            # 每行超长截断
+            final = []
+            for line in keep_lines:
+                if len(line) > max_chars:
+                    final.append(line[:max_chars] + "...")
+                else:
+                    final.append(line)
+            # 拼接回去
+            return "\n".join(final) + ttt_part
+
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            for row in customer_info:
+                if len(row) > 10:
+                    is_hold = row[10].strip()
+                else:
+                    is_hold = row[7].strip()
+                date_str = row[6].strip()
+                parts = date_str.split("-")
+                month_day = f"{parts[1]}-{parts[2]}"
+
+                model = f"{row[3].strip()}"
+                shipping_marks = row[1].strip()
+                new_marks = None
+
+                if "pickup" in model:
+                    model = "S/P"
+                    marks = row[1].strip()
+                    if marks:
+                        array = marks.split(",")
+                        if len(array) > 2:
+                            parts = []
+                            for i in range(0, len(array), 2):
+                                part = ",".join(array[i: i + 2])
+                                parts.append(part)
+                            new_marks = "\n".join(parts)
+                            newline_count = new_marks.count("\n") + 1
+                            new_marks = new_marks + "TTT" + str(newline_count)
+                        else:
+                            new_marks = shipping_marks + "TTT1"
+                elif is_hold == "是":
+                    new_marks = shipping_marks
+                else:
+                    model = model.replace("Walmart", "WMT-").replace("沃尔玛", "WMT-").replace("WALMART",
+                                                                                                           "WMT-")
+                    new_marks = None
+
+                # 生成后 强制截断唛头
+                if new_marks:
+                    new_marks = truncate_marks(new_marks)
+
+                for num in range(int(row[5])):
+                    num += 1
+                    # 生成条形码
+                    barcode_type = "code128"
+                    barcode_class = barcode.get_barcode_class(barcode_type)
+                    barcode_content = f"{row[0].strip()}|{model}-{num}"
+                    my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    buffer = io.BytesIO()
+                    my_barcode.write(buffer, options={"dpi": 300})
+                    buffer.seek(0)
+                    barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+
+                    new_data = {
+                        "container_number": row[0].strip(),
+                        "model": f"{model}-{num}",
+                        "date": month_day,
+                        "customer": row[1].strip(),
+                        "hold": (is_hold == "是"),
+                        "barcode": barcode_base64,
+                        "shipping_marks": new_marks,
+                    }
+                    if len(row) > 10:
+                        new_data.update({
+                            "has_delivery_window": True,
+                        })
+                    else:
+                        new_data.update({
+                            "has_delivery_window": False,
+                        })
+                    for i in range(4):
+                        data.append(new_data)
+        else:
+            customer_name = request.POST.get("customer_name")
+            n_label = int(request.POST.get("n_label", 4))
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=container_number
+            )
+            retrieval_date = retrieval.target_retrieval_timestamp
+            retrieval_destination_area = retrieval.retrieval_destination_area
+            # 转换成当地时间
+            preportdash = PrePortDash()
+            retrieval_date = preportdash._convert_utc_to_local(retrieval_date, retrieval_destination_area)
+            if retrieval_date:
+                # 如果是字符串，先转成 datetime
+                if isinstance(retrieval_date, str):
+                    retrieval_date = datetime.strptime(retrieval_date, "%Y-%m-%d %H:%M:%S")
+                # 现在一定是 datetime，直接格式化
+                retrieval_date = retrieval_date.strftime("%m/%d")
+            else:
+                # 空值，取当前时间
+                retrieval_date = datetime.now().strftime("%m/%d")
+            dropship_cargo = await self._get_packing_list(
+                container_number=container_number
+            )
+            for pl in dropship_cargo:
+                delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
+                pcs = pl.get("pcs") or 0
+                pallet_cnt = math.ceil(pcs / 25.0)  # 向上取整算出板数，不满25件也要占1板
+                label_count = pallet_cnt * n_label  # 每板4张标签
+
+                if "pickup" in pl.get("model"):
+                    model = "S/P"
+                else:
+                    model = pl.get("model")
+                marks = pl.get("shipping_marks") or pl.get("shipping_mark")
+                new_marks = None
+                if marks:
+                    array = marks.split(",")
+                    if len(array) > 2:
+                        parts = []
+                        for i in range(0, len(array), 2):
+                            part = ",".join(array[i: i + 2])
+                            parts.append(part)
+                        new_marks = "\n".join(parts)
+                        newline_count = new_marks.count("\n") + 1
+                        new_marks = new_marks + "TTT" + str(newline_count)
+                    else:
+                        new_marks = marks + "TTT1"
+
+
+                # 生成后 强制截断唛头
+                if new_marks:
+                    new_marks = truncate_marks(new_marks)
+
+
+                for num in range(label_count):
+                    i = num // n_label + 1
+                    barcode_type = "code128"
+                    barcode_class = barcode.get_barcode_class(barcode_type)
+                    model = model.replace('\xa0', ' ')
+                    barcode_content = f"{pl.get('container_number__container_number')}|{model}-{i}"
+                    try:
+                        my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    except:
+                        barcode_content = barcode_content.encode("ascii", "ignore").decode()
+                        my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    buffer = io.BytesIO()
+                    my_barcode.write(buffer, options={"dpi": 300})
+                    buffer.seek(0)
+                    barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+
+                    new_data = {
+                        "container_number": pl.get("container__container_number"),
+                        "model": f"{model}-{i}",
+                        "date": retrieval_date,
+                        "customer": customer_name,
+                        "hold": ("暂扣留仓" in delivery_method.split("-")[0]),
+                        "barcode": barcode_base64,
+                        "shipping_marks": new_marks,
+                        "pcs": pl.get("pcs"),
+                    }
+                    data.append(new_data)
+
+        context = {"data": data}
+        template = get_template(self.template_pallet_label)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="pallet_label_{container_number}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            raise ValueError(
+                "Error during PDF generation: %s" % pisa_status.err,
+                content_type="text/plain",
+            )
+        return response
+
+    async def _get_packing_list(
+        self, container_number: str
+    ) -> DropshipCargo:
+        return await sync_to_async(list)(
+            DropshipCargo.objects.select_related("container", "order")
+            .filter(container__container_number=container_number)
+            .annotate(
+                custom_delivery_method=Case(
+                    When(
+                        Q(delivery_method="pickup") | Q(model="pickup"),
+                        then=Concat(
+                            "delivery_method",
+                            Value("-"),
+                            "model",
+                            Value("-"),
+                            "shipping_mark",
+                        ),
+                    ),
+                    default=F("delivery_method"),
+                    output_field=CharField(),
+                ),
+                str_id=Cast("id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField()),
+            )
+            .values(
+                "container__container_number",
+                "product_name",
+                "model",
+                "address",
+                "custom_delivery_method",
+                "note",
+                "PO_ID",
+                "delivery_type",
+            )
+                .annotate(
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark", delimiter=",", distinct=True
+                    ),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True),
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Sum("pallets", output_field=IntegerField()),
+                    weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                )
+                .order_by("-cbm")
+            )
 
     async def warehousing_operation_get(self, request: HttpRequest):
         context = {
@@ -621,6 +878,7 @@ class WarehouseOperations(View):
                     updated_count = 0
                     for order in related_orders:
                         order.offload_id.warehouse_unpacked_time = current_time
+                        order.offload_id.unpacking_status = unpacking_status
                         order.offload_id.save()
                         updated_count += 1
                     return updated_count  # 返回更新的记录数
@@ -669,6 +927,7 @@ class WarehouseOperations(View):
                     updated_count = 0
                     for order in related_orders:
                         order.offload_id.warehouse_unpacked_time = current_time
+                        order.offload_id.unpacking_status = unpacking_status
                         order.offload_id.save()
                         updated_count += 1
                     return updated_count  # 返回更新的记录数
