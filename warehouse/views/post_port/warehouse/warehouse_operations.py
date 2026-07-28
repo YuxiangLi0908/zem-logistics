@@ -8,7 +8,7 @@ from barcode.writer import ImageWriter
 from django.template.loader import get_template
 from django.utils import timezone
 import pytz
-from typing import Any, Coroutine, Tuple, io
+from typing import Any, Coroutine, Tuple
 import os, re
 import aiohttp
 import cgi
