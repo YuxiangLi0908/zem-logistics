@@ -67,6 +67,7 @@ class WarehouseOperations(View):
     template_upcoming_fleet = "post_port/warehouse_operations/03_upcoming_fleet.html"
     template_upcoming_fleet_ltl = "post_port/warehouse_operations/04_upcoming_fleet_ltl.html"
     template_counting_pallet = "post_port/warehouse_operations/02_counting_pallet.html"
+    template_pallet_label = "export_file/pallet_label_template.html"
 
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
