@@ -298,6 +298,10 @@ class PostDrop(View):
             # 取消预约
             template, context = await self.handle_cancel_shipment(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "cancel_outbound_after_confirm":
+            # 取消已出库批次
+            template, context = await self.handle_cancel_shipment_after_confirm(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             raise ValueError('wrong step',step)
         
@@ -946,6 +950,72 @@ class PostDrop(View):
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
         context.update({"success_messages": f'批次 {batch_number} 取消预约成功!'})
+        return template, context
+
+    async def handle_cancel_shipment_after_confirm(
+            self, request: HttpRequest, context: dict | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        '''取消已出库批次 - 还原确认出库时的所有操作'''
+        if not context:
+            context = {}
+
+        batch_number = request.POST.get('shipment_batch_number')
+        if not batch_number:
+            context.update({'error_messages': '预约批次号未获取到!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        shipment = await sync_to_async(DropshipShipment.objects.filter(shipment_batch_number=batch_number).first)()
+        if not shipment:
+            context.update({'error_messages': '未找到该预约批次!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        if shipment.status != 'shipped':
+            context.update({'error_messages': f'该批次当前状态为 "{dict(shipment.STATUS_CHOICES).get(shipment.status, shipment.status)}"，无法取消出库!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        if shipment.pod_uploaded_at:
+            context.update({'error_messages': '该批次已上传POD，无法取消出库!'})
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        details = await sync_to_async(list)(
+            DropshipShipmentDetail.objects.filter(shipment=shipment).select_related('cargo')
+        )
+
+        for detail in details:
+            cargo = detail.cargo
+
+            inventory = await sync_to_async(
+                DropshipInventory.objects
+                .filter(cargo=cargo, transaction_type='pick', shipment_detail=detail)
+                .first
+            )()
+
+            if inventory:
+                restored_pcs = inventory.after_pcs
+                if cargo.pcs != restored_pcs:
+                    cargo.pcs = restored_pcs
+                    await sync_to_async(cargo.save)()
+
+                if cargo.status == 'all_out':
+                    cargo.status = 'in_stock'
+                    await sync_to_async(cargo.save)()
+
+                inventory.is_verify = False
+                inventory.verfiy_pcs_change = 0
+                inventory.verify_pcs = inventory.after_pcs
+                await sync_to_async(inventory.save)()
+            else:
+                if cargo.status == 'all_out':
+                    cargo.status = 'in_stock'
+                    await sync_to_async(cargo.save)()
+
+        shipment.status = 'pending'
+        shipment.total_pcs = 0
+        shipment.shipped_at = None
+        await sync_to_async(shipment.save)()
+
+        template, context = await self.handle_ltl_unscheduled_pos_post(request)
+        context.update({"success_messages": f'批次 {batch_number} 取消出库成功，已还原所有数据!'})
         return template, context
 
     async def handle_verify_ltl_cargo(
