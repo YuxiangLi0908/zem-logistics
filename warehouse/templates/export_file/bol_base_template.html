@@ -208,7 +208,7 @@
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.ref_id|safe }}</td>
                         <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.pcs }}</td>
                         {% if is_NJ_private %}
-                        <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ pallet_count }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.count }}</td>
                         {% endif %}
                     </tr>
                 {% endfor %}

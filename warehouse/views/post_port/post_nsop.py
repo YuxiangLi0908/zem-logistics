@@ -7768,6 +7768,9 @@ class PostNsop(View):
         customer_name = order.customer_name.zem_name
         vessel_etd = order.vessel_id.vessel_etd
         container_type = container.container_type
+        if not container_type:
+            context.update({"error_messages": f"柜号{container.container_number}的柜型为空，无法判断是否组合柜"})
+            return context, None, None
         has_pallet = True
         #  基础数据统计
         plts = await sync_to_async(
@@ -13640,6 +13643,8 @@ class PostNsop(View):
         fee_details = quotations['fees']
 
         warehouse = order.retrieval_id.retrieval_destination_area
+        if not container.container_type:
+            return {"error_messages": f"柜号{container.container_number}的柜型为空，无法查询私仓组合柜报价"}
         container_type_temp = 0 if "40" in container.container_type else 1
         combina_key = f"{warehouse}_COMBINA"
         if combina_key not in fee_details:
