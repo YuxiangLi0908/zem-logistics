@@ -260,8 +260,6 @@ class QuoteManagement(View):
         preport_result = {}
         warehouse_result = {}
 
-        print(f"dropship sheet: shape={df.shape}, columns={list(df.columns)}")
-
         current_fee_type = ""
         current_formula = ""
 
