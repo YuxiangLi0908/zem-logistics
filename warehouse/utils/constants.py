@@ -270,6 +270,32 @@ PALLET_TABLE_MAPPING = {
     "联系人": "contact_name",
 }
 
+FLEET_TABLE_MAPPING = {
+    "车次号": "fleet_number",
+    "内部编号": "fleet_zem_serial",
+    "AMF": "amf_id",
+    "车次类型": "fleet_type",
+    "始发地": "origin",
+    "承运商": "carrier",
+    "供应商": "Supplier",
+    "车牌": "license_plate",
+    "司机手机": "driver_phone",
+    "司机姓名": "driver_name",
+    "挂车号": "trailer_number",
+    "仓库状态": "warehouse_process_status",
+    "预约时间": "appointment_datetime",
+    "发车时间": "departured_at",
+    "到达时间": "arrived_at",
+    "总重量": "total_weight",
+    "总体积": "total_cbm",
+    "总板数": "total_pallet",
+    "总件数": "total_pcs",
+    "备注": "note",
+    "是否取消": "is_canceled",
+    "状态": "status",
+    "派送类型": "delivery_type",
+}
+
 INVOICE_PREPORT_TABLE_MAPPING = {
     "提拆/打托缠膜": "pickup",
     "托架费": "chassis",
@@ -584,6 +610,17 @@ MODEL_CHOICES = {
         "warehouse": None,
         "station_field": ["shipment_batch_number"],
         "mapping": {},
+        "transfer_table": None,
+    },
+    "fleet": {
+        "model": "HistoricalFleet",
+        "name": "车次信息",
+        "search_field": "fleet_number",
+        "search_process": "fleet_number",
+        "has_foreignKey": False,
+        "warehouse": None,
+        "station_field": ["fleet_number"],
+        "mapping": FLEET_TABLE_MAPPING,
         "transfer_table": None,
     },
 }
