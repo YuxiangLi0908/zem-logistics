@@ -126,12 +126,6 @@
                         <option value="{{v}}" {% if warehouse == v %}selected{% endif %}>{{d}}</option>
                     {% endfor %}
                 </select>
-                <label>选择派送类型:</label>
-                <select name="delivery_type_filter">
-                    {% for v, d in delivery_types %}
-                        <option value="{{v}}" {% if delivery_type == v %}selected{% endif %}>{{d}}</option>
-                    {% endfor %}
-                </select>
                 <button type="submit"><i class="fas fa-check"></i>确认</button>
             </form>
         </div>
@@ -178,76 +172,77 @@
                 </tr>
                 </thead>
                 <tbody id="table-body" class="divide-y divide-gray-200">
-                {% if delivery_type == "转运" %}
-                    {% for ret in retrieval %}
-                        {% for order in ret.filtered_orders %}
-                            {% with rid="ret_"|add:ret.id|stringformat:"i" %}
-                                <tr class="cell-transition hover:bg-accent {% if order.is_overtime_unpacked %}bg-red-50 text-red-700 font-medium{% endif %}"
-                                    data-container="{{ order.container_number|default:''|upper }}"
-                                    data-location="{{ ret.arrival_location|default:''|upper }}">
 
-                                    <td>{{ order.container_number|default:"-" }}</td>
+                {% for ret in retrieval %}
+                    {% for order in ret.filtered_orders %}
+                        {% with rid="ret_"|add:ret.id|stringformat:"i" %}
+                            <tr class="cell-transition hover:bg-accent {% if order.is_overtime_unpacked %}bg-red-50 text-red-700 font-medium{% endif %}"
+                                data-container="{{ order.container_number|default:''|upper }}"
+                                data-location="{{ ret.arrival_location|default:''|upper }}">
 
-                                    <td>
-                                        {% with p=order.unpacking_priority|default:"P4" %}
-                                            {% if p == "P1" %}
-                                                <span class="compact-tag bg-red-50 text-red-700"><i
-                                                        class="bi bi-exclamation-circle mr-1"></i>P1</span>
-                                            {% elif p == "P2" %}
-                                                <span class="compact-tag bg-yellow-50 text-yellow-700"><i
-                                                        class="bi bi-info-circle mr-1"></i>P2</span>
-                                            {% elif p == "P3" %}
-                                                <span class="compact-tag bg-green-50 text-green-700"><i
-                                                        class="bi bi-check-circle-fill mr-1"></i>P3</span>
-                                            {% else %}
-                                                <span class="compact-tag bg-gray-50 text-gray-600"><i
-                                                        class="bi bi-dash-circle mr-1"></i>P4</span>
-                                            {% endif %}
-                                        {% endwith %}
-                                    </td>
+                                <td>{{ order.container_number|default:"-" }}</td>
 
-                                    <td class="fixed-width-cell">
-                                        {% if order.offload_id.unpacking_status != "1" %}
-                                            <input type="text" id="loc_{{ rid }}"
-                                                   value="{{ ret.arrival_location|default:''|upper }}"
-                                                   oninput="this.value=this.value.toUpperCase();this.closest('tr').dataset.location=this.value"
-                                                   style="width:100%;padding:5px;font-size:13px;">
+                                <td>
+                                    {% with p=order.unpacking_priority|default:"P4" %}
+                                        {% if p == "P1" %}
+                                            <span class="compact-tag bg-red-50 text-red-700"><i
+                                                    class="bi bi-exclamation-circle mr-1"></i>P1</span>
+                                        {% elif p == "P2" %}
+                                            <span class="compact-tag bg-yellow-50 text-yellow-700"><i
+                                                    class="bi bi-info-circle mr-1"></i>P2</span>
+                                        {% elif p == "P3" %}
+                                            <span class="compact-tag bg-green-50 text-green-700"><i
+                                                    class="bi bi-check-circle-fill mr-1"></i>P3</span>
                                         {% else %}
-                                            <span class="text-gray-500 text-sm">{{ ret.arrival_location|upper|default:"-" }}</span>
+                                            <span class="compact-tag bg-gray-50 text-gray-600"><i
+                                                    class="bi bi-dash-circle mr-1"></i>P4</span>
                                         {% endif %}
-                                    </td>
+                                    {% endwith %}
+                                </td>
 
-                                    <td>
-                                        <div class="flex flex-wrap gap-1 items-center w-full"
-                                             id="status_group_row_{{ order.id }}">
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-gray-50 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="0"
-                                                       {% if order.offload_id.unpacking_status == "0" %}checked{% endif %}>未拆
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-blue-50 text-blue-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="2"
-                                                       {% if order.offload_id.unpacking_status == "2" %}checked{% endif %}>拆中
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-green-50 text-green-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="1"
-                                                       {% if order.offload_id.unpacking_status == "1" %}checked{% endif %}>已拆
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-purple-50 text-purple-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="3"
-                                                       {% if order.offload_id.unpacking_status == "3" %}checked{% endif %}>到仓
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-orange-50 text-orange-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="4"
-                                                       {% if order.offload_id.unpacking_status == "4" %}checked{% endif %}>报空
-                                            </label>
-                                        </div>
-                                    </td>
+                                <td class="fixed-width-cell">
+                                    {% if order.offload_id.unpacking_status != "1" %}
+                                        <input type="text" id="loc_{{ rid }}"
+                                               value="{{ ret.arrival_location|default:''|upper }}"
+                                               oninput="this.value=this.value.toUpperCase();this.closest('tr').dataset.location=this.value"
+                                               style="width:100%;padding:5px;font-size:13px;">
+                                    {% else %}
+                                        <span class="text-gray-500 text-sm">{{ ret.arrival_location|upper|default:"-" }}</span>
+                                    {% endif %}
+                                </td>
 
-                                    <td>{{ order.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                    <td>{{ order.retrieval_id.actual_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                    <td>{{ order.offload_id.warehouse_unpacking_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                    <td>{{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                                <td>
+                                    <div class="flex flex-wrap gap-1 items-center w-full"
+                                         id="status_group_row_{{ order.id }}">
+                                        <label class="inline-flex items-center px-1.5 py-1 bg-gray-50 rounded text-xs cursor-pointer whitespace-nowrap">
+                                            <input type="radio" name="unpacking_status_row_{{ order.id }}" value="0"
+                                                   {% if order.offload_id.unpacking_status == "0" %}checked{% endif %}>未拆
+                                        </label>
+                                        <label class="inline-flex items-center px-1.5 py-1 bg-blue-50 text-blue-700 rounded text-xs cursor-pointer whitespace-nowrap">
+                                            <input type="radio" name="unpacking_status_row_{{ order.id }}" value="2"
+                                                   {% if order.offload_id.unpacking_status == "2" %}checked{% endif %}>拆中
+                                        </label>
+                                        <label class="inline-flex items-center px-1.5 py-1 bg-green-50 text-green-700 rounded text-xs cursor-pointer whitespace-nowrap">
+                                            <input type="radio" name="unpacking_status_row_{{ order.id }}" value="1"
+                                                   {% if order.offload_id.unpacking_status == "1" %}checked{% endif %}>已拆
+                                        </label>
+                                        <label class="inline-flex items-center px-1.5 py-1 bg-purple-50 text-purple-700 rounded text-xs cursor-pointer whitespace-nowrap">
+                                            <input type="radio" name="unpacking_status_row_{{ order.id }}" value="3"
+                                                   {% if order.offload_id.unpacking_status == "3" %}checked{% endif %}>到仓
+                                        </label>
+                                        <label class="inline-flex items-center px-1.5 py-1 bg-orange-50 text-orange-700 rounded text-xs cursor-pointer whitespace-nowrap">
+                                            <input type="radio" name="unpacking_status_row_{{ order.id }}" value="4"
+                                                   {% if order.offload_id.unpacking_status == "4" %}checked{% endif %}>报空
+                                        </label>
+                                    </div>
+                                </td>
 
+                                <td>{{ order.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                                <td>{{ order.retrieval_id.actual_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                                <td>{{ order.offload_id.warehouse_unpacking_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                                <td>{{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
+
+                                {% if order.order_type != "一件代发" %}
                                     <!-- 导出：一行紧凑 -->
                                     <td>
                                         <div class="flex flex-nowrap gap-1 items-center">
@@ -316,122 +311,7 @@
                                             </form>
                                         </div>
                                     </td>
-
-                                    <!-- 更新按钮 -->
-                                    <td>
-                                        <form method="post" class="update-single-form" data-record-id="{{ rid }}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="step" value="update_warehouse">
-                                            <input type="hidden" name="offload_id" value="{{ ret.id }}">
-                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="delivery_type_filter" value="{{ delivery_type }}">
-                                            <input type="hidden" name="arrival_location"
-                                                   id="arrival_location_hidden_{{ rid }}">
-                                            <input type="hidden" name="unpacking_status"
-                                                   id="unpacking_status_hidden_{{ rid }}">
-                                            <button type="submit"
-                                                    class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100">
-                                                保存
-                                            </button>
-                                        </form>
-                                    </td>
-
-                                    <!-- 回传列 -->
-                                    <td>
-                                        <form method="post" enctype="multipart/form-data" class="flex flex-col gap-1">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="step" value="warehousing_complete_loading">
-                                            <input type="hidden" name="offload_id" value="{{ ret.id }}">
-                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="delivery_type_filter" value="{{ delivery_type }}">
-                                            <input type="file" name="receipt_image" class="text-xs w-full">
-                                            <input type="text" name="offload_note"
-                                                   value="{{ ret.offload_id.offload_note }}" placeholder="备注"
-                                                   class="text-xs p-1">
-                                            <button type="submit"
-                                                    class="text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded border hover:bg-gray-100">
-                                                提交
-                                            </button>
-                                        </form>
-                                    </td>
-
-                                    <td class="text-xs">{{ order.offload_id.offload_note|default:"-" }}</td>
-                                    <td class="text-xs">{{ order.offload_id.uploaded_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                </tr>
-                            {% endwith %}
-                        {% endfor %}
-                    {% endfor %}
-                {% else %}
-                    {# ======== 一件代发分支：循环 cargo（DropshipCargo） ======== #}
-                    {% for ret in retrieval %}
-                        {% for order in ret.filtered_orders %}
-                            {% with rid="ret_"|add:ret.id|stringformat:"i" %}
-                                <tr class="cell-transition hover:bg-accent {% if order.is_overtime_unpacked %}bg-red-50 text-red-700 font-medium{% endif %}"
-                                    data-container="{{ order.container_number.container_number|default:''|upper }}"
-                                    data-location="{{ ret.arrival_location|default:''|upper }}">
-
-                                    <td>{{ order.container_number.container_number|default:"-" }}</td>
-
-                                    <td>
-                                        {% with p=order.unpacking_priority|default:"P4" %}
-                                            {% if p == "P1" %}
-                                                <span class="compact-tag bg-red-50 text-red-700"><i
-                                                        class="bi bi-exclamation-circle mr-1"></i>P1</span>
-                                            {% elif p == "P2" %}
-                                                <span class="compact-tag bg-yellow-50 text-yellow-700"><i
-                                                        class="bi bi-info-circle mr-1"></i>P2</span>
-                                            {% elif p == "P3" %}
-                                                <span class="compact-tag bg-green-50 text-green-700"><i
-                                                        class="bi bi-check-circle-fill mr-1"></i>P3</span>
-                                            {% else %}
-                                                <span class="compact-tag bg-gray-50 text-gray-600"><i
-                                                        class="bi bi-dash-circle mr-1"></i>P4</span>
-                                            {% endif %}
-                                        {% endwith %}
-                                    </td>
-
-                                    <td class="fixed-width-cell">
-                                        {% if order.offload_id.unpacking_status != "1" %}
-                                            <input type="text" id="loc_{{ rid }}"
-                                                   value="{{ ret.arrival_location|default:''|upper }}"
-                                                   oninput="this.value=this.value.toUpperCase();this.closest('tr').dataset.location=this.value"
-                                                   style="width:100%;padding:5px;font-size:13px;">
-                                        {% else %}
-                                            <span class="text-gray-500 text-sm">{{ ret.arrival_location|upper|default:"-" }}</span>
-                                        {% endif %}
-                                    </td>
-
-                                    <td>
-                                        <div class="flex flex-wrap gap-1 items-center w-full"
-                                             id="status_group_row_{{ order.id }}">
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-gray-50 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="0"
-                                                       {% if order.offload_id.unpacking_status == "0" %}checked{% endif %}>未拆
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-blue-50 text-blue-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="2"
-                                                       {% if order.offload_id.unpacking_status == "2" %}checked{% endif %}>拆中
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-green-50 text-green-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="1"
-                                                       {% if order.offload_id.unpacking_status == "1" %}checked{% endif %}>已拆
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-purple-50 text-purple-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="3"
-                                                       {% if order.offload_id.unpacking_status == "3" %}checked{% endif %}>到仓
-                                            </label>
-                                            <label class="inline-flex items-center px-1.5 py-1 bg-orange-50 text-orange-700 rounded text-xs cursor-pointer whitespace-nowrap">
-                                                <input type="radio" name="unpacking_status_row_{{ order.id }}" value="4"
-                                                       {% if order.offload_id.unpacking_status == "4" %}checked{% endif %}>报空
-                                            </label>
-                                        </div>
-                                    </td>
-
-                                    <td>{{ order.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                    <td>{{ order.retrieval_id.actual_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                    <td>{{ order.offload_id.warehouse_unpacking_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                    <td>{{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
-
+                                {% else %}
                                     <!-- 导出 -->
                                     <td>
                                         <div class="flex flex-nowrap gap-1 items-center">
@@ -503,51 +383,52 @@
                                         </div>
                                     </td>
 
-                                    <!-- 更新保存 -->
-                                    <td>
-                                        <form method="post" class="update-single-form" data-record-id="{{ rid }}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="step" value="update_warehouse_dropshipping">
-                                            <input type="hidden" name="offload_id" value="{{ ret.id }}">
-                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="delivery_type_filter" value="{{ delivery_type }}">
-                                            <input type="hidden" name="arrival_location"
-                                                   id="arrival_location_hidden_{{ rid }}">
-                                            <input type="hidden" name="unpacking_status"
-                                                   id="unpacking_status_hidden_{{ rid }}">
-                                            <button type="submit"
-                                                    class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100">
-                                                保存
-                                            </button>
-                                        </form>
-                                    </td>
+                                {% endif %}
 
-                                    <!-- 回传 -->
-                                    <td>
-                                        <form method="post" enctype="multipart/form-data" class="flex flex-col gap-1">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="step" value="warehousing_complete_loading">
-                                            <input type="hidden" name="offload_id" value="{{ ret.id }}">
-                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="delivery_type_filter" value="{{ delivery_type }}">
-                                            <input type="file" name="receipt_image" class="text-xs w-full">
-                                            <input type="text" name="offload_note"
-                                                   value="{{ ret.offload_id.offload_note }}" placeholder="备注"
-                                                   class="text-xs p-1">
-                                            <button type="submit"
-                                                    class="text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded border hover:bg-gray-100">
-                                                提交
-                                            </button>
-                                        </form>
-                                    </td>
+                                <!-- 更新按钮 -->
+                                <td>
+                                    <form method="post" class="update-single-form" data-record-id="{{ rid }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="update_warehouse">
+                                        <input type="hidden" name="offload_id" value="{{ ret.id }}">
+                                        <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                        <input type="hidden" name="delivery_type_filter" value="{{ delivery_type }}">
+                                        <input type="hidden" name="arrival_location"
+                                               id="arrival_location_hidden_{{ rid }}">
+                                        <input type="hidden" name="unpacking_status"
+                                               id="unpacking_status_hidden_{{ rid }}">
+                                        <button type="submit"
+                                                class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100">
+                                            保存
+                                        </button>
+                                    </form>
+                                </td>
 
-                                    <td class="text-xs">{{ cargo.order.offload_id.offload_note|default:"-" }}</td>
-                                    <td class="text-xs">{{ cargo.order.offload_id.uploaded_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
-                                </tr>
-                            {% endwith %}
-                        {% endfor %}
+                                <!-- 回传列 -->
+                                <td>
+                                    <form method="post" enctype="multipart/form-data" class="flex flex-col gap-1">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="warehousing_complete_loading">
+                                        <input type="hidden" name="offload_id" value="{{ ret.id }}">
+                                        <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                        <input type="hidden" name="delivery_type_filter" value="{{ delivery_type }}">
+                                        <input type="file" name="receipt_image" class="text-xs w-full">
+                                        <input type="text" name="offload_note"
+                                               value="{{ ret.offload_id.offload_note }}" placeholder="备注"
+                                               class="text-xs p-1">
+                                        <button type="submit"
+                                                class="text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded border hover:bg-gray-100">
+                                            提交
+                                        </button>
+                                    </form>
+                                </td>
+
+                                <td class="text-xs">{{ order.offload_id.offload_note|default:"-" }}</td>
+                                <td class="text-xs">{{ order.offload_id.uploaded_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                            </tr>
+                        {% endwith %}
                     {% endfor %}
-                {% endif %}
+                {% endfor %}
                 <tr id="no-results" class="hidden">
                     <td colspan="13" class="py-6 text-center text-gray-500"><i class="bi bi-search"></i> 无匹配记录</td>
                 </tr>
