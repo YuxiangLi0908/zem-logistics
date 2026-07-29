@@ -176,7 +176,7 @@ class PostportDash(View):
         ):
             if shipment_batch_number:
                 criteria &= models.Q(
-                    shipment_batch_number__shipment_batch_number=shipment_batch_number
+                    shipment_batch_number__shipment_batch_number__contains=shipment_batch_number
                 )
             elif appointment_id:
                 criteria &= models.Q(
