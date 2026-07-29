@@ -1409,7 +1409,7 @@ class PostDrop(View):
 
                 for desc, fee_data in warehouse_fee_config.items():
                     items.append({
-                        "description": desc,
+                        "description": fee_data.get("description", desc),
                         "amount": 0,
                         "rate": fee_data.get("rate", 0),
                         "is_new": True,
