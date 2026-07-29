@@ -260,8 +260,6 @@ class QuoteManagement(View):
         preport_result = {}
         warehouse_result = {}
 
-        print(f"dropship sheet: shape={df.shape}, columns={list(df.columns)}")
-
         current_fee_type = ""
         current_formula = ""
 
@@ -337,7 +335,8 @@ class QuoteManagement(View):
             if not fee_type:
                 continue
 
-            fee_code = description
+            # 使用 description + condition 作为复合键，避免同名但不同条件的费用被覆盖
+            fee_code = f"{description}({condition})" if condition else description
 
             rate = float(rate_str.replace('$', '').strip()) if rate_str.replace('$', '').strip() else 0
 

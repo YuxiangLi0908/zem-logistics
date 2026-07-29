@@ -66,6 +66,9 @@ class OrderQuantity(View):
             return await sync_to_async(render)(
                 request, self.template_historical, context
             )
+        elif step == "historical_sp_selection":
+            template, context = await self.handle_order_historical_get(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "shipment_binding_log":
             context = {}
             return await sync_to_async(render)(
@@ -549,9 +552,10 @@ class OrderQuantity(View):
     async def handle_order_historical_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        table_name = request.POST.get("model").strip()
-        search_field = request.POST.get("search_field").strip()  # 界面上的查询字段
-        search_value = request.POST.get("search_value").strip()  # 查询值
+        # 支持POST和GET请求
+        table_name = (request.POST.get("model") or request.GET.get("model", "")).strip()
+        search_field = (request.POST.get("search_field") or request.GET.get("search_field", "")).strip()
+        search_value = (request.POST.get("search_value") or request.GET.get("search_value", "")).strip()
 
         model_info = MODEL_CHOICES.get(table_name)
         original_model_name = model_info["model"]
@@ -560,6 +564,31 @@ class OrderQuantity(View):
         has_foreignKey = model_info["has_foreignKey"]
         # 处理外键查询，就是不能直接通过界面的查询字段查到结果
         transfer_table = model_info["transfer_table"]
+        
+        # 特殊处理：shipment_batch_number 使用包含匹配，如果查到多条，返回简单列表
+        simple_results = None
+        if table_name == "shipment" and search_field == "shipment_batch_number":
+            # 先在原始 Shipment 表中查找
+            from warehouse.models.shipment import Shipment
+            shipment_queryset = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    shipment_batch_number__icontains=search_value
+                ).values("id", "shipment_batch_number")
+            )
+            if len(shipment_queryset) > 0:
+                # 返回简单列表，不用查询历史记录
+                simple_results = shipment_queryset
+                context = {
+                    "model_choices": MODEL_CHOICES,
+                    "table_name": table_name,
+                    "search_field": search_field,
+                    "search_value": search_value,
+                    "records": [],
+                    "simple_results": simple_results,
+                    "show_simple_results": True,
+                }
+                return self.template_historical, context
+        
         if transfer_table:  # 如果需要一张表中转，比如提拆柜账单，需要invoice表中转
             filter_kwargs = {search_process: search_value}
             transfer_model = apps.get_model("warehouse", transfer_table)

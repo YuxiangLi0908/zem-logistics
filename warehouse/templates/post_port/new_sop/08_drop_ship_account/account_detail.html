@@ -534,6 +534,7 @@
                                     <input type="checkbox" class="fee-type-checkbox" 
                                            data-index="{{ forloop.parentloop.counter0 }}"
                                            data-fee-name="{{ fee_name }}" 
+                                           data-description="{{ fee_data.description }}"
                                            data-rate="{{ fee_data.rate }}"
                                            data-condition="{{ fee_data.condition|default:'' }}"
                                            data-formula="{{ fee_data.formula }}">
@@ -922,7 +923,7 @@
         }
 
         validCheckedFees.forEach(feeCheckbox => {
-            const feeName = feeCheckbox.dataset.feeName;
+            const feeName = feeCheckbox.dataset.description || feeCheckbox.dataset.feeName;
             const feeRate = parseFloat(feeCheckbox.dataset.rate) || 0;
             const feeFormula = feeCheckbox.dataset.formula || '';
 
