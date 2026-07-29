@@ -269,11 +269,11 @@ class QuoteManagement(View):
             cols = []
             for i in range(len(df.columns)):
                 cols.append(str(row.iloc[i]).strip() if not pd.isna(row.iloc[i]) else "")
-            print(f"Raw row {index}: cols={cols}")
 
             fee_type_raw = ""
             description = ""
             rate_str = ""
+            condition = ""
             unit = ""
             formula = ""
 
@@ -286,7 +286,9 @@ class QuoteManagement(View):
                     if i + 2 < len(cols):
                         rate_str = str(cols[i + 2]) if cols[i + 2] else ""
                     if i + 3 < len(cols):
-                        unit = cols[i + 3]
+                        condition = cols[i + 3]
+                    if i + 4 < len(cols):
+                        unit = cols[i + 4]
                     if len(cols) > 6:
                         row_formula = cols[6] if cols[6] else ""
                         if row_formula:
@@ -301,7 +303,9 @@ class QuoteManagement(View):
                     if i + 2 < len(cols):
                         rate_str = str(cols[i + 2]) if cols[i + 2] else ""
                     if i + 3 < len(cols):
-                        unit = cols[i + 3]
+                        condition = cols[i + 3]
+                    if i + 4 < len(cols):
+                        unit = cols[i + 4]
                     if len(cols) > 6:
                         row_formula = cols[6] if cols[6] else ""
                         if row_formula:
@@ -314,7 +318,9 @@ class QuoteManagement(View):
                     if i + 1 < len(cols):
                         rate_str = str(cols[i + 1]) if cols[i + 1] else ""
                     if i + 2 < len(cols):
-                        unit = cols[i + 2]
+                        condition = cols[i + 2]
+                    if i + 3 < len(cols):
+                        unit = cols[i + 3]
                     if len(cols) > 6:
                         row_formula = cols[6] if cols[6] else ""
                         if row_formula:
@@ -323,8 +329,6 @@ class QuoteManagement(View):
                     else:
                         formula = current_formula
                     break
-
-            print(f"  -> fee_type='{current_fee_type}', desc='{description}', rate='{rate_str}', unit='{unit}', formula='{formula}'")
 
             if not current_fee_type or not description:
                 continue
@@ -342,15 +346,13 @@ class QuoteManagement(View):
                 "rate": rate,
                 "unit": unit,
                 "formula": formula,
+                "condition": condition,
             }
 
             if fee_type == "preport":
                 preport_result[fee_code] = item_data
             elif fee_type == "warehouse":
                 warehouse_result[fee_code] = item_data
-
-        print(f"preport_result: {preport_result}")
-        print(f"warehouse_result: {warehouse_result}")
 
         if preport_result:
             fee_detail = FeeDetail(

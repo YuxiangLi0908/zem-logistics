@@ -70,6 +70,7 @@
                                 <tr style="background: #f8f9fa;">
                                     <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">费用名称</th>
                                     <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">单价</th>
+                                    <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">使用条件</th>
                                     <th style="padding: 12px 15px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">单位</th>
                                     <th style="padding: 12px 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;">计算公式</th>
                                 </tr>
@@ -79,6 +80,13 @@
                                 <tr style="border-bottom: 1px solid #e9ecef;">
                                     <td style="padding: 12px 15px; text-align: center; color: #2c3e50;">{{ fee_data.description }}</td>
                                     <td style="padding: 12px 15px; text-align: center; font-weight: 600; color: #a52828;">${{ fee_data.rate|floatformat:2 }}</td>
+                                    <td style="padding: 12px 15px; text-align: center; color: #2e7d32;">
+                                        {% if fee_data.condition %}
+                                            {{ fee_data.condition }}
+                                        {% else %}
+                                            <span style="color: #9ca3af;">-</span>
+                                        {% endif %}
+                                    </td>
                                     <td style="padding: 12px 15px; text-align: center; color: #6c757d;">{{ fee_data.unit }}</td>
                                     <td style="padding: 12px 15px; color: #6c757d; font-style: italic;">{{ fee_data.formula|default:"-" }}</td>
                                 </tr>
