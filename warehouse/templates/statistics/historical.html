@@ -51,6 +51,35 @@
       <div class="card-header" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-bottom: 1px solid rgba(0, 0, 0, 0.125);">
           <h6 style="margin-bottom: 0; font-size: 1rem;">查询结果</h6>
       </div>
+      {% if show_simple_results %}
+      <div class="card-body" style="padding: 1rem;">
+          <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 1rem;">
+              <strong style="color: #856404;">提示：</strong> 查到 {{ simple_results|length }} 条匹配的预约批次，请使用ID进行详细查询
+          </div>
+          <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse;">
+                  <thead style="background-color: #f8f9fa;">
+                      <tr>
+                          <th style="padding: 0.75rem; border: 1px solid #dee2e6;">序号</th>
+                          <th style="padding: 0.75rem; border: 1px solid #dee2e6;">ID</th>
+                          <th style="padding: 0.75rem; border: 1px solid #dee2e6;">预约批次号</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {% for item in simple_results %}
+                      <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 0.75rem; border: 1px solid #dee2e6; text-align: center;">{{ forloop.counter }}</td>
+                          <td style="padding: 0.75rem; border: 1px solid #dee2e6; text-align: center;">
+                              <a href="?step=historical_sp_selection&model=shipment&search_field=id&search_value={{ item.id }}" style="color: #0d6efd; text-decoration: none;">{{ item.id }}</a>
+                          </td>
+                          <td style="padding: 0.75rem; border: 1px solid #dee2e6;">{{ item.shipment_batch_number }}</td>
+                      </tr>
+                      {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      {% else %}
       <div class="card-body" style="padding: 0; max-height: 600px; overflow-y: auto;">
           <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
@@ -184,8 +213,13 @@
           </div>
       </div>
       <div class="card-footer" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-top: 1px solid rgba(0, 0, 0, 0.125);">
+          {% if show_simple_results %}
+          <small style="color: #6c757d;">共 {{ simple_results|length }} 条匹配结果</small>
+          {% else %}
           <small style="color: #6c757d;">共 {{ records|length }} 条记录</small>
+          {% endif %}
       </div>
+      {% endif %}
   </div>
 </div>
 
@@ -193,7 +227,8 @@
 const SEARCH_FIELDS = {
     'shipment': [
         {value: 'shipment_batch_number', text: '预约批次'},
-        {value: 'appointment_id', text: 'ISA号'}
+        {value: 'appointment_id', text: 'ISA号'},
+        {value: 'id', text: 'ID'}
     ],
     'invoicev2': [
         {value: 'container_number', text: '柜号'},
