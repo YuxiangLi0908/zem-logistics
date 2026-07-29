@@ -299,8 +299,8 @@
                 {% endif %}
             </td>
 
-            <td>{{ f.shipped_pallet|floatformat:0 }}</td>
-            <td>{{ f.shipped_pcs|default:0|floatformat:0 }}</td> 
+            <td>{{ f.total_pallet|floatformat:0 }}</td>
+            <td>{{ f.total_pcs|default:0|floatformat:0 }}</td> 
             <td>
                 <!-- POD送达状态下拉框表单 -->
                 <form method="post" class="pod-status-form" action="" style="margin: 0;">
