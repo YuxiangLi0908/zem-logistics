@@ -4323,6 +4323,29 @@ class PostNsop(View):
                 else:
                     raw_groups = [loaded]
 
+            # 批量查询Shipment的pickup_time，通过ARM_PRO和fleet_number关联
+            shipment_pickup_time_map = {}
+            all_arm_pro_values = set()
+            for group in raw_groups:
+                if not isinstance(group, list):
+                    continue
+                for row in group:
+                    if not isinstance(row, dict):
+                        continue
+                    arm_pro = row.get("shipment_batch_number__ARM_PRO", "")
+                    if arm_pro and str(arm_pro).strip() and str(arm_pro).strip() != "None":
+                        all_arm_pro_values.add(str(arm_pro).strip())
+            if all_arm_pro_values:
+                shipment_list = await sync_to_async(list)(
+                    Shipment.objects.filter(
+                        fleet_number__fleet_number=fleet_number,
+                        ARM_PRO__in=list(all_arm_pro_values)
+                    ).values("ARM_PRO", "pickup_time")
+                )
+                for s in shipment_list:
+                    if s.get("ARM_PRO") and s.get("pickup_time"):
+                        shipment_pickup_time_map[s["ARM_PRO"]] = s["pickup_time"]
+
             arm_pickup = []
             for group in raw_groups:
                 if not isinstance(group, list):
@@ -4375,7 +4398,10 @@ class PostNsop(View):
                         "pickup_file_content": str(
                             row.get("pickup_file_content", "")
                         ),
-                        "shipment_batch_number__pickup_time": row.get("shipment_batch_number__pickup_time") or row.get("appointment_datetime"),
+                        "shipment_batch_number__pickup_time": shipment_pickup_time_map.get(
+                            str(row.get("shipment_batch_number__ARM_PRO", "")).strip(),
+                            None
+                        ),
                     }
                     for possible_key in (
                             "arm_pickup_group",
@@ -6433,7 +6459,8 @@ class PostNsop(View):
         if not isinstance(pickup_time_data, list) or len(pickup_time_data) == 0:
             raise ValueError("提货时间数据列表为空")
         
-        updated_count = 0
+        fleet_updated_count = 0
+        shipment_updated_count = 0
         
         for item in pickup_time_data:
             fleet_number = item.get('fleet_number')
@@ -6441,22 +6468,32 @@ class PostNsop(View):
             
             if not fleet_number or not pickup_date:
                 continue
+            try:
+                pickup_datetime = datetime.strptime(pickup_date, '%Y-%m-%d')
+            except ValueError:
+                continue
             
-            fleets = await sync_to_async(list)(
-                Fleet.objects.filter(fleet_number=fleet_number)
+            # 更新Fleet的appointment_datetime
+            try:
+                fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+                if fleet.appointment_datetime != pickup_datetime:
+                    fleet.appointment_datetime = pickup_datetime
+                    await sync_to_async(fleet.save)()
+                    fleet_updated_count += 1
+            except Fleet.DoesNotExist:
+                continue
+            
+            # 找到所有关联到这条fleet的Shipment记录，更新它们的pickup_time
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
             )
-            
-            for fleet in fleets:
-                from datetime import datetime
-                try:
-                    pickup_datetime = datetime.strptime(pickup_date, '%Y-%m-%d')
-                    if fleet.appointment_datetime != pickup_datetime:
-                        fleet.appointment_datetime = pickup_datetime
-                        await sync_to_async(fleet.save)()
-                        updated_count += 1
-                except ValueError:
-                    continue
-        context = {'success_messages': f"成功更新 {updated_count} 条记录的提货时间"}
+            for shipment in shipments:
+                if shipment.pickup_time != pickup_datetime:
+                    shipment.pickup_time = pickup_datetime
+                    await sync_to_async(shipment.save)()
+                    shipment_updated_count += 1
+        
+        context = {'success_messages': f"成功更新 {fleet_updated_count} 条车次记录和 {shipment_updated_count} 条Shipment记录的提货时间"}
         
         return await self.handle_ltl_unscheduled_pos_post(request,context)
 
