@@ -393,6 +393,8 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "merge_pdfs":
             return await self.handle_merge_pdfs(request)
+        elif step == "update_dropship_cargo_status":
+            return await self.handle_update_dropship_cargo_status(request)
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
@@ -6129,6 +6131,47 @@ class ExceptionHandling(View):
             + '.pdf"'
         )
         return response
+
+    async def handle_update_dropship_cargo_status(self, request: HttpRequest):
+        """更新DropshipCargo的status字段"""
+        import json
+        from django.http import HttpResponse as _HttpResponse
+
+        cargo_id = request.POST.get("cargo_id")
+        status = request.POST.get("status")
+
+        valid_statuses = ["not_in_stock", "in_stock", "all_out"]
+        if status not in valid_statuses:
+            return _HttpResponse(
+                json.dumps({"success": False, "error": f"无效的状态值: {status}"}),
+                content_type="application/json",
+                status=400,
+            )
+
+        def update_cargo():
+            try:
+                cargo = DropshipCargo.objects.get(id=cargo_id)
+                cargo.status = status
+                cargo.save()
+                return True, None
+            except DropshipCargo.DoesNotExist:
+                return False, "货物记录不存在"
+            except Exception as e:
+                return False, str(e)
+
+        success, error = await sync_to_async(update_cargo)()
+
+        if success:
+            return _HttpResponse(
+                json.dumps({"success": True, "message": "更新成功"}),
+                content_type="application/json",
+            )
+        else:
+            return _HttpResponse(
+                json.dumps({"success": False, "error": error}),
+                content_type="application/json",
+                status=400,
+            )
 
     def _sync_update_invoice_combine_amount(self, invoice, container):
         """更新账单总费用"""
