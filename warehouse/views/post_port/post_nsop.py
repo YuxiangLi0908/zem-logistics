@@ -4323,28 +4323,24 @@ class PostNsop(View):
                 else:
                     raw_groups = [loaded]
 
-            # 批量查询Shipment的pickup_time，通过ARM_PRO和fleet_number关联
-            shipment_pickup_time_map = {}
-            all_arm_pro_values = set()
-            for group in raw_groups:
-                if not isinstance(group, list):
-                    continue
-                for row in group:
-                    if not isinstance(row, dict):
-                        continue
-                    arm_pro = row.get("shipment_batch_number__ARM_PRO", "")
-                    if arm_pro and str(arm_pro).strip() and str(arm_pro).strip() != "None":
-                        all_arm_pro_values.add(str(arm_pro).strip())
-            if all_arm_pro_values:
-                shipment_list = await sync_to_async(list)(
-                    Shipment.objects.filter(
-                        fleet_number__fleet_number=fleet_number,
-                        ARM_PRO__in=list(all_arm_pro_values)
-                    ).values("ARM_PRO", "pickup_time")
+            # 批量查询Pallet的pickup_time
+            container_pickup_time_map = {}
+            try:
+                pallet_pickup_list = await sync_to_async(list)(
+                    Pallet.objects.filter(
+                        shipment_batch_number__fleet_number__fleet_number=fleet_number
+                    ).values(
+                        "container_number__container_number",
+                        "shipment_batch_number__pickup_time",
+                    ).distinct()
                 )
-                for s in shipment_list:
-                    if s.get("ARM_PRO") and s.get("pickup_time"):
-                        shipment_pickup_time_map[s["ARM_PRO"]] = s["pickup_time"]
+                for p in pallet_pickup_list:
+                    ctr = p.get("container_number__container_number")
+                    pt = p.get("shipment_batch_number__pickup_time")
+                    if ctr:
+                        container_pickup_time_map[str(ctr).strip()] = pt
+            except Exception:
+                pass
 
             arm_pickup = []
             for group in raw_groups:
@@ -4398,8 +4394,8 @@ class PostNsop(View):
                         "pickup_file_content": str(
                             row.get("pickup_file_content", "")
                         ),
-                        "shipment_batch_number__pickup_time": shipment_pickup_time_map.get(
-                            str(row.get("shipment_batch_number__ARM_PRO", "")).strip(),
+                        "shipment_batch_number__pickup_time": container_pickup_time_map.get(
+                            str(row.get("container_number__container_number", "")).strip(),
                             None
                         ),
                     }
