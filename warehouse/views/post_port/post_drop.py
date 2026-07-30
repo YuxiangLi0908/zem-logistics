@@ -969,9 +969,9 @@ class PostDrop(View):
             context.update({'error_messages': '未找到该预约批次!'})
             return await self.handle_ltl_unscheduled_pos_post(request, context)
 
-        if shipment.status != 'shipped':
-            context.update({'error_messages': f'该批次当前状态为 "{dict(shipment.STATUS_CHOICES).get(shipment.status, shipment.status)}"，无法取消出库!'})
-            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        # if shipment.status != 'shipped':
+        #     context.update({'error_messages': f'该批次当前状态为 "{dict(shipment.STATUS_CHOICES).get(shipment.status, shipment.status)}"，无法取消出库!'})
+        #     return await self.handle_ltl_unscheduled_pos_post(request, context)
 
         if shipment.pod_uploaded_at:
             context.update({'error_messages': '该批次已上传POD，无法取消出库!'})
