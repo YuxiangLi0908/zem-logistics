@@ -110,6 +110,7 @@ class PostDrop(View):
     template_ltl_pos_all = "post_port/new_sop/07_drop_shipping/07_ltl_main.html"
     template_account_rec = "post_port/new_sop/08_drop_ship_account/09_account_main.html"
     template_account_edit = "post_port/new_sop/08_drop_ship_account/account_detail.html"
+    template_account_view = "post_port/new_sop/08_drop_ship_account/account_view.html"
     template_ltl_inventory = "post_port/new_sop/09_drop_ship_inventory/09_ltl_inventory.html"
     template_return_process = "post_port/new_sop/07_drop_shipping/return_process.html"
 
@@ -204,6 +205,9 @@ class PostDrop(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "account_edit_fee":
             template, context = await self.handle_account_edit_fee(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "account_view_fee":
+            template, context = await self.handle_account_view_fee(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "account_save_fee":
             template, context = await self.handle_account_save_fee(request)
@@ -1359,7 +1363,6 @@ class PostDrop(View):
                     is_dropship=True,
                 ).order_by("-effective_date").first
             )()
-
             if fee_type == "preport":
                 if dropship_quote:
                     preport_fee_detail = await sync_to_async(
@@ -1526,6 +1529,83 @@ class PostDrop(View):
             "warehouse_fee_config_json": warehouse_fee_config_json,
         }
         return self.template_account_edit, context
+
+    async def handle_account_view_fee(
+            self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """一件代发应收账单：查看已录入的提拆费/库内费（只读）。
+        从 InvoiceItemv2 表读取已保存的费用明细，展示总价，不可编辑。"""
+        invoice_number = request.POST.get("invoice_number", "").strip()
+        fee_type = request.POST.get("fee_type", "").strip()
+
+        if not invoice_number or invoice_number.lower() == "none":
+            template, context = await self.handle_drop_account_search(request)
+            context['error_messages'] = "缺少账单号，无法查看费用！"
+            return template, context
+
+        invoice = await sync_to_async(
+            Invoicev2.objects.select_related("container_number")
+            .filter(invoice_number=invoice_number).first
+        )()
+
+        if not invoice:
+            template, context = await self.handle_drop_account_search(request)
+            context['error_messages'] = f"未找到账单号 {invoice_number} 对应的账单！"
+            return template, context
+
+        if fee_type == "preport":
+            item_category = "preport"
+            fee_type_display = "提拆费"
+        elif fee_type == "warehouse":
+            item_category = "warehouse_other"
+            fee_type_display = "库内费"
+        else:
+            template, context = await self.handle_drop_account_search(request)
+            context['error_messages'] = f"未知的费用类型：{fee_type}！"
+            return template, context
+
+        items = await sync_to_async(list)(
+            InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                item_category=item_category,
+            ).order_by("id")
+        )
+
+        total_amount = sum(
+            (item.amount or 0) for item in items
+        )
+
+        container_number_str = (
+            invoice.container_number.container_number
+            if invoice.container_number else None
+        )
+
+        warehouse_name = None
+        warehouse_precise = None
+        if invoice.container_number:
+            order = await sync_to_async(Order.objects.select_related(
+                "retrieval_id", "warehouse"
+            ).filter(container_number=invoice.container_number).first)()
+            if order:
+                if order.retrieval_id:
+                    warehouse_precise = order.retrieval_id.retrieval_destination_precise
+                if order.warehouse:
+                    warehouse_name = order.warehouse.name
+
+        context = {
+            "invoice_number": invoice_number,
+            "invoice_id": invoice.id,
+            "fee_type": fee_type,
+            "item_category": item_category,
+            "fee_type_display": fee_type_display,
+            "container_number": container_number_str,
+            "warehouse_name": warehouse_name,
+            "warehouse_precise": warehouse_precise,
+            "items": items,
+            "total_amount": total_amount,
+            "delivery_type_display": "一件代发",
+        }
+        return self.template_account_view, context
 
     async def handle_account_save_fee(
             self, request: HttpRequest

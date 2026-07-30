@@ -663,7 +663,11 @@
                                     <td class="td" data-column="preport-fee">
                                         <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
                                             {% csrf_token %}
+                                            {% if item.preport_amount is not None %}
+                                            <input type="hidden" name="step" value="account_view_fee">
+                                            {% else %}
                                             <input type="hidden" name="step" value="account_edit_fee">
+                                            {% endif %}
                                             <input type="hidden" name="invoice_number" value="{{ item.invoice_number }}">
                                             <input type="hidden" name="fee_type" value="preport">
                                             <button type="submit" class="fee-link">
@@ -678,7 +682,11 @@
                                     <td class="td" data-column="wh-fee">
                                         <form method="post" action="{% url 'postdrop' %}" style="display:inline;">
                                             {% csrf_token %}
+                                            {% if item.wh_other_amount is not None %}
+                                            <input type="hidden" name="step" value="account_view_fee">
+                                            {% else %}
                                             <input type="hidden" name="step" value="account_edit_fee">
+                                            {% endif %}
                                             <input type="hidden" name="invoice_number" value="{{ item.invoice_number }}">
                                             <input type="hidden" name="fee_type" value="warehouse">
                                             <button type="submit" class="fee-link">

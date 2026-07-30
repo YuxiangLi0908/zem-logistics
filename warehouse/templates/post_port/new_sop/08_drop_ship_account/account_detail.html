@@ -496,7 +496,7 @@
                 <thead>
                     <tr>
                         <th style="width: 140px;">商品型号</th>
-                        <th style="width: 200px;">唛头</th>
+                        <th style="width: 150px;">唛头</th>
                         <th style="width: 100px;">出库件数</th>
                         <th style="width: 150px;">预约批次号</th>
                         <th style="width: 130px;">入库时间</th>
@@ -504,7 +504,7 @@
                         <th style="width: 130px;">实际出库时间</th>
                         <th style="width: 100px;">在库天数</th>
                         <th style="width: 100px;">在库月份</th>
-                        <th style="width: 200px;">费用类型</th>
+                        <th style="width: 260px;">费用类型</th>
                         <th style="width: 120px;">操作</th>
                     </tr>
                 </thead>
@@ -515,9 +515,9 @@
                         <td>{{ item.shipping_mark|default:"-" }}</td>
                         <td>{{ item.pcs|default:"-" }}</td>
                         <td>{{ item.shipment_batch|default:"-" }}</td>
-                        <td>{{ item.unpack_date|default:"-" }}</td>
-                        <td>{{ item.pickup_time|default:"-" }}</td>
-                        <td>{{ item.shipped_at|default:"-" }}</td>
+                        <td>{{ item.unpack_date|date:"Y-m-d"|default:"-" }}</td>
+                        <td>{{ item.pickup_time|date:"Y-m-d"|default:"-" }}</td>
+                        <td>{{ item.shipped_at|date:"Y-m-d"|default:"-" }}</td>
                         <td>
                             <input type="number" class="storage-days-input" data-index="{{ forloop.counter0 }}" 
                                    value="{{ item.storage_days|default:0 }}" min="0" step="1"
@@ -947,6 +947,12 @@
 
             const storageMonths = parseInt(shipmentItem.storage_months) || 0;
 
+            // 仓储费备注：如果公式涉及天数，把当前在库天数写入备注
+            let noteValue = '';
+            if (feeFormula.includes('天数')) {
+                noteValue = `在库${storageDays}天`;
+            }
+
             const tr = document.createElement('tr');
             tr.className = 'fee-row';
             tr.innerHTML = `
@@ -972,7 +978,7 @@
                     <span class="amount-display">${parseFloat(amount.toFixed(2)).toFixed(2)}</span>
                 </td>
                 <td>
-                    <input type="text" name="note[]" class="fee-input" value="" ${isEditable ? '' : 'disabled'}>
+                    <input type="text" name="note[]" class="fee-input" value="${escapeHtml(noteValue)}" ${isEditable ? '' : 'disabled'}>
                 </td>
                 <td>
                     ${isEditable ? `<button type="button" class="delete-btn" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>` : ''}
