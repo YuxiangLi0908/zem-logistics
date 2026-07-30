@@ -1614,6 +1614,7 @@ class PostDrop(View):
         保存后返回 template_account_rec 界面。"""
         invoice_number_str = request.POST.get("invoice_number", "").strip()
         fee_type = request.POST.get("fee_type", "").strip()
+        save_type = request.POST.get("save_type", "temp").strip()
 
         messages: dict[str, Any] = {}
 
@@ -1717,9 +1718,11 @@ class PostDrop(View):
                             ).update)(preport_status="completed")
                             invoice.receivable_preport_amount = total_amount
                         elif fee_type == "warehouse":
-                            await sync_to_async(InvoiceStatusv2.objects.filter(
-                                invoice=invoice, invoice_type="receivable"
-                            ).update)(warehouse_other_status="completed")
+                            # 只有录完保存才更新状态为已完成
+                            if save_type == "complete":
+                                await sync_to_async(InvoiceStatusv2.objects.filter(
+                                    invoice=invoice, invoice_type="receivable"
+                                ).update)(warehouse_other_status="completed")
                             invoice.receivable_wh_other_amount = total_amount
                         await sync_to_async(invoice.save)()
 

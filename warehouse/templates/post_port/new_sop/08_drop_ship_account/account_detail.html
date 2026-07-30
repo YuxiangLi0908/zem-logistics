@@ -564,6 +564,7 @@
             <input type="hidden" name="step" value="account_save_fee">
             <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
             <input type="hidden" name="fee_type" value="{{ fee_type }}">
+            <input type="hidden" name="save_type" id="save_type" value="temp">
 
             <div class="fee-table-container">
                 <table class="fee-table" id="feeTable">
@@ -637,8 +638,11 @@
                     <button type="button" class="btn btn-add" onclick="addFeeRow()">
                         <i class="fas fa-plus"></i> 添加费用项目
                     </button>
-                    <button type="submit" class="btn btn-save">
-                        <i class="fas fa-save"></i> 保存
+                    <button type="button" class="btn btn-save" onclick="submitForm('temp')">
+                        <i class="fas fa-save"></i> 暂时保存
+                    </button>
+                    <button type="button" class="btn btn-save" onclick="submitForm('complete')">
+                        <i class="fas fa-clipboard-check"></i> 录完保存
                     </button>
                     {% endif %}
                     <a href="javascript:void(0)" class="btn btn-back" onclick="history.back()">
@@ -655,6 +659,11 @@
     var warehouseFeeConfig = {{ warehouse_fee_config_json|safe }};
     var warehouseName = "{{ warehouse_precise|default:warehouse_name|default:'' }}".replace(/"/g, '');
     var isEditable = {% if is_editable %}true{% else %}false{% endif %};
+
+    function submitForm(saveType) {
+        document.getElementById('save_type').value = saveType;
+        document.getElementById('feeForm').submit();
+    }
 
     function calcRowTotal(row) {
         const rate = parseFloat(row.querySelector('.rate-input')?.value) || 0;
