@@ -394,11 +394,17 @@
             </thead>
             <tbody>
                 {% for record in records_list %}
-                <tr>
+                <tr data-record-id="{{ record.id }}" data-table="{{ table_name }}">
                     <td style="text-align: center; font-weight: bold;">{{ forloop.counter }}</td>
                     {% for field, value in record.items %}
-                    <td class="field-value">
-                        {% if value == None %}
+                    <td class="field-value" data-field="{{ field }}">
+                        {% if table_name == 'DropshipCargo' and field == 'status' %}
+                            <select class="status-select" data-cargo-id="{{ record.id }}" data-current-status="{{ value|default:'' }}" onchange="updateCargoStatus(this)">
+                                <option value="not_in_stock" {% if value == 'not_in_stock' %}selected{% endif %}>not_in_stock</option>
+                                <option value="in_stock" {% if value == 'in_stock' %}selected{% endif %}>in_stock</option>
+                                <option value="all_out" {% if value == 'all_out' %}selected{% endif %}>all_out</option>
+                            </select>
+                        {% elif value == None %}
                             <span style="color: #95a5a6; font-style: italic;">null</span>
                         {% elif value == True %}
                             <span style="color: #27ae60;">True</span>
@@ -769,5 +775,44 @@
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
     });
+
+    // 更新DropshipCargo的status
+    window.updateCargoStatus = function(selectEl) {
+        const cargoId = selectEl.dataset.cargoId;
+        const newStatus = selectEl.value;
+        const originalStatus = selectEl.dataset.currentStatus;
+
+        if (!confirm(`确定要将货物 ID=${cargoId} 的状态从 "${originalStatus}" 改为 "${newStatus}" 吗？`)) {
+            selectEl.value = originalStatus;
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('step', 'update_dropship_cargo_status');
+        formData.append('cargo_id', cargoId);
+        formData.append('status', newStatus);
+
+        fetch('', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectEl.dataset.currentStatus = newStatus;
+                alert(`更新成功！状态已改为：${newStatus}`);
+            } else {
+                alert(`更新失败：${data.error || '未知错误'}`);
+                selectEl.value = originalStatus;
+            }
+        })
+        .catch(err => {
+            alert('请求失败，请重试');
+            selectEl.value = originalStatus;
+        });
+    };
 </script>
 {% endblock %}
