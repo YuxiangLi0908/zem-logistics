@@ -852,7 +852,7 @@ class PostDrop(View):
         unstocked_cargos = []
         for detail_data in cargo_details:
             cargo_id = detail_data.get('cargo_id')
-            cargo = await sync_to_async(DropshipCargo.objects.filter(id=cargo_id).first)()
+            cargo = await sync_to_async(lambda: DropshipCargo.objects.select_related('container').filter(id=cargo_id).first())()
             if cargo and cargo.status != 'in_stock':
                 container_number = cargo.container.container_number if cargo.container else '未知柜号'
                 unstocked_cargos.append(f'柜号 {container_number} 的唛头 "{cargo.shipping_mark}" 的货还未入库')
