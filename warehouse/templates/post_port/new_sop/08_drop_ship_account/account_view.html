@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2e7d32;
+        --danger-color: #b71c1c;
+        --border-radius: 12px;
+    }
+
+    .account-detail-container {
+        max-width: 1400px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    .account-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 25px 30px;
+    }
+
+    .account-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .account-title i {
+        font-size: 1.8rem;
+    }
+
+    .account-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-top: 15px;
+    }
+
+    .account-info-item {
+        background: rgba(255, 255, 255, 0.12);
+        padding: 12px 18px;
+        border-radius: 8px;
+    }
+
+    .account-info-label {
+        font-size: 0.85rem;
+        opacity: 0.85;
+        margin-bottom: 4px;
+    }
+
+    .account-info-value {
+        font-size: 1.05rem;
+        font-weight: 600;
+        word-break: break-word;
+    }
+
+    .account-body {
+        padding: 25px 30px;
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #4a6491;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #f4d7d7;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .fee-table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .fee-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    .fee-table th {
+        background: #4a6491;
+        color: white;
+        padding: 12px 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+
+    .fee-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.88rem;
+        vertical-align: middle;
+    }
+
+    .fee-table tbody tr:hover {
+        background: #f5f5f5;
+    }
+
+    .fee-amount-cell {
+        text-align: right;
+        font-weight: 600;
+        color: #a52828;
+    }
+
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .total-display {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #a52828;
+    }
+
+    .total-display span {
+        color: #b71c1c;
+        font-size: 1.3rem;
+    }
+
+    .btn {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+
+    .btn-back {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-back:hover {
+        background: #5a6268;
+    }
+
+    .empty-row {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+
+    .empty-row i {
+        font-size: 2rem;
+        opacity: 0.3;
+        display: block;
+        margin-bottom: 10px;
+    }
+</style>
+
+<div class="account-detail-container">
+    <div class="account-header">
+        <div class="account-title">
+            <i class="fas fa-file-invoice-dollar"></i>
+            {{ delivery_type_display }} - {{ fee_type_display }} 明细
+        </div>
+        <div class="account-info-grid">
+            <div class="account-info-item">
+                <div class="account-info-label">柜号</div>
+                <div class="account-info-value">{{ container_number|default:"-" }}</div>
+            </div>
+            <div class="account-info-item">
+                <div class="account-info-label">账单号</div>
+                <div class="account-info-value">{{ invoice_number|default:"-" }}</div>
+            </div>
+            <div class="account-info-item">
+                <div class="account-info-label">仓库</div>
+                <div class="account-info-value">
+                    {{ warehouse_name|default:"-" }}
+                    {% if warehouse_precise %}（{{ warehouse_precise }}）{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="account-body">
+        <div class="section-title">
+            <i class="fas fa-list-ul"></i> 费用明细（只读）
+        </div>
+
+        <div class="fee-table-container">
+            <table class="fee-table">
+                <thead>
+                    <tr>
+                        <th>费用名称</th>
+                        <th>仓点</th>
+                        <th>单价</th>
+                        <th>数量</th>
+                        <th>附加费</th>
+                        <th style="text-align:right;">总价</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.description|default:"-" }}</td>
+                        <td>{{ item.warehouse_code|default:"-" }}</td>
+                        <td>{{ item.rate|default:"0"|floatformat:2 }}</td>
+                        <td>{{ item.qty|default:"0" }}</td>
+                        <td>{{ item.surcharges|default:"0"|floatformat:2 }}</td>
+                        <td class="fee-amount-cell">${{ item.amount|default:0|floatformat:2 }}</td>
+                        <td>{{ item.note|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-row">
+                            <i class="fas fa-inbox"></i>
+                            <p>暂无费用明细</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="action-bar">
+            <div class="total-display">
+                总计: <span>${{ total_amount|floatformat:2 }}</span>
+            </div>
+            <div>
+                <a href="javascript:void(0)" class="btn btn-back" onclick="history.back()">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

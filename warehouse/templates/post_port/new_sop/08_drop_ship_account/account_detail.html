@@ -947,6 +947,12 @@
 
             const storageMonths = parseInt(shipmentItem.storage_months) || 0;
 
+            // 仓储费备注：如果公式涉及天数，把当前在库天数写入备注
+            let noteValue = '';
+            if (feeFormula.includes('天数')) {
+                noteValue = `在库${storageDays}天`;
+            }
+
             const tr = document.createElement('tr');
             tr.className = 'fee-row';
             tr.innerHTML = `
@@ -972,7 +978,7 @@
                     <span class="amount-display">${parseFloat(amount.toFixed(2)).toFixed(2)}</span>
                 </td>
                 <td>
-                    <input type="text" name="note[]" class="fee-input" value="" ${isEditable ? '' : 'disabled'}>
+                    <input type="text" name="note[]" class="fee-input" value="${escapeHtml(noteValue)}" ${isEditable ? '' : 'disabled'}>
                 </td>
                 <td>
                     ${isEditable ? `<button type="button" class="delete-btn" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>` : ''}
