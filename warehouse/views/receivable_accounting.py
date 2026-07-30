@@ -3136,7 +3136,7 @@ class ReceivableAccounting(View):
                     # 从PackingList表中获取更准确的CBM和重量数据
                     if po_id:
                         try:
-                            aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                            aggregated = PackingList.objects.filter(PO_ID=po_id, destination=group.get("destination"), container_number=container).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
@@ -3244,7 +3244,7 @@ class ReceivableAccounting(View):
                     group["item_category"] = "delivery_other"
                     if po_id:
                         try:
-                            aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_marks).aggregate(
+                            aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_marks, container_number=container).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
@@ -3306,7 +3306,7 @@ class ReceivableAccounting(View):
                         if '_' in po_id:
                             continue
                         try:
-                            aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                            aggregated = PackingList.objects.filter(PO_ID=po_id, destination=group.get("destination"), container_number=container).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
@@ -3356,7 +3356,7 @@ class ReceivableAccounting(View):
                     shipping_marks = group.get("shipping_marks")
                     if po_id:
                         try:
-                            aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_marks).aggregate(
+                            aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_marks, destination=group.get("destination"), container_number=container).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
@@ -9759,7 +9759,7 @@ class ReceivableAccounting(View):
             if po_id:
                 if delivery_type == "other":
                     try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks,container_number__container_number=container_number).aggregate(
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks,container_number__container_number=container_number, destination=group.get("destination")).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )  
@@ -9781,7 +9781,7 @@ class ReceivableAccounting(View):
                     if '_' in po_id:
                         continue
                     try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id,container_number__container_number=container_number).aggregate(
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,container_number__container_number=container_number, destination=group.get("destination")).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )
@@ -9790,7 +9790,9 @@ class ReceivableAccounting(View):
                             po_id_modified = po_id.split('_', 1)[0]
                             aggregated = PackingList.objects.filter(
                                 PO_ID=po_id_modified,
-                                shipping_mark=shipping_marks
+                                shipping_mark=shipping_marks,
+                                container_number__container_number=container_number,
+                                destination=group.get("destination")
                             ).aggregate(
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
