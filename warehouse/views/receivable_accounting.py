@@ -3778,6 +3778,15 @@ class ReceivableAccounting(View):
                         note=item_data.get("note", ""),
                         registered_user=request.user.username if request.user.is_authenticated else None
                     )
+        # 检查下刚才是否进行了账单的保存，如果一条都未保存，需要查找原因
+            existing_item = InvoiceItemv2.objects.get(
+                Q(item_category="delivery_public") | Q(item_category="delivery_other"),
+                invoice_number=invoice,
+                container_number=container,
+                invoice_type="receivable"
+            )
+            if not existing_item:
+                raise ValueError("派送未成功录入费用")
         
 
     def _auto_calculate_pickup_fee(self, request: HttpRequest, order: Order, quotation, context, match, invoice: Invoicev2, container: Container) -> None:
