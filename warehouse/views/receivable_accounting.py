@@ -69,6 +69,8 @@ from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.transaction import Transaction
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.dropship_cargo import DropshipCargo
+from warehouse.models.dropship_inventory import DropshipInventory
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.forms.order_form import OrderForm
 
@@ -5947,7 +5949,7 @@ class ReceivableAccounting(View):
             filter_rules.append(f"柜号 = {container_number_filter}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓或私仓)")
+            filter_rules.append("满足以下任一条件：直送订单 / 非直送已拆柜(公仓+私仓) / 一件代发入库满15天")
         else:
             criteria = (
                 Q(cancel_notification=False)
@@ -5959,7 +5961,7 @@ class ReceivableAccounting(View):
             filter_rules.append(f"ETD {start_date} ~ {end_date}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("直送订单无需拆柜，非直送需已拆柜(公仓或私仓)")
+            filter_rules.append("满足以下任一条件：直送订单 / 非直送已拆柜(公仓+私仓) / 一件代发入库满15天")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
@@ -6173,6 +6175,104 @@ class ReceivableAccounting(View):
                     # 都没有invoice_link，全部保留
                     filtered_order_data_list.extend(records)
         
+        # 合并一件代发入库满15天的柜子
+        dropship_eligible = self._get_dropship_15days_data(
+            warehouse, start_date, end_date, container_number_filter
+        )
+        
+        # 对每个符合条件的一件代发柜子，查发票并分类
+        for container, order in dropship_eligible:
+            container_number = container.container_number
+            
+            # 查该柜子的所有主发票
+            invoices = Invoicev2.objects.filter(
+                container_number=container,
+                is_master_bill=True,
+            ).select_related('statement_id').prefetch_related(
+                Prefetch('invoicestatusv2_set', 
+                         queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+                         to_attr='receivable_status_list')
+            )
+            
+            if not invoices.exists():
+                # 无发票，归入待开
+                row_data = {
+                    'order': order,
+                    'order_id': order.id,
+                    'container_number__container_number': container_number,
+                    'customer_name__zem_name': order.customer_name.zem_name if order.customer_name else None,
+                    'order_type': order.order_type,
+                    'invoice_created_at': None,
+                    'is_extra_invoice': False,
+                    'retrieval_id__retrieval_destination_precise': order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None,
+                    'retrieval_id__retrieval_carrier': getattr(order.retrieval_id, 'retrieval_carrier', None) if order.retrieval_id else None,
+                    'retrieval_id__actual_retrieval_timestamp': getattr(order.retrieval_id, 'actual_retrieval_timestamp', None) if order.retrieval_id else None,
+                    'created_at': order.created_at,
+                    'invoice_id__invoice_number': None,
+                    'invoice_number': None,
+                    'invoice_id': None,
+                    'finance_status': None,
+                    'has_invoice': False,
+                    'cancel_notification': order.cancel_notification,
+                    'invoice_link': None,
+                }
+                filtered_order_data_list.append(row_data)
+            else:
+                # 有发票，遍历每条发票
+                for invoice in invoices:
+                    status_list = getattr(invoice, 'receivable_status_list', [])
+                    status_obj = status_list[0] if status_list else None
+                    finance_status = status_obj.finance_status if status_obj else None
+                    
+                    row_data = {
+                        'order': order,
+                        'order_id': order.id,
+                        'container_number__container_number': container_number,
+                        'customer_name__zem_name': order.customer_name.zem_name if order.customer_name else None,
+                        'order_type': order.order_type,
+                        'invoice_created_at': None,
+                        'is_extra_invoice': False,
+                        'retrieval_id__retrieval_destination_precise': order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None,
+                        'retrieval_id__retrieval_carrier': getattr(order.retrieval_id, 'retrieval_carrier', None) if order.retrieval_id else None,
+                        'retrieval_id__actual_retrieval_timestamp': getattr(order.retrieval_id, 'actual_retrieval_timestamp', None) if order.retrieval_id else None,
+                        'created_at': order.created_at,
+                        'invoice_id__invoice_number': invoice.invoice_number,
+                        'invoice_number': invoice.invoice_number,
+                        'invoice_id': invoice.id,
+                        'finance_status': finance_status,
+                        'has_invoice': True,
+                        'cancel_notification': order.cancel_notification,
+                        'invoice_link': invoice.invoice_link,
+                    }
+                    
+                    if finance_status == "completed":
+                        # 已完成，归入已开
+                        rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
+                        rec_offset = getattr(invoice, 'remain_offset', 0) or 0
+                        
+                        if rec_offset != 0:
+                            stmt = invoice.statement_id
+                            stmt_id = stmt.invoice_statement_id if stmt else None
+                            stmt_link = stmt.statement_link if stmt else None
+                            
+                            row_data.update({
+                                'invoice_id__invoice_date': invoice.invoice_date,
+                                'invoice_id__invoice_link': invoice.invoice_link,
+                                'invoice_id__receivable_total_amount': rec_total,
+                                'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
+                                'invoice_id__remain_offset': rec_offset,
+                                'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
+                                'invoice_id__statement_id__invoice_statement_id': stmt_id,
+                                'invoice_id__statement_id__statement_link': stmt_link,
+                            })
+                            previous_order_data_list.append(row_data)
+                        else:
+                            # 已完成但核销金额为0，仍归入待开（需展示）
+                            filtered_order_data_list.append(row_data)
+                    else:
+                        # 未完成，归入待开
+                        filtered_order_data_list.append(row_data)
+        
         # --- 新增：柜号搜索时，检查最终未找到的原因 ---
         search_fail_reasons = []
         if container_number_filter and not filtered_order_data_list and not previous_order_data_list:
@@ -6238,6 +6338,73 @@ class ReceivableAccounting(View):
             "filter_rules": filter_rules,
         })
         return self.template_fix_account_entry, context
+    
+    def _get_dropship_15days_data(
+        self, warehouse, start_date, end_date, container_number_filter
+    ):
+        '''获取一件代发入库满15天的柜号列表
+        
+        逻辑：
+        1. 按筛选条件从Order表查出一件代发的柜子
+        2. 每个柜子只需查任意一条Cargo的Inventory(unpack)记录
+        3. 判断入库时间是否超过15天
+        4. 返回符合条件的柜号信息列表
+        '''
+        from datetime import timedelta
+        
+        current_date = datetime.now().date()
+        
+        # Step 1: 从Order表查出一件代发的柜子
+        order_criteria = Q(order_type='一件代发') & Q(cancel_notification=False)
+        
+        if container_number_filter:
+            order_criteria &= Q(container_number__container_number=container_number_filter)
+        else:
+            if start_date:
+                order_criteria &= Q(vessel_id__vessel_etd__gte=start_date)
+            if end_date:
+                order_criteria &= Q(vessel_id__vessel_etd__lte=end_date)
+        
+        if warehouse:
+            order_criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        
+        # 查询符合条件的一件代发订单
+        dropship_orders = Order.objects.filter(order_criteria).select_related(
+            'container_number',
+            'customer_name',
+            'retrieval_id',
+        )
+        
+        # Step 2: 逐个检查每个柜子的入库时间
+        eligible_containers = []  # [(container, order), ...]
+        checked_container_ids = set()
+        
+        for order in dropship_orders:
+            container = order.container_number
+            if not container:
+                continue
+            
+            c_id = container.id
+            if c_id in checked_container_ids:
+                continue
+            checked_container_ids.add(c_id)
+            
+            # 找任意一条Cargo的unpack记录
+            inventory = DropshipInventory.objects.filter(
+                cargo__container=container,
+                transaction_type='unpack'
+            ).order_by('transaction_date').first()
+            
+            if not inventory:
+                continue  # 无拆柜入库记录，跳过
+            
+            # 判断是否入库满15天
+            unpack_date = inventory.transaction_date.date()
+            days_passed = (current_date - unpack_date).days
+            if days_passed > 15:
+                eligible_containers.append((container, order))
+        
+        return eligible_containers
     
     def handle_confirm_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         '''财务账单确认查询'''
