@@ -786,7 +786,10 @@ class Inventory(View):
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
-        delivery_type_new = request.POST.get("delivery_type_new")
+        if delivery_method_new == "客户自提":
+            delivery_type_new = "other"
+        else:
+            delivery_type_new = request.POST.get("delivery_type_new")
         total_weight_new = round(float(request.POST.get("weight", 0)), 4)
         total_pcs_new = int(request.POST.get("pcs", 0))
         total_cbm_new = round(float(request.POST.get("cbm", 0)), 2)
