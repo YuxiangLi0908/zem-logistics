@@ -408,7 +408,7 @@ INVOICESTATUS_TABLE_MAPPING = {
     "拒绝原因": "reject_reason",
 }
 ORDER_TABLE_MAPPING = {
-    "柜型": "order_type",
+    "订单类型": "order_type",
 }
 MODEL_CHOICES = {
     # 直接根据container_number就能找的类型
