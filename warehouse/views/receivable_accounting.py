@@ -3497,6 +3497,15 @@ class ReceivableAccounting(View):
                     is_combina=is_combina,
                     warehouse=order.retrieval_id.retrieval_destination_area
                 )
+        # 检查下刚才是否进行了账单的保存，如果一条都未保存，需要查找原因
+        existing_item = InvoiceItemv2.objects.get(
+            Q(item_category="delivery_public") | Q(item_category="delivery_other"),
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable"
+        )
+        if not existing_item:
+            raise ValueError("派送未成功录入费用")
     
     def _process_fix_unbilled_groups(
         self,
