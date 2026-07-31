@@ -558,6 +558,9 @@
                             <button type="button" onclick="filterTransportOrders()" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
                                 <i class="fas fa-truck"></i> 仅转运
                             </button>
+                            <button type="button" onclick="filterDropshipOrders()" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px; background: #28a745; border-color: #28a745;">
+                                <i class="fas fa-box"></i> 仅一件代发
+                            </button>
                             <button type="button" onclick="resetTransportFilter()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
                                 <i class="fas fa-sync-alt"></i> 重置
                             </button>
@@ -1006,6 +1009,18 @@
             input.value = '';
         });
         tableFilters['order-table'] = {};
+    }
+
+    // 仅显示一件代发订单
+    function filterDropshipOrders() {
+        const rows = document.querySelectorAll('#order-table tbody tr');
+        rows.forEach(row => {
+            const orderTypeCell = row.cells[2]; // 订单类型列
+            if (orderTypeCell) {
+                const shouldShow = orderTypeCell.textContent.trim() === '一件代发';
+                row.style.display = shouldShow ? '' : 'none';
+            }
+        });
     }
 
     // 关闭弹窗
