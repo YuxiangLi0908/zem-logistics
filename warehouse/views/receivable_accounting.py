@@ -3498,7 +3498,7 @@ class ReceivableAccounting(View):
                     warehouse=order.retrieval_id.retrieval_destination_area
                 )
         # 检查下刚才是否进行了账单的保存，如果一条都未保存，需要查找原因
-        existing_item = InvoiceItemv2.objects.get(
+        existing_item = InvoiceItemv2.objects.filter(
             Q(item_category="delivery_public") | Q(item_category="delivery_other"),
             invoice_number=invoice,
             container_number=container,
@@ -3779,7 +3779,7 @@ class ReceivableAccounting(View):
                         registered_user=request.user.username if request.user.is_authenticated else None
                     )
         # 检查下刚才是否进行了账单的保存，如果一条都未保存，需要查找原因
-            existing_item = InvoiceItemv2.objects.get(
+            existing_item = InvoiceItemv2.objects.filter(
                 Q(item_category="delivery_public") | Q(item_category="delivery_other"),
                 invoice_number=invoice,
                 container_number=container,
