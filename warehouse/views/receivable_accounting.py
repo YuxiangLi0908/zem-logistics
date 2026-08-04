@@ -11749,7 +11749,19 @@ class ReceivableAccounting(View):
         combina_groups = result_existing['combina_groups']
         
         if len(combina_groups) == 0:
-            raise ValueError("该柜子满足组合柜条件，但是没有找到任何组合柜的已录入项目，请联系公仓派送相关人员录入。")
+            if order_type == "转运组合":
+                public_plts = Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    delivery_type="public"
+                )
+                if not public_plts.exists():
+                    raise ValueError(f"柜号{container_number}的建单类型是转运组合，但是没有公仓的仓点")
+                else:
+                    destinations = list(set(
+                        public_plts.values_list("destination", flat=True)
+                    ))
+                    dest_str = "、".join(d for d in destinations if d)
+                    raise ValueError(f"柜号{container_number}的建单类型是转运组合，但是仓点{dest_str}没有匹配到对应的组合柜报价")
         base_fee = result_existing['combina_info']['base_fee']        
         combina_total_cbm = sum(item['total_cbm'] for item in plts_by_destination)
         combina_total_cbm_ratio = result_existing['combina_info']['total_cbm_ratio']
