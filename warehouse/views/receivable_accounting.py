@@ -5916,6 +5916,8 @@ class ReceivableAccounting(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         container_number_filter = request.POST.get("container_number_filter")
+        if container_number_filter:
+            container_number_filter = container_number_filter.strip()
 
         # --- 1. 日期处理 ---
         current_date = datetime.now().date()
