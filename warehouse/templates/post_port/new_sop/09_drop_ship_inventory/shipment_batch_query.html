@@ -1,0 +1,458 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .batch-system {
+        max-width: 102%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1e5799;
+        --secondary-color: #1a3c6e;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .batch-header {
+        background: linear-gradient(135deg, #0d2b4d, #1e5799);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .batch-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .batch-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 12px 20px;
+        border-radius: 10px;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.85rem;
+        min-width: 120px;
+    }
+
+    .filter-controls button {
+        padding: 8px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .filter-controls button:hover {
+        background: #1b5e20;
+        transform: translateY(-1px);
+    }
+
+    .batch-main {
+        padding: 25px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+        font-size: 0.85rem;
+    }
+
+    .data-table thead {
+        background: linear-gradient(135deg, #e8eef5, #d4dae2);
+    }
+
+    .data-table th {
+        background: transparent;
+        font-weight: 600;
+        color: #1a3c6e;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .data-table tr:hover {
+        background: #f8fafc;
+    }
+
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .data-table td[rowspan] {
+        background: #f0f4f8;
+        font-weight: 600;
+        vertical-align: top;
+    }
+
+    .search-row td {
+        padding: 8px 14px;
+        background: transparent;
+        border-bottom: 1px solid #d4dae2;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #1e5799;
+        box-shadow: 0 0 0 2px rgba(30, 87, 153, 0.2);
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .status-pending { background: #fff3e0; color: #e65100; }
+    .status-shipped { background: #e3f2fd; color: #1565c0; }
+    .status-completed { background: #e8f5e9; color: #2e7d32; }
+    .status-cancelled { background: #ffebee; color: #c62828; }
+
+    .cargo-status {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .cargo-in_stock { background: #e8f5e9; color: #2e7d32; }
+    .cargo-not_in_stock { background: #fff3e0; color: #e65100; }
+    .cargo-all_out { background: #e3f2fd; color: #1565c0; }
+
+    .batch-info-line {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+
+    .batch-info-line .value {
+        color: #1f2937;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #9ca3af;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 5px;
+        color: #6b7280;
+    }
+
+    .empty-state p {
+        font-size: 0.95rem;
+    }
+
+    .table-summary {
+        margin-top: 15px;
+        padding: 10px 15px;
+        background: #d6e4f2;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        color: #1a3c6e;
+        font-weight: 500;
+    }
+</style>
+
+<div class="batch-system">
+    <div class="batch-header">
+        <div class="batch-logo">
+            <i class="fas fa-clipboard-list"></i>
+            <span>预约批次查询</span>
+        </div>
+        <form method="POST" class="filter-controls">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="shipment_batch_query">
+            <div class="filter-group">
+                <label>批次号:</label>
+                <input type="text" name="batch_number" value="{{ batch_number }}" placeholder="搜索批次号...">
+            </div>
+            <div class="filter-group">
+                <label>仓库:</label>
+                <select name="warehouse">
+                    <option value="">全部仓库</option>
+                    {% for name, name in warehouse_options %}
+                    <option value="{{ name }}" {% if selected_warehouse == name %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>状态:</label>
+                <select name="status">
+                    <option value="">全部状态</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>开始日期:</label>
+                <input type="date" name="start_date" value="{{ start_date }}">
+            </div>
+            <div class="filter-group">
+                <label>结束日期:</label>
+                <input type="date" name="end_date" value="{{ end_date }}">
+            </div>
+            <button type="submit"><i class="fas fa-search"></i> 查询</button>
+        </form>
+    </div>
+
+    <div class="batch-main">
+        {% if shipment_data %}
+        <table class="data-table" id="shipment-table">
+            <thead>
+                <tr>
+                    <th>预约批次号</th>
+                    <th>柜号</th>
+                    <th>唛头</th>
+                    <th>型号</th>
+                    <th>产品名称</th>
+                    <th>出库件数</th>
+                    <th>货物状态</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="search-input" placeholder="搜索批次号..." data-column="0"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索柜号..." data-column="1"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索唛头..." data-column="2"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索型号..." data-column="3"></td>
+                    <td><input type="text" class="search-input" placeholder="搜索产品..." data-column="4"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in shipment_data %}
+                <tr data-batch="{{ row.shipment_batch_number }}">
+                    {% if row.is_first_row %}
+                    <td rowspan="{{ row.rowspan }}" style="min-width: 200px;">
+                        <div style="font-weight: 700; color: #1f2937;">{{ row.shipment_batch_number }}</div>
+                        <div style="margin-top: 5px;">
+                            <span class="status-badge status-{{ row.status_code }}">{{ row.status }}</span>
+                        </div>
+                        <div class="batch-info-line">
+                            <span class="value">{{ row.warehouse|default:"-" }}</span>
+                        </div>
+                        <div class="batch-info-line">
+                            创建: <span class="value">{{ row.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        {% if row.pickup_time %}
+                        <div class="batch-info-line">
+                            提货: <span class="value">{{ row.pickup_time|date:"Y-m-d" }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="batch-info-line">
+                            总件数: <span class="value">{{ row.total_pcs }}</span>
+                        </div>
+                        {% if row.operator %}
+                        <div class="batch-info-line">
+                            操作人: <span class="value">{{ row.operator }}</span>
+                        </div>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>{{ row.container_number|default:"-" }}</td>
+                    <td>{{ row.shipping_mark|default:"-" }}</td>
+                    <td>{{ row.model|default:"-" }}</td>
+                    <td>{{ row.product_name|default:"-" }}</td>
+                    <td>{{ row.pcs }}</td>
+                    <td>
+                        <span class="cargo-status cargo-{{ row.cargo_status_code }}">{{ row.cargo_status }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="table-summary" id="table-summary">
+            共 <span id="visible-batches">{{ shipment_batches|length }}</span> 个批次，<span id="visible-cargos">{{ shipment_data|length }}</span> 条货物记录
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-warehouse"></i>
+            <h3>暂无预约批次记录</h3>
+            <p>请设置筛选条件后点击查询按钮</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var searchInputs = document.querySelectorAll('.search-input');
+        var summary = document.getElementById('table-summary');
+        var visibleBatchesEl = document.getElementById('visible-batches');
+        var visibleCargosEl = document.getElementById('visible-cargos');
+        
+        function updateSummary() {
+            var table = document.getElementById('shipment-table');
+            if (!table) return;
+            
+            var visibleRows = [];
+            var rows = table.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                if (row.style.display !== 'none') {
+                    visibleRows.push(row);
+                }
+            });
+            
+            // 计算可见的批次数量（第一个td有rowspan的）
+            var batchCount = 0;
+            visibleRows.forEach(function(row) {
+                var firstTd = row.querySelector('td');
+                if (firstTd && firstTd.getAttribute('rowspan')) {
+                    batchCount++;
+                }
+            });
+            
+            visibleBatchesEl.textContent = batchCount;
+            visibleCargosEl.textContent = visibleRows.length;
+        }
+        
+        function recalcRowspans() {
+            var table = document.getElementById('shipment-table');
+            if (!table) return;
+            
+            var rows = table.querySelectorAll('tbody tr');
+            var groups = {};
+            
+            // 收集每个批次的可见行数
+            rows.forEach(function(row) {
+                if (row.style.display === 'none') return;
+                var batch = row.getAttribute('data-batch');
+                if (!batch) return;
+                
+                var firstTd = row.querySelector('td');
+                if (!firstTd) return;
+                
+                if (firstTd.getAttribute('rowspan')) {
+                    // 重置当前rowspan
+                    firstTd.setAttribute('rowspan', '1');
+                }
+                
+                if (!groups[batch]) {
+                    groups[batch] = {
+                        firstRow: null,
+                        count: 0
+                    };
+                }
+                
+                if (firstTd.getAttribute('rowspan') && groups[batch].firstRow === null) {
+                    groups[batch].firstRow = firstTd;
+                }
+                groups[batch].count++;
+            });
+            
+            // 更新rowspan
+            Object.keys(groups).forEach(function(batch) {
+                if (groups[batch].firstRow) {
+                    groups[batch].firstRow.setAttribute('rowspan', groups[batch].count);
+                }
+            });
+        }
+        
+        searchInputs.forEach(function(input) {
+            input.addEventListener('input', function() {
+                var columnIndex = parseInt(this.dataset.column);
+                var searchText = this.value.toLowerCase();
+                var table = this.closest('table');
+                var rows = table.querySelectorAll('tbody tr');
+                
+                rows.forEach(function(row) {
+                    var cells = row.querySelectorAll('td');
+                    if (cells[columnIndex]) {
+                        var cellText = cells[columnIndex].textContent.toLowerCase();
+                        if (cellText.indexOf(searchText) !== -1) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+                
+                recalcRowspans();
+                updateSummary();
+            });
+        });
+    });
+</script>
+{% endblock %}

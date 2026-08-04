@@ -112,6 +112,7 @@ class PostDrop(View):
     template_account_edit = "post_port/new_sop/08_drop_ship_account/account_detail.html"
     template_account_view = "post_port/new_sop/08_drop_ship_account/account_view.html"
     template_ltl_inventory = "post_port/new_sop/09_drop_ship_inventory/09_ltl_inventory.html"
+    template_shipment_batch = "post_port/new_sop/09_drop_ship_inventory/shipment_batch_query.html"
     template_return_process = "post_port/new_sop/07_drop_shipping/return_process.html"
 
 
@@ -167,6 +168,9 @@ class PostDrop(View):
             warehouse_name = request.GET.get("warehouse", "")
             context = await self.handle_dropship_inventory(request, warehouse_name)
             return await sync_to_async(render)(request, self.template_ltl_inventory, context)
+        elif step == "shipment_batch_query":
+            context = await self.handle_shipment_batch_query(request)
+            return await sync_to_async(render)(request, self.template_shipment_batch, context)
         elif step == "return_process":
             warehouse_name = request.GET.get("warehouse", "")
             container = request.GET.get("container", "")
@@ -222,6 +226,9 @@ class PostDrop(View):
             warehouse_name = request.POST.get("warehouse", "")
             context = await self.handle_dropship_inventory(request, warehouse_name)
             return await sync_to_async(render)(request, self.template_ltl_inventory, context)
+        elif step == "shipment_batch_query":
+            context = await self.handle_shipment_batch_query(request)
+            return await sync_to_async(render)(request, self.template_shipment_batch, context)
         elif step == "cancel_fleet":
             # 删除车次后返回一件代发待出库界面
             fm = FleetManagement()
@@ -2236,6 +2243,199 @@ class PostDrop(View):
                     })
                 
                 context["inventory_records"] = inventory_data
+
+        return context
+
+    async def handle_shipment_batch_query(self, request: HttpRequest) -> dict[str, Any]:
+        '''预约批次查询 - 查询DropshipShipment及其关联的DropshipCargo'''
+        warehouse_name = ""
+        batch_number = ""
+        status_filter = ""
+        start_date = ""
+        end_date = ""
+        
+        # 默认日期范围：当天前15天到后15天
+        today = datetime.now().date()
+        default_start = (today - timedelta(days=15)).strftime("%Y-%m-%d")
+        default_end = (today + timedelta(days=15)).strftime("%Y-%m-%d")
+        
+        if request.method == "POST":
+            warehouse_name = request.POST.get("warehouse", "")
+            batch_number = request.POST.get("batch_number", "").strip()
+            status_filter = request.POST.get("status", "")
+            start_date = request.POST.get("start_date", "")
+            end_date = request.POST.get("end_date", "")
+        else:
+            warehouse_name = request.GET.get("warehouse", "")
+            batch_number = request.GET.get("batch_number", "").strip()
+            status_filter = request.GET.get("status", "")
+            start_date = request.GET.get("start_date", "")
+            end_date = request.GET.get("end_date", "")
+
+        # 如果没有指定日期，使用默认范围
+        if not start_date:
+            start_date = default_start
+        if not end_date:
+            end_date = default_end
+
+        context = {
+            "warehouse_options": await sync_to_async(list)(
+                ZemWarehouse.objects
+                .order_by("name")
+                .values_list("name", "name")
+            ),
+            "selected_warehouse": warehouse_name,
+            "batch_number": batch_number,
+            "status_filter": status_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "status_choices": DropshipShipment.STATUS_CHOICES,
+            "shipment_batches": [],
+        }
+
+        # 构建查询
+        shipment_qs = DropshipShipment.objects.all()
+        
+        if batch_number:
+            shipment_qs = shipment_qs.filter(shipment_batch_number__icontains=batch_number)
+        
+        if status_filter:
+            shipment_qs = shipment_qs.filter(status=status_filter)
+        
+        if warehouse_name:
+            warehouse_obj = await sync_to_async(ZemWarehouse.objects.filter(name=warehouse_name).first)()
+            if warehouse_obj:
+                shipment_qs = shipment_qs.filter(warehouse=warehouse_obj)
+        
+        # 日期过滤：按pickup_time过滤，没有pickup_time的也筛选进来
+        if start_date and end_date:
+            shipment_qs = shipment_qs.filter(
+                Q(pickup_time__isnull=True) | Q(pickup_time__gte=start_date, pickup_time__lte=end_date)
+            )
+        
+        shipment_qs = shipment_qs.select_related('warehouse').prefetch_related(
+            Prefetch('details', queryset=DropshipShipmentDetail.objects.select_related('cargo', 'cargo__container', 'cargo__warehouse'))
+        ).order_by('-pickup_time', '-created_at')
+        
+        shipments = await sync_to_async(list)(shipment_qs)
+        
+        shipment_data = []
+        for shipment in shipments:
+            details = shipment.details.all()
+            cargos_list = []
+            total_pcs = 0
+            total_pallets = 0
+            
+            for detail in details:
+                cargo = detail.cargo
+                container_number = cargo.container.container_number if cargo.container else ""
+                warehouse_name_display = cargo.warehouse.name if cargo.warehouse else ""
+                
+                cargos_list.append({
+                    'shipping_mark': cargo.shipping_mark,
+                    'model': cargo.model,
+                    'product_name': cargo.product_name,
+                    'pcs': detail.pcs,
+                    'pallets': detail.pallets,
+                    'container_number': container_number,
+                    'warehouse': warehouse_name_display,
+                    'status': cargo.get_status_display(),
+                    'note': detail.note,
+                })
+                total_pcs += detail.pcs
+                total_pallets += detail.pallets
+            
+            shipment_data.append({
+                'id': shipment.id,
+                'shipment_batch_number': shipment.shipment_batch_number,
+                'status': shipment.get_status_display(),
+                'status_code': shipment.status,
+                'warehouse': shipment.warehouse.name if shipment.warehouse else "",
+                'created_at': shipment.created_at,
+                'pickup_time': shipment.pickup_time,
+                'shipped_at': shipment.shipped_at,
+                'arrived_at': shipment.arrived_at,
+                'total_pcs': total_pcs,
+                'total_pallets': total_pallets,
+                'shipping_address': shipment.shipping_address,
+                'contact_person': shipment.contact_person,
+                'contact_phone': shipment.contact_phone,
+                'operator': shipment.operator,
+                'note': shipment.note,
+                'cargos': cargos_list,
+            })
+        
+        context["shipment_batches"] = shipment_data
+        
+        # 构建扁平化数据用于单表格展示（带合并行）
+        flat_data = []
+        for shipment in shipments:
+            details = shipment.details.all()
+            cargos_list = list(details) if details else []
+            
+            if not cargos_list:
+                # 没有货物明细，也显示一行
+                flat_row = {
+                    'is_first_row': True,
+                    'rowspan': 1,
+                    'shipment_batch_number': shipment.shipment_batch_number,
+                    'status': shipment.get_status_display(),
+                    'status_code': shipment.status,
+                    'warehouse': shipment.warehouse.name if shipment.warehouse else "",
+                    'created_at': shipment.created_at,
+                    'pickup_time': shipment.pickup_time,
+                    'total_pcs': 0,
+                    'total_pallets': 0,
+                    'operator': shipment.operator,
+                    'note': shipment.note,
+                    'container_number': "",
+                    'shipping_mark': "",
+                    'model': "",
+                    'product_name': "",
+                    'pcs': 0,
+                    'pallets': 0,
+                    'cargo_status': "",
+                    'cargo_status_code': "",
+                    'detail_note': "",
+                }
+                flat_data.append(flat_row)
+            else:
+                # 先计算总计
+                total_pcs = sum(detail.pcs for detail in cargos_list)
+                total_pallets = sum(detail.pallets for detail in cargos_list)
+                
+                for idx, detail in enumerate(cargos_list):
+                    cargo = detail.cargo
+                    container_number = cargo.container.container_number if cargo.container else ""
+                    cargo_status = cargo.get_status_display()
+                    cargo_status_code = cargo.status
+                    
+                    row = {
+                        'is_first_row': idx == 0,
+                        'rowspan': len(cargos_list) if idx == 0 else 0,
+                        'shipment_batch_number': shipment.shipment_batch_number if idx == 0 else "",
+                        'status': shipment.get_status_display() if idx == 0 else "",
+                        'status_code': shipment.status if idx == 0 else "",
+                        'warehouse': shipment.warehouse.name if shipment.warehouse and idx == 0 else "",
+                        'created_at': shipment.created_at if idx == 0 else None,
+                        'pickup_time': shipment.pickup_time if idx == 0 else None,
+                        'total_pcs': total_pcs if idx == 0 else 0,
+                        'total_pallets': total_pallets if idx == 0 else 0,
+                        'operator': shipment.operator if idx == 0 else "",
+                        'note': shipment.note if idx == 0 else "",
+                        'container_number': container_number,
+                        'shipping_mark': cargo.shipping_mark,
+                        'model': cargo.model,
+                        'product_name': cargo.product_name,
+                        'pcs': detail.pcs,
+                        'pallets': detail.pallets,
+                        'cargo_status': cargo_status,
+                        'cargo_status_code': cargo_status_code,
+                        'detail_note': detail.note,
+                    }
+                    flat_data.append(row)
+        
+        context["shipment_data"] = flat_data
 
         return context
 
