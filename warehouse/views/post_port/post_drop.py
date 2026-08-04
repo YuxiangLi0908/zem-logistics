@@ -1480,7 +1480,9 @@ class PostDrop(View):
 
             shipment_details_raw = await sync_to_async(list)(
                 DropshipShipmentDetail.objects.filter(
-                    cargo_id__in=cargo_ids
+                    cargo_id__in=cargo_ids,
+                ).exclude(
+                    shipment__status='cancelled'
                 ).select_related('shipment', 'cargo')
             )
 
