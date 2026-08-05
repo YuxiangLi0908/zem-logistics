@@ -254,7 +254,7 @@
     <thead> 
         <tr>
             <th style="width: 14%; border:1px solid black;">container number</th>
-            <th style="width: 14%; border:1px solid black;">destination</th>
+            <th style="width: 14%; border:1px solid black; word-break:break-all; word-wrap:break-word;">destination</th>
             <th style="width: 18%; border:1px solid black;">shipping_mark</th>
             <th style="width: 13%; border:1px solid black;">pallets</th>
             <th style="width: 13%; border:1px solid black;">pcs</th>
@@ -269,7 +269,7 @@
         {% for p in arm_pickup %}
         <tr style="text-align:center;">
             <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
-            <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
+            <td style="text-align:center; border:1px solid black; font-family: STSong-Light; word-break:break-all; word-wrap:break-word;">{{ p.destination }}</td>
             <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
             <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
             <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
@@ -292,7 +292,7 @@
     <thead> 
         <tr>
             <th style="width: 25%; border:1px solid black;">container number</th>
-            <th style="width: 16%; border:1px solid black;">destination</th>
+            <th style="width: 16%; border:1px solid black; word-break:break-all; word-wrap:break-word;">destination</th>
             <th style="width: 45%; border:1px solid black;">note</th>
         </tr>
     </thead>
@@ -300,7 +300,7 @@
         {% for n in notes_table %}
         <tr style="text-align:center;">
             <td style="text-align:center; border:1px solid black;">{{ n.container_no }}</td>
-            <td style="text-align:center; border:1px solid black;">{{ n.destination }}</td>
+            <td style="text-align:center; border:1px solid black; word-break:break-all; word-wrap:break-word;">{{ n.destination }}</td>
             <td style="text-align:center; border:1px solid black; font-family: STSong-Light; word-wrap: break-word; word-break: break-all; white-space: pre-line; padding: 4px;">{{ n.note }}</td>
         </tr>
         {% endfor %}
