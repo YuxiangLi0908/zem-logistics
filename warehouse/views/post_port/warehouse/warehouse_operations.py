@@ -1473,6 +1473,7 @@ class WarehouseOperations(View):
                 'pickup_number': fleet.pickup_number,
                 'fleet_type': fleet.fleet_type,
                 'appointment_datetime': fleet.appointment_datetime,
+                'departured_at': fleet.departured_at,
                 'carrier': fleet.carrier,
                 'pallets': total_pallets,
                 'pcs': total_pcs,
@@ -1561,6 +1562,10 @@ class WarehouseOperations(View):
             1 if x['warehouse_process_status'] == 'abnormal' else 0,
             x['days_diff']
         ))
+        
+        pending_fleets = [f for f in fleet_data if not f['is_shipped']]
+        shipped_fleets = [f for f in fleet_data if f['is_shipped']]
+        
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
@@ -1570,6 +1575,8 @@ class WarehouseOperations(View):
                 .values_list("name", "name")
             ),
             'fleets': fleet_data,
+            'pending_fleets': pending_fleets,
+            'shipped_fleets': shipped_fleets,
             'warehouse': warehouse,
             'shipment_type_filter': shipment_type_filter,
             'days_range': days_range,

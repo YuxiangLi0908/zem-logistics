@@ -822,7 +822,7 @@
         </div>
 
 
-        <div class="table-container">
+        <div class="table-container" id="pendingTable">
             <table class="shipment-table">
                 <thead>
                     <tr>
@@ -851,7 +851,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for fleet in fleets %}
+                    {% for fleet in pending_fleets %}
                     <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-is-shipped="{{ fleet.is_shipped }}" data-fleet-number="{{ fleet.fleet_number }}" data-pickup-number="{{ fleet.pickup_number }}">
                         <td data-col="appointment_datetime">{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
                         <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
@@ -956,10 +956,64 @@
                     </tr>
                     {% endfor %}
                     
-                    {% if not fleets %}
+                    {% if not pending_fleets %}
                     <tr>
                         <td colspan="10" style="text-align: center; padding: 20px;">
-                            暂无出库计划
+                            暂无待出库计划
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 已出库表格 -->
+        <div class="table-container" id="shippedTable" style="display:none;">
+            <table class="shipment-table">
+                <thead>
+                    <tr>
+                        <th>Pickup Number</th>
+                        <th>柜号</th>
+                        <th>目的地</th>
+                        <th class="mark-column">唛头</th>
+                        <th>板数</th>
+                        <th>件数</th>
+                        <th>Carrier</th>
+                        <th>出库时间</th>
+                    </tr>
+                    <tr class="search-row">
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pickup_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="container_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="destination" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="shipping_mark" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pallets" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pcs" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="carrier" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="departured_at" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fleet in shipped_fleets %}
+                    <tr data-fleet-number="{{ fleet.fleet_number }}">
+                        <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
+                        <td data-col="container_number">{{ fleet.details.柜号|join:", " }}</td>
+                        <td data-col="destination">{{ fleet.details.目的地|join:", " }}</td>
+                        <td data-col="shipping_mark" class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                        <td data-col="pallets">{{ fleet.pallets }}
+                            {% if fleet.is_estimated %}
+                            <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
+                            {% endif %}
+                        </td>
+                        <td data-col="pcs">{{ fleet.pcs }}</td>
+                        <td data-col="carrier">{{ fleet.carrier }}</td>
+                        <td data-col="departured_at">{{ fleet.departured_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% if not shipped_fleets %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 20px;">
+                            暂无已出库记录
                         </td>
                     </tr>
                     {% endif %}
@@ -1031,6 +1085,18 @@
         const selectedDay = activeTab ? activeTab.getAttribute('data-day') : '0';
         const typeFilter = document.getElementById('shipmentTypeFilter').value;
         
+        // 切换表格显示
+        const pendingTable = document.getElementById('pendingTable');
+        const shippedTable = document.getElementById('shippedTable');
+        
+        if (selectedDay === '3') {
+            pendingTable.style.display = 'none';
+            shippedTable.style.display = '';
+        } else {
+            pendingTable.style.display = '';
+            shippedTable.style.display = 'none';
+        }
+        
         // 收集各列搜索值
         const colSearches = {};
         document.querySelectorAll('.col-search').forEach(input => {
@@ -1039,24 +1105,11 @@
             if (val) colSearches[col] = val;
         });
         
-        const rows = document.querySelectorAll('.shipment-table tbody tr');
+        // 过滤当前可见表格的行
+        const currentTable = (selectedDay === '3') ? shippedTable : pendingTable;
+        const rows = currentTable.querySelectorAll('tbody tr');
         
         rows.forEach(row => {
-            const pickupAttr = row.getAttribute('data-pickup-number');
-            const pickup = pickupAttr ? pickupAttr.toLowerCase() : '';
-            const daysDiff = parseInt(row.getAttribute('data-days-diff'));
-            
-            let matchesDay = false;
-            const isShipped = row.getAttribute('data-is-shipped') === 'True';
-            if (selectedDay === '0') {
-                matchesDay = !isShipped;
-            } else if (selectedDay === '3') {
-                matchesDay = isShipped;
-            } else {
-                matchesDay = true;
-            }
-            
-            // 列搜索匹配
             let matchesColSearch = true;
             if (Object.keys(colSearches).length > 0) {
                 for (const [col, searchVal] of Object.entries(colSearches)) {
@@ -1071,12 +1124,12 @@
                 }
             }
             
-            // 出库类型匹配 - 基于Carrier列
+            // Carrier类型匹配
             const carrierCell = row.querySelector('td[data-col="carrier"]');
             const carrierText = carrierCell ? carrierCell.textContent.trim() : '';
             const matchesType = typeFilter === 'all' || carrierText === typeFilter;
             
-            row.style.display = (matchesDay && matchesColSearch && matchesType) ? '' : 'none';
+            row.style.display = (matchesColSearch && matchesType) ? '' : 'none';
         });
     }
 
