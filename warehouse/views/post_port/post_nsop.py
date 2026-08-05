@@ -552,6 +552,8 @@ class PostNsop(View):
             return await self.handle_check_business_residential(request)
         elif step == 'maersk_schedule_post':
             return await self.handle_maersk_schedule_post(request)
+        elif step == 'save_company_info':
+            return await self.handle_save_company_info(request)
         elif step == "bind_group_shipment":
             template, context = await self.handle_appointment_post(request)
             return render(request, template, context) 
@@ -3230,6 +3232,66 @@ class PostNsop(View):
             traceback.print_exc()
             return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
 
+    async def handle_save_company_info(self, request: HttpRequest) -> JsonResponse:
+        """保存公司信息到数据库"""
+        try:
+            company_data_str = request.POST.get('company_data')
+            if not company_data_str:
+                return JsonResponse({'success': False, 'message': '未提供公司数据'}, status=400)
+
+            company_data = json.loads(company_data_str)
+            
+            updated_count = 0
+            for item in company_data:
+                container_number = item.get('container_number', '')
+                shipping_mark = item.get('shipping_mark', '')
+                company = item.get('company', '')
+                road = item.get('road', '')
+                city = item.get('city', '')
+                name = item.get('name', '')
+                
+                if not container_number:
+                    continue
+                
+                # 更新 PackingList 表
+                packing_list_updated = await sync_to_async(
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number,
+                        shipping_mark=shipping_mark
+                    ).update
+                )(
+                    company=company,
+                    road=road,
+                    city=city,
+                    name=name
+                )
+                
+                # 更新 Pallet 表
+                pallet_updated = await sync_to_async(
+                    Pallet.objects.filter(
+                        container_number__container_number=container_number,
+                        shipping_mark=shipping_mark
+                    ).update
+                )(
+                    company=company,
+                    road=road,
+                    city=city,
+                    name=name
+                )
+                
+                if packing_list_updated or pallet_updated:
+                    updated_count += 1
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'成功更新 {updated_count} 条记录'
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
+
     async def handle_cancel_maersk_shipment(self, request: HttpRequest) -> JsonResponse:
         """取消Maersk下单"""
         try:
@@ -4244,7 +4306,6 @@ class PostNsop(View):
                 "Road": parts[1] if len(parts) > 1 else "",
                 "city": parts[2] if len(parts) > 2 else "",
                 "name": parts[3] if len(parts) > 3 else "",
-                "phone": parts[4] if len(parts) > 4 else "",
             }
 
         def format_two_per_line(values: List[str]) -> str:
@@ -4511,6 +4572,10 @@ class PostNsop(View):
                     "shipment_batch_number__fleet_number__fleet_type",
                     "destination",
                     "shipping_mark",
+                    "company",
+                    "road",
+                    "city",
+                    "name",
                     "shipment_batch_number__note",
                     "slot",
                     "shipment_batch_number__shipment_batch_number",
@@ -4535,11 +4600,32 @@ class PostNsop(View):
                 # 构建 arm_pickup_groups
                 arm_pickup_groups = []
                 for batch_number, rows in grouped_by_batch.items():
-                    arm_pickup_groups.append({
-                        "rows": rows,
-                        "contact_flag": contact_flag,
-                        "contact": contact
-                    })
+                    # 从第一行获取 company/road/city/name 构建contact
+                    first_row = rows[0] if rows else {}
+                    db_company = first_row.get('company', '') or ''
+                    db_road = first_row.get('road', '') or ''
+                    db_city = first_row.get('city', '') or ''
+                    db_name = first_row.get('name', '') or ''
+                    
+                    # 构建contact对象（如果数据库有值）
+                    if db_company or db_road or db_city or db_name:
+                        db_contact = {
+                            "company": db_company,
+                            "Road": db_road,
+                            "city": db_city,
+                            "name": db_name,
+                        }
+                        arm_pickup_groups.append({
+                            "rows": rows,
+                            "contact_flag": True,
+                            "contact": db_contact
+                        })
+                    else:
+                        arm_pickup_groups.append({
+                            "rows": rows,
+                            "contact_flag": contact_flag,
+                            "contact": contact
+                        })
 
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         pickup_time_str = fleet.appointment_datetime
@@ -4727,7 +4813,7 @@ class PostNsop(View):
                 else:
                     barcode_content = f"{group_arm_pro}"
                 if not group_carrier or group_carrier == "None" or group_carrier == "":
-                    group_carrier = "nocarrier"
+                    group_carrier = ""
                 group_attachments, group_pdfs = extract_pickup_attachments(group_rows)
                 all_pickup_pdfs.extend(group_pdfs)
                 bol_pages.append(
@@ -4778,7 +4864,23 @@ class PostNsop(View):
             barcode_base64 = generate_barcode_base64(barcode_content)
 
             if not carrier or carrier == "None" or carrier == "":
-                carrier = "nocarrier"
+                carrier = ""
+
+            # 从数据库查询的arm_pickup中提取company/road/city/name构建contact
+            if arm_pickup and arm_pickup[0]:
+                first_item = arm_pickup[0]
+                db_company = first_item.get('company', '') or ''
+                db_road = first_item.get('road', '') or ''
+                db_city = first_item.get('city', '') or ''
+                db_name = first_item.get('name', '') or ''
+                if db_company or db_road or db_city or db_name:
+                    contact = {
+                        "company": db_company,
+                        "Road": db_road,
+                        "city": db_city,
+                        "name": db_name,
+                    }
+                    contact_flag = True
 
             context = {
                 "warehouse": warehouse,
@@ -6353,7 +6455,7 @@ class PostNsop(View):
         barcode_base64 = generate_barcode_base64(barcode_content)
 
         if not carrier or carrier == "None" or carrier == "":
-            carrier = "nocarrier"
+            carrier = ""
 
         carrier_image_map = {}
         carrier_params = await sync_to_async(list)(
@@ -16405,6 +16507,10 @@ class PostNsop(View):
                 "shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__fleet_number__appointment_datetime",
                 "address",
+                "company",
+                "road",
+                "city",
+                "name",
                 "slot",
                 "shipment_batch_number__note",
                 "shipment_batch_number__pickup_time",
@@ -16440,12 +16546,32 @@ class PostNsop(View):
             }
         arm_json = []
         for item in arm_pickup:
+            # 优先使用数据库中的 company/road/city/name 字段
+            db_company = item.get('company', '') or ''
+            db_road = item.get('road', '') or ''
+            db_city = item.get('city', '') or ''
+            db_name = item.get('name', '') or ''
+            
+            # 如果数据库字段为空，从address解析
+            if not db_company and not db_road and not db_city and not db_name:
+                address_str = item.get('address', '') or ''
+                if address_str:
+                    parts = address_str.split(';')
+                    db_company = parts[0] if len(parts) > 0 else ''
+                    db_road = parts[1] if len(parts) > 1 else ''
+                    db_city = parts[2] if len(parts) > 2 else ''
+                    db_name = parts[3] if len(parts) > 3 else ''
+            
             arm_json.append({
                 'container_number': item.get('container_number__container_number', ''),
                 'zipcode': item.get('zipcode', ''),
                 'shipping_mark': item.get('shipping_mark', ''),
                 'destination': item.get('destination', ''),
                 'address': item.get('address', ''),
+                'company': db_company,
+                'road': db_road,
+                'city': db_city,
+                'name': db_name,
                 'slot': item.get('slot', ''),
                 'arm_bol': item.get('shipment_batch_number__ARM_BOL', ''),
                 'arm_pro': item.get('shipment_batch_number__ARM_PRO', ''),
@@ -16460,9 +16586,6 @@ class PostNsop(View):
                 'total_pallet': int(item.get('total_pallet', 0)),
                 'total_weight': float(item.get('total_weight', 0)),
                 'total_cbm': float(item.get('total_cbm', 0)),
-                'address_parts': dict(item.get('address_parts') or {
-                    'company': '', 'road': '', 'city': '', 'name': '', 'phone': ''
-                })
             })
 
         arm_json_str = json.dumps(arm_json, cls=DjangoJSONEncoder)

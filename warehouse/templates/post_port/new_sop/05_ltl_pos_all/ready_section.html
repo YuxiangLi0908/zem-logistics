@@ -763,6 +763,9 @@
                 <button onclick="saveArmPickupData()" style="background-color: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
                     <i class="fas fa-save"></i> 临时保存
                 </button>
+                <button onclick="saveCompanyData()" style="background-color: #FF9800; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                    <i class="fas fa-building"></i> company保存
+                </button>
                 <span onclick="closeArmPickupModal()" style="cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
             </div>
         </div>
@@ -2474,7 +2477,6 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Road</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">City</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Name</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Phone</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">备注</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">库位</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">是否特操</th>
@@ -2507,19 +2509,22 @@
             if (cleanData.total_pallet === 0) cleanData.total_pallet = 0;
             if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
             
-            // 在前端解析address字段
+            // 在前端解析address字段 - 优先使用数据库传来的company/road/city/name
             let addressParts = {
-                company: '', road: '', city: '', name: '', phone: ''
+                company: (item.company || '').toString().replace('None', ''),
+                road: (item.road || '').toString().replace('None', ''),
+                city: (item.city || '').toString().replace('None', ''),
+                name: (item.name || '').toString().replace('None', '')
             };
             
-            if (cleanData.address && cleanData.address !== '') {
+            // 如果数据库字段都为空，从address解析
+            if (!addressParts.company && !addressParts.road && !addressParts.city && !addressParts.name && cleanData.address && cleanData.address !== '') {
                 const parts = cleanData.address.split(";");
                 addressParts = {
                     company: parts[0] || '',
                     road: parts[1] || '',
                     city: parts[2] || '',
-                    name: parts[3] || '',
-                    phone: parts[4] || ''
+                    name: parts[3] || ''
                 };
             }
             
@@ -2601,12 +2606,6 @@
                         <input type="text" class="arm-input address-part" 
                             data-field="address_name" 
                             value="${addressParts.name}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
-                        <input type="text" class="arm-input address-part" 
-                            data-field="address_phone" 
-                            value="${addressParts.phone}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
@@ -2742,7 +2741,7 @@
             // 如果是LTL类型，合并地址字段到address
             if (currentArmPickupData.fleet_type === 'LTL' && rowData.address_parts) {
                 const parts = rowData.address_parts;
-                rowData.address = `${parts.company || ''};${parts.road || ''};${parts.city || ''};${parts.name || ''};${parts.phone || ''}`;
+                rowData.address = `${parts.company || ''};${parts.road || ''};${parts.city || ''};${parts.name || ''}`;
                 // 删除临时的address_parts，只保留address
                 delete rowData.address_parts;
             }
@@ -2964,12 +2963,6 @@
                             style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="text" class="arm-input address-part" 
-                            data-field="address_phone" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
                         <textarea class="arm-textarea" 
                                 data-field="shipment_batch_number__note" 
                                 style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
@@ -3116,6 +3109,66 @@
         
         alert('拣货单数据已临时保存！');
         closeArmPickupModal();
+    }
+
+    // 保存公司信息到数据库
+    function saveCompanyData() {
+        updateArmPickupData();
+        
+        const fleetNumber = currentArmPickupData.fleet_number;
+        const warehouse = '{{ warehouse }}';
+        
+        // 构建公司数据数组
+        const companyData = editedArmPickupData.map(item => ({
+            container_number: item.container_number__container_number || item.container_number || '',
+            shipping_mark: item.shipping_mark || '',
+            company: item.address ? item.address.split(';')[0] || '' : '',
+            road: item.address ? item.address.split(';')[1] || '' : '',
+            city: item.address ? item.address.split(';')[2] || '' : '',
+            name: item.address ? item.address.split(';')[3] || '' : ''
+        }));
+        
+        // 发送到后端保存
+        fetch('/post_nsop/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: new URLSearchParams({
+                'step': 'save_company_info',
+                'fleet_number': fleetNumber,
+                'warehouse': warehouse,
+                'company_data': JSON.stringify(companyData)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('公司信息已保存到数据库！');
+            } else {
+                alert('保存失败：' + (data.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            alert('保存出错：' + error.message);
+        });
+    }
+
+    // 获取CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     // 关闭模态框
