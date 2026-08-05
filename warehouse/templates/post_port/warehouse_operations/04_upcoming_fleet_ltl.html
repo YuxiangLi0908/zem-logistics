@@ -772,10 +772,6 @@
 
         <div class="search-box" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
             <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-                <input type="text" class="search-input" placeholder="搜索任意内容..." id="fleetSearch">
-                <button class="search-btn" id="searchBtn">
-                    <i class="fas fa-search"></i> 搜索
-                </button>
                 <span style="font-size: 14px; color: #555;">当前时间: {{ today|date:'Y-m-d H:i:s' }}</span>
             </div>
 
@@ -832,36 +828,57 @@
                     <tr>
                         <th>预计提货时间</th>
                         <th>Pickup Number</th>
-                        <th>Carrier</th>
-                        <th>邮编</th>
-                        <th>板数</th>
                         <th>柜号</th>
                         <th>目的地</th>
                         <th class="mark-column">唛头</th>
+                        <th>板数</th>
                         <th>件数</th>
-                        <th>详细地址</th>
+                        <th>Carrier</th>
                         <th>备注</th>
                         <th>文件上传下载</th>
                     </tr>
+                    <tr class="search-row">
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="appointment_datetime" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pickup_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="container_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="destination" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="shipping_mark" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pallets" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pcs" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="carrier" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="note" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"></th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {% for fleet in fleets %}                    
+                    {% for fleet in fleets %}
                     <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-is-shipped="{{ fleet.is_shipped }}" data-fleet-number="{{ fleet.fleet_number }}" data-pickup-number="{{ fleet.pickup_number }}">
-                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
-                        <td>{{ fleet.pickup_number }}</td>
-                        <td>{{ fleet.carrier }}</td>
-                        <td>{{ fleet.details.邮编|join:", " }}</td>
-                        <td>{{ fleet.pallets }}
+                        <td data-col="appointment_datetime">{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
+                        <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
+                        <td data-col="container_number">{{ fleet.details.柜号|join:", " }}</td>
+                        <td data-col="destination">{{ fleet.details.目的地|join:", " }}</td>
+                        <td data-col="shipping_mark" class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                        <td data-col="pallets">{{ fleet.pallets }}
                             {% if fleet.is_estimated %}
                             <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
                             {% endif %}
                         </td>
-                        <td>{{ fleet.details.柜号|join:", " }}</td>
-                        <td>{{ fleet.details.目的地|join:", " }}</td>
-                        <td class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
-                        <td>{{ fleet.pcs }}</td>
-                        <td>{{ fleet.details.详细地址|join:", " }}</td>
-                        <td>{{ fleet.details.备注|join:", " }}</td>
+                        <td data-col="pcs">{{ fleet.pcs }}</td>
+                        <td data-col="carrier">{{ fleet.carrier }}</td>
+                        <td data-col="note">
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <input type="text" class="note-input" 
+                                    value="{{ fleet.details.备注|join:", " }}" 
+                                    data-fleet-number="{{ fleet.fleet_number }}"
+                                    style="width: 100%; padding: 4px 30px 4px 6px; border: 1px solid #ccc; border-radius: 3px; min-width: 120px;">
+                                <button type="button" class="save-note-btn" 
+                                    data-fleet-number="{{ fleet.fleet_number }}"
+                                    style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: transparent; color: #4CAF50; border: none; padding: 2px; cursor: pointer; font-size: 14px;"
+                                    onclick="saveNote('{{ fleet.fleet_number }}', this)">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </div>
+                        </td>
                         <td class="action-column">
                             <div class="link-group">
                                 {% for shipment in fleet.shipment_links %}
@@ -941,7 +958,7 @@
                     
                     {% if not fleets %}
                     <tr>
-                        <td colspan="12" style="text-align: center; padding: 20px;">
+                        <td colspan="10" style="text-align: center; padding: 20px;">
                             暂无出库计划
                         </td>
                     </tr>
@@ -1000,42 +1017,34 @@
         localStorage.setItem('selectedDay', day);
     }
 
-    document.getElementById('searchBtn').addEventListener('click', applyFilters);
-    document.getElementById('shipmentTypeFilter').addEventListener('change', applyFilters);
-
-    function filterTableBySearch(searchTerm) {
-        applyFilters();
-    }
-
-    document.getElementById('fleetSearch').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
+    // 列搜索事件绑定
+    document.querySelectorAll('.col-search').forEach(input => {
+        input.addEventListener('input', function() {
             applyFilters();
-        }
+        });
     });
 
-    document.getElementById('fleetSearch').addEventListener('input', function(e) {
-        applyFilters();
-    });
+    document.getElementById('shipmentTypeFilter').addEventListener('change', applyFilters);
 
     function applyFilters() {
         const activeTab = document.querySelector('.time-tab.active');
         const selectedDay = activeTab ? activeTab.getAttribute('data-day') : '0';
-        const searchTerm = document.getElementById('fleetSearch').value.trim().toLowerCase();
         const typeFilter = document.getElementById('shipmentTypeFilter').value;
         
-        // 处理普通行
+        // 收集各列搜索值
+        const colSearches = {};
+        document.querySelectorAll('.col-search').forEach(input => {
+            const col = input.getAttribute('data-col');
+            const val = input.value.trim().toLowerCase();
+            if (val) colSearches[col] = val;
+        });
+        
         const rows = document.querySelectorAll('.shipment-table tbody tr');
         
-        // 筛选普通行
         rows.forEach(row => {
             const pickupAttr = row.getAttribute('data-pickup-number');
             const pickup = pickupAttr ? pickupAttr.toLowerCase() : '';
             const daysDiff = parseInt(row.getAttribute('data-days-diff'));
-
-            const pickupNumberCell = row.querySelector('td:nth-child(2)');
-            const fleetTypeCell = row.querySelector('td:nth-child(3)'); 
-            const pickupNumber = pickupNumberCell ? pickupNumberCell.textContent.trim().toLowerCase() : '';
-            const fleetType = fleetTypeCell ? fleetTypeCell.textContent.trim() : '';
             
             let matchesDay = false;
             const isShipped = row.getAttribute('data-is-shipped') === 'True';
@@ -1046,13 +1055,92 @@
             } else {
                 matchesDay = true;
             }
-            const displayDay = parseInt(daysDiff);
-            const rowText = row.textContent.toLowerCase();
-            const matchesSearch = searchTerm === '' || 
-                                rowText.includes(searchTerm);
-            const matchesType = typeFilter === 'all' || fleetType === typeFilter;
-            row.style.display = (matchesDay && matchesSearch && matchesType) ? '' : 'none';
+            
+            // 列搜索匹配
+            let matchesColSearch = true;
+            if (Object.keys(colSearches).length > 0) {
+                for (const [col, searchVal] of Object.entries(colSearches)) {
+                    const cell = row.querySelector(`td[data-col="${col}"]`);
+                    if (cell) {
+                        const cellText = cell.textContent.trim().toLowerCase();
+                        if (!cellText.includes(searchVal)) {
+                            matchesColSearch = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 出库类型匹配 - 基于Carrier列
+            const carrierCell = row.querySelector('td[data-col="carrier"]');
+            const carrierText = carrierCell ? carrierCell.textContent.trim() : '';
+            const matchesType = typeFilter === 'all' || carrierText === typeFilter;
+            
+            row.style.display = (matchesDay && matchesColSearch && matchesType) ? '' : 'none';
         });
+    }
+
+    function saveNote(fleetNumber, btn) {
+        const row = btn.closest('tr');
+        const noteInput = row.querySelector('.note-input');
+        const noteValue = noteInput.value.trim();
+        const originalColor = btn.style.color;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.style.color = '#666';
+        
+        fetch('/warehouse_operations/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: new URLSearchParams({
+                'step': 'save_fleet_note',
+                'warehouse': '{{ warehouse }}',
+                'fleet_number': fleetNumber,
+                'note': noteValue
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.style.color = '#28a745';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-save"></i>';
+                    btn.style.color = originalColor;
+                    btn.disabled = false;
+                }, 1500);
+            } else {
+                alert('保存失败: ' + (data.message || '未知错误'));
+                btn.innerHTML = '<i class="fas fa-save"></i>';
+                btn.style.color = originalColor;
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            alert('保存出错: ' + error.message);
+            btn.innerHTML = '<i class="fas fa-save"></i>';
+            btn.style.color = originalColor;
+            btn.disabled = false;
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     function getSelectedDay() {

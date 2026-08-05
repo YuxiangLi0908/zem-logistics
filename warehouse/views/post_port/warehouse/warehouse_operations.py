@@ -230,6 +230,8 @@ class WarehouseOperations(View):
         elif step == "report_issue_ltl":
             template, context = await self.handle_report_issue_ltl_post(request)
             return render(request, template, context)
+        elif step == "save_fleet_note":
+            return await self.handle_save_fleet_note(request)
         elif step =="export_bol":
             return await self.handle_bol_post(request)
         elif step =="export_picking_list":
@@ -853,6 +855,31 @@ class WarehouseOperations(View):
             return await fm.handle_export_bol_packing_list_post(request)
         else:
             raise ValueError('出库类型异常！')
+
+    async def handle_save_fleet_note(self, request: HttpRequest) -> JsonResponse:
+        """保存车次备注到Pallet模型"""
+        try:
+            fleet_number = request.POST.get("fleet_number", "")
+            note = request.POST.get("note", "")
+            
+            if not fleet_number:
+                return JsonResponse({'success': False, 'message': '未提供车次编号'}, status=400)
+            
+            updated_count = await sync_to_async(
+                Pallet.objects.filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number
+                ).update
+            )(note=note)
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'成功更新 {updated_count} 条记录'
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
 
     async def handle_report_issue_ltl_post(
         self, request: HttpRequest
