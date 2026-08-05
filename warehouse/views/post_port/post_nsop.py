@@ -3988,8 +3988,16 @@ class PostNsop(View):
                     wrapped_lines.append(part[i:i + max_length])
             return '\n'.join(wrapped_lines)
 
-        # 对DataFrame应用换行处理
-        df_wrapped = df.applymap(wrap_text)
+        # 按列索引设置不同的换行长度，目的地列(index=1)更短以防止溢出
+        col_wrap_lengths = {0: 14, 1: 8, 2: 25, 3: 10, 4: 10, 5: 10, 6: 10}
+
+        # 对DataFrame按列应用不同的换行处理
+        df_wrapped = df.copy()
+        for col_idx in range(len(df.columns)):
+            max_len = col_wrap_lengths.get(col_idx, 11)
+            df_wrapped.iloc[:, col_idx] = df.iloc[:, col_idx].apply(
+                lambda x: wrap_text(x, max_length=max_len)
+            )
 
         files = request.FILES.getlist("files")
         if files:
@@ -4626,6 +4634,23 @@ class PostNsop(View):
             return mark_safe("<br>".join([escape(line) for line in lines]))
 
         is_multi_arm_pickup = len(arm_pickup) > 1
+
+        # 对 arm_pickup 中的 destination 字段进行预换行处理，确保 PDF 中目的地列文字不会溢出
+        for item in arm_pickup:
+            dest = item.get("destination", "")
+            if dest and str(dest).strip() and str(dest).strip().lower() != "none":
+                dest_str = str(dest).strip()
+                wrapped_lines = []
+                for part in re.split(r'[,，\s]+', dest_str):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    for i in range(0, len(part), 10):
+                        wrapped_lines.append(escape(part[i:i + 10]))
+                if len(wrapped_lines) > 1:
+                    item["destination"] = mark_safe("<br>".join(wrapped_lines))
+                elif wrapped_lines:
+                    item["destination"] = wrapped_lines[0]
 
         if is_multi_arm_pickup:
             # 一提多卸用单独模板
@@ -6075,7 +6100,7 @@ class PostNsop(View):
                 <thead>
                     <tr>
                         <th width="14%">柜号</th>
-                        <th width="10%">目的地</th>
+                        <th width="10%" style="word-break:break-all; word-wrap:break-word;">目的地</th>
                         <th width="30%">唛头</th>
                         <th width="8%">件数</th>
                         <th width="8%">板数</th>
@@ -6089,10 +6114,11 @@ class PostNsop(View):
         for item in data:
             pickup_time_str = item["pickup_time"].strftime("%Y-%m-%d") if item["pickup_time"] else ""
             shipping_mark_wrapped = self._wrap_text(item["shipping_mark"], 25)
+            destination_wrapped = self._wrap_text(item["destination"], 10)
             html += f"""
                 <tr>
                     <td width="14%" style="word-break:break-all;">{item["container_number"]}</td>
-                    <td width="10%" style="word-break:break-all;">{item["destination"]}</td>
+                    <td width="10%" style="word-break:break-all; word-wrap:break-word;">{destination_wrapped}</td>
                     <td width="30%" style="word-break:break-all;">{shipping_mark_wrapped}</td>
                     <td width="8%" style="word-break:break-all;">{item["total_pcs"]}</td>
                     <td width="8%" style="word-break:break-all;">{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>

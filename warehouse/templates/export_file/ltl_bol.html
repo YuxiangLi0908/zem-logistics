@@ -245,7 +245,7 @@
         <tr>
             <th style="width: 7%; border: none;"></th>
             <th style="width: 14%; border:1px solid black; word-break:break-all;">container number</th>
-            <th style="width: 10%; border:1px solid black; word-break:break-all;">destination</th>
+            <th style="width: 10%; border:1px solid black; word-break:break-all; word-wrap:break-word;">destination</th>
             <th style="width: 28%; border:1px solid black; word-break:break-all;">shipping_mark</th>
             <th style="width: 8%; border:1px solid black; word-break:break-all;">pallets</th>
             <th style="width: 8%; border:1px solid black; word-break:break-all;">pcs</th>
@@ -262,7 +262,7 @@
         <tr style="text-align:center;">
             <th style="width: 7%; border: none;"></th>
             <td style="width: 14%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.container_number__container_number }}</td>
-            <td style="width: 10%; text-align:center; border:1px solid black; font-family: STSong-Light; word-break:break-all;">{{ p.destination }}</td>
+            <td style="width: 10%; text-align:center; border:1px solid black; font-family: STSong-Light; word-break:break-all; word-wrap:break-word;">{{ p.destination }}</td>
             <td style="width: 28%; word-break:break-all; border:1px solid black;">{{ p.shipping_mark|safe }}</td>
             <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pallet }}</td>
             <td style="width: 8%; text-align:center; border:1px solid black; word-break:break-all;">{{ p.total_pcs }}</td>
