@@ -4092,7 +4092,7 @@ class PostNsop(View):
                     cellText=df_wrapped.values,
                     colLabels=df_wrapped.columns,
                     cellLoc="center",
-                    bbox=[0.1, table_y, 0.8, total_table_height],
+                    bbox=[0.05, table_y, 0.9, total_table_height],
                 )
 
                 # 设置表格样式 - 保持原来的设置，只增加行高
@@ -4108,13 +4108,17 @@ class PostNsop(View):
                             BASE_ROW_HEIGHT * line_count + EXTRA_PADDING
                         )
 
-                    # 列宽保持你原来的逻辑
-                    if col in (0, 1, 2):
-                        cell.set_width(0.15)
+                    # 列宽分配：container(0), destination(1), mark(2), pallet(3), pcs(4), carrier(5), pickup(6)
+                    if col == 0:
+                        cell.set_width(0.14)
+                    elif col == 1:
+                        cell.set_width(0.18)  # destination 列加宽
+                    elif col == 2:
+                        cell.set_width(0.16)
                     elif col in (3, 4):
-                        cell.set_width(0.06)
+                        cell.set_width(0.07)
                     else:
-                        cell.set_width(0.12)
+                        cell.set_width(0.11)
 
                 # ========= 8️⃣ 计算表格底部位置 =========
                 renderer = fig.canvas.get_renderer()
@@ -6070,7 +6074,7 @@ class PostNsop(View):
             <title>批量拣货单</title>
             <style>
                 @page {
-                    margin: 20mm;
+                    margin: 15mm;
                 }
                 body {
                     font-family: STSong-Light;
@@ -6100,11 +6104,11 @@ class PostNsop(View):
                 <thead>
                     <tr>
                         <th width="14%">柜号</th>
-                        <th width="10%" style="word-break:break-all; word-wrap:break-word;">目的地</th>
-                        <th width="30%">唛头</th>
+                        <th width="17%" style="word-break:break-all; word-wrap:break-word;">目的地</th>
+                        <th width="28%">唛头</th>
                         <th width="8%">件数</th>
                         <th width="8%">板数</th>
-                        <th width="12%">carrier</th>
+                        <th width="11%">carrier</th>
                         <th width="10%">提货时间</th>
                     </tr>
                 </thead>
@@ -6118,11 +6122,11 @@ class PostNsop(View):
             html += f"""
                 <tr>
                     <td width="14%" style="word-break:break-all;">{item["container_number"]}</td>
-                    <td width="10%" style="word-break:break-all; word-wrap:break-word;">{destination_wrapped}</td>
-                    <td width="30%" style="word-break:break-all;">{shipping_mark_wrapped}</td>
+                    <td width="17%" style="word-break:break-all; word-wrap:break-word;">{destination_wrapped}</td>
+                    <td width="28%" style="word-break:break-all;">{shipping_mark_wrapped}</td>
                     <td width="8%" style="word-break:break-all;">{item["total_pcs"]}</td>
                     <td width="8%" style="word-break:break-all;">{int(item["total_pallet"]) if item["total_pallet"] else 0}</td>
-                    <td width="12%" style="word-break:break-all;">{item["carrier"]}</td>
+                    <td width="11%" style="word-break:break-all;">{item["carrier"]}</td>
                     <td width="10%" style="word-break:break-all;">{pickup_time_str}</td>
                 </tr>
             """

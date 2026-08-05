@@ -6118,8 +6118,16 @@ class FleetManagement(View):
                 wrapped_lines.append(text[i:i + max_length])
             return '\n'.join(wrapped_lines)
 
-        # 对DataFrame应用换行处理
-        df_wrapped = df.applymap(wrap_text)
+        # 按列索引设置不同的换行长度，目的地列(index=1)更短以防止溢出
+        col_wrap_lengths = {0: 14, 1: 8, 2: 25, 3: 10, 4: 10, 5: 10}
+
+        # 对DataFrame按列应用不同的换行处理
+        df_wrapped = df.copy()
+        for col_idx in range(len(df.columns)):
+            max_len = col_wrap_lengths.get(col_idx, 11)
+            df_wrapped.iloc[:, col_idx] = df.iloc[:, col_idx].apply(
+                lambda x: wrap_text(x, max_length=max_len)
+            )
 
         files = request.FILES.getlist("files")
         if files:
@@ -6191,7 +6199,7 @@ class FleetManagement(View):
                     colLabels=df_wrapped.columns,
                     loc="upper center",
                     cellLoc="center",
-                    bbox=[0.12, 0.7, 0.8, 0.12]  # [x0, y0, width, height]
+                    bbox=[0.07, 0.7, 0.88, 0.12]  # [x0, y0, width, height]
                 )
 
                 # 设置表格样式 - 保持原来的设置，只增加行高
@@ -6207,13 +6215,17 @@ class FleetManagement(View):
                     else:  # 表头行
                         cell.set_height(0.025)  # 从0.02增加到0.025
 
-                    # 列宽设置保持不变
-                    if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:
-                        cell.set_width(0.15)
+                    # 列宽设置：col0=container, col1=destination, col2=mark, col3=carrier, col4=pallet, col5=pcs
+                    if pos[1] == 0:
+                        cell.set_width(0.14)
+                    elif pos[1] == 1:
+                        cell.set_width(0.18)  # destination 列加宽
+                    elif pos[1] == 2:
+                        cell.set_width(0.16)
                     elif pos[1] == 3 or pos[1] == 4:
-                        cell.set_width(0.06)
+                        cell.set_width(0.07)
                     else:
-                        cell.set_width(0.12)
+                        cell.set_width(0.11)
 
                 table_bbox = the_table.get_window_extent(
                     renderer=ax.figure.canvas.get_renderer()
