@@ -1385,6 +1385,7 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
         ]
     elif export_format == "FULL_TABLE":
         keep = [
+            "shipping_mark",
             "container_number__container_number",
             "destination",
             "delivery_method",
@@ -1417,6 +1418,7 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
     )
     df = df[keep].rename(
         {
+            "shipping_mark": "Shipping Mark",
             "fba_id": "PRO",
             "container_number__container_number": "BOL",
             "ref_id": "PO List (use , as separator) *",
