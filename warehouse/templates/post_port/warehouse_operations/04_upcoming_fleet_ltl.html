@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -772,10 +772,6 @@
 
         <div class="search-box" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
             <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-                <input type="text" class="search-input" placeholder="搜索任意内容..." id="fleetSearch">
-                <button class="search-btn" id="searchBtn">
-                    <i class="fas fa-search"></i> 搜索
-                </button>
                 <span style="font-size: 14px; color: #555;">当前时间: {{ today|date:'Y-m-d H:i:s' }}</span>
             </div>
 
@@ -826,42 +822,78 @@
         </div>
 
 
-        <div class="table-container">
+        <div class="table-container" id="pendingTable">
+            <!-- 批量操作栏 -->
+            <div id="batchActionBar" style="display:none; margin-bottom: 10px; padding: 10px 15px; background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 4px; align-items: center; gap: 15px;">
+                <span style="font-weight: 600; color: #2c3e50;">已选 <span id="selectedCount">0</span> 项</span>
+                <button type="button" class="btn-primary" onclick="openBatchOutboundModal()" style="padding: 6px 14px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    <i class="fas fa-play-circle"></i> 批量出库
+                </button>
+                <button type="button" onclick="clearSelection()" style="padding: 6px 14px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    取消选择
+                </button>
+            </div>
             <table class="shipment-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
                         <th>预计提货时间</th>
                         <th>Pickup Number</th>
-                        <th>Carrier</th>
-                        <th>邮编</th>
-                        <th>板数</th>
                         <th>柜号</th>
                         <th>目的地</th>
                         <th class="mark-column">唛头</th>
+                        <th>板数</th>
                         <th>件数</th>
-                        <th>详细地址</th>
+                        <th>Carrier</th>
                         <th>备注</th>
                         <th>文件上传下载</th>
                     </tr>
+                    <tr class="search-row">
+                        <th style="background: white; color: #333; position: static;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="appointment_datetime" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pickup_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="container_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="destination" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="shipping_mark" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pallets" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pcs" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="carrier" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="note" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"></th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {% for fleet in fleets %}                    
+                    {% for fleet in pending_fleets %}
                     <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-is-shipped="{{ fleet.is_shipped }}" data-fleet-number="{{ fleet.fleet_number }}" data-pickup-number="{{ fleet.pickup_number }}">
-                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
-                        <td>{{ fleet.pickup_number }}</td>
-                        <td>{{ fleet.carrier }}</td>
-                        <td>{{ fleet.details.邮编|join:", " }}</td>
-                        <td>{{ fleet.pallets }}
+                        <td style="text-align: center;">
+                            <input type="checkbox" class="row-checkbox" value="{{ fleet.fleet_number }}" onchange="updateSelection()">
+                        </td>
+                        <td data-col="appointment_datetime">{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
+                        <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
+                        <td data-col="container_number">{{ fleet.details.柜号|join:", " }}</td>
+                        <td data-col="destination">{{ fleet.details.目的地|join:", " }}</td>
+                        <td data-col="shipping_mark" class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                        <td data-col="pallets">{{ fleet.pallets }}
                             {% if fleet.is_estimated %}
                             <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
                             {% endif %}
                         </td>
-                        <td>{{ fleet.details.柜号|join:", " }}</td>
-                        <td>{{ fleet.details.目的地|join:", " }}</td>
-                        <td class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
-                        <td>{{ fleet.pcs }}</td>
-                        <td>{{ fleet.details.详细地址|join:", " }}</td>
-                        <td>{{ fleet.details.备注|join:", " }}</td>
+                        <td data-col="pcs">{{ fleet.pcs }}</td>
+                        <td data-col="carrier">{{ fleet.carrier }}</td>
+                        <td data-col="note">
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <input type="text" class="note-input" 
+                                    value="{{ fleet.details.备注|join:", " }}" 
+                                    data-fleet-number="{{ fleet.fleet_number }}"
+                                    style="width: 100%; padding: 4px 30px 4px 6px; border: 1px solid #ccc; border-radius: 3px; min-width: 120px;">
+                                <button type="button" class="save-note-btn" 
+                                    data-fleet-number="{{ fleet.fleet_number }}"
+                                    style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: transparent; color: #4CAF50; border: none; padding: 2px; cursor: pointer; font-size: 14px;"
+                                    onclick="saveNote('{{ fleet.fleet_number }}', this)">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </div>
+                        </td>
                         <td class="action-column">
                             <div class="link-group">
                                 {% for shipment in fleet.shipment_links %}
@@ -939,15 +971,93 @@
                     </tr>
                     {% endfor %}
                     
-                    {% if not fleets %}
+                    {% if not pending_fleets %}
                     <tr>
-                        <td colspan="12" style="text-align: center; padding: 20px;">
-                            暂无出库计划
+                        <td colspan="11" style="text-align: center; padding: 20px;">
+                            暂无待出库计划
                         </td>
                     </tr>
                     {% endif %}
                 </tbody>
             </table>
+        </div>
+
+        <!-- 已出库表格 -->
+        <div class="table-container" id="shippedTable" style="display:none;">
+            <table class="shipment-table">
+                <thead>
+                    <tr>
+                        <th>Pickup Number</th>
+                        <th>柜号</th>
+                        <th>目的地</th>
+                        <th class="mark-column">唛头</th>
+                        <th>板数</th>
+                        <th>件数</th>
+                        <th>Carrier</th>
+                        <th>出库时间</th>
+                    </tr>
+                    <tr class="search-row">
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pickup_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="container_number" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="destination" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="shipping_mark" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pallets" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pcs" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="carrier" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="departured_at" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fleet in shipped_fleets %}
+                    <tr data-fleet-number="{{ fleet.fleet_number }}">
+                        <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
+                        <td data-col="container_number">{{ fleet.details.柜号|join:", " }}</td>
+                        <td data-col="destination">{{ fleet.details.目的地|join:", " }}</td>
+                        <td data-col="shipping_mark" class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                        <td data-col="pallets">{{ fleet.pallets }}
+                            {% if fleet.is_estimated %}
+                            <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
+                            {% endif %}
+                        </td>
+                        <td data-col="pcs">{{ fleet.pcs }}</td>
+                        <td data-col="carrier">{{ fleet.carrier }}</td>
+                        <td data-col="departured_at">{{ fleet.departured_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% if not shipped_fleets %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 20px;">
+                            暂无已出库记录
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 出库时间选择弹框 -->
+<div id="outboundTimeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 450px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeOutboundModal()">&times;</span>
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">
+            <span id="outboundModalTitle">选择出库时间</span>
+        </h3>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-size: 14px; color: #555; font-weight: 600;">出库时间：</label>
+            <input type="datetime-local" id="outboundDateTime" style="width: 100%; padding: 10px; border: 1px solid #dce1e6; border-radius: 4px; font-size: 14px;">
+        </div>
+        
+        <div id="outboundBatchInfo" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; display: none;">
+            <span style="font-size: 13px; color: #555;">将批量出库 <span id="outboundBatchCount" style="font-weight: 600; color: #007bff;">0</span> 个车次</span>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="closeOutboundModal()">取消</button>
+            <button type="button" id="confirmOutboundBtn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="confirmOutbound()">确认出库</button>
         </div>
     </div>
 </div>
@@ -1000,59 +1110,129 @@
         localStorage.setItem('selectedDay', day);
     }
 
-    document.getElementById('searchBtn').addEventListener('click', applyFilters);
-    document.getElementById('shipmentTypeFilter').addEventListener('change', applyFilters);
-
-    function filterTableBySearch(searchTerm) {
-        applyFilters();
-    }
-
-    document.getElementById('fleetSearch').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
+    // 列搜索事件绑定
+    document.querySelectorAll('.col-search').forEach(input => {
+        input.addEventListener('input', function() {
             applyFilters();
-        }
+        });
     });
 
-    document.getElementById('fleetSearch').addEventListener('input', function(e) {
-        applyFilters();
-    });
+    document.getElementById('shipmentTypeFilter').addEventListener('change', applyFilters);
 
     function applyFilters() {
         const activeTab = document.querySelector('.time-tab.active');
         const selectedDay = activeTab ? activeTab.getAttribute('data-day') : '0';
-        const searchTerm = document.getElementById('fleetSearch').value.trim().toLowerCase();
         const typeFilter = document.getElementById('shipmentTypeFilter').value;
         
-        // 处理普通行
-        const rows = document.querySelectorAll('.shipment-table tbody tr');
+        // 切换表格显示
+        const pendingTable = document.getElementById('pendingTable');
+        const shippedTable = document.getElementById('shippedTable');
         
-        // 筛选普通行
-        rows.forEach(row => {
-            const pickupAttr = row.getAttribute('data-pickup-number');
-            const pickup = pickupAttr ? pickupAttr.toLowerCase() : '';
-            const daysDiff = parseInt(row.getAttribute('data-days-diff'));
-
-            const pickupNumberCell = row.querySelector('td:nth-child(2)');
-            const fleetTypeCell = row.querySelector('td:nth-child(3)'); 
-            const pickupNumber = pickupNumberCell ? pickupNumberCell.textContent.trim().toLowerCase() : '';
-            const fleetType = fleetTypeCell ? fleetTypeCell.textContent.trim() : '';
-            
-            let matchesDay = false;
-            const isShipped = row.getAttribute('data-is-shipped') === 'True';
-            if (selectedDay === '0') {
-                matchesDay = !isShipped;
-            } else if (selectedDay === '3') {
-                matchesDay = isShipped;
-            } else {
-                matchesDay = true;
-            }
-            const displayDay = parseInt(daysDiff);
-            const rowText = row.textContent.toLowerCase();
-            const matchesSearch = searchTerm === '' || 
-                                rowText.includes(searchTerm);
-            const matchesType = typeFilter === 'all' || fleetType === typeFilter;
-            row.style.display = (matchesDay && matchesSearch && matchesType) ? '' : 'none';
+        if (selectedDay === '3') {
+            pendingTable.style.display = 'none';
+            shippedTable.style.display = '';
+        } else {
+            pendingTable.style.display = '';
+            shippedTable.style.display = 'none';
+        }
+        
+        // 收集各列搜索值
+        const colSearches = {};
+        document.querySelectorAll('.col-search').forEach(input => {
+            const col = input.getAttribute('data-col');
+            const val = input.value.trim().toLowerCase();
+            if (val) colSearches[col] = val;
         });
+        
+        // 过滤当前可见表格的行
+        const currentTable = (selectedDay === '3') ? shippedTable : pendingTable;
+        const rows = currentTable.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            let matchesColSearch = true;
+            if (Object.keys(colSearches).length > 0) {
+                for (const [col, searchVal] of Object.entries(colSearches)) {
+                    const cell = row.querySelector(`td[data-col="${col}"]`);
+                    if (cell) {
+                        const cellText = cell.textContent.trim().toLowerCase();
+                        if (!cellText.includes(searchVal)) {
+                            matchesColSearch = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Carrier类型匹配
+            const carrierCell = row.querySelector('td[data-col="carrier"]');
+            const carrierText = carrierCell ? carrierCell.textContent.trim() : '';
+            const matchesType = typeFilter === 'all' || carrierText === typeFilter;
+            
+            row.style.display = (matchesColSearch && matchesType) ? '' : 'none';
+        });
+    }
+
+    function saveNote(fleetNumber, btn) {
+        const row = btn.closest('tr');
+        const noteInput = row.querySelector('.note-input');
+        const noteValue = noteInput.value.trim();
+        const originalColor = btn.style.color;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.style.color = '#666';
+        
+        fetch('/warehouse_operations/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: new URLSearchParams({
+                'step': 'save_fleet_note',
+                'warehouse': '{{ warehouse }}',
+                'fleet_number': fleetNumber,
+                'note': noteValue
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.style.color = '#28a745';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-save"></i>';
+                    btn.style.color = originalColor;
+                    btn.disabled = false;
+                }, 1500);
+            } else {
+                alert('保存失败: ' + (data.message || '未知错误'));
+                btn.innerHTML = '<i class="fas fa-save"></i>';
+                btn.style.color = originalColor;
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            alert('保存出错: ' + error.message);
+            btn.innerHTML = '<i class="fas fa-save"></i>';
+            btn.style.color = originalColor;
+            btn.disabled = false;
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     function getSelectedDay() {
@@ -1467,65 +1647,174 @@
         }
     }
     
-    async function finishLoadingFleet(fleetNumber) {
-        const form = document.querySelector(`#loading-fleet-form-${fleetNumber}`);
-        if (!form) return alert("未找到表单");
+    // 出库相关变量
+    let outboundMode = 'single'; // 'single' or 'batch'
+    let outboundFleetNumbers = [];
 
-        const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
-        const button = form.querySelector("button");
-        const icon = button.querySelector("i");
-        const originalHTML = button.innerHTML;
+    // 获取当前时间的ISO格式（用于datetime-local默认值）
+    function getCurrentDateTimeLocal() {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localDateTime = new Date(now - offset);
+        return localDateTime.toISOString().slice(0, 16);
+    }
 
-        // 加载状态
-        button.disabled = true;
-        icon.classList.replace("fa-play-circle", "fa-spinner");
-        icon.classList.add("fa-spin");
+    // 打开单出库时间选择弹框
+    function finishLoadingFleet(fleetNumber) {
+        outboundMode = 'single';
+        outboundFleetNumbers = [fleetNumber];
+        document.getElementById('outboundModalTitle').textContent = '选择出库时间';
+        document.getElementById('outboundBatchInfo').style.display = 'none';
+        document.getElementById('outboundDateTime').value = getCurrentDateTimeLocal();
+        document.getElementById('outboundTimeModal').style.display = 'block';
+    }
+
+    // 打开批量出库时间选择弹框
+    function openBatchOutboundModal() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        outboundFleetNumbers = Array.from(checked).map(cb => cb.value);
+        if (outboundFleetNumbers.length === 0) {
+            alert('请先选择要出库的车次');
+            return;
+        }
+        outboundMode = 'batch';
+        document.getElementById('outboundModalTitle').textContent = '批量出库 - 选择时间';
+        document.getElementById('outboundBatchInfo').style.display = 'block';
+        document.getElementById('outboundBatchCount').textContent = outboundFleetNumbers.length;
+        document.getElementById('outboundDateTime').value = getCurrentDateTimeLocal();
+        document.getElementById('outboundTimeModal').style.display = 'block';
+    }
+
+    // 关闭出库时间弹框
+    function closeOutboundModal() {
+        document.getElementById('outboundTimeModal').style.display = 'none';
+    }
+
+    // 确认出库（单条或批量）
+    async function confirmOutbound() {
+        const outboundTime = document.getElementById('outboundDateTime').value;
+        if (!outboundTime) {
+            alert('请选择出库时间');
+            return;
+        }
+
+        const btn = document.getElementById('confirmOutboundBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
 
         try {
-            const formData = new FormData(form);
-            const response = await fetch("", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": csrftoken,
-                    "X-Requested-With": "XMLHttpRequest"
-                },
-                body: formData
-            });
+            const results = [];
+            for (const fleetNumber of outboundFleetNumbers) {
+                const form = document.querySelector(`#loading-fleet-form-${fleetNumber}`);
+                if (!form) {
+                    results.push({ fleetNumber, success: false, error: '表单不存在' });
+                    continue;
+                }
 
-            const data = await response.json();
-            if (data.success) {
-                const row = document.querySelector(`tr[data-fleet-number='${fleetNumber}']`);
+                const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+                const formData = new FormData(form);
+                formData.append('departured_at', outboundTime);
+                formData.append('step', 'shipped_fleet_ltl');
 
-                // ✅ 更新状态列
-                const statusCell = row.querySelector(".status-badge");
-                statusCell.className = `status-badge status-${data.new_status}`;
-                statusCell.innerHTML = `<i class="fas ${data.icon}"></i> ${data.display_text}`;
+                const response = await fetch("", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrftoken,
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: formData
+                });
 
-                // ✅ 更新 tr 的 data-status
-                row.dataset.status = data.new_status;
+                const data = await response.json();
+                results.push({ fleetNumber, success: data.success, data });
 
-                // ✅ 替换按钮为“已出库”标签
-                const newSpan = document.createElement("span");
-                newSpan.className = "action-btn";
-                newSpan.style.cssText = "cursor: default; background-color: #28a745; color: white; padding: 5px 10px; border-radius: 4px;";
-                newSpan.innerHTML = `<i class="fas fa-check-circle"></i> 已出库`;
+                if (data.success) {
+                    const row = document.querySelector(`tr[data-fleet-number='${fleetNumber}']`);
+                    if (row) {
+                        const statusCell = row.querySelector(".status-badge");
+                        if (statusCell) {
+                            statusCell.className = `status-badge status-${data.new_status}`;
+                            statusCell.innerHTML = `<i class="fas ${data.icon}"></i> ${data.display_text}`;
+                        }
+                        row.dataset.status = data.new_status;
 
-                button.replaceWith(newSpan);
-
-            } else {
-                alert(data.error || "操作失败");
-                button.innerHTML = originalHTML;
+                        const button = row.querySelector('.action-btn.btn-success');
+                        if (button) {
+                            const newSpan = document.createElement("span");
+                            newSpan.className = "action-btn";
+                            newSpan.style.cssText = "cursor: default; background-color: #28a745; color: white; padding: 5px 10px; border-radius: 4px;";
+                            newSpan.innerHTML = `<i class="fas fa-check-circle"></i> 已出库`;
+                            button.replaceWith(newSpan);
+                        }
+                    }
+                }
             }
+
+            const failed = results.filter(r => !r.success);
+            if (failed.length > 0) {
+                alert(`部分出库失败：${failed.map(r => r.fleetNumber).join(', ')}`);
+            }
+
+            closeOutboundModal();
+            clearSelection();
 
         } catch (err) {
             console.error(err);
             alert("网络错误，请稍后再试");
-            button.innerHTML = originalHTML;
         } finally {
-            icon.classList.remove("fa-spin");
-            icon.classList.replace("fa-spinner", "fa-play-circle");
-            button.disabled = false;
+            btn.disabled = false;
+            btn.innerHTML = '确认出库';
         }
+    }
+
+    // 全选/取消全选
+    function toggleSelectAll(checkbox) {
+        const checkboxes = document.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(cb => {
+            const row = cb.closest('tr');
+            // 只有待出库的行才能选
+            if (row.getAttribute('data-status') !== 'shipped') {
+                cb.checked = checkbox.checked;
+            }
+        });
+        updateSelection();
+    }
+
+    // 更新选择状态
+    function updateSelection() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        const count = checked.length;
+        const actionBar = document.getElementById('batchActionBar');
+        document.getElementById('selectedCount').textContent = count;
+        
+        if (count > 0) {
+            actionBar.style.display = 'flex';
+        } else {
+            actionBar.style.display = 'none';
+        }
+
+        // 更新全选框状态
+        const selectAll = document.getElementById('selectAll');
+        const selectable = document.querySelectorAll('.row-checkbox');
+        const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+        if (checkedCount === 0) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        } else if (checkedCount === selectable.length) {
+            selectAll.checked = true;
+            selectAll.indeterminate = false;
+        } else {
+            selectAll.checked = false;
+            selectAll.indeterminate = true;
+        }
+    }
+
+    // 清除选择
+    function clearSelection() {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('selectAll').checked = false;
+        document.getElementById('selectAll').indeterminate = false;
+        document.getElementById('batchActionBar').style.display = 'none';
     }
 </script>
 {% endblock %}

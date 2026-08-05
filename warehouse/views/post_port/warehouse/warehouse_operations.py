@@ -230,6 +230,8 @@ class WarehouseOperations(View):
         elif step == "report_issue_ltl":
             template, context = await self.handle_report_issue_ltl_post(request)
             return render(request, template, context)
+        elif step == "save_fleet_note":
+            return await self.handle_save_fleet_note(request)
         elif step =="export_bol":
             return await self.handle_bol_post(request)
         elif step =="export_picking_list":
@@ -854,6 +856,31 @@ class WarehouseOperations(View):
         else:
             raise ValueError('出库类型异常！')
 
+    async def handle_save_fleet_note(self, request: HttpRequest) -> JsonResponse:
+        """保存车次备注到Pallet模型"""
+        try:
+            fleet_number = request.POST.get("fleet_number", "")
+            note = request.POST.get("note", "")
+            
+            if not fleet_number:
+                return JsonResponse({'success': False, 'message': '未提供车次编号'}, status=400)
+            
+            updated_count = await sync_to_async(
+                Pallet.objects.filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number
+                ).update
+            )(note=note)
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'成功更新 {updated_count} 条记录'
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
+
     async def handle_report_issue_ltl_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -1029,6 +1056,7 @@ class WarehouseOperations(View):
     ) -> tuple[str, dict[str, Any]]:
         ''' ltl 仓库确认出库'''
         fleet_number = request.POST.get("fleet_number")
+        departured_at = request.POST.get("departured_at")
 
         fleets = await sync_to_async(list)(
             Fleet.objects.filter(fleet_number=fleet_number)
@@ -1039,6 +1067,13 @@ class WarehouseOperations(View):
         
         fleet = fleets[0]
         fleet.warehouse_process_status = "shipped"
+        if departured_at:
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(departured_at, '%Y-%m-%dT%H:%M')
+                fleet.departured_at = dt
+            except ValueError:
+                pass
         await sync_to_async(fleet.save)()
 
         return await self.handle_upcoming_fleet_ltl_post(request)
@@ -1446,6 +1481,7 @@ class WarehouseOperations(View):
                 'pickup_number': fleet.pickup_number,
                 'fleet_type': fleet.fleet_type,
                 'appointment_datetime': fleet.appointment_datetime,
+                'departured_at': fleet.departured_at,
                 'carrier': fleet.carrier,
                 'pallets': total_pallets,
                 'pcs': total_pcs,
@@ -1534,6 +1570,10 @@ class WarehouseOperations(View):
             1 if x['warehouse_process_status'] == 'abnormal' else 0,
             x['days_diff']
         ))
+        
+        pending_fleets = [f for f in fleet_data if not f['is_shipped']]
+        shipped_fleets = [f for f in fleet_data if f['is_shipped']]
+        
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
@@ -1543,6 +1583,8 @@ class WarehouseOperations(View):
                 .values_list("name", "name")
             ),
             'fleets': fleet_data,
+            'pending_fleets': pending_fleets,
+            'shipped_fleets': shipped_fleets,
             'warehouse': warehouse,
             'shipment_type_filter': shipment_type_filter,
             'days_range': days_range,
