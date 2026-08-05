@@ -16910,31 +16910,38 @@ class PostNsop(View):
             keywords = ["暂扣", "HOLD", "留仓"]
             return (any(k in custom_method for k in keywords),)
 
+        MIN_DATETIME = timezone.make_aware(datetime(1970, 1, 1))
         def sort_key_pl(item):
             # 第一优先级：按四组分类 + 时间排序
             if item.get('has_actual_retrieval'):
                 # 实际提柜
                 actual_time = item.get('actual_retrieval_time')
                 group = 0
-                sort_time = actual_time or timezone.make_aware(datetime.min)
+                sort_time = actual_time if actual_time else MIN_DATETIME
+                if sort_time and timezone.is_naive(sort_time):
+                    sort_time = timezone.make_aware(sort_time)
 
             elif item.get('has_appointment_retrieval'):
                 # 码头预约
                 arm_time = item.get('arm_time')
                 group = 1
-                sort_time = arm_time or timezone.make_aware(datetime.min)
+                sort_time = arm_time if arm_time else MIN_DATETIME
+                if sort_time and timezone.is_naive(sort_time):
+                    sort_time = timezone.make_aware(sort_time)
 
             elif item.get('has_estimated_retrieval'):
                 # 预计提柜
                 estimated_time = item.get('estimated_time')
                 estimated_lower_time = item.get('estimated_lower_time')
                 group = 2
-                sort_time = estimated_lower_time or estimated_time or timezone.make_aware(datetime.min)
+                sort_time = estimated_lower_time or estimated_time or MIN_DATETIME
+                if sort_time and timezone.is_naive(sort_time):
+                    sort_time = timezone.make_aware(sort_time)
 
             else:
                 # 无计划
                 group = 3
-                sort_time = timezone.make_aware(datetime.min)
+                sort_time = MIN_DATETIME
             
             # 优先级2: 把包含暂扣的放最后面
             custom_method = item.get("custom_delivery_method", "") or ""

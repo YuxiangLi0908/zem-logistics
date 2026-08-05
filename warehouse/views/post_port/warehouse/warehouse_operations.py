@@ -1056,6 +1056,7 @@ class WarehouseOperations(View):
     ) -> tuple[str, dict[str, Any]]:
         ''' ltl 仓库确认出库'''
         fleet_number = request.POST.get("fleet_number")
+        departured_at = request.POST.get("departured_at")
 
         fleets = await sync_to_async(list)(
             Fleet.objects.filter(fleet_number=fleet_number)
@@ -1066,6 +1067,13 @@ class WarehouseOperations(View):
         
         fleet = fleets[0]
         fleet.warehouse_process_status = "shipped"
+        if departured_at:
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(departured_at, '%Y-%m-%dT%H:%M')
+                fleet.departured_at = dt
+            except ValueError:
+                pass
         await sync_to_async(fleet.save)()
 
         return await self.handle_upcoming_fleet_ltl_post(request)
