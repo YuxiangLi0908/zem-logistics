@@ -38,6 +38,7 @@ class Fleet(models.Model):
     appointment_datetime_tz = models.CharField(max_length=20, null=True, blank=True)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     departured_at = models.DateTimeField(null=True, blank=True)
+    shipped_at = models.DateTimeField(null=True, blank=True, verbose_name="出库时间")
     arrived_at = models.DateTimeField(null=True, blank=True)
     pickup_number = models.CharField(max_length=500, null=True, blank=True)
     fleet_cost = models.FloatField(null=True, blank=True)
