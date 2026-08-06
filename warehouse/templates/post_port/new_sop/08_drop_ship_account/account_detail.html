@@ -570,6 +570,7 @@
                 <table class="fee-table" id="feeTable">
                     <thead>
                         <tr>
+                            <th style="min-width: 80px;">状态</th>
                             <th style="min-width: 180px;">费用名称</th>
                             <th style="min-width: 140px;">仓点</th>
                             <th style="min-width: 110px;">实际单价</th>
@@ -582,11 +583,14 @@
                         </tr>
                     </thead>
                     <tbody id="feeTableBody">
-                        {% if fee_type != 'warehouse' %}
                         {% for item in items %}
-                        <tr class="fee-row">
+                        <tr class="fee-row" data-saved="true">
+                            <td>
+                                <span class="status-saved" style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #d4edda; color: #155724;">已录</span>
+                            </td>
                             <td>
                                 <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                                <input type="hidden" name="is_saved[]" value="true">
                                 <input type="text" name="description[]" class="fee-input" value="{{ item.description|default:'' }}" {% if not is_editable %}disabled{% endif %}>
                             </td>
                             <td>
@@ -618,12 +622,11 @@
                         {% endfor %}
                         {% if not items %}
                         <tr id="emptyRow">
-                            <td colspan="9" class="empty-row">
+                            <td colspan="10" class="empty-row">
                                 <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
-                                <p>暂无费用明细{% if is_editable %}，点击下方"添加费用项目"开始录入{% endif %}</p>
+                                <p>暂无费用明细{% if is_editable %}，点击下方"添加费用项目"或在上方"出库详情"中生成{% endif %}</p>
                             </td>
                         </tr>
-                        {% endif %}
                         {% endif %}
                     </tbody>
                 </table>
@@ -697,9 +700,14 @@
 
         const tr = document.createElement('tr');
         tr.className = 'fee-row';
+        tr.setAttribute('data-saved', 'false');
         tr.innerHTML = `
             <td>
+                <span class="status-unsaved" style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #fff3cd; color: #856404;">未录</span>
+            </td>
+            <td>
                 <input type="hidden" name="item_id[]" value="">
+                <input type="hidden" name="is_saved[]" value="false">
                 <input type="text" name="description[]" class="fee-input" placeholder="请输入费用名称">
             </td>
             <td>
@@ -743,9 +751,9 @@
         if (tbody.querySelectorAll('.fee-row').length === 0) {
             tbody.innerHTML = `
                 <tr id="emptyRow">
-                    <td colspan="9" class="empty-row">
+                    <td colspan="10" class="empty-row">
                         <i class="fas fa-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
-                        <p>暂无费用明细，点击下方"添加费用项目"开始录入</p>
+                        <p>暂无费用明细，点击下方"添加费用项目"或在上方"出库详情"中生成</p>
                     </td>
                 </tr>
             `;
@@ -964,9 +972,14 @@
 
             const tr = document.createElement('tr');
             tr.className = 'fee-row';
+            tr.setAttribute('data-saved', 'false');
             tr.innerHTML = `
                 <td>
+                    <span class="status-unsaved" style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #fff3cd; color: #856404;">未录</span>
+                </td>
+                <td>
                     <input type="hidden" name="item_id[]" value="">
+                    <input type="hidden" name="is_saved[]" value="false">
                     <input type="text" name="description[]" class="fee-input" value="${escapeHtml(feeName)}" ${isEditable ? '' : 'disabled'}>
                 </td>
                 <td>

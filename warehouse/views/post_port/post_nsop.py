@@ -4471,6 +4471,11 @@ class PostNsop(View):
                             str(row.get("container_number__container_number", "")).strip(),
                             None
                         ),
+                        "company": str(row.get("company", "")).strip(),
+                        "road": str(row.get("road", "")).strip(),
+                        "city": str(row.get("city", "")).strip(),
+                        "name": str(row.get("name", "")).strip(),
+                        "address": str(row.get("address", "")).strip(),
                     }
                     for possible_key in (
                             "arm_pickup_group",

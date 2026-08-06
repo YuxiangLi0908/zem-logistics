@@ -753,18 +753,15 @@
 
 <!-- 拣货单模态框 -->
 <div id="armPickupModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 95%; max-width: 1600px; border-radius: 8px; max-height: 85vh; display: flex; flex-direction: column;">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 800px; border-radius: 8px; max-height: 85vh; display: flex; flex-direction: column;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
             <h3 style="margin: 0;">拣货单 - <span id="armPickupFleetNumber"></span></h3>
             <div>
                 <button id="addArmPickupRow" style="background-color: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
                     <i class="fas fa-plus"></i> 增加一行
                 </button>
-                <button onclick="saveArmPickupData()" style="background-color: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-                    <i class="fas fa-save"></i> 临时保存
-                </button>
                 <button onclick="saveCompanyData()" style="background-color: #FF9800; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-                    <i class="fas fa-building"></i> company保存
+                    <i class="fas fa-save"></i> 保存
                 </button>
                 <span onclick="closeArmPickupModal()" style="cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
             </div>
@@ -2461,55 +2458,21 @@
         const contentDiv = document.getElementById('armPickupContent');
         let html = `
             <div style="overflow-x: auto;">
-            <table style="min-width: 2000px; border-collapse:collapse; font-size:13px;" 
+            <table style="min-width: 800px; border-collapse:collapse; font-size:13px;" 
                 cellpadding="6" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">顺序</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">柜号</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">目的地</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 300px; min-width: 300px;">唛头</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">PRO</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">板数</th> 
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">箱数</th>  
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Carrier</th>  
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">Company</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Road</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">City</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Name</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">备注</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">库位</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">是否特操</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">预约信息详情</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px;">图片</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">操作</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">Company</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">Road</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">City</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">Name</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">操作</th>
                 </thead>
                 <tbody id="armPickupTableBody">
         `;
         
         data.forEach((item, index) => {
-            // 清理数据，将undefined、null、'None'转换为空字符串
-            const cleanData = {
-                container_number: (item.container_number__container_number || item.container_number || '').toString().replace('None', ''),
-                destination: (item.destination || '').toString().replace('None', ''),
-                shipping_mark: (item.shipping_mark || '').toString().replace('None', ''),
-                arm_pro: (item.shipment_batch_number__ARM_PRO || item.arm_pro || '').toString().replace('None', ''),
-                total_pallet: item.total_pallet || '',
-                total_pcs: item.total_pcs || '',
-                carrier: (item.shipment_batch_number__fleet_number__carrier || item.carrier || '').toString().replace('None', ''),
-                address: (item.address || '').toString().replace('None', ''),
-                note: (item.shipment_batch_number__note || '').toString().replace('None', ''),
-                slot: (item.slot || '').toString().replace('None', ''),
-                pickup_image: (item.pickup_image || '').toString(),
-                is_special_operation: item.is_special_operation || '否',
-                appointment_info_detail: (item.appointment_info_detail || '').toString().replace('None', '')
-            };
-            
-            // 特别处理数值字段，如果是数字0就显示0
-            if (cleanData.total_pallet === 0) cleanData.total_pallet = 0;
-            if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
-            
-            // 在前端解析address字段 - 优先使用数据库传来的company/road/city/name
             let addressParts = {
                 company: (item.company || '').toString().replace('None', ''),
                 road: (item.road || '').toString().replace('None', ''),
@@ -2517,9 +2480,8 @@
                 name: (item.name || '').toString().replace('None', '')
             };
             
-            // 如果数据库字段都为空，从address解析
-            if (!addressParts.company && !addressParts.road && !addressParts.city && !addressParts.name && cleanData.address && cleanData.address !== '') {
-                const parts = cleanData.address.split(";");
+            if (!addressParts.company && !addressParts.road && !addressParts.city && !addressParts.name && item.address) {
+                const parts = item.address.split(";");
                 addressParts = {
                     company: parts[0] || '',
                     road: parts[1] || '',
@@ -2543,105 +2505,29 @@
                             </button>
                         </div>
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
-                        <input type="text" class="arm-input" 
-                            data-field="container_number__container_number" 
-                            value="${cleanData.container_number}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
-                        <input type="text" class="arm-input" 
-                            data-field="destination" 
-                            value="${cleanData.destination}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 300px; min-width: 300px;">
-                        <textarea class="arm-textarea" 
-                                data-field="shipping_mark" 
-                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 80px; padding: 6px; font-size: 13px;">${cleanData.shipping_mark}</textarea>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
-                        <input type="text" class="arm-input" 
-                            data-field="shipment_batch_number__ARM_PRO" 
-                            value="${cleanData.arm_pro}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">
-                        <input type="number" class="arm-input" 
-                            data-field="total_pallet" 
-                            value="${cleanData.total_pallet}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">
-                        <input type="number" class="arm-input" 
-                            data-field="total_pcs" 
-                            value="${cleanData.total_pcs}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
-                        <input type="text" class="arm-input" 
-                            data-field="shipment_batch_number__fleet_number__carrier" 
-                            value="${cleanData.carrier}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_company" 
                             value="${addressParts.company}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_road" 
                             value="${addressParts.road}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_city" 
                             value="${addressParts.city}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_name" 
                             value="${addressParts.name}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
-                        <textarea class="arm-textarea" 
-                                data-field="shipment_batch_number__note" 
-                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 80px; padding: 6px; font-size: 13px;">${cleanData.note}</textarea>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">
-                        <input type="text" class="arm-input" 
-                            data-field="slot" 
-                            value="${cleanData.slot}" 
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">
-                        <select class="arm-select" data-field="is_special_operation"
-                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
-                            <option value="否" ${cleanData.is_special_operation === '否' ? 'selected' : ''}>否</option>
-                            <option value="是" ${cleanData.is_special_operation === '是' ? 'selected' : ''}>是</option>
-                        </select>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
-                        <textarea class="arm-textarea" 
-                                data-field="appointment_info_detail" 
-                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 60px; padding: 6px; font-size: 13px;">${cleanData.appointment_info_detail}</textarea>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px; text-align: center;">
-                        <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64="${cleanData.pickup_image.replace(/"/g,'&quot;')}"
-                            onchange="handleArmPickupImageChange(this)"
-                            style="width: 100%;">
-                        <select class="arm-select" data-field="pickup_image_orientation"
-                            style="width: 100%; margin-top: 6px; border: 1px solid #ddd; padding: 4px; font-size: 12px; background: #fff;">
-                            <option value="horizontal" ${(item.pickup_image_orientation || 'horizontal') === 'horizontal' ? 'selected' : ''}>横向</option>
-                            <option value="vertical" ${(item.pickup_image_orientation || 'horizontal') === 'vertical' ? 'selected' : ''}>竖向</option>
-                        </select>
-                        <textarea class="arm-textarea" data-field="pickup_file_content" style="display:none;">${(item.pickup_file_content || '').toString()}</textarea>
-                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${(item.pickup_file_content || '').toString().startsWith('data:application/pdf') ? '已上传(PDF)' : (item.pickup_file_content ? '已上传(文件)' : (cleanData.pickup_image ? '已上传(图片)' : '未上传'))}</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px; text-align: center;">
                         <button class="arm-delete-btn" onclick="removeArmPickupRow(${index})" 
@@ -2715,39 +2601,34 @@
     // 更新拣货单数据
     function updateArmPickupData() {
         const rows = document.querySelectorAll('#armPickupTable tbody tr[id^="arm-row-"]');
-        editedArmPickupData = [];
+        const newEditedData = [];
         
         rows.forEach((row, index) => {
-            const inputs = row.querySelectorAll('.arm-input, .arm-textarea, .arm-file, .arm-select');
+            const inputs = row.querySelectorAll('.arm-input, .arm-textarea');
             const rowData = {};
             
             inputs.forEach(input => {
                 const field = input.getAttribute('data-field');
-                const value = input.classList.contains('arm-file') ? (input.dataset.base64 || '') : input.value;
+                const value = input.value;
                 
-                // 处理地址字段
                 if (field.startsWith('address_')) {
-                    // address字段会在最后合并
-                    if (!rowData.address_parts) {
-                        rowData.address_parts = {};
-                    }
                     const addressField = field.replace('address_', '');
-                    rowData.address_parts[addressField] = value;
-                } else {
-                    rowData[field] = value;
+                    rowData[addressField] = value;
                 }
             });
             
-            // 如果是LTL类型，合并地址字段到address
-            if (currentArmPickupData.fleet_type === 'LTL' && rowData.address_parts) {
-                const parts = rowData.address_parts;
-                rowData.address = `${parts.company || ''};${parts.road || ''};${parts.city || ''};${parts.name || ''}`;
-                // 删除临时的address_parts，只保留address
-                delete rowData.address_parts;
+            if (currentArmPickupData.fleet_type === 'LTL') {
+                rowData.address = `${rowData.company || ''};${rowData.road || ''};${rowData.city || ''};${rowData.name || ''}`;
             }
             
-            editedArmPickupData.push(rowData);
+            const originalRow = editedArmPickupData[index];
+            if (originalRow && originalRow.container_number) {
+                newEditedData.push({ ...originalRow, ...rowData });
+            } else {
+                newEditedData.push(rowData);
+            }
         });
+        editedArmPickupData = newEditedData;
         armPickupDataCache[currentArmPickupData.fleet_number] = editedArmPickupData;
     }
 
@@ -2898,47 +2779,6 @@
                         </div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="text" class="arm-input" 
-                            data-field="container_number__container_number" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="text" class="arm-input" 
-                            data-field="destination" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <textarea class="arm-textarea" 
-                                data-field="shipping_mark" 
-                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="text" class="arm-input" 
-                            data-field="shipment_batch_number__ARM_PRO" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="number" class="arm-input" 
-                            data-field="total_pallet" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="number" class="arm-input" 
-                            data-field="total_pcs" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="text" class="arm-input" 
-                            data-field="shipment_batch_number__fleet_number__carrier" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_company" 
                             value="" 
@@ -2961,41 +2801,6 @@
                             data-field="address_name" 
                             value="" 
                             style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <textarea class="arm-textarea" 
-                                data-field="shipment_batch_number__note" 
-                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <input type="text" class="arm-input" 
-                            data-field="slot" 
-                            value="" 
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <select class="arm-select" data-field="is_special_operation"
-                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
-                            <option value="否" selected>否</option>
-                            <option value="是">是</option>
-                        </select>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">
-                        <textarea class="arm-textarea" 
-                                data-field="appointment_info_detail" 
-                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
-                    </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64=""
-                            onchange="handleArmPickupImageChange(this)"
-                            style="width: 100%;">
-                        <select class="arm-select" data-field="pickup_image_orientation"
-                            style="width: 100%; margin-top: 6px; border: 1px solid #ddd; padding: 4px; font-size: 12px; background: #fff;">
-                            <option value="horizontal" selected>横向</option>
-                            <option value="vertical">竖向</option>
-                        </select>
-                        <textarea class="arm-textarea" data-field="pickup_file_content" style="display:none;"></textarea>
-                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <button class="arm-delete-btn" onclick="removeArmPickupRow(${newIndex})" 
@@ -3036,19 +2841,11 @@
         
         // 添加到数据数组
         const emptyData = {
-            container_number__container_number: '',
-            destination: '',
-            shipping_mark: '',
-            shipment_batch_number__ARM_PRO: '',
-            total_pallet: '',
-            total_pcs: '',
-            shipment_batch_number__fleet_number__carrier: '',
-            address: ';;;;',  // 空地址用5个分号
-            shipment_batch_number__note: '',
-            slot: '',
-            pickup_image: ''
-            ,pickup_image_orientation: 'horizontal'
-            ,pickup_file_content: ''
+            company: '',
+            road: '',
+            city: '',
+            name: '',
+            address: ';;;'
         };
         
         editedArmPickupData.push(emptyData);
@@ -3145,7 +2942,18 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('公司信息已保存到数据库！');
+                // 清除本地缓存，确保BOL下载使用最新数据库值
+                localStorage.removeItem(`arm_pickup_${fleetNumber}`);
+                armPickupDataCache[fleetNumber] = null;
+                
+                // 更新拣货单按钮的data-arm-pickup，确保重新打开时显示最新值
+                const pickupBtn = document.querySelector(`[data-fleet-number="${fleetNumber}"][data-arm-pickup]`);
+                if (pickupBtn) {
+                    pickupBtn.dataset.armPickup = JSON.stringify(editedArmPickupData);
+                }
+                
+                alert('保存成功！');
+                closeArmPickupModal();
             } else {
                 alert('保存失败：' + (data.message || '未知错误'));
             }
