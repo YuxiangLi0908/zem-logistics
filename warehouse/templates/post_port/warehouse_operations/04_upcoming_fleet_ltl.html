@@ -869,7 +869,7 @@
                             <input type="checkbox" class="row-checkbox" value="{{ fleet.fleet_number }}" onchange="updateSelection()">
                         </td>
                         <td data-col="appointment_datetime">{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
-                        <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
+                        <td data-col="pickup_number">{{ fleet.pickup_number|default:"" }}</td>
                         <td data-col="container_number">{{ fleet.details.柜号|join:", " }}</td>
                         <td data-col="destination">{{ fleet.details.目的地|join:", " }}</td>
                         <td data-col="shipping_mark" class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
@@ -879,7 +879,7 @@
                             {% endif %}
                         </td>
                         <td data-col="pcs">{{ fleet.pcs }}</td>
-                        <td data-col="carrier">{{ fleet.carrier }}</td>
+                        <td data-col="carrier">{{ fleet.carrier|default:"" }}</td>
                         <td data-col="note">
                             <div style="position: relative; display: flex; align-items: center;">
                                 <input type="text" class="note-input" 
@@ -1004,13 +1004,13 @@
                         <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pallets" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
                         <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="pcs" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
                         <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="carrier" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
-                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="departured_at" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
+                        <th style="background: white; color: #333; position: static;"><input type="text" class="col-search" data-col="shipped_at" placeholder="搜索..." style="width:100%; padding:4px; border:1px solid #ddd; border-radius:3px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for fleet in shipped_fleets %}
                     <tr data-fleet-number="{{ fleet.fleet_number }}">
-                        <td data-col="pickup_number">{{ fleet.pickup_number }}</td>
+                        <td data-col="pickup_number">{{ fleet.pickup_number|default:"" }}</td>
                         <td data-col="container_number">{{ fleet.details.柜号|join:", " }}</td>
                         <td data-col="destination">{{ fleet.details.目的地|join:", " }}</td>
                         <td data-col="shipping_mark" class="mark-column">{% for mark in fleet.details.唛头 %}{{ mark }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
@@ -1020,8 +1020,8 @@
                             {% endif %}
                         </td>
                         <td data-col="pcs">{{ fleet.pcs }}</td>
-                        <td data-col="carrier">{{ fleet.carrier }}</td>
-                        <td data-col="departured_at">{{ fleet.departured_at|date:"Y-m-d H:i" }}</td>
+                        <td data-col="carrier">{{ fleet.carrier|default:"" }}</td>
+                        <td data-col="shipped_at">{{ fleet.shipped_at|date:"Y-m-d H:i" }}</td>
                     </tr>
                     {% endfor %}
                     
@@ -1713,7 +1713,7 @@
 
                 const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
                 const formData = new FormData(form);
-                formData.append('departured_at', outboundTime);
+                formData.append('shipped_at', outboundTime);
                 formData.append('step', 'shipped_fleet_ltl');
 
                 const response = await fetch("", {

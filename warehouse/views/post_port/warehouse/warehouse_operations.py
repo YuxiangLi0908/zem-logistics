@@ -1056,7 +1056,7 @@ class WarehouseOperations(View):
     ) -> tuple[str, dict[str, Any]]:
         ''' ltl 仓库确认出库'''
         fleet_number = request.POST.get("fleet_number")
-        departured_at = request.POST.get("departured_at")
+        shipped_at = request.POST.get("shipped_at")
 
         fleets = await sync_to_async(list)(
             Fleet.objects.filter(fleet_number=fleet_number)
@@ -1067,11 +1067,11 @@ class WarehouseOperations(View):
         
         fleet = fleets[0]
         fleet.warehouse_process_status = "shipped"
-        if departured_at:
+        if shipped_at:
             try:
                 from datetime import datetime
-                dt = datetime.strptime(departured_at, '%Y-%m-%dT%H:%M')
-                fleet.departured_at = dt
+                dt = datetime.strptime(shipped_at, '%Y-%m-%dT%H:%M')
+                fleet.shipped_at = dt
             except ValueError:
                 pass
         await sync_to_async(fleet.save)()
@@ -1482,6 +1482,7 @@ class WarehouseOperations(View):
                 'fleet_type': fleet.fleet_type,
                 'appointment_datetime': fleet.appointment_datetime,
                 'departured_at': fleet.departured_at,
+                'shipped_at': fleet.shipped_at,
                 'carrier': fleet.carrier,
                 'pallets': total_pallets,
                 'pcs': total_pcs,
