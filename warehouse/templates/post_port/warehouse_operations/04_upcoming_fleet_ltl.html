@@ -880,15 +880,15 @@
                         </td>
                         <td data-col="pcs">{{ fleet.pcs }}</td>
                         <td data-col="carrier">{{ fleet.carrier|default:"" }}</td>
-                        <td data-col="note">
-                            <div style="position: relative; display: flex; align-items: center;">
-                                <input type="text" class="note-input" 
-                                    value="{{ fleet.details.备注|join:", " }}" 
+                        <td data-col="note" style="min-width: 100px; max-width: 180px;">
+                            <div style="position: relative;">
+                                <textarea class="note-input" 
                                     data-fleet-number="{{ fleet.fleet_number }}"
-                                    style="width: 100%; padding: 4px 30px 4px 6px; border: 1px solid #ccc; border-radius: 3px; min-width: 120px;">
+                                    oninput="autoResize(this)"
+                                    style="width: 100%; min-height: 32px; padding: 4px 24px 4px 6px; border: 1px solid #ccc; border-radius: 3px; resize: none; font-size: 0.85rem; overflow: hidden;">{{ fleet.details.备注|join:", " }}</textarea>
                                 <button type="button" class="save-note-btn" 
                                     data-fleet-number="{{ fleet.fleet_number }}"
-                                    style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: transparent; color: #4CAF50; border: none; padding: 2px; cursor: pointer; font-size: 14px;"
+                                    style="position: absolute; right: 2px; top: 4px; background: transparent; color: #4CAF50; border: none; padding: 2px; cursor: pointer; font-size: 12px;"
                                     onclick="saveNote('{{ fleet.fleet_number }}', this)">
                                     <i class="fas fa-save"></i>
                                 </button>
@@ -1177,6 +1177,11 @@
         });
     }
 
+    function autoResize(el) {
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+    }
+
     function saveNote(fleetNumber, btn) {
         const row = btn.closest('tr');
         const noteInput = row.querySelector('.note-input');
@@ -1256,6 +1261,9 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
+        // 初始化所有备注textarea的高度
+        document.querySelectorAll('.note-input').forEach(autoResize);
+        
         const selectedDay = getSelectedDay();
         const tabToSelect = document.querySelector(`.time-tab[data-day="${selectedDay}"]`);
         
