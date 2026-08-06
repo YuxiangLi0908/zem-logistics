@@ -586,7 +586,8 @@
                 <th>总板数</th>
                 <th>总箱数</th>
                 <th>Pre-load</th>
-                <th>出库时间</th>
+                <th>国内出库时间</th>
+                <th>国外仓库出库时间</th>
                 <th>送达时间</th>
                 <th>是否取消</th>
                 <th>删约（慎点）</th>
@@ -660,6 +661,16 @@
                         <input type="hidden" name="search_value" value="{{ search_value }}">
                         <input type="hidden" name="search_type" value="{{ search_type }}">
                         <input type="datetime-local" name="departured_at" value="{{ fleet.departured_at|date:'Y-m-d\TH:i' }}" onchange="this.form.submit()">
+                    </form>
+                </td>
+                <td>
+                    <form method="post" style="display: inline-block; margin: 2px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="update_fleet_shipped_at">
+                        <input type="hidden" name="fleet_id" value="{{ fleet.id }}">
+                        <input type="hidden" name="search_value" value="{{ search_value }}">
+                        <input type="hidden" name="search_type" value="{{ search_type }}">
+                        <input type="datetime-local" name="shipped_at" value="{{ fleet.shipped_at|date:'Y-m-d\TH:i' }}" onchange="this.form.submit()">
                     </form>
                 </td>
                 <td>
