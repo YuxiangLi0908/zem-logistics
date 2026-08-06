@@ -2271,34 +2271,31 @@ class PostDrop(View):
         '''预约批次查询 - 查询DropshipShipment及其关联的DropshipCargo'''
         warehouse_name = ""
         batch_number = ""
+        container_number = ""
         status_filter = ""
         start_date = ""
         end_date = ""
+        is_post = request.method == "POST"
         
-        # 默认日期范围：当天前15天到后15天
+        # 默认日期范围：当天前15天到后15天（只用于POST时自动填充，GET时不执行查询）
         today = datetime.now().date()
         default_start = (today - timedelta(days=15)).strftime("%Y-%m-%d")
         default_end = (today + timedelta(days=15)).strftime("%Y-%m-%d")
         
-        if request.method == "POST":
+        if is_post:
             warehouse_name = request.POST.get("warehouse", "")
             batch_number = request.POST.get("batch_number", "").strip()
+            container_number = request.POST.get("container_number", "").strip()
             status_filter = request.POST.get("status", "")
             start_date = request.POST.get("start_date", "")
             end_date = request.POST.get("end_date", "")
-        else:
-            warehouse_name = request.GET.get("warehouse", "")
-            batch_number = request.GET.get("batch_number", "").strip()
-            status_filter = request.GET.get("status", "")
-            start_date = request.GET.get("start_date", "")
-            end_date = request.GET.get("end_date", "")
 
-        # 如果没有指定日期，使用默认范围
-        if not start_date:
-            start_date = default_start
-        if not end_date:
-            end_date = default_end
-
+            # POST时如果没有指定日期，使用默认范围
+            if not start_date:
+                start_date = default_start
+            if not end_date:
+                end_date = default_end
+        
         context = {
             "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
@@ -2307,18 +2304,40 @@ class PostDrop(View):
             ),
             "selected_warehouse": warehouse_name,
             "batch_number": batch_number,
+            "container_number": container_number,
             "status_filter": status_filter,
             "start_date": start_date,
             "end_date": end_date,
             "status_choices": DropshipShipment.STATUS_CHOICES,
             "shipment_batches": [],
+            "default_start_date": default_start,
+            "default_end_date": default_end,
         }
+
+        # GET请求时不执行查询，只显示空表单
+        if not is_post:
+            context["shipment_data"] = []
+            return context
 
         # 构建查询
         shipment_qs = DropshipShipment.objects.all()
         
         if batch_number:
             shipment_qs = shipment_qs.filter(shipment_batch_number__icontains=batch_number)
+        
+        # 柜号筛选：通过 DropshipCargo -> DropshipShipmentDetail 反查 DropshipShipment
+        if container_number:
+            cargo_ids = await sync_to_async(list)(
+                DropshipCargo.objects.filter(
+                    container__container_number__icontains=container_number
+                ).values_list('id', flat=True)
+            )()
+            shipment_ids = await sync_to_async(list)(
+                DropshipShipmentDetail.objects.filter(
+                    cargo_id__in=cargo_ids
+                ).values_list('shipment_id', flat=True).distinct()
+            )()
+            shipment_qs = shipment_qs.filter(id__in=shipment_ids)
         
         if status_filter:
             shipment_qs = shipment_qs.filter(status=status_filter)

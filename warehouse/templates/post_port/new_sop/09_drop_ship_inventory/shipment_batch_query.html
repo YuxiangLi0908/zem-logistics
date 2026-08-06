@@ -249,6 +249,10 @@
                 <input type="text" name="batch_number" value="{{ batch_number }}" placeholder="搜索批次号...">
             </div>
             <div class="filter-group">
+                <label>柜号:</label>
+                <input type="text" name="container_number" value="{{ container_number }}" placeholder="搜索柜号...">
+            </div>
+            <div class="filter-group">
                 <label>仓库:</label>
                 <select name="warehouse">
                     <option value="">全部仓库</option>
@@ -268,11 +272,11 @@
             </div>
             <div class="filter-group">
                 <label>开始日期:</label>
-                <input type="date" name="start_date" value="{{ start_date }}">
+                <input type="date" name="start_date" value="{{ start_date|default:default_start_date }}">
             </div>
             <div class="filter-group">
                 <label>结束日期:</label>
-                <input type="date" name="end_date" value="{{ end_date }}">
+                <input type="date" name="end_date" value="{{ end_date|default:default_end_date }}">
             </div>
             <button type="submit"><i class="fas fa-search"></i> 查询</button>
         </form>
