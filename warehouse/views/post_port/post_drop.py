@@ -2331,12 +2331,12 @@ class PostDrop(View):
                 DropshipCargo.objects.filter(
                     container__container_number__icontains=container_number
                 ).values_list('id', flat=True)
-            )()
+            )
             shipment_ids = await sync_to_async(list)(
                 DropshipShipmentDetail.objects.filter(
                     cargo_id__in=cargo_ids
                 ).values_list('shipment_id', flat=True).distinct()
-            )()
+            )
             shipment_qs = shipment_qs.filter(id__in=shipment_ids)
         
         if status_filter:
