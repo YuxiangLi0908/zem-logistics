@@ -198,6 +198,9 @@ class ExceptionHandling(View):
         elif step == "update_fleet_departured_at":
             template, context = await self.handle_update_fleet_departured_at(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_fleet_shipped_at":
+            template, context = await self.handle_update_fleet_shipped_at(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "update_fleet_arrived_at":
             template, context = await self.handle_update_fleet_arrived_at(request)
             return await sync_to_async(render)(request, template, context)
@@ -4836,6 +4839,31 @@ class ExceptionHandling(View):
                 await sync_to_async(fleet.save)()
                 
                 messages.success(request, f"成功清空车次 {fleet.fleet_number} 的出库时间")
+        else:
+            messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_fleet_shipped_at(self, request: HttpRequest):
+        fleet_id = request.POST.get('fleet_id')
+        shipped_at_str = request.POST.get('shipped_at')
+        
+        fleet = await sync_to_async(
+            lambda: Fleet.objects.filter(id=fleet_id).first()
+        )()
+        
+        if fleet:
+            from datetime import datetime
+            if shipped_at_str:
+                shipped_at = datetime.strptime(shipped_at_str, '%Y-%m-%dT%H:%M')
+                fleet.shipped_at = shipped_at
+                await sync_to_async(fleet.save)()
+                
+                messages.success(request, f"成功更新车次 {fleet.fleet_number} 的国外仓库出库时间")
+            else:
+                fleet.shipped_at = None
+                await sync_to_async(fleet.save)()
+                
+                messages.success(request, f"成功清空车次 {fleet.fleet_number} 的国外仓库出库时间")
         else:
             messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
         return await self.handle_search_shipment(request)
