@@ -1362,14 +1362,19 @@ class PostDrop(View):
 
         has_existing_fee = len(items) > 0
 
+        # Always load the dropship quote and warehouse fee config (even when items exist)
+        # so that formulas and fee type checkboxes are always available
+        dropship_quote = await sync_to_async(
+            QuotationMaster.objects.filter(
+                quote_type="receivable",
+                effective_date__isnull=False,
+                is_dropship=True,
+            ).order_by("-effective_date").first
+        )()
+
+        quotation_filename = dropship_quote.filename if dropship_quote else None
+
         if not has_existing_fee:
-            dropship_quote = await sync_to_async(
-                QuotationMaster.objects.filter(
-                    quote_type="receivable",
-                    effective_date__isnull=False,
-                    is_dropship=True,
-                ).order_by("-effective_date").first
-            )()
             if fee_type == "preport":
                 if dropship_quote:
                     preport_fee_detail = await sync_to_async(
@@ -1424,6 +1429,19 @@ class PostDrop(View):
                         "rate": fee_data.get("rate", 0),
                         "is_new": True,
                     })
+        else:
+            # Items already exist in DB, still load warehouse_fee_config for formulas display
+            if fee_type == "warehouse" and dropship_quote:
+                warehouse_fee_detail = await sync_to_async(
+                    FeeDetail.objects.filter(
+                        quotation_id=dropship_quote,
+                        fee_type="warehouse"
+                    ).first
+                )()
+                if warehouse_fee_detail and warehouse_fee_detail.details:
+                    warehouse_fee_config = warehouse_fee_detail.details
+                else:
+                    warehouse_fee_config = {}
 
         container_number_str = (
             invoice.container_number.container_number
@@ -1536,6 +1554,7 @@ class PostDrop(View):
             "shipment_details_json": shipment_details_json,
             "warehouse_fee_config": warehouse_fee_config_dict,
             "warehouse_fee_config_json": warehouse_fee_config_json,
+            "quotation_filename": quotation_filename,
         }
         return self.template_account_edit, context
 

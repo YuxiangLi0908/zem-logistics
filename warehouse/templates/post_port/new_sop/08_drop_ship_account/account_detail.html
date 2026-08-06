@@ -458,6 +458,10 @@
                 </div>
             </div>
             <div class="account-info-item">
+                <div class="account-info-label">报价表</div>
+                <div class="account-info-value">{{ quotation_filename|default:"-" }}</div>
+            </div>
+            <div class="account-info-item">
                 <div class="account-info-label">状态</div>
                 <div class="account-info-value">
                     {% if finance_status_value == 'completed' %}
