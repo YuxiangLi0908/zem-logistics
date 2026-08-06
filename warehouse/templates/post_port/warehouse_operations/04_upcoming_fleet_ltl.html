@@ -1021,7 +1021,12 @@
                         </td>
                         <td data-col="pcs">{{ fleet.pcs }}</td>
                         <td data-col="carrier">{{ fleet.carrier|default:"" }}</td>
-                        <td data-col="shipped_at">{{ fleet.shipped_at|date:"Y-m-d H:i" }}</td>
+                        <td data-col="shipped_at">
+                            {{ fleet.shipped_at|date:"Y-m-d" }}
+                            {% if fleet.show_departured_at_note %}
+                                <br><span style="color: #e67e22; font-size: 0.75rem;" title="国内录入时间">国内: {{ fleet.departured_at_date|date:"Y-m-d" }}</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                     

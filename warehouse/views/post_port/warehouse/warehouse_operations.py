@@ -1493,6 +1493,8 @@ class WarehouseOperations(View):
                 'PRO': arm_pro_combined,
                 'is_print_label': is_print_label_combined,
                 'is_shipped': is_shipped,
+                'show_departured_at_note': fleet.shipped_at and fleet.departured_at and fleet.shipped_at.date() != fleet.departured_at.date(),
+                'departured_at_date': fleet.departured_at.strftime('%Y-%m-%d') if fleet.departured_at else '',
                 'shipment_links': await sync_to_async(list)(
                     fleet.shipment.all().values(
                         'shipment_batch_number',
