@@ -31,6 +31,10 @@
                 {% csrf_token %}
                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                        <b style="font-weight: 600; color: #333;">选择仓库:</b>
+                        <input type="hidden" name="step" value="warehouse">
+                        {{ warehouse_form.name }}
+
                         <label class="filter-label" style="margin:0; font-size:14px;"><b>出库时间</b></label>
                         <input type="date" name="start_time" value="{{ start_time }}" class="form-input"
                                style="width: 180px; padding:6px; flex: none; font-size:14px;">
@@ -83,50 +87,20 @@
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
                     {% if shipment_type == '未录入内容' %}
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px; justify-content: flex-end;">
-                            <form method="post" enctype="multipart/form-data"
-                                  style="font-size:14px; display: inline-flex; align-items: center;">
-                                {% csrf_token %}
-                                <input type="file" name="ltl_file" id="ltl-file-input"
-                                       style="position: absolute; left: -9999px; top: -9999px;"
-                                       onchange="if(this.files.length>0) { this.form.submit(); showLoadingBar(); }">
-                                <input type="hidden" name="step" value="upload_ltl_cost">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                                <button type="button" class="btn btn-warning"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
-                                        onclick="document.getElementById('ltl-file-input').click();">
-                                    LTL批量上传成本
-                                </button>
-                                <small style="color: #666; margin-left: 5px;">（按LTL模板格式上传）</small>
-                            </form>
-
-                            <form method="post" enctype="multipart/form-data"
-                                  style="font-size:14px; display: inline-flex; align-items: center; margin-left: 20px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="download_ltl_cost_template">
-                                <input type="hidden" name="status" value="record">
-                                <button type="submit" class="btn btn-info"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
-                                        onclick="handleTemplateDownload()">
-                                    下载LTL模版
-                                </button>
-                            </form>
-
                             <form method="post" id="batch-cost-form"
                                   style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin-right: 10px;">
                                 {% csrf_token %}
+                                <span style="color: grey">一个车次只会有一个柜子 分摊逻辑：每车次成本 = 总成本/总板数 × 该车次板数</span>
                                 <label style="font-weight: 600; color: #333; white-space: nowrap;">批量分摊成本：</label>
                                 <input type="number" step="0.01" name="total_batch_cost" placeholder="请输入总成本总值"
                                        style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
                                        required>
                                 <input type="hidden" name="selected_fleet_numbers" id="selected-fleet-numbers">
                                 <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="step" value="batch_allocate_ltl_cost">
-                                <input type="hidden" name="area" value="{{ area }}">
                                 <button type="submit" class="btn btn-primary"
                                         style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
                                         onclick="return validateBatchSelection()">
@@ -164,24 +138,13 @@
                                 批量确认供应商
                             </button>
 
-                            <button type="button" class="btn btn-warning"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer; margin-left: 10px;"
-                                    onclick="bindMultiUnload()">
-                                绑定一提多卸
-                            </button>
-
-                            <button type="button" class="btn btn-secondary"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer; margin-left: 10px;"
-                                    onclick="unbindMultiUnload()">
-                                解绑一提多卸
-                            </button>
-
                             <form method="post" id="bind-multi-unload-form"
                                   style="position: absolute; left: -9999px; top: -9999px;">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="bind_multi_unload">
                                 <input type="hidden" name="status" value="record">
                                 <input type="hidden" name="selected_fleet_numbers" id="bind-fleet-numbers">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -193,6 +156,7 @@
                                 <input type="hidden" name="step" value="unbind_multi_unload">
                                 <input type="hidden" name="status" value="record">
                                 <input type="hidden" name="selected_fleet_numbers" id="unbind-fleet-numbers">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -204,6 +168,7 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_price">
                                 <input type="hidden" name="status" value="record">
                                 <input type="hidden" name="batch_prices_data" id="batch-prices-data">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -215,6 +180,7 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_note">
                                 <input type="hidden" name="status" value="record">
                                 <input type="hidden" name="batch_notes_data" id="batch-notes-data">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -227,6 +193,7 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_supplier">
                                 <input type="hidden" name="status" value="record">
                                 <input type="hidden" name="batch_suppliers_data" id="batch-suppliers-data">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -241,6 +208,7 @@
                             <form method="post" id="download-table-form" style="margin:0;">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="download_ltl_table">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="status" value="unrecord">
@@ -272,6 +240,7 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_price">
                                 <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="batch_prices_data" id="batch-prices-data-unrecord">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -283,6 +252,7 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_note">
                                 <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="batch_notes_data" id="batch-notes-data-unrecord">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -295,6 +265,7 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_supplier">
                                 <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="batch_suppliers_data" id="batch-suppliers-data-unrecord">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -307,6 +278,7 @@
                                 <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="selected_fleet_numbers" id="batch-verify-fleet-numbers">
                                 <input type="hidden" name="verify_action" id="verify-action" value="verify">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="step" value="update_fleet_verify_status">
@@ -359,6 +331,7 @@
                                 <label style="font-weight: 600; color: #333; white-space: nowrap;">批量退回操作：</label>
                                 <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="selected_fleet_numbers" id="batch-rollback-fleet-numbers">
+                                <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="step" value="rollback_fleet_status">
@@ -412,24 +385,17 @@
                                 <input type="checkbox" id="select-all-verify" onchange="toggleAllVerifySelection(this)">
                             </th>
                         {% endif %}
-                        <!-- 调整后表头顺序 -->
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">柜号</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">目的仓库</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">目的地</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">唛头</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 160px;">供应商</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">总件数</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">总卡板数</th>
-                        <th class="th" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">车次费用</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">分摊价格</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 80px;">一提多卸</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px; color: #ff4d4f; font-weight: 700;">一提多卸总成本</th>
-                        <!-- 原有剩余列 -->
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">实际出库时间</th>
+                        <th class="th" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">费用</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">件数</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">板数</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">拆柜时间</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">出库时间</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">出库批次</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">预约批次</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">Carrier</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">备注</th>
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">退回费用</th>
@@ -444,24 +410,17 @@
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
                         {% endif %}
-                        <!-- 筛选框同步调整顺序 -->
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索柜号..." class="filter-input" data-col="container" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索目的地..." class="filter-input" data-col="destination" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索唛头..." class="filter-input" data-col="mark" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 160px;"><input type="text" placeholder="搜索供应商..." class="filter-input" data-col="supplier" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"><input type="text" placeholder="搜索一提多卸..." class="filter-input" data-col="multi-unload" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
-                        <!-- 剩余筛选框 -->
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索出库时间..." class="filter-input" data-col="shipout" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索拆柜时间..." class="filter-input" data-col="unload" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索出库时间..." class="filter-input" data-col="shipout" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索出库批次..." class="filter-input" data-col="batch" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索预约批次..." class="filter-input" data-col="appointment" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索Carrier..." class="filter-input" data-col="carrier" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索备注..." class="filter-input" data-col="note" style="font-size: 14px; width: 100%;"></th>
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
@@ -495,9 +454,7 @@
                                            onchange="handleMultiUnloadVerifySelection(this)">
                                 </td>
                             {% endif %}
-                            <!-- 调整后数据列顺序 -->
                             <td class="td" data-col="container" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.container_number|default_if_none:"-" }}</td>
-                            <td class="td" data-col="warehouse" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.all_locations|default_if_none:"-" }}</td>
                             <td class="td" data-col="destination" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.destination|default_if_none:"-" }}</td>
                             <td class="td" data-col="mark" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">{{ f.shipping_mark|default_if_none:"-" }}</td>
                             <td class="td" data-col="supplier" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
@@ -513,6 +470,7 @@
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">
                                         <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
                                         <button type="submit" class="btn btn-success btn-sm" onclick="showLoadingBar()">保存</button>
@@ -529,14 +487,13 @@
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">
                                         <input type="hidden" name="status" value="record">
+                                        <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
                                         <button type="submit" class="btn btn-success btn-sm" onclick="showLoadingBar()">保存</button>
                                     </form>
                                 {% endif %}
                             </td>
-                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pcs|default_if_none:0|floatformat:0 }}</td>
-                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pallet|default_if_none:0|floatformat:0 }}</td>
                             <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                                 <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
                                     {% csrf_token %}
@@ -545,24 +502,18 @@
                                     <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
                                     <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}unrecord{% else %}record{% endif %}">
                                     <input type="hidden" name="area" value="{{ area }}">
+                                    <input type="hidden" name="name" value="{{ warehouse }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
                                     <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">确认</button>
                                 </form>
                             </td>
-                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">{{ f.allocation_price|default_if_none:0|floatformat:2 }}</td>
-                            <td class="td" data-col="multi-unload"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                {% if f.is_multi_unload %}<span class="multi-unload-tag">是</span>{% else %}
-                                    <span class="text-muted">否</span>{% endif %}
-                            </td>
-                            <td class="td multi-unload-total-cost" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">{{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}</td>
-                            <!-- 剩余数据列 -->
+                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pcs|default_if_none:0|floatformat:0 }}</td>
+                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pallet|default_if_none:0|floatformat:0 }}</td>
+                            <td class="td" data-col="unload" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.offload_other_at|default_if_none:"-"|date:"Y-m-d H:i" }}</td>
                             <td class="td" data-col="shipout" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}</td>
-                            <td class="td" data-col="unload" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}</td>
                             <td class="td" data-col="batch" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.fleet_number.fleet_number|default_if_none:"-" }}</td>
                             <td class="td" data-col="appointment" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.shipment_batch_number|default_if_none:"-" }}</td>
-                            <td class="td" data-col="carrier" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.fleet_number.carrier|default_if_none:"-" }}</td>
                             <td class="td" data-col="note" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                                 <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
                                     {% csrf_token %}
@@ -572,6 +523,7 @@
                                     <input type="hidden" name="step" value="update_fleet_note">
                                     <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}unrecord{% else %}record{% endif %}">
                                     <input type="hidden" name="area" value="{{ area }}">
+                                    <input type="hidden" name="name" value="{{ warehouse }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
                                     <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">保存备注</button>
@@ -585,6 +537,7 @@
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
                                         <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
                                         <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">确定</button>
@@ -596,6 +549,7 @@
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="update_fleet_verify_status">
                                         <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
                                         <input type="hidden" name="is_verified" id="is-verified-{{ f.fleet_number|default_if_none:'' }}" value="{% if f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}">
@@ -614,6 +568,7 @@
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="rollback_fleet_status">
                                         <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
                                         <button type="submit" class="btn btn-sm btn-danger" style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;" onclick="if(!confirm('确认将该记录退回未录入状态？')){event.preventDefault();} else {showLoadingBar();}">退回未录入</button>
@@ -623,7 +578,7 @@
                         </tr>
                     {% empty %}
                         <tr class="empty-row">
-                            <td colspan="{% if shipment_type == '已录入内容' %}22{% elif shipment_type == '未录入内容' %}18{% else %}16{% endif %}" style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">暂无数据</td>
+                            <td colspan="{% if shipment_type == '已录入内容' %}16{% elif shipment_type == '未录入内容' %}13{% else %}12{% endif %}" style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">暂无数据</td>
                         </tr>
                     {% endfor %}
                     </tbody>
@@ -780,225 +735,272 @@
     </style>
 
     <script>
-        const multiUnloadMap = {{ multi_unload_map|safe }};
+        document.addEventListener('DOMContentLoaded', function () {
+            window.handleMultiUnloadSelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                const currentFleet = checkbox.value.trim();
+                const groupId = checkbox.getAttribute('data-multi-unload-group');
 
-document.addEventListener('DOMContentLoaded', function () {
-    window.handleMultiUnloadSelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        const currentFleet = checkbox.value.trim();
-        const groupId = checkbox.getAttribute('data-multi-unload-group');
+                if (!currentFleet || !groupId) {
+                    updateSelectionCount();
+                    return;
+                }
 
-        if (!currentFleet || !groupId) {
+                const sameGroupCheckboxes = document.querySelectorAll(`.row-select[data-multi-unload-group="${groupId}"]`);
+                sameGroupCheckboxes.forEach(cb => {
+                    if (cb !== checkbox) cb.checked = isChecked;
+                });
+                updateSelectionCount();
+            };
+
+            window.handleMultiUnloadVerifySelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                const currentFleet = checkbox.value.trim();
+                const groupId = checkbox.getAttribute('data-multi-unload-group');
+
+                if (!currentFleet || !groupId) {
+                    updateVerifySelectionCount();
+                    return;
+                }
+
+                const sameGroupCheckboxes = document.querySelectorAll(`.verify-row-select[data-multi-unload-group="${groupId}"]`);
+                sameGroupCheckboxes.forEach(cb => {
+                    if (cb !== checkbox) cb.checked = isChecked;
+                });
+                updateVerifySelectionCount();
+            };
+
+            window.toggleAllSelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                document.querySelectorAll('.row-select').forEach(cb => cb.checked = isChecked);
+                updateSelectionCount();
+            };
+
+            window.toggleAllVerifySelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = isChecked);
+                updateVerifySelectionCount();
+            };
+
+            window.updateSelectionCount = function () {
+                const checkedBoxes = document.querySelectorAll('.row-select:checked');
+                document.getElementById('selection-count').textContent = `已选：${checkedBoxes.length} 条`;
+                document.getElementById('selected-fleet-numbers').value = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
+            };
+
+            window.updateVerifySelectionCount = function () {
+                const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                document.getElementById('verify-selection-count').textContent = `已选：${checkedBoxes.length} 条`;
+                document.getElementById('rollback-selection-count').textContent = `已选：${checkedBoxes.length} 条`;
+                const selected = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
+                document.getElementById('batch-verify-fleet-numbers').value = selected;
+                document.getElementById('batch-rollback-fleet-numbers').value = selected;
+            };
+
+            window.selectAllRows = function () {
+                document.querySelectorAll('.row-select').forEach(cb => cb.checked = true);
+                updateSelectionCount();
+            };
+            window.deselectAllRows = function () {
+                document.querySelectorAll('.row-select').forEach(cb => cb.checked = false);
+                updateSelectionCount();
+            };
+            window.selectAllVerifyRows = function () {
+                document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = true);
+                updateVerifySelectionCount();
+            };
+            window.deselectAllVerifyRows = function () {
+                document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = false);
+                updateVerifySelectionCount();
+            };
+
+            window.validateBatchSelection = function () {
+                if (document.querySelectorAll('.row-select:checked').length === 0) {
+                    alert('请至少选择一条记录进行批量分摊！');
+                    return false;
+                }
+                const total = document.querySelector('input[name="total_batch_cost"]').value;
+                if (!total || parseFloat(total) <= 0) {
+                    alert('请输入有效的总成本！');
+                    return false;
+                }
+                return true;
+            };
+
+            window.validateBatchVerifySelection = function () {
+                if (document.querySelectorAll('.verify-row-select:checked').length === 0) {
+                    alert('请至少选择一条记录！');
+                    return false;
+                }
+                return true;
+            };
+
+            window.validateBatchRollbackSelection = function () {
+                const count = document.querySelectorAll('.verify-row-select:checked').length;
+                if (count === 0) {
+                    alert('请至少选择一条记录！');
+                    return false;
+                }
+                return confirm(`确认退回选中的 ${count} 条记录？`);
+            };
+
+            window.bindMultiUnload = function () {
+                const checked = document.querySelectorAll('.row-select:checked');
+                if (checked.length === 0) {
+                    alert('请选择记录！');
+                    return;
+                }
+                document.getElementById('bind-fleet-numbers').value = Array.from(checked).map(cb => cb.value).join(',');
+                if (confirm(`确认绑定 ${checked.length} 条为一提多卸？`)) {
+                    showLoadingBar();
+                    document.getElementById('bind-multi-unload-form').submit();
+                }
+            };
+
+            window.unbindMultiUnload = function () {
+                const checked = document.querySelectorAll('.row-select:checked');
+                if (checked.length === 0) {
+                    alert('请选择记录！');
+                    return;
+                }
+                document.getElementById('unbind-fleet-numbers').value = Array.from(checked).map(cb => cb.value).join(',');
+                if (confirm(`确认解绑 ${checked.length} 条？`)) {
+                    showLoadingBar();
+                    document.getElementById('unbind-multi-unload-form').submit();
+                }
+            };
+
+            window.submitBatchOnlyPrices = function () {
+                const isUnrecord = document.querySelector('.verify-row-select') !== null;
+                const checked = isUnrecord ? document.querySelectorAll('.verify-row-select:checked') : document.querySelectorAll('.row-select:checked');
+                if (checked.length === 0) {
+                    alert('请选择至少一条记录！');
+                    return;
+                }
+
+                const data = [];
+                checked.forEach(cb => {
+                    const row = cb.closest('.data-row');
+                    const price = row ? parseFloat(row.querySelector('input[name="fleet_cost"]').value) || 0 : 0;
+                    data.push({fleet_number: cb.value, fleet_cost: price});
+                });
+
+                if (confirm(`确认提交 ${checked.length} 条价格？`)) {
+                    const form = isUnrecord ? 'batch-prices-form-unrecord' : 'batch-prices-form';
+                    const input = isUnrecord ? 'batch-prices-data-unrecord' : 'batch-prices-data';
+                    document.getElementById(input).value = JSON.stringify(data);
+                    showLoadingBar();
+                    document.getElementById(form).submit();
+                }
+            };
+
+            window.submitBatchOnlyNotes = function () {
+                const isUnrecord = document.querySelector('.verify-row-select') !== null;
+                const checked = isUnrecord ? document.querySelectorAll('.verify-row-select:checked') : document.querySelectorAll('.row-select:checked');
+                if (checked.length === 0) {
+                    alert('请选择至少一条记录！');
+                    return;
+                }
+
+                const data = [];
+                checked.forEach(cb => {
+                    const row = cb.closest('.data-row');
+                    const note = row ? row.querySelector('textarea[name="note"]').value.trim() : '';
+                    data.push({fleet_number: cb.value, note: note});
+                });
+
+                if (confirm(`确认提交 ${checked.length} 条备注？`)) {
+                    const form = isUnrecord ? 'batch-notes-form-unrecord' : 'batch-notes-form';
+                    const input = isUnrecord ? 'batch-notes-data-unrecord' : 'batch-notes-data';
+                    document.getElementById(input).value = JSON.stringify(data);
+                    showLoadingBar();
+                    document.getElementById(form).submit();
+                }
+            };
+
+            // 新增：批量确认供应商（完全仿照备注逻辑）
+            window.submitBatchOnlySuppliers = function () {
+                const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
+                let checkedBoxes, batchFormId, batchDataId;
+
+                if (!isUnrecordPage) {
+                    checkedBoxes = document.querySelectorAll('.row-select:checked');
+                    batchFormId = 'batch-suppliers-form';
+                    batchDataId = 'batch-suppliers-data';
+                } else {
+                    checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                    batchFormId = 'batch-suppliers-form-unrecord';
+                    batchDataId = 'batch-suppliers-data-unrecord';
+                }
+
+                if (checkedBoxes.length === 0) {
+                    alert('请至少选择一条记录进行批量确认供应商！');
+                    return;
+                }
+
+                const batchData = [];
+                checkedBoxes.forEach(checkbox => {
+                    const fleetNumber = checkbox.value.trim();
+                    if (!fleetNumber) return;
+
+                    const row = checkbox.closest('.data-row');
+                    if (!row) return;
+
+                    const supplierSelect = row.querySelector('select[name="supplier"]');
+                    const supplierValue = supplierSelect ? supplierSelect.value.trim() : '';
+
+                    const fleetIdInput = row.querySelector('input[name="fleet_number"]');
+                    const fleetId = fleetIdInput ? fleetIdInput.value.trim() : '';
+
+                    batchData.push({
+                        fleet_number: fleetNumber,
+                        supplier: supplierValue,
+                        fleet_id: fleetId
+                    });
+                });
+
+                if (batchData.length === 0) {
+                    alert('未获取到有效的供应商数据！');
+                    return;
+                }
+
+                if (confirm(`确认批量确认选中的 ${checkedBoxes.length} 条记录的供应商？`)) {
+                    document.getElementById(batchDataId).value = JSON.stringify(batchData);
+                    showLoadingBar();
+                    document.getElementById(batchFormId).submit();
+                }
+            };
+
+            window.showLoadingBar = function () {
+                const bar = document.getElementById('loading-bar');
+                if (bar) {
+                    bar.style.display = 'block';
+                    bar.style.zIndex = '9999';
+                }
+            };
+            window.handleTemplateDownload = function () {
+                showLoadingBar();
+            };
+            window.handleTableDownload = function () {
+                showLoadingBar();
+            };
+
+            // 筛选功能
+            document.querySelectorAll('.filter-input').forEach(input => {
+                input.addEventListener('input', function () {
+                    const val = this.value.toLowerCase();
+                    const col = this.getAttribute('data-col');
+                    document.querySelectorAll('.data-row').forEach(row => {
+                        const cell = row.querySelector(`td[data-col="${col}"]`);
+                        row.style.display = cell && cell.textContent.toLowerCase().includes(val) ? '' : 'none';
+                    });
+                    const empty = document.querySelector('.empty-row');
+                    if (empty) empty.style.display = document.querySelectorAll('.data-row:not([style*="display: none"])').length ? 'none' : '';
+                });
+            });
+
             updateSelectionCount();
-            return;
-        }
-
-        const sameGroupCheckboxes = document.querySelectorAll(`.row-select[data-multi-unload-group="${groupId}"]`);
-        sameGroupCheckboxes.forEach(cb => {
-            if (cb !== checkbox) cb.checked = isChecked;
-        });
-        updateSelectionCount();
-    };
-
-    window.handleMultiUnloadVerifySelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        const currentFleet = checkbox.value.trim();
-        const groupId = checkbox.getAttribute('data-multi-unload-group');
-
-        if (!currentFleet || !groupId) {
             updateVerifySelectionCount();
-            return;
-        }
-
-        const sameGroupCheckboxes = document.querySelectorAll(`.verify-row-select[data-multi-unload-group="${groupId}"]`);
-        sameGroupCheckboxes.forEach(cb => {
-            if (cb !== checkbox) cb.checked = isChecked;
         });
-        updateVerifySelectionCount();
-    };
-
-    window.toggleAllSelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        document.querySelectorAll('.row-select').forEach(cb => cb.checked = isChecked);
-        updateSelectionCount();
-    };
-
-    window.toggleAllVerifySelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = isChecked);
-        updateVerifySelectionCount();
-    };
-
-    window.updateSelectionCount = function () {
-        const checkedBoxes = document.querySelectorAll('.row-select:checked');
-        document.getElementById('selection-count').textContent = `已选：${checkedBoxes.length} 条`;
-        document.getElementById('selected-fleet-numbers').value = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
-    };
-
-    window.updateVerifySelectionCount = function () {
-        const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-        document.getElementById('verify-selection-count').textContent = `已选：${checkedBoxes.length} 条`;
-        document.getElementById('rollback-selection-count').textContent = `已选：${checkedBoxes.length} 条`;
-        const selected = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
-        document.getElementById('batch-verify-fleet-numbers').value = selected;
-        document.getElementById('batch-rollback-fleet-numbers').value = selected;
-    };
-
-    window.selectAllRows = function () { document.querySelectorAll('.row-select').forEach(cb => cb.checked = true); updateSelectionCount(); };
-    window.deselectAllRows = function () { document.querySelectorAll('.row-select').forEach(cb => cb.checked = false); updateSelectionCount(); };
-    window.selectAllVerifyRows = function () { document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = true); updateVerifySelectionCount(); };
-    window.deselectAllVerifyRows = function () { document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = false); updateVerifySelectionCount(); };
-
-    window.validateBatchSelection = function () {
-        if (document.querySelectorAll('.row-select:checked').length === 0) { alert('请至少选择一条记录进行批量分摊！'); return false; }
-        const total = document.querySelector('input[name="total_batch_cost"]').value;
-        if (!total || parseFloat(total) <= 0) { alert('请输入有效的总成本！'); return false; }
-        return true;
-    };
-
-    window.validateBatchVerifySelection = function () {
-        if (document.querySelectorAll('.verify-row-select:checked').length === 0) { alert('请至少选择一条记录！'); return false; }
-        return true;
-    };
-
-    window.validateBatchRollbackSelection = function () {
-        const count = document.querySelectorAll('.verify-row-select:checked').length;
-        if (count === 0) { alert('请至少选择一条记录！'); return false; }
-        return confirm(`确认退回选中的 ${count} 条记录？`);
-    };
-
-    window.bindMultiUnload = function () {
-        const checked = document.querySelectorAll('.row-select:checked');
-        if (checked.length === 0) { alert('请选择记录！'); return; }
-        document.getElementById('bind-fleet-numbers').value = Array.from(checked).map(cb => cb.value).join(',');
-        if (confirm(`确认绑定 ${checked.length} 条为一提多卸？`)) { showLoadingBar(); document.getElementById('bind-multi-unload-form').submit(); }
-    };
-
-    window.unbindMultiUnload = function () {
-        const checked = document.querySelectorAll('.row-select:checked');
-        if (checked.length === 0) { alert('请选择记录！'); return; }
-        document.getElementById('unbind-fleet-numbers').value = Array.from(checked).map(cb => cb.value).join(',');
-        if (confirm(`确认解绑 ${checked.length} 条？`)) { showLoadingBar(); document.getElementById('unbind-multi-unload-form').submit(); }
-    };
-
-    window.submitBatchOnlyPrices = function () {
-        const isUnrecord = document.querySelector('.verify-row-select') !== null;
-        const checked = isUnrecord ? document.querySelectorAll('.verify-row-select:checked') : document.querySelectorAll('.row-select:checked');
-        if (checked.length === 0) { alert('请选择至少一条记录！'); return; }
-
-        const data = [];
-        checked.forEach(cb => {
-            const row = cb.closest('.data-row');
-            const price = row ? parseFloat(row.querySelector('input[name="fleet_cost"]').value) || 0 : 0;
-            data.push({ fleet_number: cb.value, fleet_cost: price });
-        });
-
-        if (confirm(`确认提交 ${checked.length} 条价格？`)) {
-            const form = isUnrecord ? 'batch-prices-form-unrecord' : 'batch-prices-form';
-            const input = isUnrecord ? 'batch-prices-data-unrecord' : 'batch-prices-data';
-            document.getElementById(input).value = JSON.stringify(data);
-            showLoadingBar();
-            document.getElementById(form).submit();
-        }
-    };
-
-    window.submitBatchOnlyNotes = function () {
-        const isUnrecord = document.querySelector('.verify-row-select') !== null;
-        const checked = isUnrecord ? document.querySelectorAll('.verify-row-select:checked') : document.querySelectorAll('.row-select:checked');
-        if (checked.length === 0) { alert('请选择至少一条记录！'); return; }
-
-        const data = [];
-        checked.forEach(cb => {
-            const row = cb.closest('.data-row');
-            const note = row ? row.querySelector('textarea[name="note"]').value.trim() : '';
-            data.push({ fleet_number: cb.value, note: note });
-        });
-
-        if (confirm(`确认提交 ${checked.length} 条备注？`)) {
-            const form = isUnrecord ? 'batch-notes-form-unrecord' : 'batch-notes-form';
-            const input = isUnrecord ? 'batch-notes-data-unrecord' : 'batch-notes-data';
-            document.getElementById(input).value = JSON.stringify(data);
-            showLoadingBar();
-            document.getElementById(form).submit();
-        }
-    };
-
-    // 新增：批量确认供应商（完全仿照备注逻辑）
-    window.submitBatchOnlySuppliers = function () {
-        const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
-        let checkedBoxes, batchFormId, batchDataId;
-
-        if (!isUnrecordPage) {
-            checkedBoxes = document.querySelectorAll('.row-select:checked');
-            batchFormId = 'batch-suppliers-form';
-            batchDataId = 'batch-suppliers-data';
-        } else {
-            checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-            batchFormId = 'batch-suppliers-form-unrecord';
-            batchDataId = 'batch-suppliers-data-unrecord';
-        }
-
-        if (checkedBoxes.length === 0) {
-            alert('请至少选择一条记录进行批量确认供应商！');
-            return;
-        }
-
-        const batchData = [];
-        checkedBoxes.forEach(checkbox => {
-            const fleetNumber = checkbox.value.trim();
-            if (!fleetNumber) return;
-
-            const row = checkbox.closest('.data-row');
-            if (!row) return;
-
-            const supplierSelect = row.querySelector('select[name="supplier"]');
-            const supplierValue = supplierSelect ? supplierSelect.value.trim() : '';
-
-            const fleetIdInput = row.querySelector('input[name="fleet_number"]');
-            const fleetId = fleetIdInput ? fleetIdInput.value.trim() : '';
-
-            batchData.push({
-                fleet_number: fleetNumber,
-                supplier: supplierValue,
-                fleet_id: fleetId
-            });
-        });
-
-        if (batchData.length === 0) {
-            alert('未获取到有效的供应商数据！');
-            return;
-        }
-
-        if (confirm(`确认批量确认选中的 ${checkedBoxes.length} 条记录的供应商？`)) {
-            document.getElementById(batchDataId).value = JSON.stringify(batchData);
-            showLoadingBar();
-            document.getElementById(batchFormId).submit();
-        }
-    };
-
-    window.showLoadingBar = function () {
-        const bar = document.getElementById('loading-bar');
-        if (bar) { bar.style.display = 'block'; bar.style.zIndex = '9999'; }
-    };
-    window.handleTemplateDownload = function () { showLoadingBar(); };
-    window.handleTableDownload = function () { showLoadingBar(); };
-
-    // 筛选功能
-    document.querySelectorAll('.filter-input').forEach(input => {
-        input.addEventListener('input', function () {
-            const val = this.value.toLowerCase();
-            const col = this.getAttribute('data-col');
-            document.querySelectorAll('.data-row').forEach(row => {
-                const cell = row.querySelector(`td[data-col="${col}"]`);
-                row.style.display = cell && cell.textContent.toLowerCase().includes(val) ? '' : 'none';
-            });
-            const empty = document.querySelector('.empty-row');
-            if (empty) empty.style.display = document.querySelectorAll('.data-row:not([style*="display: none"])').length ? 'none' : '';
-        });
-    });
-
-    updateSelectionCount();
-    updateVerifySelectionCount();
-});
     </script>
 {% endblock %}

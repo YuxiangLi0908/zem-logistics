@@ -3761,7 +3761,7 @@ class Accounting(View):
             warehouse: str = None,
             error: str = None
     ) -> tuple[Any, Any]:
-        """财务派送 待确认 已确认（已修改：使用Pallet.ltl_correlation_id分组）"""
+        """财务派送 待确认 已确认"""
         logger = logging.getLogger(__name__)
         current_date = datetime.now().date()
         start_date_confirm = (
@@ -3830,14 +3830,6 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                ltl_correlation_id=Subquery(
-                    Pallet.objects.filter(
-                        PO_ID=OuterRef("PO_ID"),
-                        shipment_batch_number=OuterRef("shipment_batch_number"),
-                        container_number=OuterRef("container_number")
-                    ).values("ltl_correlation_id")[:1],
-                    output_field=CharField()
-                ),
                 shipping_mark=Subquery(
                     Pallet.objects.filter(
                         PO_ID=OuterRef("PO_ID"),
@@ -3847,21 +3839,19 @@ class Accounting(View):
                     output_field=CharField()
                 ),
             )
-            .order_by("ltl_correlation_id", "fleet_number__id", "pickup_number", "container_num")
+            .order_by("fleet_number__id", "pickup_number", "container_num")
         )
 
         delivery_pending_orders_list = list(delivery_pending_orders.iterator(chunk_size=200))
 
-        # 一提多卸分组逻辑：使用 ltl_correlation_id
         correlation_map = {}
         for order in delivery_pending_orders_list:
-            corr_id = order.ltl_correlation_id or f"fleet_{order.fleet_number_id or 'unknown'}"
+            corr_id = f"fleet_{order.fleet_number_id or 'unknown'}"
             fleet_id = order.fleet_number_id or "unknown"
 
             if corr_id not in correlation_map:
                 correlation_map[corr_id] = {
                     "fleet_ids": set(),
-                    "is_multi_unload": order.ltl_correlation_id is not None and order.ltl_correlation_id != "",
                     "fleet_numbers": set(),
                     "carriers": set(),
                 }
@@ -3875,14 +3865,13 @@ class Accounting(View):
         deliverys = {}
 
         for order in delivery_pending_orders_list:
-            corr_id = order.ltl_correlation_id or f"fleet_{order.fleet_number_id or 'unknown'}"
+            corr_id = f"fleet_{order.fleet_number_id or 'unknown'}"
             fleet_id = order.fleet_number_id or "unknown"
 
             if corr_id not in correlation_groups:
                 group_info = correlation_map[corr_id]
                 correlation_groups[corr_id] = {
                     "group_key": corr_id,
-                    "is_multi_unload": group_info["is_multi_unload"],
                     "fleet_ids": list(group_info["fleet_ids"]),
                     "fleet_numbers": list(group_info["fleet_numbers"]),
                     "carriers": list(group_info["carriers"]),
@@ -3906,7 +3895,6 @@ class Accounting(View):
                     "Supplier": Supplier,
                     "fleet_number": fleet_number,
                     "fleet_id": fleet_id,
-                    "ltl_correlation_id": corr_id,
                 }
 
             pickup_number = order.pickup_number or "unknown"
@@ -3944,7 +3932,6 @@ class Accounting(View):
                 "carrier": deliverys[fleet_id]["carrier"],
                 "Supplier": deliverys[fleet_id]["Supplier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
-                "ltl_correlation_id": corr_id,
                 "itemv2_data": {
                     "note": order.finance_note or "",
                     "write_off_amount": None,
@@ -3994,7 +3981,6 @@ class Accounting(View):
 
             final_pending.append({
                 "group_key": group["group_key"],
-                "is_multi_unload": group["is_multi_unload"],
                 "fleet_ids": group["fleet_ids"],
                 "fleet_numbers": group["fleet_numbers"],
                 "carriers": group["carriers"],
@@ -4005,7 +3991,7 @@ class Accounting(View):
             })
 
         # ======================
-        # 已确认订单：同样替换为 ltl_correlation_id
+        # 已确认订单
         base_delivery_orders = (
             FleetShipmentPallet.objects.select_related(
                 "fleet_number",
@@ -4029,14 +4015,6 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                ltl_correlation_id=Subquery(
-                    Pallet.objects.filter(
-                        PO_ID=OuterRef("PO_ID"),
-                        shipment_batch_number=OuterRef("shipment_batch_number"),
-                        container_number=OuterRef("container_number")
-                    ).values("ltl_correlation_id")[:1],
-                    output_field=CharField()
-                ),
                 shipping_mark=Subquery(
                     Pallet.objects.filter(
                         PO_ID=OuterRef("PO_ID"),
@@ -4046,7 +4024,7 @@ class Accounting(View):
                     output_field=CharField()
                 ),
             )
-            .order_by("ltl_correlation_id", "fleet_number__id", "pickup_number", "container_num")
+            .order_by("fleet_number__id", "pickup_number", "container_num")
         )
 
         container_ids = base_delivery_orders.values_list("container_number_id", flat=True).distinct()
@@ -4055,12 +4033,11 @@ class Accounting(View):
 
         confirm_corr_map = {}
         for o in confirmed_list:
-            cid = o.ltl_correlation_id or f"fleet_{o.fleet_number_id or 'unknown'}"
-            fid = o.fleet_number_id or "unknown"
+            cid = f"fleet_{o.fleet_number_id.fleet_number or 'unknown'}"
+            fid = o.fleet_number_id.fleet_number or "unknown"
             if cid not in confirm_corr_map:
                 confirm_corr_map[cid] = {
                     "fleet_ids": set(),
-                    "is_multi_unload": o.ltl_correlation_id is not None and o.ltl_correlation_id != "",
                     "fleet_numbers": set(),
                     "carriers": set(),
                 }
@@ -4073,14 +4050,13 @@ class Accounting(View):
         confirm_fleets = {}
 
         for o in confirmed_list:
-            cid = o.ltl_correlation_id or f"fleet_{o.fleet_number_id or 'unknown'}"
-            fid = o.fleet_number_id or "unknown"
+            cid = f"fleet_{o.fleet_number_id.fleet_number or 'unknown'}"
+            fid = o.fleet_number_id.fleet_number or "unknown"
 
             if cid not in confirm_groups:
                 gi = confirm_corr_map[cid]
                 confirm_groups[cid] = {
                     "group_key": cid,
-                    "is_multi_unload": gi["is_multi_unload"],
                     "fleet_ids": list(gi["fleet_ids"]),
                     "fleet_numbers": list(gi["fleet_numbers"]),
                     "carriers": list(gi["carriers"]),
@@ -4103,7 +4079,6 @@ class Accounting(View):
                     "Supplier": Supplier,
                     "fleet_number": fnum,
                     "fleet_id": fid,
-                    "ltl_correlation_id": cid,
                 }
 
             pn = o.pickup_number or "unknown"
@@ -4135,7 +4110,6 @@ class Accounting(View):
                 "carrier": confirm_fleets[fid]["carrier"],
                 "Supplier": confirm_fleets[fid]["Supplier"],
                 "fleet_number": confirm_fleets[fid]["fleet_number"],
-                "ltl_correlation_id": cid,
                 "itemv2_data": {
                     "note": o.finance_note or "",
                     "write_off_amount": float(o.write_off_amount or 0),
@@ -4184,7 +4158,6 @@ class Accounting(View):
 
             final_confirmed.append({
                 "group_key": g["group_key"],
-                "is_multi_unload": g["is_multi_unload"],
                 "fleet_ids": g["fleet_ids"],
                 "fleet_numbers": g["fleet_numbers"],
                 "carriers": g["carriers"],
@@ -5856,14 +5829,6 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                ltl_correlation_id=Subquery(
-                    Pallet.objects.filter(
-                        PO_ID=OuterRef("PO_ID"),
-                        shipment_batch_number=OuterRef("shipment_batch_number"),
-                        container_number=OuterRef("container_number")
-                    ).values("ltl_correlation_id")[:1],
-                    output_field=CharField()
-                ),
                 shipping_mark=Subquery(
                     Pallet.objects.filter(
                         PO_ID=OuterRef("PO_ID"),
@@ -5873,7 +5838,7 @@ class Accounting(View):
                     output_field=CharField()
                 ),
             )
-            .order_by("ltl_correlation_id", "fleet_number__id", "pickup_number", "container_num")
+            .order_by("fleet_number__id", "pickup_number", "container_num")
         )
 
         container_ids = base_delivery_orders.values_list("container_number_id", flat=True).distinct()
@@ -5882,12 +5847,11 @@ class Accounting(View):
 
         confirm_corr_map = {}
         for o in confirmed_list:
-            cid = o.ltl_correlation_id or f"fleet_{o.fleet_number_id or 'unknown'}"
-            fid = o.fleet_number_id or "unknown"
+            cid = f"fleet_{o.fleet_number_id.fleet_number or 'unknown'}"
+            fid = o.fleet_number_id.fleet_number or "unknown"
             if cid not in confirm_corr_map:
                 confirm_corr_map[cid] = {
                     "fleet_ids": set(),
-                    "is_multi_unload": o.ltl_correlation_id is not None and o.ltl_correlation_id != "",
                     "fleet_numbers": set(),
                     "carriers": set(),
                 }
@@ -5900,14 +5864,13 @@ class Accounting(View):
         confirm_fleets = {}
 
         for o in confirmed_list:
-            cid = o.ltl_correlation_id or f"fleet_{o.fleet_number_id or 'unknown'}"
-            fid = o.fleet_number_id or "unknown"
+            cid = f"fleet_{o.fleet_number_id.fleet_number or 'unknown'}"
+            fid = o.fleet_number_id.fleet_number or "unknown"
 
             if cid not in confirm_groups:
                 gi = confirm_corr_map[cid]
                 confirm_groups[cid] = {
                     "group_key": cid,
-                    "is_multi_unload": gi["is_multi_unload"],
                     "fleet_ids": list(gi["fleet_ids"]),
                     "fleet_numbers": list(gi["fleet_numbers"]),
                     "carriers": list(gi["carriers"]),
@@ -6011,7 +5974,6 @@ class Accounting(View):
 
             final_confirmed.append({
                 "group_key": g["group_key"],
-                "is_multi_unload": g["is_multi_unload"],
                 "fleet_ids": g["fleet_ids"],
                 "fleet_numbers": g["fleet_numbers"],
                 "carriers": g["carriers"],

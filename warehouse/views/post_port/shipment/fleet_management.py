@@ -43,7 +43,7 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When, Prefetch, Max,
+    When, Prefetch, Max, Subquery,
 )
 from django.db.models.functions import Cast, Round
 from django.http import HttpRequest, HttpResponse
@@ -1008,21 +1008,21 @@ class FleetManagement(View):
     async def handle_download_ltl_table(self, request: HttpRequest) -> HttpResponse:
         """下载已录入页面的表格数据为Excel"""
         # 获取筛选条件
+        warehouse = request.POST.get("name")
         start_time = request.POST.get("start_time")
         end_time = request.POST.get("end_time")
-        area = request.POST.get("area")
 
         # 构建查询条件（复用原有逻辑）
         now = timezone.now()
         tz_2026_01_01 = timezone.make_aware(
-            datetime(2026, 1, 1, 0, 0, 0),
+            datetime(2026, 8, 1, 0, 0, 0),
             timezone.get_current_timezone()
         )
 
         criteria = models.Q(
             shipped_at__gte=tz_2026_01_01,
-            shipment_schduled_at__gte=tz_2026_01_01,
             fleet_number__fleet_type__in=['LTL', '客户自提'],
+            pallet__container_number__orders__warehouse__name=warehouse,
             fleet_number__fleet_cost__isnull=False  # 仅已录入数据
         )
 
@@ -1081,8 +1081,13 @@ class FleetManagement(View):
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
+            .prefetch_related("pallet")
             .filter(criteria)
-            .order_by("shipped_at")
+            .distinct()
+            .order_by(
+                # 每组内部：Supplier 为空 → 最上 | 有值 → 最下
+                F("fleet_number__Supplier").asc(nulls_first=True),
+            )
         )
 
         # 处理数据（复用原有process_shipment_data逻辑）
@@ -1092,21 +1097,16 @@ class FleetManagement(View):
         df = pd.DataFrame([
             {
                 '柜号': item.container_number,
-                # ✅ 【已修复】一提多卸：判断当前车次是否在分组中
-                '一提多卸': '是' if hasattr(item, 'is_multi_unload') and item.is_multi_unload else '否',
-                '目的仓库': item.all_locations,
                 '目的地': item.destination,
                 '唛头': item.shipping_mark,
                 '总件数': item.shipped_pcs,
                 '总卡板数': item.shipped_pallet,
                 '车次费用': item.fleet_number.fleet_cost if (item.fleet_number and item.fleet_number.fleet_cost) else 0,
-                '分摊价格': item.allocation_price,
                 '实际出库时间': item.shipped_at.strftime("%Y-%m-%d %H:%M") if item.shipped_at else '-',
-                '拆柜时间': item.offload_at.strftime("%Y-%m-%d %H:%M") if item.offload_at else '-',
+                '拆柜时间': item.offload_other_at.strftime("%Y-%m-%d %H:%M") if item.offload_other_at else '-',
                 '出库批次': item.fleet_number.fleet_number if (
                         item.fleet_number and item.fleet_number.fleet_number) else '-',
                 '预约批次': item.shipment_batch_number,
-                'Carrier': item.carrier,
                 '备注': item.note,
                 '退回费用': item.fleet_number.fleet_cost_back if (
                         item.fleet_number and item.fleet_number.fleet_cost_back) else 0,
@@ -1134,10 +1134,6 @@ class FleetManagement(View):
         processed = []
         for s in shipment_list:
             # 复用原有process_shipment_data中的逻辑
-            latest_pallet = await sync_to_async(
-                lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
-            )()
-
             @sync_to_async
             def get_related_pallets(shipment_id):
                 pallets = list(Pallet.objects.filter(
@@ -1166,7 +1162,7 @@ class FleetManagement(View):
                             'total_pcs_count': 0,
                             'container_number': key[0] or "-",
                             'shipping_mark': key[1] or "-",
-                            'offload_at': None,
+                            'offload_other_at': None,
                             'retrieval_time': None,
                             'locations': set(),
                         }
@@ -1178,11 +1174,11 @@ class FleetManagement(View):
                     if pallet.location:
                         pallet_groups[key]['locations'].add(pallet.location)
 
-                    if pallet.container_number_id and not pallet_groups[key]['offload_at']:
+                    if pallet.container_number_id and not pallet_groups[key]['offload_other_at']:
                         order = order_map.get(pallet.container_number_id)
                         if order and order.offload_id:
-                            pallet_groups[key]['offload_at'] = order.offload_id.offload_at
-                            pallet_groups[key]['retrieval_time'] = order.offload_id.offload_at
+                            pallet_groups[key]['offload_other_at'] = order.offload_id.offload_other_at
+                            pallet_groups[key]['retrieval_time'] = order.offload_id.offload_other_at
 
                 for group in pallet_groups.values():
                     group['locations'] = list(group['locations']) if group['locations'] else ["-"]
@@ -1198,7 +1194,7 @@ class FleetManagement(View):
                 shipment_copy.shipped_pallet = group_data['total_pallet_count'] or 0
                 shipment_copy.container_number = group_data['container_number']
                 shipment_copy.shipping_mark = group_data['shipping_mark']
-                shipment_copy.offload_at = group_data['offload_at']
+                shipment_copy.offload_other_at = group_data['offload_other_at']
                 shipment_copy.retrieval_time = group_data['retrieval_time']
                 shipment_copy.all_locations = group_data['locations'][0]
 
@@ -1236,7 +1232,7 @@ class FleetManagement(View):
                 shipment_copy.shipped_pallet = 0
                 shipment_copy.container_number = "-"
                 shipment_copy.shipping_mark = "-"
-                shipment_copy.offload_at = None
+                shipment_copy.offload_other_at = None
                 shipment_copy.retrieval_time = None
                 shipment_copy.all_locations = ["-"]
                 shipment_copy.allocation_price = 0
@@ -2665,26 +2661,31 @@ class FleetManagement(View):
     async def handle_fleet_cost_record_get_ltl(
             self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
-        # 获取当前时间（带时区）
-        now = timezone.now()
-        # 最近一个月的起始时间
-        default_start_time = now - timedelta(days=30)
+        # 最近一周的起始时间
+        now = datetime.now()
+        default_start_time = max(now - timedelta(days=7), datetime(now.year, 8, 1))
         start_time = request.POST.get("start_time", default_start_time.strftime("%Y-%m-%d"))
         end_time = request.POST.get("end_time", now.strftime("%Y-%m-%d"))
+
+        warehouse = request.POST.get("name")
+        if warehouse:
+            warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        else:
+            warehouse_form = ZemWarehouseForm()
 
         status = request.POST.get("status", "record")
 
         # 时区感知的datetime对象
         tz_2026_01_01 = timezone.make_aware(
-            datetime(2026, 1, 1, 0, 0, 0),
+            datetime(2026, 8, 1, 0, 0, 0),
             timezone.get_current_timezone()
         )
 
         # 初始化查询条件
         criteria = Q(
             shipped_at__gte=tz_2026_01_01,
-            shipment_schduled_at__gte=tz_2026_01_01,
-            fleet_number__fleet_type__in=['LTL', '客户自提']
+            fleet_number__fleet_type__in=['LTL', '客户自提'],
+            pallet__container_number__orders__warehouse__name=warehouse,
         )
 
         # 已录入/未录入筛选
@@ -2695,69 +2696,61 @@ class FleetManagement(View):
             criteria &= Q(fleet_number__fleet_cost__isnull=True)
             shipment_type = '未录入内容'
 
-        # 出库时间过滤逻辑（保留原有）
-        if start_time or end_time:
-            start_datetime = None
-            end_datetime = None
+        # 出库时间过滤逻辑
+        naive_start = datetime.strptime(start_time, "%Y-%m-%d")
+        start_datetime = timezone.make_aware(naive_start, timezone.get_current_timezone())
 
-            if start_time:
-                naive_start = datetime.strptime(start_time, "%Y-%m-%d")
-                start_datetime = timezone.make_aware(naive_start, timezone.get_current_timezone())
+        naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+        end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
 
-            if end_time:
-                naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
-                end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
+        # 过滤Order
+        order_filter = Q()
+        if start_datetime:
+            order_filter &= Q(
+                container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
+            )
+        if end_datetime:
+            order_filter &= Q(
+                container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
+            )
 
-            # 过滤Order
-            order_filter = Q()
-            if start_datetime:
-                # 正确关联路径：Order→Container→Pallet→ShipmentBatchNumber→Shipment
-                order_filter &= Q(
-                    container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
-                )
-            if end_datetime:
-                order_filter &= Q(
-                    container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
-                )
+        # 获取Container ID
+        container_ids = await sync_to_async(list)(
+            Order.objects.filter(order_filter)
+            .values_list('container_number_id', flat=True)
+            .distinct()
+        )
 
-            # 获取Container ID
-            container_ids = await sync_to_async(list)(
-                Order.objects.filter(order_filter)
-                .values_list('container_number_id', flat=True)
+        # 获取Pallet ID
+        pallet_ids = []
+        if container_ids:
+            pallet_ids = await sync_to_async(list)(
+                Pallet.objects.filter(container_number_id__in=container_ids)
+                .values_list('id', flat=True)
                 .distinct()
             )
 
-            # 获取Pallet ID
-            pallet_ids = []
-            if container_ids:
-                pallet_ids = await sync_to_async(list)(
-                    Pallet.objects.filter(container_number_id__in=container_ids)
-                    .values_list('id', flat=True)
-                    .distinct()
-                )
+        # 获取Shipment ID
+        shipment_ids = []
+        if pallet_ids:
+            shipment_ids = await sync_to_async(list)(
+                Pallet.objects.filter(id__in=pallet_ids)
+                .values_list('shipment_batch_number', flat=True)
+                .distinct()
+            )
 
-            # 获取Shipment ID
-            shipment_ids = []
-            if pallet_ids:
-                shipment_ids = await sync_to_async(list)(
-                    Pallet.objects.filter(id__in=pallet_ids)
-                    .values_list('shipment_batch_number', flat=True)
-                    .distinct()
-                )
+        if shipment_ids:
+            criteria &= Q(id__in=shipment_ids)
 
-            # 强制筛选
-            if start_time or end_time:
-                if shipment_ids:
-                    criteria &= Q(id__in=shipment_ids)
-                else:
-                    criteria &= Q(id__in=[])
 
         # 核心修改：新增按核实状态排序（未核实在前）
         # 核心修改：正确实现 Supplier 为空在前，有值在后
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
+            .prefetch_related("pallet")
             .filter(criteria)
+            .distinct()
             .order_by(
                 # 1. 未核实(FALSE=0) 在上，已核实(TRUE=1) 在下
                 "fleet_number__fleet_verify_status",
@@ -2827,98 +2820,18 @@ class FleetManagement(View):
         # 获取车次总板数字典
         fleet_total_pallets, fleet_expense_map = await get_fleet_total_pallets()
 
-        # ========== 修复：一提多卸分组和总成本计算（核心修改） ==========
-        @sync_to_async
-        def get_multi_unload_groups():
-            """
-            【已修复】
-            一提多卸分组规则：
-            Pallet 表中 ltl_correlation_id 相同 → 视为同一组
-            """
-            # 步骤1：获取所有有 ltl_correlation_id 的 Pallet（不为空、不为空字符串）
-            pallets = Pallet.objects.filter(
-                ltl_correlation_id__isnull=False
-            ).exclude(ltl_correlation_id="")
-
-            # 步骤2：按 ltl_correlation_id 分组（相同值 = 同一提多卸组）
-            group_map = {}  # ltl_correlation_id → 组信息
-            for pallet in pallets:
-                group_id = pallet.ltl_correlation_id
-                if not group_id:
-                    continue
-
-                # 获取该托盘对应的 ShipmentBatchNumber
-                shipment_id = pallet.shipment_batch_number_id
-                if not shipment_id:
-                    continue
-
-                # 获取该 shipment 对应的 车次
-                shipment_obj = Shipment.objects.filter(id=shipment_id).first()
-                if not shipment_obj or not shipment_obj.fleet_number:
-                    continue
-
-                fleet_number = shipment_obj.fleet_number.fleet_number
-                fleet_cost = shipment_obj.fleet_number.fleet_cost or 0
-
-                # 初始化分组
-                if group_id not in group_map:
-                    group_map[group_id] = {
-                        "total_cost": 0,
-                        "fleet_numbers": []
-                    }
-
-                # 累加成本 & 加入车次
-                group = group_map[group_id]
-                if fleet_number not in group["fleet_numbers"]:
-                    group["fleet_numbers"].append(fleet_number)
-                    group["total_cost"] += fleet_cost
-
-            # 步骤3：构建前端需要的映射
-            fleet_to_group_map = {}
-            multi_unload_map = {}
-
-            for group_id, group_info in group_map.items():
-                fleet_numbers = group_info["fleet_numbers"]
-                total_cost = group_info["total_cost"]
-
-                # 每个车次都指向同组所有车次
-                for fn in fleet_numbers:
-                    multi_unload_map[fn] = fleet_numbers
-                    fleet_to_group_map[fn] = {
-                        "group_id": group_id,
-                        "total_cost": total_cost,
-                        "member_ids": []  # 不需要ID，保持兼容即可
-                    }
-
-            return {
-                "group_map": group_map,
-                "fleet_map": fleet_to_group_map,
-                "multi_unload_map": multi_unload_map
-            }
-
-        # 调用函数并获取正确格式的 multi_unload_map
-        multi_unload_data = await get_multi_unload_groups()
-        # 替换原有赋值（关键！）
-        multi_unload_map = multi_unload_data['multi_unload_map']  # 前端用的车次→同组列表
-        fleet_to_group_map = multi_unload_data['fleet_map']  # 原有车次→分组信息
-
-        # ========== 移除重复的 multi_unload_data 赋值 ==========
-
-        # 处理数据：核心修改 - 修复一提多卸信息挂载
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
-                # 核心修改1：查询当前shipment关联的所有pallet（修复字典取值问题）
+                # 核心修改1：查询当前shipment关联的所有pallet
                 @sync_to_async
                 def get_related_pallets(shipment_id):
                     """查询关联的pallet数据（包含location），并按柜号+唛头分组"""
-                    # 方案1：不使用.values()，直接获取模型实例（推荐，避免字典取值错误）
                     pallets = list(Pallet.objects.filter(
                         shipment_batch_number=shipment_id
-                    ).select_related("container_number"))  # 移除.values()，返回模型实例
+                    ).select_related("container_number"))
 
                     # 提取Container ID用于查Order
-                    # 修复：模型实例用属性访问 .container_number_id
                     container_ids = [p.container_number_id for p in pallets if p.container_number_id]
                     order_map = {}
                     if container_ids:
@@ -2947,7 +2860,7 @@ class FleetManagement(View):
                                 'total_pcs_count': 0,
                                 'container_number': key[0] or "-",
                                 'shipping_mark': key[1] or "-",
-                                'offload_at': None,
+                                'offload_other_at': None,
                                 'retrieval_time': None,
                                 'locations': set(),
                             }
@@ -2962,11 +2875,11 @@ class FleetManagement(View):
                             pallet_groups[key]['locations'].add(pallet.location)
 
                         # 补充提柜时间（取第一个有效时间，修复：模型实例用属性访问）
-                        if pallet.container_number_id and not pallet_groups[key]['offload_at']:
+                        if pallet.container_number_id and not pallet_groups[key]['offload_other_at']:
                             order = order_map.get(pallet.container_number_id)
                             if order and order.offload_id:
-                                pallet_groups[key]['offload_at'] = order.offload_id.offload_at
-                                pallet_groups[key]['retrieval_time'] = order.offload_id.offload_at
+                                pallet_groups[key]['offload_other_at'] = order.offload_id.offload_other_at
+                                pallet_groups[key]['retrieval_time'] = order.offload_id.offload_other_at
 
                     # 将locations集合转为列表，方便前端展示
                     for group in pallet_groups.values():
@@ -2988,7 +2901,7 @@ class FleetManagement(View):
                     shipment_copy.shipped_pallet = group_data['total_pallet_count'] or 0
                     shipment_copy.container_number = group_data['container_number']
                     shipment_copy.shipping_mark = group_data['shipping_mark']
-                    shipment_copy.offload_at = group_data['offload_at']
+                    shipment_copy.offload_other_at = group_data['offload_other_at']
                     shipment_copy.retrieval_time = group_data['retrieval_time']
                     shipment_copy.all_locations = group_data['locations'][0]  # 该分组所有location（去重）
 
@@ -3018,27 +2931,7 @@ class FleetManagement(View):
                         # 兜底显示真实成本，不直接归 0
                         shipment_copy.allocation_price = round(fleet_total_cost, 2) if fleet_total_cost else 0
 
-                    # ========== ✅ 最终修复：按 Pallet.ltl_correlation_id 判断一提多卸 ==========
-                    is_multi_unload = False
-                    multi_unload_total_cost = 0
-                    multi_unload_group_id = ""
-                    multi_unload_member_ids = []
-
-                    # 判断当前车次是否在一提多卸分组中
                     fleet_num = shipment_copy.fleet_number_code
-                    if fleet_num in fleet_to_group_map:
-                        is_multi_unload = True
-                        group_info = fleet_to_group_map[fleet_num]
-                        multi_unload_total_cost = group_info['total_cost']
-                        multi_unload_group_id = group_info['group_id']
-                        multi_unload_member_ids = group_info['member_ids']
-
-                    # 挂载到对象
-                    shipment_copy.is_multi_unload = is_multi_unload
-                    shipment_copy.multi_unload_total_cost = multi_unload_total_cost
-                    shipment_copy.multi_unload_group_id = multi_unload_group_id
-                    shipment_copy.multi_unload_member_ids = multi_unload_member_ids
-
                     processed.append(shipment_copy)
 
                 # 兼容没有pallet的情况
@@ -3050,7 +2943,7 @@ class FleetManagement(View):
                     shipment_copy.shipped_pallet = 0
                     shipment_copy.container_number = "-"
                     shipment_copy.shipping_mark = "-"
-                    shipment_copy.offload_at = None
+                    shipment_copy.offload_other_at = None
                     shipment_copy.retrieval_time = None
                     shipment_copy.all_locations = ["-"]
                     # 成本录入信息
@@ -3058,18 +2951,6 @@ class FleetManagement(View):
                             shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
                     # ========== 新增：空条目分摊价格默认0 ==========
                     shipment_copy.allocation_price = 0
-
-                    # ========== 修复：空条目一提多卸信息 ==========
-                    is_multi_unload = False
-                    fleet_num = shipment_copy.fleet_number_code
-                    if fleet_num in fleet_to_group_map:
-                        is_multi_unload = True
-
-                    shipment_copy.is_multi_unload = is_multi_unload
-                    shipment_copy.multi_unload_total_cost = 0
-                    shipment_copy.multi_unload_group_id = ""
-                    shipment_copy.multi_unload_member_ids = []
-
                     processed.append(shipment_copy)
 
             return processed
@@ -3081,6 +2962,8 @@ class FleetManagement(View):
         supplier_list = await sync_to_async(SystemParameter.get_active_list_by_category)("私仓供应商")
         context = {
             "shipment_type": shipment_type,
+            "warehouse_form": warehouse_form,
+            "warehouse": warehouse,
             "start_time": start_time,
             "end_time": end_time,
             "fleet": shipment,
@@ -3092,9 +2975,6 @@ class FleetManagement(View):
             ),
             "error_messages": error_messages or [],
             "success_count": success_count,
-            # 新增：传递一提多卸分组数据到前端
-            "multi_unload_map": multi_unload_map,
-            "fleet_to_group_map": fleet_to_group_map,  # 新增：车次号→分组映射
             "supplier_list": supplier_list,
         }
         return self.template_fleet_cost_record_ltl, context
@@ -3396,7 +3276,6 @@ class FleetManagement(View):
             # 1. 获取前端参数
             total_batch_cost = request.POST.get('total_batch_cost')
             selected_fleet_numbers = request.POST.get('selected_fleet_numbers', '').split(',')
-            area = request.POST.get('area', '')
 
             # 2. 基础参数校验（改用Decimal处理金额）
             if not total_batch_cost:
