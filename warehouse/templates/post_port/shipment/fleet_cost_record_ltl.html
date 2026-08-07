@@ -204,22 +204,6 @@
                     {% if shipment_type == '已录入内容' %}
                         <!-- 4个按钮横排 -->
                         <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
-                            <!-- 下载表格 -->
-                            <form method="post" id="download-table-form" style="margin:0;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="download_ltl_table">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="area" value="{{ area }}">
-                                <button type="submit" class="btn btn-info"
-                                        style="height: 36px; font-size:14px; white-space: nowrap;"
-                                        onclick="handleTableDownload()">
-                                    <i class="bi bi-download"></i> 下载已录入表格
-                                </button>
-                            </form>
-
                             <button type="button" class="btn btn-info" style="height: 36px; font-size:14px;"
                                     onclick="submitBatchOnlyPrices()">
                                 批量提交各行价格
