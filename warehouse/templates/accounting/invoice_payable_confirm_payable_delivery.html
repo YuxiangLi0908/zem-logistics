@@ -2,8 +2,6 @@
 {% load custom_filters %}
 {% block content %}
     <style>
-        /* 原有样式保持不变，此处省略以节省篇幅 */
-        /* 复用你原有的所有样式代码 */
         :root {
             --primary-color: #1b5e20;
             --secondary-color: #0d3d14;
@@ -1194,7 +1192,6 @@
                 <div class="container-section">
                     <div class="section-header">
                         <h3>派送账单</h3>
-                        <span style="font-size:12px; color:#888;">待确认/已确认 一提多卸分组下显示为1条记录</span>
                     </div>
 
                     <!-- 子标签页 -->
@@ -1387,20 +1384,6 @@
                                             <td></td>
                                         </tr>
                                         {% for group in delivery_pending_orders %}
-                                            <!-- 新增：一提多卸分组标题行 -->
-                                            <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
-                                                <td colspan="16">
-                                                    {% if group.is_multi_unload %}
-                                                        <span class="multi-unload-label">一提多卸</span>
-                                                    {% endif %}
-                                                    分组：{{ group.group_key }} |
-                                                    车次：{{ group.fleet_numbers|join:", " }} |
-                                                    承运商：{{ group.carriers|join:", " }} |
-                                                    总板数：{{ group.total_pallets }} |
-                                                    总成本：${{ group.total_expense|floatformat:2 }}
-                                                </td>
-                                            </tr>
-
                                             {% for fleet_id, fleet in group.fleets.items %}
                                                 {% for pickup_number, pickup_data in fleet.fleets.items %}
                                                     {% for appointment_id, appointment_data in pickup_data.appointments.items %}
@@ -1773,20 +1756,6 @@
                                         </tr>
                                         <tbody>
                                         {% for group in delivery_confirm_orders %}
-                                            <!-- 新增：一提多卸分组标题行 -->
-                                            <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
-                                                <td colspan="17">
-                                                    {% if group.is_multi_unload %}
-                                                        <span class="multi-unload-label">一提多卸</span>
-                                                    {% endif %}
-                                                    分组：{{ group.group_key }} |
-                                                    车次：{{ group.fleet_numbers|join:", " }} |
-                                                    承运商：{{ group.carriers|join:", " }} |
-                                                    总板数：{{ group.total_pallets }} |
-                                                    总成本：${{ group.total_expense|floatformat:2 }}
-                                                </td>
-                                            </tr>
-
                                             {% for fleet_id, fleet in group.fleets.items %}
                                                 {% for pickup_number, pickup_data in fleet.fleets.items %}
                                                     {% for appointment_id, appointment_data in pickup_data.appointments.items %}
