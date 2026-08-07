@@ -44,11 +44,11 @@
                     </div>
 
                     <div style="display: flex; gap: 6px; margin-left: auto;">
-                        <button type="submit" name="status" value="record" class="search-btn"
+                        <button type="submit" name="status" value="unrecord" class="search-btn"
                                 style="background: #1890ff; color: white; border: none; padding: 8px 14px; font-size:14px; border-radius: 4px; cursor: pointer;">
                             未录查询
                         </button>
-                        <button type="submit" name="status" value="unrecord" class="search-btn"
+                        <button type="submit" name="status" value="record" class="search-btn"
                                 style="background: #28a745; color: white; border: none; padding: 8px 14px; font-size:14px; border-radius: 4px; cursor: pointer;">
                             已录查询
                         </button>
@@ -86,113 +86,86 @@
 
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
                     {% if shipment_type == '未录入内容' %}
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px; justify-content: flex-end;">
-                            <form method="post" id="batch-cost-form"
-                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin-right: 10px;">
-                                {% csrf_token %}
-                                <span style="color: grey">一个车次只会有一个柜子 分摊逻辑：每车次成本 = 总成本/总板数 × 该车次板数</span>
-                                <label style="font-weight: 600; color: #333; white-space: nowrap;">批量分摊成本：</label>
-                                <input type="number" step="0.01" name="total_batch_cost" placeholder="请输入总成本总值"
-                                       style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
-                                       required>
-                                <input type="hidden" name="selected_fleet_numbers" id="selected-fleet-numbers">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="step" value="batch_allocate_ltl_cost">
-                                <button type="submit" class="btn btn-primary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
-                                        onclick="return validateBatchSelection()">
-                                    确认分摊
+                        <div style="display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 12px; border-radius: 6px; justify-content: flex-end; flex-direction: column;">
+                            <!-- 顶部分摊规则说明 -->
+                            <div style="width: 100%; text-align: right;">
+                                <span style="color: #dc3545; line-height: 1.6; font-size: 13px;">
+                                    单个车次仅绑定一个柜子<br>
+                                    成本分摊计算规则：车次成本 = 输入总成本 ÷ 全部托盘总数 × 当前车次托盘数量<br>
+                                    ⚠️仅点击【批量确认至已录入】后，系统才会完成成本分摊并同步推送财务
+                                </span>
+                            </div>
+
+                            <!-- 操作按钮整行容器 -->
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; width: 100%;">
+                                <!-- 分组1：批量分摊成本 -->
+                                <form method="post" id="batch-cost-form"
+                                      style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0;">
+                                    {% csrf_token %}
+                                    <label style="font-weight: 600; color: #333; white-space: nowrap;">批量分摊成本：</label>
+                                    <input type="number" step="0.01" name="total_batch_cost"
+                                           placeholder="请输入总成本总值"
+                                           style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
+                                           required>
+                                    <input type="hidden" name="selected_fleet_numbers" id="selected-fleet-numbers">
+                                    <input type="hidden" name="status" value="unrecord">
+                                    <input type="hidden" name="name" value="{{ warehouse }}">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <input type="hidden" name="step" value="batch_allocate_ltl_cost">
+
+                                    <button type="submit" class="btn btn-primary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
+                                            onclick="return validateBatchSelection()">确认分摊
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                            onclick="selectAllRows()">全选
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                            onclick="deselectAllRows()">取消全选
+                                    </button>
+                                    <span id="selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
+                                </form>
+
+                                <!-- 分组2：批量状态操作 -->
+                                <form method="post" id="batch-confirm-record-form"
+                                      style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0;">
+                                    {% csrf_token %}
+                                    <label style="font-weight: 600; color: #333; white-space: nowrap;">批量状态操作：</label>
+                                    <input type="hidden" name="status" value="unrecord">
+                                    <input type="hidden" name="selected_fleet_numbers"
+                                           id="selected-fleet-numbers-confirm">
+                                    <input type="hidden" name="name" value="{{ warehouse }}">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <input type="hidden" name="area" value="{{ area }}">
+                                    <input type="hidden" name="step" value="confirm_fleet_ltl_status">
+
+                                    <button type="submit" class="btn btn-success"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                            onclick="
+                        updateSelectionCount();
+                        if(!validateBatchConfirmRecordSelection()) { event.preventDefault(); } else { showLoadingBar(); }
+                    ">批量确认至已录入
+                                    </button>
+                                </form>
+
+                                <!-- 分组3：批量提交供应商/备注/价格 -->
+                                <button type="button" class="btn btn-info"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
+                                        onclick="submitBatchAllInfo()">批量提交供应商/备注/价格
                                 </button>
-                                <button type="button" class="btn btn-secondary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                        onclick="selectAllRows()">
-                                    全选
-                                </button>
-                                <button type="button" class="btn btn-secondary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                        onclick="deselectAllRows()">
-                                    取消全选
-                                </button>
-                                <span id="selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
-                            </form>
+                            </div>
 
-                            <button type="button" class="btn btn-info"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
-                                    onclick="submitBatchOnlyPrices()">
-                                批量提交各行价格
-                            </button>
-
-                            <button type="button" class="btn btn-info"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-left: 10px;"
-                                    onclick="submitBatchOnlyNotes()">
-                                批量提交各行备注
-                            </button>
-
-                            <!-- 新增：批量确认供应商按钮 -->
-                            <button type="button" class="btn btn-info"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-left: 10px;"
-                                    onclick="submitBatchOnlySuppliers()">
-                                批量确认供应商
-                            </button>
-
-                            <form method="post" id="bind-multi-unload-form"
+                            <!-- 隐藏异步提交表单，放置底部不影响布局 -->
+                            <form method="post" id="batch-all-info-form"
                                   style="position: absolute; left: -9999px; top: -9999px;">
                                 {% csrf_token %}
-                                <input type="hidden" name="step" value="bind_multi_unload">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="selected_fleet_numbers" id="bind-fleet-numbers">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <form method="post" id="unbind-multi-unload-form"
-                                  style="position: absolute; left: -9999px; top: -9999px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="unbind_multi_unload">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="selected_fleet_numbers" id="unbind-fleet-numbers">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <form method="post" id="batch-prices-form"
-                                  style="position: absolute; left: -9999px; top: -9999px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="batch_confirm_ltl_price">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="batch_prices_data" id="batch-prices-data">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <form method="post" id="batch-notes-form"
-                                  style="position: absolute; left: -9999px; top: -9999px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="batch_confirm_ltl_note">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="batch_notes_data" id="batch-notes-data">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <!-- 新增：未录入页面批量供应商提交表单 -->
-                            <form method="post" id="batch-suppliers-form"
-                                  style="position: absolute; left: -9999px; top: -9999px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="batch_confirm_ltl_supplier">
-                                <input type="hidden" name="status" value="record">
-                                <input type="hidden" name="batch_suppliers_data" id="batch-suppliers-data">
+                                <input type="hidden" name="step" value="batch_confirm_all_ltl_info">
+                                <input type="hidden" name="status" value="unrecord">
+                                <input type="hidden" name="batch_all_data" id="batch-all-data">
                                 <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -202,150 +175,114 @@
                     {% endif %}
 
                     {% if shipment_type == '已录入内容' %}
-                        <!-- 4个按钮横排 -->
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
-                            <button type="button" class="btn btn-info" style="height: 36px; font-size:14px;"
-                                    onclick="submitBatchOnlyPrices()">
-                                批量提交各行价格
-                            </button>
-                            <button type="button" class="btn btn-info" style="height: 36px; font-size:14px;"
-                                    onclick="submitBatchOnlyNotes()">
-                                批量提交备注
-                            </button>
-                            <button type="button" class="btn btn-info" style="height: 36px; font-size:14px;"
-                                    onclick="submitBatchOnlySuppliers()">
-                                批量确认供应商
-                            </button>
-                        </div>
+                        <div style="display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 12px; border-radius: 6px; justify-content: flex-end; flex-direction: column;">
+                            <!-- 顶部提示文案 -->
+                            <div style="width: 100%; text-align: right;">
+                                <span style="color: #dc3545; font-size: 14px;">⚠️ 费用修改需先退回至未录入状态</span>
+                            </div>
 
-                            <form method="post" id="batch-prices-form-unrecord"
+                            <!-- 按钮操作行容器 -->
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; width: 100%;">
+
+                                <!-- 1. 批量提交供应商/备注 -->
+                                <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                    <button type="button" class="btn btn-info"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
+                                            onclick="submitBatchAllInfoRecord()">
+                                        批量提交供应商/备注
+                                    </button>
+                                </div>
+
+                                <!-- 2. 批量核实操作组 -->
+                                <form method="post" id="batch-verify-form"
+                                      style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0;">
+                                    {% csrf_token %}
+                                    <label style="font-weight: 600; color: #333; white-space: nowrap;">批量核实操作：</label>
+                                    <input type="hidden" name="status" value="record">
+                                    <input type="hidden" name="selected_fleet_numbers" id="batch-verify-fleet-numbers">
+                                    <input type="hidden" name="verify_action" id="verify-action" value="verify">
+                                    <input type="hidden" name="name" value="{{ warehouse }}">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <input type="hidden" name="step" value="update_fleet_verify_status">
+                                    <input type="hidden" name="area" value="{{ area }}">
+
+                                    <button type="submit" class="btn btn-primary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
+                                            onclick="
+                        document.getElementById('verify-action').value='verify';
+                        updateVerifySelectionCount();
+                        if(!validateBatchVerifySelection()) { event.preventDefault(); } else { showLoadingBar(); }
+                    ">
+                                        批量确认核实
+                                    </button>
+                                    <button type="submit" class="btn btn-warning"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
+                                            onclick="
+                        document.getElementById('verify-action').value='unverify';
+                        updateVerifySelectionCount();
+                        if(!validateBatchVerifySelection()) { event.preventDefault(); } else { showLoadingBar(); }
+                    ">
+                                        批量取消核实
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                            onclick="selectAllVerifyRows()">全选
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                            onclick="deselectAllVerifyRows()">取消全选
+                                    </button>
+                                    <span id="verify-selection-count"
+                                          style="color: #666; font-size:13px;">已选：0 条</span>
+                                </form>
+
+                                <!-- 3. 批量退回操作组 -->
+                                <form method="post" id="batch-rollback-form"
+                                      style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0;">
+                                    {% csrf_token %}
+                                    <label style="font-weight: 600; color: #333; white-space: nowrap;">批量退回操作：</label>
+                                    <input type="hidden" name="status" value="record">
+                                    <input type="hidden" name="selected_fleet_numbers"
+                                           id="batch-rollback-fleet-numbers">
+                                    <input type="hidden" name="name" value="{{ warehouse }}">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <input type="hidden" name="step" value="rollback_fleet_status">
+                                    <input type="hidden" name="area" value="{{ area }}">
+
+                                    <button type="submit" class="btn btn-danger"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
+                                            onclick="
+                        updateVerifySelectionCount();
+                        if(!validateBatchRollbackSelection()) { event.preventDefault(); } else { showLoadingBar(); }
+                    ">
+                                        批量退回未录入
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                            onclick="selectAllVerifyRows()">全选
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                            onclick="deselectAllVerifyRows()">取消全选
+                                    </button>
+                                    <span id="rollback-selection-count"
+                                          style="color: #666; font-size:13px;">已选：0 条</span>
+                                </form>
+                            </div>
+
+                            <!-- 隐藏提交表单放底部，不影响页面布局 -->
+                            <form method="post" id="batch-all-info-form-record"
                                   style="position: absolute; left: -9999px; top: -9999px;">
                                 {% csrf_token %}
-                                <input type="hidden" name="step" value="batch_confirm_ltl_price">
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="batch_prices_data" id="batch-prices-data-unrecord">
+                                <input type="hidden" name="step" value="batch_confirm_all_ltl_info_record">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="batch_all_data" id="batch-all-data-record">
                                 <input type="hidden" name="name" value="{{ warehouse }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <form method="post" id="batch-notes-form-unrecord"
-                                  style="position: absolute; left: -9999px; top: -9999px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="batch_confirm_ltl_note">
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="batch_notes_data" id="batch-notes-data-unrecord">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <!-- 新增：已录入页面批量供应商提交表单 -->
-                            <form method="post" id="batch-suppliers-form-unrecord"
-                                  style="position: absolute; left: -9999px; top: -9999px;">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="batch_confirm_ltl_supplier">
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="batch_suppliers_data" id="batch-suppliers-data-unrecord">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="area" value="{{ area }}">
-                            </form>
-
-                            <form method="post" id="batch-verify-form" action=""
-                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
-                                {% csrf_token %}
-                                <label style="font-weight: 600; color: #333; white-space: nowrap;">批量核实操作：</label>
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="selected_fleet_numbers" id="batch-verify-fleet-numbers">
-                                <input type="hidden" name="verify_action" id="verify-action" value="verify">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="step" value="update_fleet_verify_status">
-                                <input type="hidden" name="area" value="{{ area }}">
-
-                                <button type="submit" class="btn btn-primary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
-                                        onclick="
-                                    document.getElementById('verify-action').value='verify';
-                                    updateVerifySelectionCount();
-                                    if(!validateBatchVerifySelection()) {
-                                        event.preventDefault();
-                                    } else {
-                                        showLoadingBar();
-                                    }
-                                ">
-                                    批量确认核实
-                                </button>
-
-                                <button type="submit" class="btn btn-warning"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
-                                        onclick="
-                                    document.getElementById('verify-action').value='unverify';
-                                    updateVerifySelectionCount();
-                                    if(!validateBatchVerifySelection()) {
-                                        event.preventDefault();
-                                    } else {
-                                        showLoadingBar();
-                                    }
-                                ">
-                                    批量取消核实
-                                </button>
-
-                                <button type="button" class="btn btn-secondary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                        onclick="selectAllVerifyRows()">
-                                    全选
-                                </button>
-                                <button type="button" class="btn btn-secondary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                        onclick="deselectAllVerifyRows()">
-                                    取消全选
-                                </button>
-                                <span id="verify-selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
-                            </form>
-
-                            <form method="post" id="batch-rollback-form" action=""
-                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
-                                {% csrf_token %}
-                                <label style="font-weight: 600; color: #333; white-space: nowrap;">批量退回操作：</label>
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="selected_fleet_numbers" id="batch-rollback-fleet-numbers">
-                                <input type="hidden" name="name" value="{{ warehouse }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <input type="hidden" name="step" value="rollback_fleet_status">
-                                <input type="hidden" name="area" value="{{ area }}">
-
-                                <button type="submit" class="btn btn-danger"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
-                                        onclick="
-                                    updateVerifySelectionCount();
-                                    if(!validateBatchRollbackSelection()) {
-                                        event.preventDefault();
-                                    } else {
-                                        showLoadingBar();
-                                    }
-                                ">
-                                    批量退回未录入
-                                </button>
-
-                                <button type="button" class="btn btn-secondary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                        onclick="selectAllVerifyRows()">
-                                    全选
-                                </button>
-                                <button type="button" class="btn btn-secondary"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                        onclick="deselectAllVerifyRows()">
-                                    取消全选
-                                </button>
-                                <span id="rollback-selection-count"
-                                      style="color: #666; font-size:13px;">已选：0 条</span>
                             </form>
                         </div>
                     {% endif %}
@@ -453,7 +390,7 @@
                                         </select>
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
                                         <input type="hidden" name="step" value="update_fleet_supplier">
-                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="status" value="record">
                                         <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -481,15 +418,18 @@
                             <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                                 <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
                                     {% csrf_token %}
-                                    <input type="number" step="0.01" name="fleet_cost" value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
-                                    <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
-                                    <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}unrecord{% else %}record{% endif %}">
-                                    <input type="hidden" name="area" value="{{ area }}">
-                                    <input type="hidden" name="name" value="{{ warehouse }}">
-                                    <input type="hidden" name="start_time" value="{{ start_time }}">
-                                    <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">确认</button>
+                                    {% if shipment_type == '已录入内容' %}
+                                        {{ f.fleet_number.fleet_cost|default_if_none:0 }}
+                                    {% else %}
+                                        <input type="number" step="0.01" name="fleet_cost" value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
+                                        <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}record{% else %}unrecord{% endif %}">
+                                        <input type="hidden" name="area" value="{{ area }}">
+                                        <input type="hidden" name="name" value="{{ warehouse }}">
+                                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                                        <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    {% endif %}
                                 </form>
                             </td>
                             <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pcs|default_if_none:0|floatformat:0 }}</td>
@@ -505,7 +445,7 @@
                                     <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                     <input type="hidden" name="shipment_id" value="{{ f.id }}">
                                     <input type="hidden" name="step" value="update_fleet_note">
-                                    <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}unrecord{% else %}record{% endif %}">
+                                    <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}record{% else %}unrecord{% endif %}">
                                     <input type="hidden" name="area" value="{{ area }}">
                                     <input type="hidden" name="name" value="{{ warehouse }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
@@ -520,7 +460,7 @@
                                         <input type="number" step="0.01" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
-                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="status" value="record">
                                         <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -532,7 +472,7 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="update_fleet_verify_status">
-                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="status" value="record">
                                         <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -551,7 +491,7 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="rollback_fleet_status">
-                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="status" value="record">
                                         <input type="hidden" name="name" value="{{ warehouse }}">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -768,17 +708,55 @@
 
             window.updateSelectionCount = function () {
                 const checkedBoxes = document.querySelectorAll('.row-select:checked');
-                document.getElementById('selection-count').textContent = `已选：${checkedBoxes.length} 条`;
-                document.getElementById('selected-fleet-numbers').value = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
+                const countEl = document.getElementById('selection-count');
+                const inputBatch = document.getElementById('selected-fleet-numbers');
+                const inputConfirm = document.getElementById('selected-fleet-numbers-confirm');
+
+                if (countEl) {
+                    countEl.textContent = `已选：${checkedBoxes.length} 条`;
+                }
+                const selected = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
+                if (inputBatch) inputBatch.value = selected;
+                if (inputConfirm) inputConfirm.value = selected;
             };
 
             window.updateVerifySelectionCount = function () {
                 const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-                document.getElementById('verify-selection-count').textContent = `已选：${checkedBoxes.length} 条`;
-                document.getElementById('rollback-selection-count').textContent = `已选：${checkedBoxes.length} 条`;
+                const verifyCountEl = document.getElementById('verify-selection-count');
+                const rollbackCountEl = document.getElementById('rollback-selection-count');
+                const verifyInput = document.getElementById('batch-verify-fleet-numbers');
+                const rollbackInput = document.getElementById('batch-rollback-fleet-numbers');
+
+                if (verifyCountEl) {
+                    verifyCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+                }
+                if (rollbackCountEl) {
+                    rollbackCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+                }
+
                 const selected = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
-                document.getElementById('batch-verify-fleet-numbers').value = selected;
-                document.getElementById('batch-rollback-fleet-numbers').value = selected;
+                if (verifyInput) verifyInput.value = selected;
+                if (rollbackInput) rollbackInput.value = selected;
+            };
+
+            window.updateVerifySelectionCount = function () {
+                const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                const verifyCountEl = document.getElementById('verify-selection-count');
+                const rollbackCountEl = document.getElementById('rollback-selection-count');
+                const verifyInput = document.getElementById('batch-verify-fleet-numbers');
+                const rollbackInput = document.getElementById('batch-rollback-fleet-numbers');
+
+                // 仅DOM存在时赋值
+                if (verifyCountEl) {
+                    verifyCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+                }
+                if (rollbackCountEl) {
+                    rollbackCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+                }
+
+                const selected = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v).join(',');
+                if (verifyInput) verifyInput.value = selected;
+                if (rollbackInput) rollbackInput.value = selected;
             };
 
             window.selectAllRows = function () {
@@ -828,6 +806,15 @@
                 return confirm(`确认退回选中的 ${count} 条记录？`);
             };
 
+            window.validateBatchConfirmRecordSelection = function () {
+                const checkedCount = document.querySelectorAll('.row-select:checked').length;
+                if (checkedCount === 0) {
+                    alert('请至少选择一条记录执行批量确认！');
+                    return false;
+                }
+                return confirm(`确认将选中 ${checkedCount} 条未录入车次，批量变更为【已录入】状态？变更后可在已录入页面退回。`);
+            };
+
             window.bindMultiUnload = function () {
                 const checked = document.querySelectorAll('.row-select:checked');
                 if (checked.length === 0) {
@@ -854,71 +841,23 @@
                 }
             };
 
-            window.submitBatchOnlyPrices = function () {
-                const isUnrecord = document.querySelector('.verify-row-select') !== null;
-                const checked = isUnrecord ? document.querySelectorAll('.verify-row-select:checked') : document.querySelectorAll('.row-select:checked');
-                if (checked.length === 0) {
-                    alert('请选择至少一条记录！');
-                    return;
-                }
-
-                const data = [];
-                checked.forEach(cb => {
-                    const row = cb.closest('.data-row');
-                    const price = row ? parseFloat(row.querySelector('input[name="fleet_cost"]').value) || 0 : 0;
-                    data.push({fleet_number: cb.value, fleet_cost: price});
-                });
-
-                if (confirm(`确认提交 ${checked.length} 条价格？`)) {
-                    const form = isUnrecord ? 'batch-prices-form-unrecord' : 'batch-prices-form';
-                    const input = isUnrecord ? 'batch-prices-data-unrecord' : 'batch-prices-data';
-                    document.getElementById(input).value = JSON.stringify(data);
-                    showLoadingBar();
-                    document.getElementById(form).submit();
-                }
-            };
-
-            window.submitBatchOnlyNotes = function () {
-                const isUnrecord = document.querySelector('.verify-row-select') !== null;
-                const checked = isUnrecord ? document.querySelectorAll('.verify-row-select:checked') : document.querySelectorAll('.row-select:checked');
-                if (checked.length === 0) {
-                    alert('请选择至少一条记录！');
-                    return;
-                }
-
-                const data = [];
-                checked.forEach(cb => {
-                    const row = cb.closest('.data-row');
-                    const note = row ? row.querySelector('textarea[name="note"]').value.trim() : '';
-                    data.push({fleet_number: cb.value, note: note});
-                });
-
-                if (confirm(`确认提交 ${checked.length} 条备注？`)) {
-                    const form = isUnrecord ? 'batch-notes-form-unrecord' : 'batch-notes-form';
-                    const input = isUnrecord ? 'batch-notes-data-unrecord' : 'batch-notes-data';
-                    document.getElementById(input).value = JSON.stringify(data);
-                    showLoadingBar();
-                    document.getElementById(form).submit();
-                }
-            };
-
-            // 新增：批量确认供应商（完全仿照备注逻辑）
-            window.submitBatchOnlySuppliers = function () {
+            // 统一批量提交：价格+供应商+备注三合一
+            window.submitBatchAllInfo = function () {
                 const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
-                let checkedBoxes, batchFormId, batchDataId;
+                let checkedBoxes, targetFormId, targetDataInputId;
 
                 if (!isUnrecordPage) {
                     checkedBoxes = document.querySelectorAll('.row-select:checked');
-                    batchFormId = 'batch-suppliers-form';
-                    batchDataId = 'batch-suppliers-data';
+                    targetFormId = 'batch-all-info-form';
+                    targetDataInputId = 'batch-all-data';
                 } else {
                     checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-                    batchFormId = 'batch-suppliers-form-unrecord';
-                    batchDataId = 'batch-suppliers-data-unrecord';
+                    targetFormId = 'batch-all-info-form-unrecord';
+                    targetDataInputId = 'batch-all-data-unrecord';
                 }
 
                 if (checkedBoxes.length === 0) {
-                    alert('请至少选择一条记录进行批量确认供应商！');
+                    alert('请至少选择一条记录进行批量提交！');
                     return;
                 }
 
@@ -926,32 +865,98 @@
                 checkedBoxes.forEach(checkbox => {
                     const fleetNumber = checkbox.value.trim();
                     if (!fleetNumber) return;
-
                     const row = checkbox.closest('.data-row');
                     if (!row) return;
 
-                    const supplierSelect = row.querySelector('select[name="supplier"]');
-                    const supplierValue = supplierSelect ? supplierSelect.value.trim() : '';
+                    // 1. 获取价格
+                    const priceInput = row.querySelector('input[name="fleet_cost"]');
+                    const fleetCost = priceInput ? parseFloat(priceInput.value) || 0 : 0;
 
+                    // 2. 获取供应商
+                    const supplierSelect = row.querySelector('select[name="supplier"]');
+                    const supplier = supplierSelect ? supplierSelect.value.trim() : '';
                     const fleetIdInput = row.querySelector('input[name="fleet_number"]');
                     const fleetId = fleetIdInput ? fleetIdInput.value.trim() : '';
 
+                    // 3. 获取备注
+                    const noteTextarea = row.querySelector('textarea[name="note"]');
+                    const note = noteTextarea ? noteTextarea.value.trim() : '';
+
                     batchData.push({
                         fleet_number: fleetNumber,
-                        supplier: supplierValue,
-                        fleet_id: fleetId
+                        fleet_id: fleetId,
+                        fleet_cost: fleetCost,
+                        supplier: supplier,
+                        note: note
                     });
                 });
 
                 if (batchData.length === 0) {
-                    alert('未获取到有效的供应商数据！');
+                    alert('未获取到有效数据！');
                     return;
                 }
 
-                if (confirm(`确认批量确认选中的 ${checkedBoxes.length} 条记录的供应商？`)) {
-                    document.getElementById(batchDataId).value = JSON.stringify(batchData);
+                if (confirm(`确认批量提交选中 ${checkedBoxes.length} 条记录的价格、供应商、备注？`)) {
+                    document.getElementById(targetDataInputId).value = JSON.stringify(batchData);
                     showLoadingBar();
-                    document.getElementById(batchFormId).submit();
+                    document.getElementById(targetFormId).submit();
+                }
+            };
+
+            // 统一批量提交：供应商+备注
+            window.submitBatchAllInfoRecord = function () {
+                const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
+                let checkedBoxes, targetFormId, targetDataInputId;
+
+                if (!isUnrecordPage) {
+                    checkedBoxes = document.querySelectorAll('.row-select:checked');
+                    targetFormId = 'batch-all-info-form';
+                    targetDataInputId = 'batch-all-data';
+                } else {
+                    checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                    targetFormId = 'batch-all-info-form-record';
+                    targetDataInputId = 'batch-all-data-record';
+                }
+
+                if (checkedBoxes.length === 0) {
+                    alert('请至少选择一条记录进行批量提交！');
+                    return;
+                }
+
+                const batchData = [];
+                checkedBoxes.forEach(checkbox => {
+                    const fleetNumber = checkbox.value.trim();
+                    if (!fleetNumber) return;
+                    const row = checkbox.closest('.data-row');
+                    if (!row) return;
+
+                    // 2. 获取供应商
+                    const supplierSelect = row.querySelector('select[name="supplier"]');
+                    const supplier = supplierSelect ? supplierSelect.value.trim() : '';
+                    const fleetIdInput = row.querySelector('input[name="fleet_number"]');
+                    const fleetId = fleetIdInput ? fleetIdInput.value.trim() : '';
+
+                    // 3. 获取备注
+                    const noteTextarea = row.querySelector('textarea[name="note"]');
+                    const note = noteTextarea ? noteTextarea.value.trim() : '';
+
+                    batchData.push({
+                        fleet_number: fleetNumber,
+                        fleet_id: fleetId,
+                        supplier: supplier,
+                        note: note
+                    });
+                });
+
+                if (batchData.length === 0) {
+                    alert('未获取到有效数据！');
+                    return;
+                }
+
+                if (confirm(`确认批量提交选中 ${checkedBoxes.length} 条记录的供应商、备注？`)) {
+                    document.getElementById(targetDataInputId).value = JSON.stringify(batchData);
+                    showLoadingBar();
+                    document.getElementById(targetFormId).submit();
                 }
             };
 
