@@ -20,6 +20,11 @@ class Fleet(models.Model):
     origin = models.CharField(max_length=255, null=True, blank=True)
     carrier = models.CharField(max_length=100, null=True, blank=True)
     Supplier = models.CharField(max_length=100, null=True, blank=True)
+    fleet_ltl_status = models.BooleanField(
+        verbose_name="ltl派送成本录入页面判断是否已录入",
+        default=False,
+        help_text="ltl派送成本录入页面判断是否已录入，True=已录入，False=未录入"
+    )
     third_party_address = models.CharField(max_length=500, null=True, blank=True)
     license_plate = models.CharField(max_length=100, null=True, blank=True)
     driver_phone = models.CharField(max_length=100, null=True, blank=True)

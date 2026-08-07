@@ -94,7 +94,8 @@ matplotlib.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC
 matplotlib.rcParams["axes.unicode_minus"] = False
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 
-
+COST_DESC = "成本费用"
+DECIMAL_ZERO = Decimal("0.0000")
 class FleetManagement(View):
     template_fleet = "post_port/shipment/03_fleet_main.html"
     template_fleet_schedule = "post_port/shipment/03_1_fleet_schedule.html"
@@ -313,6 +314,9 @@ class FleetManagement(View):
         elif step == "rollback_fleet_status":
             template, context = await self.handle_rollback_fleet_status(request)
             return render(request, template, context)
+        elif step == "confirm_fleet_ltl_status":
+            template, context = await self.handle_confirm_fleet_ltl_status(request)
+            return render(request, template, context)
         elif step == "batch_confirm_verify":
             template, context = await self.handle_batch_confirm_verify(request)
             return render(request, template, context)
@@ -327,6 +331,12 @@ class FleetManagement(View):
             return render(request, template, context)
         elif step == "batch_confirm_ltl_supplier":
             template, context = await self.handle_batch_confirm_ltl_supplier(request)
+            return render(request, template, context)
+        elif step == "batch_confirm_all_ltl_info":
+            template, context = await self.handle_batch_confirm_all_ltl_info(request)
+            return render(request, template, context)
+        elif step == "batch_confirm_all_ltl_info_record":
+            template, context = await self.handle_batch_confirm_all_ltl_info_record(request)
             return render(request, template, context)
         elif step == "update_fleet_supplier":
             template, context = await self.handle_update_fleet_supplier(request)
@@ -1296,7 +1306,7 @@ class FleetManagement(View):
         ltl成本录入-确认成本费用
         核心逻辑：
         1. 更新Fleet的fleet_cost字段；
-        2. 调用专用方法创建成本费用记录并分摊费用到FleetShipmentPallet；
+        2. 调用专用方法创建成本费用记录并分摊费用到FleetShipmentPallet（8.7已改只有批量跳转到已录入才会调用）；
         3. 兼容无托盘记录的场景，补充创建基础记录。
         """
         fleet_number = request.POST.get("fleet_number", "")
@@ -1320,18 +1330,6 @@ class FleetManagement(View):
         # 更新车次成本
         fleet.fleet_cost = fleet_cost
         await sync_to_async(fleet.save)()
-
-        error_messages = []
-        # 调用专用方法创建成本费用记录并分摊
-        try:
-            await self.insert_fleet_shipment_pallet_fleet_cost(
-                request, fleet_number, fleet_cost
-            )
-        except RuntimeError as e:
-            error_messages.append(f"成本费用分摊失败：{str(e)}")
-        except ValueError as e:
-            # 无托盘数据时，保留原有提示逻辑
-            error_messages.append(f"{fleet_number}车次里面板子是空的")
 
         # 重置请求参数，返回原有逻辑
         request.POST = request.POST.copy()
@@ -2673,7 +2671,7 @@ class FleetManagement(View):
         else:
             warehouse_form = ZemWarehouseForm()
 
-        status = request.POST.get("status", "record")
+        status = request.POST.get("status", "unrecord")
 
         # 时区感知的datetime对象
         tz_2026_01_01 = timezone.make_aware(
@@ -2689,11 +2687,11 @@ class FleetManagement(View):
         )
 
         # 已录入/未录入筛选
-        if status != "record":
-            criteria &= Q(fleet_number__fleet_cost__isnull=False)
+        if status == "record":
+            criteria &= Q(fleet_number__fleet_ltl_status=True)
             shipment_type = '已录入内容'
         else:
-            criteria &= Q(fleet_number__fleet_cost__isnull=True)
+            criteria &= Q(fleet_number__fleet_ltl_status=False)
             shipment_type = '未录入内容'
 
         # 出库时间过滤逻辑
@@ -3141,7 +3139,7 @@ class FleetManagement(View):
             request, error_messages=error_messages, success_count=success_count
         )
 
-    async def handle_batch_confirm_ltl_note(self, request):
+    async def handle_batch_confirm_ltl_note_supplier(self, request):
         """批量确认备注"""
         error_messages = []
         success_count = 0
@@ -3152,12 +3150,8 @@ class FleetManagement(View):
             try:
                 # 解析JSON字符串为列表
                 batch_notes = json.loads(batch_notes_str)
-                # 验证是否为列表
-                if not isinstance(batch_notes, list):
-                    error_messages.append("批量价格数据格式错误：不是列表类型")
-                    batch_notes = []
             except json.JSONDecodeError as e:
-                error_messages.append(f"批量价格数据解析失败：{str(e)}")
+                error_messages.append(f"批量备注数据解析失败：{str(e)}")
                 batch_notes = []
 
             # 2. 遍历每条数据，更新价格
@@ -3205,12 +3199,8 @@ class FleetManagement(View):
             try:
                 # 解析JSON字符串为列表
                 batch_notes = json.loads(batch_notes_str)
-                # 验证是否为列表
-                if not isinstance(batch_notes, list):
-                    error_messages.append("批量价格数据格式错误：不是列表类型")
-                    batch_notes = []
             except json.JSONDecodeError as e:
-                error_messages.append(f"批量价格数据解析失败：{str(e)}")
+                error_messages.append(f"批量供应商数据解析失败：{str(e)}")
                 batch_notes = []
 
             # 2. 遍历每条数据，更新价格
@@ -3246,6 +3236,147 @@ class FleetManagement(View):
             request, error_messages=error_messages, success_count=success_count
         )
 
+    async def handle_batch_confirm_all_ltl_info(self, request):
+        """
+        三合一批量提交：同时更新 价格、供应商、备注
+        step: batch_confirm_all_ltl_info
+        """
+        error_messages = []
+        success_count = 0
+
+        try:
+            # 1. 解析前端传过来的完整数据
+            batch_all_str = request.POST.get("batch_all_data", "[]")
+            try:
+                batch_list = json.loads(batch_all_str)
+                if not isinstance(batch_list, list):
+                    error_messages.append("批量数据格式错误：必须为数组")
+                    batch_list = []
+            except json.JSONDecodeError as e:
+                error_messages.append(f"批量数据JSON解析失败：{str(e)}")
+                batch_list = []
+
+            # 2. 循环处理每条车次
+            for idx, item in enumerate(batch_list):
+                idx_show = idx + 1
+                fleet_number = item.get("fleet_number", "").strip()
+                fleet_cost = item.get("fleet_cost")
+                supplier = item.get("supplier", "").strip()
+                note = item.get("note", "")
+
+                # 校验车次号
+                if not fleet_number:
+                    error_messages.append(f"第{idx_show}条：车次号为空，跳过")
+                    continue
+
+                try:
+                    # 查询Fleet
+                    fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+
+                    # ========== 1 更新价格 ==========
+                    try:
+                        price_float = float(fleet_cost)
+                        if price_float < 0:
+                            error_messages.append(f"第{idx_show}条({fleet_number})：价格不能为负数 {fleet_cost}")
+                        else:
+                            fleet.fleet_cost = price_float
+                    except (ValueError, TypeError):
+                        error_messages.append(f"第{idx_show}条({fleet_number})：价格格式错误 {fleet_cost}")
+
+                    # ========== 2 更新供应商 ==========
+                    fleet.Supplier = supplier
+
+                    # 保存Fleet（价格、供应商同表）
+                    await sync_to_async(fleet.save)()
+
+                    # ========== 3 更新备注（备注存在Shipment表） ==========
+                    try:
+                        shipment = await sync_to_async(Shipment.objects.get)(fleet_number=fleet.id)
+                        shipment.note = note
+                        await sync_to_async(shipment.save)()
+                    except ObjectDoesNotExist:
+                        error_messages.append(f"第{idx_show}条({fleet_number})：未找到对应运单，备注更新失败")
+
+                    success_count += 1
+
+                except Fleet.DoesNotExist:
+                    error_messages.append(f"第{idx_show}条：车次「{fleet_number}」不存在")
+                except Exception as e:
+                    error_messages.append(f"第{idx_show}条({fleet_number})处理异常：{str(e)}")
+
+        except Exception as main_err:
+            error_messages.append(f"批量处理主流程异常：{str(main_err)}")
+
+        # 跳转回列表页面，带回错误/成功提示
+        return await self.handle_fleet_cost_record_get_ltl(
+            request, error_messages=error_messages, success_count=success_count
+        )
+
+    async def handle_batch_confirm_all_ltl_info_record(self, request):
+        """
+        批量提交：同时更新 供应商、备注
+        step: batch_confirm_all_ltl_info_record
+        """
+        error_messages = []
+        success_count = 0
+
+        try:
+            # 1. 解析前端传过来的完整数据
+            batch_all_str = request.POST.get("batch_all_data", "[]")
+            try:
+                batch_list = json.loads(batch_all_str)
+                if not isinstance(batch_list, list):
+                    error_messages.append("批量数据格式错误：必须为数组")
+                    batch_list = []
+            except json.JSONDecodeError as e:
+                error_messages.append(f"批量数据JSON解析失败：{str(e)}")
+                batch_list = []
+
+            # 2. 循环处理每条车次
+            for idx, item in enumerate(batch_list):
+                idx_show = idx + 1
+                fleet_number = item.get("fleet_number", "").strip()
+                supplier = item.get("supplier", "").strip()
+                note = item.get("note", "")
+
+                # 校验车次号
+                if not fleet_number:
+                    error_messages.append(f"第{idx_show}条：车次号为空，跳过")
+                    continue
+
+                try:
+                    # 查询Fleet
+                    fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+
+                    # ========== 2 更新供应商 ==========
+                    fleet.Supplier = supplier
+
+                    # 保存Fleet（价格、供应商同表）
+                    await sync_to_async(fleet.save)()
+
+                    # ========== 3 更新备注（备注存在Shipment表） ==========
+                    try:
+                        shipment = await sync_to_async(Shipment.objects.get)(fleet_number=fleet.id)
+                        shipment.note = note
+                        await sync_to_async(shipment.save)()
+                    except ObjectDoesNotExist:
+                        error_messages.append(f"第{idx_show}条({fleet_number})：未找到对应运单，备注更新失败")
+
+                    success_count += 1
+
+                except Fleet.DoesNotExist:
+                    error_messages.append(f"第{idx_show}条：车次「{fleet_number}」不存在")
+                except Exception as e:
+                    error_messages.append(f"第{idx_show}条({fleet_number})处理异常：{str(e)}")
+
+        except Exception as main_err:
+            error_messages.append(f"批量处理主流程异常：{str(main_err)}")
+
+        # 跳转回列表页面，带回错误/成功提示
+        return await self.handle_fleet_cost_record_get_ltl(
+            request, error_messages=error_messages, success_count=success_count
+        )
+
 
 
     async def handle_update_fleet_supplier(self, request):
@@ -3266,7 +3397,7 @@ class FleetManagement(View):
         LTL批量分摊成本核心逻辑（修复浮点数精度问题）：
         1. 总成本按选中记录的总板数分摊到每个车次（每车次成本 = 总成本/总板数 × 该车次板数）
         2. 更新Fleet表的fleet_cost字段为分摊后的成本
-        3. 调用已有insert_fleet_shipment_pallet_fleet_cost方法，完成车次成本的二次分摊
+        3. 调用已有insert_fleet_shipment_pallet_fleet_cost方法，完成车次成本的二次分摊（8.7修改只有到已录入才分摊）
         """
         logger = logging.getLogger(__name__)
         error_messages = []
@@ -3359,7 +3490,7 @@ class FleetManagement(View):
             # 5. 计算每板基础成本（不提前四舍五入，保留高精度）
             cost_per_pallet = total_batch_cost / Decimal(total_pallets)
 
-            # 6. 批量处理：更新Fleet表 + 调用insert方法
+            # 6. 批量处理：更新Fleet表 + 调用insert方法（8.7已改）
             async def batch_call_insert_method(fleet_data, cost_per_pallet, total_batch_cost, request):
                 processed_count = 0
                 errors = []
@@ -3428,21 +3559,7 @@ class FleetManagement(View):
                     return tasks
 
                 # 执行同步更新
-                tasks = await update_fleet_cost_sync(fleet_data, cost_per_pallet, total_batch_cost)
-
-                # 调用insert方法
-                for task in tasks:
-                    try:
-                        await self.insert_fleet_shipment_pallet_fleet_cost(
-                            request=request,
-                            fleet_number=task['fleet_number'],
-                            fleet_cost=task['fleet_total_cost']
-                        )
-                        processed_count += 1
-                        logger.info(f'车次{task["fleet_number"]}二次分摊完成')
-                    except Exception as e:
-                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)[:50]}')
-
+                await update_fleet_cost_sync(fleet_data, cost_per_pallet, total_batch_cost)
                 return processed_count, errors
 
             # 执行批量处理（传入total_batch_cost用于凑整）
@@ -4113,76 +4230,219 @@ class FleetManagement(View):
         统一处理单条/批量退回未录入状态
         - 支持单个退回：从fleet_number获取车次号
         - 支持批量退回：从selected_fleet_numbers获取多个车次号
-        - 核心逻辑：不是删除数据，而是重置核实状态/成本字段为未录入状态
+        - 核心逻辑：重置核实状态/成本字段为未录入，回滚发票费用，删除成本明细
+        - 事务保障：全部数据库操作原子化，失败自动回滚
         """
         logger = logging.getLogger(__name__)
         logger.info(f"【退回未录入】接收到的POST参数：{dict(request.POST)}")
 
         # 1. 解析参数（兼容单条/批量）
-        single_fleet_number = request.POST.get('fleet_number')
+        single_fleet_number = request.POST.get('fleet_number', "")
         batch_fleet_numbers = request.POST.get('selected_fleet_numbers', '')
 
-        # 2. 确定要更新的车次号列表
         fleet_number_list = []
-
-        # 优先处理批量操作
+        # 优先批量
         if batch_fleet_numbers:
-            # 严格清洗：去重、去空、去空格
-            fleet_number_list = list(set([num.strip() for num in batch_fleet_numbers.split(',') if num.strip()]))
-            logger.info(f"【批量退回】清洗后车次号列表：{fleet_number_list}")
-        # 处理单条操作
-        elif single_fleet_number:
-            fleet_number_list = [single_fleet_number.strip()]  # 单条也清洗
-            logger.info(f"【单条退回】车次号：{fleet_number_list}")
-        # 无有效参数
-        else:
-            if 'error_messages' not in request.session:
-                request.session['error_messages'] = []
-            request.session['error_messages'].append("未获取到有效的车次号")
-            logger.warning("【退回失败】未获取到有效的车次号")
+            fleet_number_list = list(set([
+                num.strip() for num in batch_fleet_numbers.split(',')
+                if num.strip()
+            ]))
+            logger.info(f"【批量退回】清洗后车次数量：{len(fleet_number_list)}")
+        elif single_fleet_number.strip():
+            fleet_number_list = [single_fleet_number.strip()]
+            logger.info(f"【单条退回】目标车次：{fleet_number_list[0]}")
+
+        # 兜底校验：无有效车次直接返回
+        if not fleet_number_list:
+            self._append_session_error(request, "未获取到有效的车次号")
+            logger.warning("【退回拦截】无有效车次号")
             return await self.handle_fleet_cost_record_get_ltl(request, None, 0)
 
-        # 3. 定义同步的数据库操作函数（核心：重置为未录入状态，而非删除）
-        def rollback_fleet_status_sync(fleet_numbers):
-            """同步退回未录入状态"""
+        # 2. 同步数据库事务逻辑
+        @sync_to_async
+        def rollback_sync_logic(target_fleet_nums: list):
+            success_delete_count = 0
+            success_msg = ""
+            error_msgs = []
+            current_date = timezone.now().date()
             try:
-                # 同步查询匹配数量
-                match_count = Fleet.objects.filter(fleet_number__in=fleet_numbers).count()
-                logger.info(f"【查询匹配数据】车次号列表{fleet_numbers}匹配到{match_count}条记录")
+                with transaction.atomic():
+                    # 匹配车次
+                    fleet_query = Fleet.objects.filter(fleet_number__in=target_fleet_nums)
+                    match_fleet_count = fleet_query.count()
+                    if match_fleet_count == 0:
+                        raise ValueError("未找到任意匹配的车次记录")
+                    logger.info(f"【数据匹配】共匹配到 {match_fleet_count} 条车次")
 
-                if match_count == 0:
-                    return 0, [f"未找到匹配的车次号：{fleet_numbers}"]
+                    # 重置车次录入状态
+                    update_fields = {
+                        "fleet_verify_status": False,
+                        "fleet_cost": None,
+                        "fleet_cost_back": None,
+                        "fleet_ltl_status": False,
+                    }
+                    fleet_query.update(**update_fields)
+                    logger.info(f"【车次状态重置完成，更新字段：{list(update_fields.keys())}")
 
-                # 同步批量更新（重置为未录入状态）
-                # 根据业务需求调整字段：比如重置核实状态、清空成本、退回状态等
-                success_count = Fleet.objects.filter(
-                    fleet_number__in=fleet_numbers
-                ).update(
-                    fleet_verify_status=False,  # 重置核实状态为未核实
-                    fleet_cost=None,  # 清空已录入的成本
-                    fleet_cost_back=None,  # 清空退回费用（如有）
-                    # 可添加其他需要重置的字段
-                )
+                    # 查询成本托盘明细
+                    pallet_query = FleetShipmentPallet.objects.filter(
+                        fleet_number__fleet_number__in=target_fleet_nums,
+                        description=COST_DESC
+                    )
+                    # 柜号费用聚合，统一转Decimal避免float运算报错
+                    container_expense_map = {}
+                    for item in pallet_query.values("container_number").annotate(total_expense=Sum("expense")):
+                        raw_exp = item["total_expense"]
+                        if raw_exp is None:
+                            exp = DECIMAL_ZERO
+                        else:
+                            exp = Decimal(str(raw_exp))
+                        container_expense_map[item["container_number"]] = exp
 
-                logger.info(f"【退回成功】成功退回 {success_count} 条记录到未录入状态")
-                return success_count, [f"成功退回 {success_count} 条记录到未录入状态"]
+                    # 批量更新发票
+                    for container_id, total_exp in container_expense_map.items():
+                        invoice = Invoicev2.objects.filter(
+                            container_number_id=container_id
+                        ).order_by("created_at").first()
+                        if not invoice:
+                            continue
+
+                        delivery_amt = Decimal(str(invoice.payable_delivery_amount or DECIMAL_ZERO))
+                        total_amt = Decimal(str(invoice.payable_total_amount or DECIMAL_ZERO))
+
+                        invoice.payable_delivery_cost = DECIMAL_ZERO
+                        # 现在两边都是Decimal，可以正常减法
+                        invoice.payable_delivery_amount = delivery_amt - total_exp
+                        invoice.payable_total_amount = total_amt - total_exp
+                        invoice.invoice_date = current_date
+                        invoice.save(update_fields=[
+                            "invoice_date", "payable_delivery_cost",
+                            "payable_delivery_amount", "payable_total_amount"
+                        ])
+
+                    # 删除成本明细
+                    success_delete_count, _ = pallet_query.delete()
+                    logger.info(f"【明细删除】成功删除{success_delete_count}条成本托盘记录")
+
+                    success_msg = f"成功将{match_fleet_count}个车次退回至未录入状态，删除{success_delete_count}条成本明细"
+                    logger.info(success_msg)
 
             except Exception as e:
-                logger.error(f"【退回失败】操作异常：{str(e)}", exc_info=True)
-                return 0, [f"退回操作失败：{str(e)}"]
+                err = f"退回数据库操作异常：{str(e)}"
+                logger.error(err, exc_info=True)
+                error_msgs.append(err)
+                return 0, "", error_msgs
 
-        # 4. 执行更新操作（同步函数转异步）
-        success_count, error_messages = await sync_to_async(rollback_fleet_status_sync)(fleet_number_list)
+            return success_delete_count, success_msg, error_msgs
 
-        # 5. 保存错误信息到session
-        if error_messages:
-            if 'error_messages' not in request.session:
-                request.session['error_messages'] = []
-            request.session['error_messages'].extend(error_messages)
-            request.session.modified = True  # 异步下必须标记session修改
+        # 3. 执行数据库操作
+        handle_count, success_tip, err_messages = await rollback_sync_logic(fleet_number_list)
 
-        # 6. 返回原页面
-        return await self.handle_fleet_cost_record_get_ltl(request, None, success_count)
+        # 4. 区分成功/失败提示存入session
+        if success_tip:
+            self._append_session_success(request, success_tip)
+        for msg in err_messages:
+            self._append_session_error(request, msg)
+
+        # 5. 返回列表页，第二个参数传递成功车次数量用于页面展示
+        return await self.handle_fleet_cost_record_get_ltl(request, None, handle_count)
+
+    def _append_session_error(self, request: HttpRequest, msg: str):
+        """添加错误提示"""
+        if "error_messages" not in request.session:
+            request.session["error_messages"] = []
+        request.session["error_messages"].append(msg)
+        request.session.modified = True
+
+    def _append_session_success(self, request: HttpRequest, msg: str):
+        """添加成功提示，区分成功/错误消息"""
+        if "success_messages" not in request.session:
+            request.session["success_messages"] = []
+        request.session["success_messages"].append(msg)
+        request.session.modified = True
+
+    async def handle_confirm_fleet_ltl_status(self, request: HttpRequest):
+        """
+        未录入页面批量确认，车次状态切换为已录入 fleet_ltl_status=True
+        兼容单条/批量选择，事务原子更新
+        """
+        logger = logging.getLogger(__name__)
+        logger.info(f"【批量确认已录入】POST参数：{dict(request.POST)}")
+
+        single_fleet_number = request.POST.get('fleet_number', "")
+        batch_fleet_numbers = request.POST.get('selected_fleet_numbers', '')
+        fleet_number_list = []
+
+        # 解析清洗车次
+        if batch_fleet_numbers:
+            fleet_number_list = list(set([num.strip() for num in batch_fleet_numbers.split(',') if num.strip()]))
+            logger.info(f"【批量确认】清洗后车次：{len(fleet_number_list)}条")
+        elif single_fleet_number.strip():
+            fleet_number_list = [single_fleet_number.strip()]
+            logger.info(f"【单条确认】车次：{single_fleet_number.strip()}")
+
+        # 空校验拦截
+        if not fleet_number_list:
+            self._append_session_error(request, "未选中任何有效车次，无法确认")
+            logger.warning("批量确认无有效车次")
+            return await self.handle_fleet_cost_record_get_ltl(request, None, 0)
+
+        # 1. 仅把数据库批量更新逻辑放到同步线程（事务、ORM更新）
+        @sync_to_async
+        def confirm_update_status(target_fleet_nums: list):
+            match_count = 0
+            try:
+                # 更新状态为已录入
+                with transaction.atomic():
+                    fleet_query = Fleet.objects.filter(
+                        fleet_number__in=target_fleet_nums,
+                        fleet_ltl_status=False
+                    )
+                    match_count = fleet_query.count()
+                    if match_count == 0:
+                        raise ValueError("选中车次均已是已录入状态，无需重复确认")
+                    # 批量更新状态
+                    fleet_query.update(fleet_ltl_status=True)
+                    logger.info(f"成功更新{match_count}条车次状态为已录入")
+                # 返回更新成功的所有车次对象，供外层异步分摊使用
+                return match_count, list(Fleet.objects.filter(fleet_number__in=target_fleet_nums))
+            except Exception as e:
+                err = f"批量确认数据库异常：{str(e)}"
+                logger.error(err, exc_info=True)
+                raise e
+
+        # 执行同步数据库更新
+        try:
+            match_count, fleet_list = await confirm_update_status(fleet_number_list)
+        except Exception as e:
+            self._append_session_error(request, str(e))
+            return await self.handle_fleet_cost_record_get_ltl(request, None, 0)
+
+        # 2. 分摊逻辑放到外层async上下文，直接await，不再嵌套asyncio.run()
+        success_fleet_count = 0
+        error_msgs = []
+        for fleet_item in fleet_list:
+            try:
+                # 直接await异步分摊函数，无线程冲突
+                await self.insert_fleet_shipment_pallet_fleet_cost(
+                    request=request,
+                    fleet_number=fleet_item.fleet_number,
+                    fleet_cost=fleet_item.fleet_cost
+                )
+                success_fleet_count += 1
+                logger.info(f"车次{fleet_item.fleet_number}成本分摊完成")
+            except Exception as fleet_err:
+                err_msg = f"车次{fleet_item.fleet_number}分摊成本失败：{str(fleet_err)}"
+                logger.error(err_msg, exc_info=True)
+                error_msgs.append(err_msg)
+
+        # 拼接提示信息
+        success_msg = f"共{match_count}条车次标记已录入，其中{success_fleet_count}条完成成本分摊"
+        self._append_session_success(request, success_msg)
+        for msg in error_msgs:
+            self._append_session_error(request, msg)
+
+        return await self.handle_fleet_cost_record_get_ltl(request, None, match_count)
 
     async def handle_batch_confirm_verify(self, request: HttpRequest):
         """
