@@ -23,7 +23,7 @@
             </div>
         </div>
 
-        <!-- 基础信息区域：标签居左，控件居右 -->
+        <!-- 基础信息区域：所属仓、直送地址提升到这里，订单类型后面 -->
         <div class="row g-3 mb-4 align-items-end">
             <div class="col-auto">
                 <div class="d-flex align-items-center gap-1">
@@ -43,6 +43,24 @@
                     </select>
                 </div>
             </div>
+            <!-- 公共：所属仓、直送地址，全局共用，不在明细行 -->
+            <div class="col-auto" id="field-area-wrap">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">所属仓</label>
+                    <select name="area" id="area" class="form-select form-select-sm" style="height:30px;font-size:12px;width:130px;">
+                        {% for k, v in area.items %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-auto" id="field-destination-wrap">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">直送地址</label>
+                    <input type="text" name="destination" id="destination" class="form-control form-control-sm" style="height:30px;font-size:12px;width:160px;">
+                </div>
+            </div>
+
             <div class="col-auto">
                 <div class="d-flex align-items-center gap-1">
                     <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">ETD</label>
@@ -75,11 +93,11 @@
 
         <hr class="my-3">
         <div id="batchItemContainer">
-            <!-- JS生成订单明细行 -->
+            <!-- JS生成订单明细行：柜号、MBL、保时效、备注 -->
         </div>
 
         <script>
-            // 生成一行明细：初始完全不带所属仓、直送地址，留空占位容器 .extra-holder
+            // 生成明细行：去掉所属仓、直送地址，只保留行内字段
             function getItemHtml(index) {
                 return `
                 <div class="batch-item border rounded p-3 mb-3" data-index="${index}">
@@ -88,41 +106,56 @@
                         <button type="button" class="btn btn-danger btn-sm del-row-btn" style="font-size:11px;padding:2px 8px;height:24px;">删除</button>
                     </div>
                     <div class="d-flex flex-wrap gap-4 align-items-center">
-                        <div class="extra-holder"></div>
                         <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
                             <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">柜号</label>
-                            <input type="text" name="items[][container_number]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:130px;" required>
+                            <input type="text" name="items[${index}][container_number]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:130px;" required>
                         </div>
                         <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
                             <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">MBL</label>
-                            <input type="text" name="items[][mbl]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:130px;" required>
+                            <input type="text" name="items[${index}][mbl]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:130px;" required>
                         </div>
-                        <!-- 保时效：文字在左，复选框在右，修复错位margin-left -->
                         <div class="d-flex align-items-center gap-2" style="margin-right: 40px;">
                             <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;">保时效</label>
-                            <input type="checkbox" name="items[][is_expiry_guaranteed]" value="true" class="form-check-input" style="width:16px;height:16px;margin-left:40px;margin-top:0px;">
+                            <input type="checkbox" name="items[${index}][is_expiry_guaranteed]" value="true" class="form-check-input" style="width:16px;height:16px;margin-top:0px;margin-left: 40px;">
                         </div>
                         <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
                             <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">备注</label>
-                            <input type="text" name="items[][note]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:160px;">
+                            <input type="text" name="items[${index}][note]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:160px;">
                         </div>
                     </div>
                 </div>
                 `;
             }
 
-            // 删除之后重新编号：只修改序号文本，不碰任何输入框DOM！！
+            // 明细行重新编号，只更新name下标
             function reIndexItems() {
                 const items = document.querySelectorAll('.batch-item');
-                items.forEach((item, idx) => {
-                    item.dataset.index = idx;
-                    const span = item.querySelector('span');
-                    span.innerText = `第 ${idx + 1} 条订单明细`;
+                items.forEach((item, newIdx) => {
+                    item.dataset.index = newIdx;
+                    item.querySelector('span').innerText = `第 ${newIdx + 1} 条订单明细`;
+                    item.querySelectorAll('input,select').forEach(el => {
+                        el.name = el.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
+                    });
                 });
-                // 绝对不调用 changeFollowingInput
             }
 
-            // 生成多条明细
+            // 切换订单类型：控制顶部公共的所属仓/直送地址显隐
+            function syncTopFieldVisibility() {
+                const selVal = document.getElementById('order_type').value;
+                const areaWrap = document.getElementById('field-area-wrap');
+                const destWrap = document.getElementById('field-destination-wrap');
+                if (selVal === "直送") {
+                    areaWrap.style.display = 'none';
+                    destWrap.style.display = 'block';
+                } else if (selVal === "转运" || selVal === "转运组合") {
+                    areaWrap.style.display = 'block';
+                    destWrap.style.display = 'none';
+                } else {
+                    areaWrap.style.display = 'none';
+                    destWrap.style.display = 'none';
+                }
+            }
+
             function renderBatchItems() {
                 const count = parseInt(document.getElementById('batch_count').value || 1);
                 const container = document.getElementById('batchItemContainer');
@@ -131,39 +164,8 @@
                     container.innerHTML += getItemHtml(i);
                 }
                 bindDeleteEvent();
-                const sel = document.getElementById('order_type');
-                manualChangeType(sel.value);
             }
 
-            // 手动切换订单类型，只在这里调用，删除逻辑绝不进入
-            function manualChangeType(selectedValue) {
-                const allRows = document.querySelectorAll('.batch-item');
-                allRows.forEach(row => {
-                    const holder = row.querySelector(".extra-holder");
-                    holder.innerHTML = '';
-                    if (selectedValue === "直送") {
-                        holder.innerHTML = `
-                            <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
-                                <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">直送地址</label>
-                                <input type="text" name="items[][destination]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:160px;" required>
-                            </div>
-                        `;
-                    } else if (selectedValue === "转运" || selectedValue === "转运组合") {
-                        holder.innerHTML = `
-                            <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
-                                <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">所属仓</label>
-                                <select name="items[][area]" class="form-select form-select-sm" style="height:30px;font-size:12px;width:130px;">
-                                    {% for k, v in area.items %}
-                                        <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        `;
-                    }
-                });
-            }
-
-            // 绑定删除按钮事件
             function bindDeleteEvent() {
                 document.querySelectorAll('.del-row-btn').forEach(btn => {
                     btn.onclick = function () {
@@ -173,13 +175,12 @@
                 })
             }
 
-            // 注册事件
             document.getElementById('renderBatchBtn').addEventListener('click', renderBatchItems);
-            // select change事件绑定移到JS，去掉标签上onchange
-            document.getElementById('order_type').addEventListener('change', function(e){
-                manualChangeType(e.target.value);
+            document.getElementById('order_type').addEventListener('change', syncTopFieldVisibility);
+            window.addEventListener('DOMContentLoaded', () => {
+                renderBatchItems();
+                syncTopFieldVisibility();
             });
-            window.addEventListener('DOMContentLoaded', renderBatchItems);
         </script>
     </form>
 
@@ -188,7 +189,6 @@
 </div>
 
 <script>
-    // 表单提交校验
     function checkOrderTypeInput(event) {
         const selectedValue = document.getElementById('order_type').value;
         const selectedCustomer = document.getElementById('customer').value.trim();
@@ -202,8 +202,8 @@
             alert('请选择订单类型！');
             isValid = false;
         }
-        const containerInputs = document.querySelectorAll('input[name="items[][container_number]"]');
-        const mblInputs = document.querySelectorAll('input[name="items[][mbl]"]');
+        const containerInputs = document.querySelectorAll('input[name*="[container_number]"]');
+        const mblInputs = document.querySelectorAll('input[name*="[mbl]"]');
         if(containerInputs.length === 0){
             alert("请先生成明细表单！");
             isValid = false;
@@ -222,7 +222,6 @@
                 break;
             }
         }
-
         if (!isValid && event) {
             event.preventDefault();
         }
