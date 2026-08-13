@@ -19,7 +19,7 @@ import pandas as pd
 import pytz
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Sum
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -152,6 +152,9 @@ class OrderCreation(View):
         print(f"POST step: {step}")
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "create_order_basic_v1":
+            template, context = await self.handle_create_order_basic_post_v1(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "update_order_basic_info":
             template, context = await self.handle_update_order_basic_info_post(request)
@@ -1001,6 +1004,154 @@ class OrderCreation(View):
         }
         order = Order(**order_data)
         await sync_to_async(order.save)()
+
+        return await self.handle_order_basic_info_get()
+
+    async def handle_create_order_basic_post_v1(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        # ---------- 公共字段（全部订单共用） ----------
+        customer_text = request.POST.get("customer", "").strip()
+        order_type = request.POST.get("order_type", "")
+        etd_str = request.POST.get("etd")
+        eta_str = request.POST.get("eta")
+        created_at_str = request.POST.get("created_at")
+
+        # ---------- 获取多条明细数组 ----------
+        area_list = request.POST.getlist("items[][area]")
+        destination_list = request.POST.getlist("items[][destination]")
+        container_number_list = request.POST.getlist("items[][container_number]")
+        mbl_list = request.POST.getlist("items[][mbl]")
+        is_expiry_raw_list = request.POST.getlist("items[][is_expiry_guaranteed]")
+        note_list = request.POST.getlist("items[][note]")
+
+        count = len(container_number_list)
+        if count <= 0:
+            raise RuntimeError("请先生成明细表单！")
+
+        # checkbox补位：没勾选的不会返回，补齐False，保证所有列表长度一致
+        is_expiry_guaranteed_list = []
+        for idx in range(count):
+            val = is_expiry_raw_list[idx] if idx < len(is_expiry_raw_list) else None
+            is_expiry_guaranteed_list.append(True if val else False)
+
+        # 日期解析函数
+        def parse_date(date_str):
+            if not date_str:
+                return None
+            try:
+                return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.get_current_timezone())
+            except ValueError:
+                raise RuntimeError(f"无效的日期格式: {date_str}，请使用YYYY‑MM‑DD")
+
+        etd = parse_date(etd_str)
+        eta = parse_date(eta_str)
+        created_at = parse_date(created_at_str)
+
+        @sync_to_async
+        def batch_create():
+            """同步函数，放在atomic事务中，全部成功提交，出错回滚"""
+            with transaction.atomic():
+                for idx in range(count):
+                    # 安全取值：防止页面没有渲染该input导致列表长度不足
+                    area = area_list[idx] if idx < len(area_list) else ""
+                    destination = destination_list[idx] if idx < len(destination_list) else ""
+                    container_number_raw = container_number_list[idx].upper().strip()
+                    mbl = mbl_list[idx].strip() if idx < len(mbl_list) else ""
+                    is_expiry_guaranteed = is_expiry_guaranteed_list[idx]
+                    note = note_list[idx] if idx < len(note_list) else ""
+
+                    # 查找客户，注意：按名称查询，你要确认业务：客户名称是否唯一
+                    try:
+                        customer_obj = Customer.objects.get(zem_name=customer_text)
+                    except Customer.DoesNotExist:
+                        raise RuntimeError(f"客户【{customer_text}】不存在，请先维护客户档案")
+
+                    # 柜号重复处理逻辑（每条独立校验）
+                    try:
+                        existing_order = Order.objects.get(
+                            container_number__container_number=container_number_raw
+                        )
+                        if existing_order:
+                            old_created_at = existing_order.created_at
+                            year_month = old_created_at.strftime("%Y%m")
+                            old_container = existing_order.container_number
+                            old_container.container_number = f"{old_container.container_number}_{year_month}"
+                            old_container.save()
+                    except ObjectDoesNotExist:
+                        pass
+
+                    exists = list(Order.objects.filter(container_number__container_number=container_number_raw))
+                    if exists:
+                        raise RuntimeError(f"第{idx + 1}条，Container {container_number_raw} exists!")
+
+                    # 生成各id
+                    order_id = str(
+                        uuid.uuid3(
+                            uuid.NAMESPACE_DNS,
+                            str(uuid.uuid4()) + customer_text + created_at_str,
+                        )
+                    )
+                    retrieval_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + container_number_raw))
+                    offload_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + order_type))
+                    vessel_id = str(
+                        uuid.uuid3(uuid.NAMESPACE_DNS, container_number_raw + (mbl or ""))
+                    )
+
+                    # 保存集装箱
+                    container_data = {
+                        "container_number": container_number_raw,
+                        "is_expiry_guaranteed": is_expiry_guaranteed,
+                        "note": note,
+                    }
+                    container = Container(**container_data)
+                    container.save()
+
+                    # 船舶
+                    vessel_data = {
+                        "vessel_id": vessel_id,
+                        "master_bill_of_lading": mbl,
+                        "vessel_etd": etd,
+                        "vessel_eta": eta,
+                    }
+                    vessel = Vessel(**vessel_data)
+                    vessel.save()
+
+                    # Retrieval
+                    retrieval_data = {
+                        "retrieval_id": retrieval_id,
+                        "retrieval_destination_area": (
+                            area if order_type in ("转运", "转运组合") else destination
+                        ),
+                    }
+                    retrieval = Retrieval(**retrieval_data)
+                    retrieval.save()
+
+                    # Offload
+                    offload_data = {
+                        "offload_id": offload_id,
+                        "offload_required": True if order_type in ("转运", "转运组合") else False,
+                    }
+                    offload = Offload(**offload_data)
+                    offload.save()
+
+                    # 订单保存
+                    order_data = {
+                        "order_id": order_id,
+                        "customer_name": customer_obj,
+                        "created_at": created_at,
+                        "order_type": order_type,
+                        "container_number": container,
+                        "retrieval_id": retrieval,
+                        "offload_id": offload,
+                        "vessel_id": vessel,
+                        "packing_list_updloaded": False,
+                    }
+                    order = Order(**order_data)
+                    order.save()
+
+        # 执行批量事务
+        await batch_create()
 
         return await self.handle_order_basic_info_get()
 

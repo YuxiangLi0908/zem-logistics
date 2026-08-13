@@ -1,115 +1,186 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <div class="container-fluid" style="padding: 20px; margin: 0 auto;">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h5 style="font-weight: 600; color: #333; margin: 0; font-size: 16px;">港前订单管理</h5>
     </div>
 
-    <form method="post" action="" class="bg-white rounded rounded-lg shadow-sm p-4">
+    <form method="post" action="" class="bg-white rounded rounded-lg shadow-sm p-4" id="multiOrderForm">
         {% csrf_token %}
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <span class="badge bg-secondary text-dark px-3 py-1" style="font-size: 13px; font-weight: 500; border-radius: 20px;">
-                    创建订单 - 基本信息
+                    创建订单 - 基本信息（批量多条）
                 </span>
             </div>
             <div>
-                <input type="hidden" name="step" value="create_order_basic">
+                <input type="hidden" name="step" value="create_order_basic_v1">
                 <button id="submit-btn-create-order" type="submit" class="btn btn-primary btn-sm"
-                        style="width: 90px; height: 30px; font-size: 13px; border-radius: 4px;"
-                        onclick="checkOrderTypeInput(event)">
+                        style="width: 90px; height: 30px; font-size: 13px; border-radius: 4px;">
                     创建订单
                 </button>
             </div>
         </div>
 
-        <!-- 单行布局，无滚动条 -->
-        <div style="display: flex; flex-wrap: nowrap; gap: 15px; width: 100%;">
-            <!-- 客户 -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">客户</label>
-                <select name="customer" class="form-select form-select-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;" id="customer">
-                    {% for k, v in customers.items %}
-                        <option value="{{ v }}">{{ k }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- 订单类型 -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">订单类型</label>
-                <select name="order_type" id="order_type" class="form-select form-select-sm"
-                        style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;" onchange="changeFollowingInput(this)">
-                    {% for k, v in order_type.items %}
-                        <option value="{{ v }}">{{ k }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- 所属仓 (默认隐藏) -->
-            <div style="flex: 0 0 120px; display: none;" id="area">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">所属仓</label>
-                <select name="area" class="form-select form-select-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;">
-                    {% for k, v in area.items %}
-                        <option value="{{ v }}">{{ k }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- 直送地址 (默认隐藏) -->
-            <div style="flex: 0 0 140px; display: none;" id="destination">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">直送地址</label>
-                <input type="text" name="destination" id="orderDestination"
-                       class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;">
-            </div>
-
-            <!-- 柜号 -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">柜号</label>
-                <input type="text" name="container_number" id="containerNumber"
-                       class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;" required>
-            </div>
-
-            <!-- MBL -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">MBL</label>
-                <input type="text" name="mbl" id="mbl"
-                       class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;" required>
-            </div>
-
-            <!-- ETD -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">ETD</label>
-                <input type="date" name="etd" class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;">
-            </div>
-
-            <!-- ETA -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">ETA</label>
-                <input type="date" name="eta" class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;" required>
-            </div>
-
-            <!-- 保时效 -->
-            <div style="flex: 0 0 100px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">保时效</label>
-                <div style="padding-top: 5px; padding-left: 28px;">
-                    <input type="checkbox" name="is_expiry_guaranteed" value="true"
-                           class="form-check-input" id="expiryCheck" style="width: 16px; height: 16px; cursor: pointer;">
+        <!-- 基础信息区域：标签居左，控件居右 -->
+        <div class="row g-3 mb-4 align-items-end">
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">客户</label>
+                    <input type="text" name="customer" id="customer" class="form-control form-control-sm"
+                           style="height: 30px; font-size: 12px; width:140px;" required>
                 </div>
             </div>
-
-            <!-- 备注 -->
-            <div style="flex: 0 0 140px;" id="containerNote">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">备注</label>
-                <input type="text" name="note" class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;">
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">订单类型</label>
+                    <select name="order_type" id="order_type" class="form-select form-select-sm"
+                            style="height: 30px; font-size: 12px; width:140px;">
+                        {% for k, v in order_type.items %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
-
-            <!-- 下单日期 -->
-            <div style="flex: 0 0 120px;">
-                <label class="form-label" style="font-size: 12px; color: #555; display: block; margin-bottom: 5px; font-weight: 500;">下单日期</label>
-                <input type="date" name="created_at" class="form-control form-control-sm" style="width: 100%; height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 3px;" required>
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">ETD</label>
+                    <input type="date" name="etd" class="form-control form-control-sm" style="height: 30px; font-size: 12px;width:140px;">
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">ETA</label>
+                    <input type="date" name="eta" class="form-control form-control-sm" style="height: 30px; font-size: 12px;width:140px;" required>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">下单日期</label>
+                    <input type="date" name="created_at" class="form-control form-control-sm" style="height: 30px; font-size: 12px;width:140px;" required>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">创建条数</label>
+                    <input type="number" id="batch_count" min="1" max="50" value="1" class="form-control form-control-sm"
+                           style="height: 30px; font-size: 12px;width:80px;">
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="button" id="renderBatchBtn" class="btn btn-primary btn-sm" style="height:30px;font-size:12px;">生成表单</button>
             </div>
         </div>
+
+        <hr class="my-3">
+        <div id="batchItemContainer">
+            <!-- JS生成订单明细行 -->
+        </div>
+
+        <script>
+            // 生成一行明细：初始完全不带所属仓、直送地址，留空占位容器 .extra-holder
+            function getItemHtml(index) {
+                return `
+                <div class="batch-item border rounded p-3 mb-3" data-index="${index}">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span style="font-size:12px;font-weight:500;">第 ${index + 1} 条订单明细</span>
+                        <button type="button" class="btn btn-danger btn-sm del-row-btn" style="font-size:11px;padding:2px 8px;height:24px;">删除</button>
+                    </div>
+                    <div class="d-flex flex-wrap gap-4 align-items-center">
+                        <div class="extra-holder"></div>
+                        <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
+                            <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">柜号</label>
+                            <input type="text" name="items[][container_number]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:130px;" required>
+                        </div>
+                        <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
+                            <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">MBL</label>
+                            <input type="text" name="items[][mbl]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:130px;" required>
+                        </div>
+                        <!-- 保时效：文字在左，复选框在右，修复错位margin-left -->
+                        <div class="d-flex align-items-center gap-2" style="margin-right: 40px;">
+                            <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;">保时效</label>
+                            <input type="checkbox" name="items[][is_expiry_guaranteed]" value="true" class="form-check-input" style="width:16px;height:16px;margin-left:40px;margin-top:0px;">
+                        </div>
+                        <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
+                            <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">备注</label>
+                            <input type="text" name="items[][note]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:160px;">
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
+
+            // 删除之后重新编号：只修改序号文本，不碰任何输入框DOM！！
+            function reIndexItems() {
+                const items = document.querySelectorAll('.batch-item');
+                items.forEach((item, idx) => {
+                    item.dataset.index = idx;
+                    const span = item.querySelector('span');
+                    span.innerText = `第 ${idx + 1} 条订单明细`;
+                });
+                // 绝对不调用 changeFollowingInput
+            }
+
+            // 生成多条明细
+            function renderBatchItems() {
+                const count = parseInt(document.getElementById('batch_count').value || 1);
+                const container = document.getElementById('batchItemContainer');
+                container.innerHTML = '';
+                for (let i = 0; i < count; i++) {
+                    container.innerHTML += getItemHtml(i);
+                }
+                bindDeleteEvent();
+                const sel = document.getElementById('order_type');
+                manualChangeType(sel.value);
+            }
+
+            // 手动切换订单类型，只在这里调用，删除逻辑绝不进入
+            function manualChangeType(selectedValue) {
+                const allRows = document.querySelectorAll('.batch-item');
+                allRows.forEach(row => {
+                    const holder = row.querySelector(".extra-holder");
+                    holder.innerHTML = '';
+                    if (selectedValue === "直送") {
+                        holder.innerHTML = `
+                            <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
+                                <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">直送地址</label>
+                                <input type="text" name="items[][destination]" class="form-control form-control-sm" style="height:30px;font-size:12px;width:160px;" required>
+                            </div>
+                        `;
+                    } else if (selectedValue === "转运" || selectedValue === "转运组合") {
+                        holder.innerHTML = `
+                            <div class="d-flex align-items-center gap-1" style="margin-right: 20px;">
+                                <label class="form-label mb-0 flex-shrink-0" style="font-size:12px;color:#555;font-weight:500;margin-right:4px;">所属仓</label>
+                                <select name="items[][area]" class="form-select form-select-sm" style="height:30px;font-size:12px;width:130px;">
+                                    {% for k, v in area.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            // 绑定删除按钮事件
+            function bindDeleteEvent() {
+                document.querySelectorAll('.del-row-btn').forEach(btn => {
+                    btn.onclick = function () {
+                        this.closest('.batch-item').remove();
+                        reIndexItems();
+                    }
+                })
+            }
+
+            // 注册事件
+            document.getElementById('renderBatchBtn').addEventListener('click', renderBatchItems);
+            // select change事件绑定移到JS，去掉标签上onchange
+            document.getElementById('order_type').addEventListener('change', function(e){
+                manualChangeType(e.target.value);
+            });
+            window.addEventListener('DOMContentLoaded', renderBatchItems);
+        </script>
     </form>
 
     {% block order_status %}
@@ -117,46 +188,39 @@
 </div>
 
 <script>
-    // 页面加载时初始化
-    document.addEventListener('DOMContentLoaded', function() {
-        changeFollowingInput(document.getElementById('order_type'));
-    });
-
-    // 根据订单类型显示/隐藏字段
-    function changeFollowingInput(select) {
-        const selectedValue = select.value;
-        const areaDiv = document.getElementById("area");
-        const destinationDiv = document.getElementById("destination");
-        const orderDestinationInput = document.getElementById('orderDestination');
-
-        if (selectedValue === "直送") {
-            areaDiv.style.display = 'none';
-            destinationDiv.style.display = 'block';
-            orderDestinationInput.required = true;
-        } else if (selectedValue === "转运" || selectedValue === "转运组合") {
-            areaDiv.style.display = 'block';
-            destinationDiv.style.display = 'none';
-            orderDestinationInput.required = false;
-        } else {
-            areaDiv.style.display = 'none';
-            destinationDiv.style.display = 'none';
-            orderDestinationInput.required = false;
-        }
-    }
-
-    // 表单提交验证
+    // 表单提交校验
     function checkOrderTypeInput(event) {
         const selectedValue = document.getElementById('order_type').value;
-        const selectedCustomer = document.getElementById('customer').value;
+        const selectedCustomer = document.getElementById('customer').value.trim();
         let isValid = true;
 
         if (!selectedCustomer) {
-            alert('请选择客户！');
+            alert('请填写客户！');
             isValid = false;
         }
         if (!selectedValue) {
             alert('请选择订单类型！');
             isValid = false;
+        }
+        const containerInputs = document.querySelectorAll('input[name="items[][container_number]"]');
+        const mblInputs = document.querySelectorAll('input[name="items[][mbl]"]');
+        if(containerInputs.length === 0){
+            alert("请先生成明细表单！");
+            isValid = false;
+        }
+        for(let inp of containerInputs){
+            if(!inp.value.trim()){
+                alert("请填写所有明细的柜号");
+                isValid = false;
+                break;
+            }
+        }
+        for(let inp of mblInputs){
+            if(!inp.value.trim()){
+                alert("请填写所有明细的MBL");
+                isValid = false;
+                break;
+            }
         }
 
         if (!isValid && event) {
@@ -164,11 +228,13 @@
         }
     }
 
-    // 防止页面缓存导致的状态问题
+    document.querySelector('#submit-btn-create-order').addEventListener('click', checkOrderTypeInput);
+
     window.addEventListener('pageshow', function(event) {
         if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
             window.location.reload();
         }
     });
 </script>
+
 {% endblock %}
