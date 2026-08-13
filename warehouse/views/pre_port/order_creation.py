@@ -1013,27 +1013,37 @@ class OrderCreation(View):
         # ---------- 公共字段（全部订单共用） ----------
         customer_text = request.POST.get("customer", "").strip()
         order_type = request.POST.get("order_type", "")
+        # 【公共：全局所属仓、直送地址，所有批量订单共用】
+        area_global = request.POST.get("area", "").strip()
+        destination_global = request.POST.get("destination", "").strip()
+
         etd_str = request.POST.get("etd")
         eta_str = request.POST.get("eta")
         created_at_str = request.POST.get("created_at")
 
-        # ---------- 获取多条明细数组 ----------
-        area_list = request.POST.getlist("items[][area]")
-        destination_list = request.POST.getlist("items[][destination]")
-        container_number_list = request.POST.getlist("items[][container_number]")
-        mbl_list = request.POST.getlist("items[][mbl]")
-        is_expiry_raw_list = request.POST.getlist("items[][is_expiry_guaranteed]")
-        note_list = request.POST.getlist("items[][note]")
+        # ========== 解析 items[N][key] 明细行（仅：container_number, mbl, is_expiry_guaranteed, note） ==========
+        def parse_items_post(post_data):
+            item_pattern = re.compile(r"^items\[(\d+)\]\[(\w+)\]$")
+            rows = {}
+            for key, value in post_data.items():
+                match = item_pattern.match(key)
+                if not match:
+                    continue
+                idx = int(match.group(1))
+                field = match.group(2)
+                if idx not in rows:
+                    rows[idx] = {}
+                if field == "is_expiry_guaranteed":
+                    rows[idx][field] = (value == "true")
+                else:
+                    rows[idx][field] = value.strip() if value else ""
+            sorted_rows = [rows[i] for i in sorted(rows.keys())]
+            return sorted_rows
 
-        count = len(container_number_list)
+        item_rows = parse_items_post(request.POST)
+        count = len(item_rows)
         if count <= 0:
             raise RuntimeError("请先生成明细表单！")
-
-        # checkbox补位：没勾选的不会返回，补齐False，保证所有列表长度一致
-        is_expiry_guaranteed_list = []
-        for idx in range(count):
-            val = is_expiry_raw_list[idx] if idx < len(is_expiry_raw_list) else None
-            is_expiry_guaranteed_list.append(True if val else False)
 
         # 日期解析函数
         def parse_date(date_str):
@@ -1050,24 +1060,23 @@ class OrderCreation(View):
 
         @sync_to_async
         def batch_create():
-            """同步函数，放在atomic事务中，全部成功提交，出错回滚"""
             with transaction.atomic():
-                for idx in range(count):
-                    # 安全取值：防止页面没有渲染该input导致列表长度不足
-                    area = area_list[idx] if idx < len(area_list) else ""
-                    destination = destination_list[idx] if idx < len(destination_list) else ""
-                    container_number_raw = container_number_list[idx].upper().strip()
-                    mbl = mbl_list[idx].strip() if idx < len(mbl_list) else ""
-                    is_expiry_guaranteed = is_expiry_guaranteed_list[idx]
-                    note = note_list[idx] if idx < len(note_list) else ""
+                try:
+                    customer_obj = Customer.objects.get(zem_name=customer_text)
+                except Customer.DoesNotExist:
+                    raise RuntimeError(f"客户【{customer_text}】不存在，请先维护客户档案")
 
-                    # 查找客户，注意：按名称查询，你要确认业务：客户名称是否唯一
-                    try:
-                        customer_obj = Customer.objects.get(zem_name=customer_text)
-                    except Customer.DoesNotExist:
-                        raise RuntimeError(f"客户【{customer_text}】不存在，请先维护客户档案")
+                for idx, row in enumerate(item_rows):
+                    # 明细行只取行内字段；area / destination 使用全局公共值
+                    container_number_raw = row.get("container_number", "").upper().strip()
+                    mbl = row.get("mbl", "").strip()
+                    is_expiry_guaranteed = row.get("is_expiry_guaranteed", False)
+                    note = row.get("note", "")
 
-                    # 柜号重复处理逻辑（每条独立校验）
+                    if not container_number_raw:
+                        raise RuntimeError(f"第{idx + 1}条，柜号不能为空")
+
+                    # 柜号重复处理
                     try:
                         existing_order = Order.objects.get(
                             container_number__container_number=container_number_raw
@@ -1085,7 +1094,6 @@ class OrderCreation(View):
                     if exists:
                         raise RuntimeError(f"第{idx + 1}条，Container {container_number_raw} exists!")
 
-                    # 生成各id
                     order_id = str(
                         uuid.uuid3(
                             uuid.NAMESPACE_DNS,
@@ -1098,44 +1106,32 @@ class OrderCreation(View):
                         uuid.uuid3(uuid.NAMESPACE_DNS, container_number_raw + (mbl or ""))
                     )
 
-                    # 保存集装箱
-                    container_data = {
-                        "container_number": container_number_raw,
-                        "is_expiry_guaranteed": is_expiry_guaranteed,
-                        "note": note,
-                    }
-                    container = Container(**container_data)
-                    container.save()
+                    container = Container.objects.create(
+                        container_number=container_number_raw,
+                        is_expiry_guaranteed=is_expiry_guaranteed,
+                        note=note,
+                    )
+                    vessel = Vessel.objects.create(
+                        vessel_id=vessel_id,
+                        master_bill_of_lading=mbl,
+                        vessel_etd=etd,
+                        vessel_eta=eta,
+                    )
 
-                    # 船舶
-                    vessel_data = {
-                        "vessel_id": vessel_id,
-                        "master_bill_of_lading": mbl,
-                        "vessel_etd": etd,
-                        "vessel_eta": eta,
-                    }
-                    vessel = Vessel(**vessel_data)
-                    vessel.save()
-
-                    # Retrieval
+                    # ✅ 使用全局公共 area_global / destination_global
                     retrieval_data = {
                         "retrieval_id": retrieval_id,
                         "retrieval_destination_area": (
-                            area if order_type in ("转运", "转运组合") else destination
+                            area_global if order_type in ("转运", "转运组合") else destination_global
                         ),
                     }
-                    retrieval = Retrieval(**retrieval_data)
-                    retrieval.save()
+                    retrieval = Retrieval.objects.create(**retrieval_data)
 
-                    # Offload
-                    offload_data = {
-                        "offload_id": offload_id,
-                        "offload_required": True if order_type in ("转运", "转运组合") else False,
-                    }
-                    offload = Offload(**offload_data)
-                    offload.save()
+                    offload = Offload.objects.create(
+                        offload_id=offload_id,
+                        offload_required=True if order_type in ("转运", "转运组合") else False,
+                    )
 
-                    # 订单保存
                     order_data = {
                         "order_id": order_id,
                         "customer_name": customer_obj,
@@ -1150,9 +1146,7 @@ class OrderCreation(View):
                     order = Order(**order_data)
                     order.save()
 
-        # 执行批量事务
         await batch_create()
-
         return await self.handle_order_basic_info_get()
 
     async def handle_update_order_basic_info_post(
