@@ -999,11 +999,10 @@
         })();
 
         function fleet_toggleColumn(columnIndex) {
-            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            const cells = document.querySelectorAll(`#fleet_cargoTable th[data-column="${columnIndex}"], #fleet_cargoTable .fleet-data-row td[data-column="${columnIndex}"]`);
             const checkbox = document.getElementById(`fleetCol${columnIndex}Checkbox`);
 
             cells.forEach(cell => {
-                // 先清除旧的类名，确保不会受影响
                 cell.classList.remove('hidden-column');
                 cell.classList.remove('selfpick-hidden-column');
                 cell.classList.toggle('fleet-hidden-column');
@@ -1019,15 +1018,13 @@
         // 从控制面板切换列
         function fleet_toggleColumnFromPanel(columnIndex, element) {
             const checkbox = element.querySelector('input[type="checkbox"]');
-            const cells = document.querySelectorAll(`[data-column="${columnIndex}"]`);
+            const cells = document.querySelectorAll(`#fleet_cargoTable th[data-column="${columnIndex}"], #fleet_cargoTable .fleet-data-row td[data-column="${columnIndex}"]`);
             cells.forEach(cell => {
-                // 先清除旧的类名
                 cell.classList.remove('hidden-column');
                 cell.classList.remove('selfpick-hidden-column');
                 cell.classList.toggle('fleet-hidden-column');
             });
 
-            // 根据列的实际显示状态同步勾选框，避免与浏览器原生点击(label for / checkbox)切换行为冲突导致状态被切换两次而不一致
             if (checkbox && cells.length > 0) {
                 checkbox.checked = !cells[0].classList.contains('fleet-hidden-column');
             }
@@ -1063,7 +1060,7 @@
 
         // 从localStorage加载列显示状态
         function fleet_loadColumnVisibility() {
-            const allCells = document.querySelectorAll('[data-column]');
+            const allCells = document.querySelectorAll('#fleet_cargoTable th[data-column], #fleet_cargoTable .fleet-data-row td[data-column]');
             allCells.forEach(cell => {
                 cell.classList.remove('hidden-column');
                 cell.classList.remove('selfpick-hidden-column');
@@ -1093,7 +1090,7 @@
                     if (!hasInvalidData) {
                         for (let i = 1; i <= 16; i++) {
                             const checkbox = document.getElementById(`fleetCol${i}Checkbox`);
-                            const cells = document.querySelectorAll(`[data-column="${i}"]`);
+                            const cells = document.querySelectorAll(`#fleet_cargoTable th[data-column="${i}"], #fleet_cargoTable .fleet-data-row td[data-column="${i}"]`);
                             if (checkbox && visibility.hasOwnProperty(i)) {
                                 checkbox.checked = visibility[i];
                                 cells.forEach(cell => {
@@ -1236,7 +1233,7 @@
             fleet_updateSelectedCount();
         }
 
-        // 组合筛选函数
+        // 组合筛选函数 - 使用data-column属性精确查找单元格
         function fleet_applyCombinedFilter() {
             const rows = document.querySelectorAll('#fleet_cargoTable .fleet-data-row');
             let visibleCount = 0;
@@ -1250,8 +1247,8 @@
                         continue;
                     }
                     
-                    const idx = parseInt(columnIndex);
-                    const cell = row.cells[idx + 1];
+                    const targetCol = parseInt(columnIndex) + 1;
+                    const cell = row.querySelector(`td[data-column="${targetCol}"]`);
                     let cellValue = '';
                     
                     if (cell) {
