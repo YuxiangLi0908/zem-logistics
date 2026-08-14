@@ -709,6 +709,8 @@ class PostNsop(View):
             return await self.export_ltl_label(request)
         elif step == "export_ltl_bol":
             return await self.export_ltl_bol(request)
+        elif step == "download_ltl_other_file":
+            return await self.download_ltl_other_file(request)
         elif step == "upload_self_pickup_file":
             return await self.handle_bol_upload_post(request)
         elif step == "save_shipping_tracking":
@@ -5353,6 +5355,62 @@ class PostNsop(View):
             return HttpResponse(
                 f"<script>alert('系统错误: {str(e)}');history.back();</script>",
             )
+
+    async def download_ltl_other_file(self, request: HttpRequest) -> HttpResponse:
+        """下载LTL其他文件（已在上传时处理，直接返回）"""
+        fleet_number = request.POST.get("fleet_number") or request.GET.get("fleet_number")
+        if not fleet_number:
+            return HttpResponse("缺少车次号参数", status=400)
+
+        shipment = await sync_to_async(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).first
+        )()
+        if not shipment or not shipment.ltl_other_file_link:
+            return HttpResponse("未找到其他文件", status=404)
+
+        file_link = shipment.ltl_other_file_link
+
+        file_bytes = None
+        file_ext = ""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(file_link, allow_redirects=True) as resp:
+                    if resp.status == 200:
+                        file_bytes = await resp.read()
+                        content_type = resp.headers.get('Content-Type', '')
+                        if 'pdf' in content_type:
+                            file_ext = '.pdf'
+                        elif 'zip' in content_type:
+                            file_ext = '.zip'
+                        else:
+                            url_path = file_link.split('?')[0]
+                            if '.' in url_path:
+                                file_ext = os.path.splitext(url_path)[1].lower()
+                    else:
+                        return HttpResponse(f"下载文件失败: HTTP {resp.status}", status=500)
+        except Exception as e:
+            return HttpResponse(f"下载文件异常: {str(e)}", status=500)
+
+        if not file_bytes:
+            return HttpResponse("文件为空", status=400)
+
+        file_name = f"{shipment.shipment_batch_number}{file_ext}"
+        mime_map = {
+            '.pdf': 'application/pdf',
+            '.zip': 'application/zip',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.xls': 'application/vnd.ms-excel',
+            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.txt': 'text/plain',
+        }
+        mime_type = mime_map.get(file_ext, 'application/octet-stream')
+        response = HttpResponse(file_bytes, content_type=mime_type)
+        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+        return response
 
     async def export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         '''新功能LTL的LABEL文件下载'''
