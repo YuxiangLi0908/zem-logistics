@@ -468,6 +468,30 @@
         transition: background-color 0.2s;
     }
     .fleet-delivery-method-col { min-width: 130px; }
+    .fleet-container-col {
+        min-width: 200px;
+        max-width: 260px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
+    .fleet-item-name-col {
+        min-width: 200px;
+        max-width: 280px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
+    .fleet-item-model-col {
+        min-width: 180px;
+        max-width: 240px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
 </style>
 
 <div id="fleet-page">
@@ -577,9 +601,9 @@
                     </th>
                     <th class="fleet-customer-col" data-column="1">客户<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(1)">×</span></th>
                     <th class="fleet-delivery-method-col" data-column="2">派送方式<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(2)">×</span></th>
-                    <th data-column="4">柜号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(4)">×</span></th>
-                    <th data-column="5">商品型号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th>
-                    <th data-column="6">商品类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(6)">×</span></th>
+                    <th class="fleet-container-col" data-column="4">柜号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(4)">×</span></th>
+                    <th class="fleet-item-name-col" data-column="5">商品型号<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(5)">×</span></th>
+                    <th class="fleet-item-model-col" data-column="6">商品类型<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(6)">×</span></th>
                     <th class="fleet-mark-col" data-column="7">唛头<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(7)">×</span></th>
                     <th class="fleet-address-col" data-column="8">地址<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(8)">×</span></th>
                     <th class="fleet-note-col" data-column="9">备注<span class="fleet-hide-column-btn" onclick="fleet_toggleColumn(9)">×</span></th>
@@ -658,13 +682,13 @@
                     <td data-column="2">
                         <input type="text" class="fleet-filter-input" placeholder="筛选派送..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
                     </td> 
-                    <td data-column="4">
+                    <td class="fleet-container-col" data-column="4">
                         <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="3" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td data-column="5">
+                    <td class="fleet-item-name-col" data-column="5">
                         <input type="text" class="fleet-filter-input" placeholder="筛选商品型号..." data-column="4" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
-                    <td data-column="6">
+                    <td class="fleet-item-model-col" data-column="6">
                         <input type="text" class="fleet-filter-input" placeholder="筛选商品类型..." data-column="5" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-mark-col" data-column="7">
@@ -703,6 +727,7 @@
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-dropship-cargo-id="{{ cargo.ids }}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
+                    data-delivery-method="{{ cargo.delivery_method|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}"
                     data-item-name="{{ cargo.dropshipping_item_name|default:'' }}"
@@ -713,6 +738,7 @@
                     data-pallets="{{ cargo.pallets|default:0 }}"
                     data-address="{{ cargo.address|default:'' }}"
                     data-note="{{ cargo.note|default:'' }}"
+                    data-weight-kg="{{ cargo.total_weight_kg|default:0 }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}">
                     <td class="fleet-checkbox-cell" data-column="0">
                         <input type="checkbox" class="fleet-cargo-checkbox" 
@@ -730,8 +756,8 @@
                     <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}" data-column="4">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
-                    <td data-column="5">{{ cargo.dropshipping_item_name|default:"-" }}</td>
-                    <td data-column="6">{{ cargo.dropshipping_item_model_number|default:"-" }}</td>
+                    <td class="fleet-item-name-col" data-column="5">{{ cargo.dropshipping_item_name|default:"-" }}</td>
+                    <td class="fleet-item-model-col" data-column="6">{{ cargo.dropshipping_item_model_number|default:"-" }}</td>
                     <td class="fleet-mark-col" data-column="7">
                         {{ cargo.shipping_marks|default:"-" }}
                     </td>
@@ -1233,7 +1259,7 @@
             fleet_updateSelectedCount();
         }
 
-        // 组合筛选函数 - 使用data-column属性精确查找单元格
+        // 组合筛选函数 - 双重匹配：先按td[data-column]查找，fallback用TR的data-*属性
         function fleet_applyCombinedFilter() {
             const rows = document.querySelectorAll('#fleet_cargoTable .fleet-data-row');
             let visibleCount = 0;
@@ -1247,22 +1273,55 @@
                         continue;
                     }
                     
-                    const targetCol = parseInt(columnIndex) + 1;
-                    const cell = row.querySelector(`td[data-column="${targetCol}"]`);
+                    const idx = parseInt(columnIndex);
+                    const searchVal = filterValue.toLowerCase();
                     let cellValue = '';
+                    let foundCell = false;
                     
+                    // 1. 优先：通过 td[data-column] 属性查找
+                    const targetCol = idx + 1;
+                    const cell = row.querySelector(`td[data-column="${targetCol}"]`);
                     if (cell) {
+                        foundCell = true;
                         const inputElement = cell.querySelector('input, textarea');
                         if (inputElement) {
                             cellValue = inputElement.value.toLowerCase().trim();
                         } else {
-                            cellValue = cell.textContent.toLowerCase().trim();
+                            const selectElement = cell.querySelector('select');
+                            if (selectElement && selectElement.options[selectElement.selectedIndex]) {
+                                cellValue = (selectElement.value + ' ' + selectElement.options[selectElement.selectedIndex].text).toLowerCase().trim();
+                            } else {
+                                cellValue = cell.textContent.toLowerCase().trim();
+                            }
                         }
-                        
-                        if (!cellValue.includes(filterValue.toLowerCase())) {
-                            match = false;
-                            break;
+                    }
+                    
+                    // 2. Fallback：通过TR的data-*属性直接取值（兼容服务器端渲染差异）
+                    if (!foundCell) {
+                        const dataMap = {
+                            0: row.dataset.customer || '',
+                            1: row.dataset.deliveryMethod || '',
+                            3: row.dataset.containerNumber || '',
+                            4: row.dataset.itemName || '',
+                            5: row.dataset.itemModel || '',
+                            6: row.dataset.shippingMark || '',
+                            7: row.dataset.address || '',
+                            8: row.dataset.note || '',
+                            9: row.dataset.cbm || '',
+                            11: row.dataset.pcs || '',
+                            12: row.dataset.weightKg || '',
+                            13: row.dataset.weightLbs || '',
+                            14: row.dataset.pallets || '',
+                        };
+                        if (dataMap[idx] !== undefined) {
+                            cellValue = String(dataMap[idx]).toLowerCase().trim();
+                            foundCell = true;
                         }
+                    }
+                    
+                    if (!foundCell || !cellValue.includes(searchVal)) {
+                        match = false;
+                        break;
                     }
                 }
                 
