@@ -603,22 +603,32 @@
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                     {% if fleet_group.has_other_file %}
-                                                        <div class="other-file-upload" 
-                                                             data-fleet-number="{{ fleet_group.fleet_number }}"
-                                                             style="border: 2px solid #28a745; 
-                                                                    background-color: #d4edda;
-                                                                    border-radius: 8px; 
-                                                                    padding: 10px; 
-                                                                    text-align: center; 
-                                                                    cursor: pointer;
-                                                                    min-width: 100px;"
-                                                             ondragover="event.preventDefault(); this.style.borderColor='#155724';"
-                                                             ondragleave="this.style.borderColor='#28a745';"
-                                                             ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#28a745';"
-                                                             onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
-                                                            <i class="fas fa-check-circle" style="font-size: 1.2rem; color: #28a745;"></i>
-                                                            <div style="font-size: 0.75rem; color: #155724; margin-top: 4px;">已上传</div>
-                                                            <div style="font-size: 0.65rem; color: #2d5a27; margin-top: 2px;">点击可重新上传</div>
+                                                        <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                                                            <div class="other-file-upload" 
+                                                                 data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                                 style="border: 2px solid #28a745; 
+                                                                        background-color: #d4edda;
+                                                                        border-radius: 8px; 
+                                                                        padding: 8px; 
+                                                                        text-align: center; 
+                                                                        cursor: pointer;
+                                                                        min-width: 100px;"
+                                                                 ondragover="event.preventDefault(); this.style.borderColor='#155724';"
+                                                                 ondragleave="this.style.borderColor='#28a745';"
+                                                                 ondrop="handleOtherFileDrop(event, '{{ fleet_group.fleet_number }}'); this.style.borderColor='#28a745';"
+                                                                 onclick="handleOtherFileClick('{{ fleet_group.fleet_number }}')">
+                                                                <i class="fas fa-check-circle" style="font-size: 1rem; color: #28a745;"></i>
+                                                                <div style="font-size: 0.7rem; color: #155724; margin-top: 2px;">已上传</div>
+                                                            </div>
+                                                            <form method="post" action="{% url 'postdrop' %}" target="_blank" style="margin: 0;">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="step" value="download_ltl_other_file">
+                                                                <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                <button type="submit" style="background: #9c27b0; color: white; border: none; border-radius: 6px; padding: 4px 10px; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                                                                    <i class="fas fa-download"></i> 下载
+                                                                </button>
+                                                            </form>
                                                         </div>
                                                     {% else %}
                                                         <div class="other-file-upload" 

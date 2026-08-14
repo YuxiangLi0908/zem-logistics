@@ -55,10 +55,11 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from PIL import Image
-from PyPDF2 import PdfMerger, PdfReader
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from simple_history.utils import bulk_update_with_history
 from xhtml2pdf import pisa
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
+import zipfile
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -5790,30 +5791,141 @@ class FleetManagement(View):
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
 
+    async def _generate_pickup_list_pdf(self, fleet_number: str) -> bytes:
+        """生成拣货单PDF（Pickup List）字节内容，与BOL中的拣货单内容一致"""
+        fleet = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).first
+        )()
+        if not fleet:
+            return b""
+
+        arm_pickup = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number__container_number",
+                "shipment_batch_number__fleet_number",
+            )
+            .filter(shipment_batch_number__fleet_number=fleet)
+            .values(
+                "container_number__container_number",
+                "shipping_mark",
+                "destination",
+                "shipment_batch_number__fleet_number__carrier",
+                "shipment_batch_number__pickup_time",
+                "slot",
+            )
+            .annotate(
+                total_pcs=Sum("pcs"),
+                total_pallet=models.Count("pallet_id", distinct=True),
+            )
+            .order_by("destination", "container_number__container_number")
+        )()
+
+        # 处理shipping_mark：逗号换行
+        for arm in arm_pickup:
+            marks = arm.get("shipping_mark", "") or ""
+            if marks:
+                arm["shipping_mark"] = marks.replace(",", "\n")
+
+        context = {
+            "warehouse": "",
+            "arm_pickup": arm_pickup,
+            "notes": "",
+            "pickup_attachments": [],
+            "pickup_has_pdf": False,
+            "container_number": "",
+            "shipping_mark": "",
+            "show_containers": True,
+        }
+        template = get_template("export_file/ltl_bol.html")
+        html = template.render(context)
+        pdf_buf = io.BytesIO()
+        pisa.CreatePDF(html, dest=pdf_buf, link_callback=None)
+        pdf_buf.seek(0)
+        return pdf_buf.getvalue()
+
     async def _upload_ltl_other_file_to_sharepoint(
         self, conn, fleet_number: str, file
     ) -> None:
-        '''ltl 上传第三份文件到云盘'''
+        '''ltl 上传第三份文件到云盘（上传时自动追加拣货单）'''
         shipment = await sync_to_async(Shipment.objects.get)(
             fleet_number__fleet_number=fleet_number
         )
         shipment_batch_number = shipment.shipment_batch_number
         file_extension = os.path.splitext(file.name)[1]  # 提取扩展名
-        # 文档库名称，系统文件夹名称，当前环境
-        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/ltl_other_file/{APP_ENV}")
-          
+        
+        file_bytes = file.read() if hasattr(file, 'read') else file
+        if isinstance(file_bytes, str):
+            file_bytes = file_bytes.encode('latin-1')
+        
+        pickup_pdf_bytes = await self._generate_pickup_list_pdf(fleet_number)
+        
+        is_pdf = file_extension.lower() == '.pdf' or (len(file_bytes) >= 4 and file_bytes[:4] == b'%PDF')
+        is_zip = file_extension.lower() == '.zip' or (len(file_bytes) >= 2 and file_bytes[:2] == b'PK')
+        
+        final_bytes = file_bytes
+        temp_ext = file_extension
+        
+        if pickup_pdf_bytes:
+            if is_pdf:
+                try:
+                    base_reader = PdfReader(io.BytesIO(file_bytes))
+                    pickup_reader = PdfReader(io.BytesIO(pickup_pdf_bytes))
+                    merger = PdfMerger()
+                    merger.append(io.BytesIO(file_bytes))
+                    
+                    pickup_pages = pickup_reader.pages
+                    start_idx = None
+                    for idx, page in enumerate(pickup_reader.pages):
+                        txt = page.extract_text() or ""
+                        if "Pickup List" in txt:
+                            start_idx = idx
+                            break
+                    pickup_pages = pickup_reader.pages[start_idx:] if start_idx is not None else pickup_reader.pages
+                    
+                    for pg in pickup_pages:
+                        out = PdfWriter()
+                        out.add_page(pg)
+                        tmp = io.BytesIO()
+                        out.write(tmp)
+                        tmp.seek(0)
+                        merger.append(PdfReader(tmp))
+                    
+                    out_all = io.BytesIO()
+                    merger.write(out_all)
+                    out_all.seek(0)
+                    final_bytes = out_all.getvalue()
+                except Exception:
+                    pass
+            
+            elif is_zip:
+                try:
+                    zip_buf = io.BytesIO()
+                    with zipfile.ZipFile(io.BytesIO(file_bytes), 'r') as zf_in:
+                        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf_out:
+                            for item in zf_in.infolist():
+                                zf_out.writestr(item, zf_in.read(item.filename))
+                            pickup_filename = f"拣货单_{shipment_batch_number}.pdf"
+                            zf_out.writestr(pickup_filename, pickup_pdf_bytes)
+                    zip_buf.seek(0)
+                    final_bytes = zip_buf.getvalue()
+                except Exception:
+                    pass
+        
         # 上传到SharePoint
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/ltl_other_file/{APP_ENV}")
+        upload_file = io.BytesIO(final_bytes)
         try:
             sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
             resp = sp_folder.upload_file(
-                f"{shipment_batch_number}{file_extension}", file
+                f"{shipment_batch_number}{temp_ext}", upload_file
             ).execute_query()
         except:
             conn = await self._get_sharepoint_auth()
             sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
             resp = sp_folder.upload_file(
-                f"{shipment_batch_number}{file_extension}", file
+                f"{shipment_batch_number}{temp_ext}", upload_file
             ).execute_query()
+        
         # 生成并获取链接
         link = (
             resp.share_link(SharingLinkKind.AnonymousView)
