@@ -5818,7 +5818,7 @@ class FleetManagement(View):
                 total_pallet=models.Count("pallet_id", distinct=True),
             )
             .order_by("destination", "container_number__container_number")
-        )()
+        )
 
         # 处理shipping_mark：逗号换行
         for arm in arm_pickup:
