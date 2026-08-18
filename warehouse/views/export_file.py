@@ -796,8 +796,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
             )
             .order_by(
-                "destination",
-                "custom_delivery_method",
                 "-cbm",
             )
         )
@@ -1061,8 +1059,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
             )
             .order_by(
-                "destination",
-                "custom_delivery_method",
                 "-cbm",
             )
         )
