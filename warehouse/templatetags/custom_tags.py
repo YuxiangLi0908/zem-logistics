@@ -101,7 +101,7 @@ def _render_amazon_details(details):
 def _render_combina_details(details):
     """渲染组合柜详情"""
     html = '<table class="table" style="width: 100%; border-collapse: collapse; font-size: 15px;">'
-    html += '<thead style="background: #bbf7d0;"><tr><th style="padding: 12px; border: 1px solid #86efac; width: 25%;">区域</th><th style="padding: 12px; border: 1px solid #86efac; width: 35%;">价格</th><th style="padding: 12px; border: 1px solid #86efac; width: 40%;">仓点</th></tr></thead>'
+    html += '<thead style="background: #bbf7d0;"><tr><th style="padding: 12px; border: 1px solid #86efac; width: 22%;">区域</th><th style="padding: 12px; border: 1px solid #86efac; width: 28%;">价格</th><th style="padding: 12px; border: 1px solid #86efac; width: 35%;">仓点</th><th style="padding: 12px; border: 1px solid #86efac; width: 15%;">是否可以超区</th></tr></thead>'
     html += '<tbody>'
     
     for region, groups in details.items():
@@ -109,8 +109,11 @@ def _render_combina_details(details):
         for group in groups:
             prices = group.get("prices", [])
             locations = group.get("location", [])
+            no_cross_zone = group.get("no_cross_zone", "否")
             price_str = ", ".join(str(p) for p in prices) if prices else ""
             location_str = ", ".join(locations) if locations else ""
+            no_cross_display = "是" if no_cross_zone == "是" else "否"
+            no_cross_color = "#16a34a" if no_cross_zone == "是" else "#6b7280"
             
             html += '<tr>'
             if first_row:
@@ -118,6 +121,7 @@ def _render_combina_details(details):
                 first_row = False
             html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; word-wrap: break-word;">{price_str}</td>'
             html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; word-wrap: break-word;">{location_str}</td>'
+            html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; text-align: center;"><span style="color: {no_cross_color}; font-weight: 600;">{no_cross_display}</span></td>'
             html += '</tr>'
     
     html += '</tbody></table>'
