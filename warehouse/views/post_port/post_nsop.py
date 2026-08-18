@@ -101,7 +101,8 @@ from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
-    DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE
+    DELIVERY_METHOD_OPTIONS, DELIVERY_METHOD_CODE,
+    SP_DOC_LIB, SYSTEM_FOLDER, APP_ENV, SP_SITE
 )
 
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
@@ -5357,7 +5358,7 @@ class PostNsop(View):
             )
 
     async def download_ltl_other_file(self, request: HttpRequest) -> HttpResponse:
-        """下载LTL其他文件（已在上传时处理，直接返回）"""
+        """下载LTL其他文件 - 通过SharePoint CSOM直接下载"""
         fleet_number = request.POST.get("fleet_number") or request.GET.get("fleet_number")
         if not fleet_number:
             return HttpResponse("缺少车次号参数", status=400)
@@ -5368,49 +5369,55 @@ class PostNsop(View):
         if not shipment or not shipment.ltl_other_file_link:
             return HttpResponse("未找到其他文件", status=404)
 
-        file_link = shipment.ltl_other_file_link
-
-        file_bytes = None
-        file_ext = ""
+        fm = FleetManagement()
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(file_link, allow_redirects=True) as resp:
-                    if resp.status == 200:
-                        file_bytes = await resp.read()
-                        content_type = resp.headers.get('Content-Type', '')
-                        if 'pdf' in content_type:
-                            file_ext = '.pdf'
-                        elif 'zip' in content_type:
-                            file_ext = '.zip'
-                        else:
-                            url_path = file_link.split('?')[0]
-                            if '.' in url_path:
-                                file_ext = os.path.splitext(url_path)[1].lower()
-                    else:
-                        return HttpResponse(f"下载文件失败: HTTP {resp.status}", status=500)
+            conn = await fm._get_sharepoint_auth()
+            folder_path = f"/{SP_DOC_LIB}/{SYSTEM_FOLDER}/ltl_other_file/{APP_ENV}"
+            sp_folder = conn.web.get_folder_by_server_relative_url(folder_path)
+            files = sp_folder.files
+            conn.load(files)
+            conn.execute_query()
+
+            file_bytes = None
+            target_file_name = None
+            shipment_batch = shipment.shipment_batch_number
+
+            for f in files:
+                if f.name.startswith(shipment_batch):
+                    target_file_name = f.name
+                    file_path = f"{folder_path}/{f.name}"
+                    file_response = conn.web.get_file_by_server_relative_url(file_path).download(
+                        io.BytesIO()
+                    )
+                    conn.execute_query()
+                    file_bytes = file_response.content
+                    break
+
+            if not file_bytes:
+                return HttpResponse("未找到对应的文件", status=404)
+
+            file_ext = os.path.splitext(target_file_name)[1].lower() if target_file_name else ""
+            file_name = f"{shipment_batch}{file_ext}"
+
+            mime_map = {
+                '.pdf': 'application/pdf',
+                '.zip': 'application/zip',
+                '.doc': 'application/msword',
+                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                '.xls': 'application/vnd.ms-excel',
+                '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.txt': 'text/plain',
+            }
+            mime_type = mime_map.get(file_ext, 'application/octet-stream')
+            response = HttpResponse(file_bytes, content_type=mime_type)
+            response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+            return response
         except Exception as e:
+            traceback.print_exc()
             return HttpResponse(f"下载文件异常: {str(e)}", status=500)
-
-        if not file_bytes:
-            return HttpResponse("文件为空", status=400)
-
-        file_name = f"{shipment.shipment_batch_number}{file_ext}"
-        mime_map = {
-            '.pdf': 'application/pdf',
-            '.zip': 'application/zip',
-            '.doc': 'application/msword',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            '.xls': 'application/vnd.ms-excel',
-            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-            '.txt': 'text/plain',
-        }
-        mime_type = mime_map.get(file_ext, 'application/octet-stream')
-        response = HttpResponse(file_bytes, content_type=mime_type)
-        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
-        return response
 
     async def export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         '''新功能LTL的LABEL文件下载'''
