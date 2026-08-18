@@ -5,6 +5,7 @@ import zipfile
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 
 import openpyxl
 import yaml
@@ -1069,7 +1070,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            # 删掉destination、custom_delivery_method，只按原始体积降序
             .order_by("-raw_cbm")
         )
         existing_po = {
@@ -1092,13 +1092,12 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                         "note": pl["note"],
                         "PO_ID": pl["PO_ID"],
                         "cbm": 0,
-                        "raw_cbm": 0,  # 必须带上raw_cbm，后面sort要用
+                        "raw_cbm": 0,
                         "pcs": 0,
                         "n_pallet": 0,
                     }
                 )
 
-        # ==========关键：合并完成之后整体内存排序，模拟基准分支的输出顺序==========
         packing_list.sort(key=lambda x: -(x["raw_cbm"] or 0))
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
@@ -1108,16 +1107,30 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     df = df.rename(
         {
             "container_number__container_number": "container_number",
-            "custom_delivery_method": "delivery_method",
             "fba_ids": "fba_id",
             "ref_ids": "ref_id",
             "shipping_marks": "shipping_mark",
         },
         axis=1,
     )
-    df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0] if pd.notna(x) else x)
 
-    # 全部统一按cbm降序导出，不再对LA做destination二次排序，保护ORM+内存排序结果
+    if "custom_delivery_method" in df.columns:
+        df["delivery_method_final"] = df["custom_delivery_method"].where(
+            df["custom_delivery_method"].notna(), df["delivery_method"]
+        )
+    else:
+        df["delivery_method_final"] = df["delivery_method"]
+
+    def split_delivery(v):
+        if pd.isna(v):
+            return v
+        if isinstance(v, str):
+            return v.split("-")[0]
+        return v
+
+    df["delivery_method"] = df["delivery_method_final"].apply(split_delivery)
+
+    # 全部统一按cbm降序导出
     df = df.sort_values(
         by=["cbm"],
         ascending=[False],
@@ -1179,7 +1192,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response["Content-Disposition"] = f"attachment; filename={container_number}.xlsx"
+    filename_encoded = quote(f"{container_number}.xlsx")
+    response["Content-Disposition"] = f"attachment; filename*=utf-8''{filename_encoded}"
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
     return response
 
