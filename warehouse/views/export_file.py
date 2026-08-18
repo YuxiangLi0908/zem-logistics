@@ -779,6 +779,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "note",
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
+                "delivery_type",
+                "delivery_method"
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -796,8 +798,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
             )
             .order_by(
-                "destination",
-                "custom_delivery_method",
                 "-cbm",
             )
         )
@@ -1044,6 +1044,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "note",
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
+                "delivery_type",
+                "delivery_method"
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -1061,8 +1063,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
             )
             .order_by(
-                "destination",
-                "custom_delivery_method",
                 "-cbm",
             )
         )
