@@ -450,10 +450,16 @@ class QuoteManagement(View):
 
     # 这个表格要求两个价格列不能出现别的内容，只有价格，每个价格组之间有至少一个空行
     def process_nj_combina_sheet(self, df, file, quote):
+        # 查找"是否不能超区"列
+        no_cross_col_idx = None
+        if "是否不能超区" in df.columns:
+            no_cross_col_idx = df.columns.get_loc("是否不能超区")
+
         result = {}
         group = []
         current_region = None
         current_prices = None
+        current_no_cross_zone = "否"  # 默认值
         niche_warehouse = set()
         for index, row in df.iterrows():
             cell_value = str(row.iloc[5])
@@ -467,6 +473,7 @@ class QuoteManagement(View):
                         {
                             "prices": current_prices,
                             "location": self.extract_locations(group),
+                            "no_cross_zone": current_no_cross_zone,
                         }
                     )
                     group = []
@@ -478,6 +485,15 @@ class QuoteManagement(View):
                     current_prices = [row.iloc[3], row.iloc[3]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
+                # 读取"是否不能超区"值
+                if no_cross_col_idx is not None:
+                    val = row.iloc[no_cross_col_idx]
+                    if pd.notna(val) and str(val).strip() == "是":
+                        current_no_cross_zone = "是"
+                    else:
+                        current_no_cross_zone = "否"
+                else:
+                    current_no_cross_zone = "否"
             elif pd.notna(row.iloc[1]):  # 没有价格但是有仓库，就只记录仓库
                 group.append(row.iloc[1])
             elif all(pd.isna(row.iloc[i]) for i in range(0, 5)):  # 空行，就记录上一组
@@ -488,6 +504,7 @@ class QuoteManagement(View):
                         {
                             "prices": current_prices,
                             "location": self.extract_locations(group),
+                            "no_cross_zone": current_no_cross_zone,
                         }
                     )
                     group = []  # 重置仓库组
@@ -496,7 +513,11 @@ class QuoteManagement(View):
             if current_region not in result:
                 result[current_region] = []
             result[current_region].append(
-                {"prices": current_prices, "location": self.extract_locations(group)}
+                {
+                    "prices": current_prices,
+                    "location": self.extract_locations(group),
+                    "no_cross_zone": current_no_cross_zone,
+                }
             )
         niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
@@ -536,10 +557,16 @@ class QuoteManagement(View):
         fee_detail.save()
 
     def process_la_combina_new_sheet(self, df, file, quote):
+        # 查找"是否不能超区"列
+        no_cross_col_idx = None
+        if "是否不能超区" in df.columns:
+            no_cross_col_idx = df.columns.get_loc("是否不能超区")
+
         result = {}
         group = []
         region = None
         current_prices = None
+        current_no_cross_zone = "否"  # 默认值
         for index, row in df.iloc[1:].iterrows():
             if pd.notna(row.iloc[1]):
                 if (
@@ -560,6 +587,7 @@ class QuoteManagement(View):
                             {
                                 "prices": current_prices,
                                 "location": new_group,
+                                "no_cross_zone": current_no_cross_zone,
                             }
                         )
                         group = []
@@ -570,6 +598,15 @@ class QuoteManagement(View):
                     current_prices = [row.iloc[2], row.iloc[3], row.iloc[4]]
                     group_partial = row.iloc[1].replace("\n", "/").split("/")
                     group.extend(group_partial)
+                    # 读取"是否不能超区"值
+                    if no_cross_col_idx is not None:
+                        val = row.iloc[no_cross_col_idx]
+                        if pd.notna(val) and str(val).strip() == "是":
+                            current_no_cross_zone = "是"
+                        else:
+                            current_no_cross_zone = "否"
+                    else:
+                        current_no_cross_zone = "否"
                 else:  # 如果这一行的价格已记录，直接加仓库代码就可以
                     group_partial = row.iloc[1].replace("\n", "/").split("/")
                     group.extend(group_partial)
@@ -578,7 +615,11 @@ class QuoteManagement(View):
             if region not in result:
                 result[region] = []
             result[region].append(
-                {"prices": current_prices, "location": self.extract_locations(group)}
+                {
+                    "prices": current_prices,
+                    "location": self.extract_locations(group),
+                    "no_cross_zone": current_no_cross_zone,
+                }
             )
 
         # 创建 FeeDetail 记录
@@ -592,11 +633,17 @@ class QuoteManagement(View):
         fee_detail.save()
 
     def process_la_combina_sheet(self, df, file, quote):
+        # 查找"是否不能超区"列
+        no_cross_col_idx = None
+        if "是否不能超区" in df.columns:
+            no_cross_col_idx = df.columns.get_loc("是否不能超区")
+
         result = {}
         group = []
         niche_warehouse = set()
         region = None
         current_prices = None
+        current_no_cross_zone = "否"  # 默认值
         for index, row in df.iloc[1:].iterrows():
             if pd.notna(row.iloc[5]) and pd.notna(
                 row.iloc[6]
@@ -610,6 +657,7 @@ class QuoteManagement(View):
                         {
                             "prices": current_prices,
                             "location": self.extract_locations(group),
+                            "no_cross_zone": current_no_cross_zone,
                         }
                     )
                     group = []
@@ -619,6 +667,15 @@ class QuoteManagement(View):
                 )  # A区B区这种是外键
                 current_prices = [row.iloc[5], row.iloc[6]]
                 group.extend(row.iloc[i] for i in range(2, 5) if pd.notna(row.iloc[i]))
+                # 读取"是否不能超区"值
+                if no_cross_col_idx is not None:
+                    val = row.iloc[no_cross_col_idx]
+                    if pd.notna(val) and str(val).strip() == "是":
+                        current_no_cross_zone = "是"
+                    else:
+                        current_no_cross_zone = "否"
+                else:
+                    current_no_cross_zone = "否"
             else:  # 如果这一行的价格已记录，直接加仓库代码就可以
                 group.extend(row.iloc[i] for i in range(2, 5) if pd.notna(row.iloc[i]))
                 if pd.notna(row.iloc[1]):
@@ -632,7 +689,11 @@ class QuoteManagement(View):
             if region not in result:
                 result[region] = []
             result[region].append(
-                {"prices": current_prices, "location": self.extract_locations(group)}
+                {
+                    "prices": current_prices,
+                    "location": self.extract_locations(group),
+                    "no_cross_zone": current_no_cross_zone,
+                }
             )
         niche_warehouse = self.extract_locations(niche_warehouse)
 
@@ -689,10 +750,16 @@ class QuoteManagement(View):
         fee_detail.save()
 
     def process_sav_combina_sheet(self, df, file, quote):
+        # 查找"是否不能超区"列
+        no_cross_col_idx = None
+        if "是否不能超区" in df.columns:
+            no_cross_col_idx = df.columns.get_loc("是否不能超区")
+
         result = {}
         group = []
         current_region = None
         current_prices = None
+        current_no_cross_zone = "否"  # 默认值
         niche_warehouse = set()
         for index, row in df.iterrows():
             cell_value = str(row.iloc[5])
@@ -706,6 +773,7 @@ class QuoteManagement(View):
                         {
                             "prices": current_prices,
                             "location": self.extract_locations(group),
+                            "no_cross_zone": current_no_cross_zone,
                         }
                     )
                     group = []
@@ -717,6 +785,15 @@ class QuoteManagement(View):
                     current_prices = [row.iloc[3], row.iloc[3]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
+                # 读取"是否不能超区"值
+                if no_cross_col_idx is not None:
+                    val = row.iloc[no_cross_col_idx]
+                    if pd.notna(val) and str(val).strip() == "是":
+                        current_no_cross_zone = "是"
+                    else:
+                        current_no_cross_zone = "否"
+                else:
+                    current_no_cross_zone = "否"
             elif pd.notna(row.iloc[1]):  # 没有价格但是有仓库，就只记录仓库
                 group.append(row.iloc[1])
             elif all(pd.isna(row.iloc[i]) for i in range(0, 5)):  # 空行，就记录上一组
@@ -727,6 +804,7 @@ class QuoteManagement(View):
                         {
                             "prices": current_prices,
                             "location": self.extract_locations(group),
+                            "no_cross_zone": current_no_cross_zone,
                         }
                     )
                     group = []  # 重置仓库组
@@ -735,7 +813,11 @@ class QuoteManagement(View):
             if current_region not in result:
                 result[current_region] = []
             result[current_region].append(
-                {"prices": current_prices, "location": self.extract_locations(group)}
+                {
+                    "prices": current_prices,
+                    "location": self.extract_locations(group),
+                    "no_cross_zone": current_no_cross_zone,
+                }
             )
         niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
