@@ -101,7 +101,7 @@ def _render_amazon_details(details):
 def _render_combina_details(details):
     """渲染组合柜详情"""
     html = '<table class="table" style="width: 100%; border-collapse: collapse; font-size: 15px;">'
-    html += '<thead style="background: #bbf7d0;"><tr><th style="padding: 12px; border: 1px solid #86efac; width: 22%;">区域</th><th style="padding: 12px; border: 1px solid #86efac; width: 28%;">价格</th><th style="padding: 12px; border: 1px solid #86efac; width: 35%;">仓点</th><th style="padding: 12px; border: 1px solid #86efac; width: 15%;">是否可以超区</th></tr></thead>'
+    html += '<thead style="background: #bbf7d0;"><tr><th style="padding: 12px; border: 1px solid #86efac; width: 22%;">区域</th><th style="padding: 12px; border: 1px solid #86efac; width: 28%;">价格</th><th style="padding: 12px; border: 1px solid #86efac; width: 35%;">仓点</th><th style="padding: 12px; border: 1px solid #86efac; width: 15%;">是否不能超区</th></tr></thead>'
     html += '<tbody>'
     
     for region, groups in details.items():
