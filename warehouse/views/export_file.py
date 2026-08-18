@@ -770,6 +770,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             )
             .values(
+                # 和基准分支对齐，补齐字段
                 "container_number__container_number",
                 "destination",
                 "address",
@@ -778,9 +779,13 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "custom_delivery_method",
                 "note",
                 "shipment_batch_number__shipment_batch_number",
+                "master_shipment_batch_number__shipment_batch_number",
                 "PO_ID",
+                "delivery_type",
+                "delivery_method",
             )
             .annotate(
+                raw_cbm=Sum("cbm"),  # 原始总和用于排序
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
                 shipping_marks=StringAgg(
@@ -788,17 +793,18 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
+                cbm=Round(F("raw_cbm"), 2, output_field=FloatField()),  # 对外展示round
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                 plt_ids=StringAgg(
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by(
-                "-cbm",
-            )
+            # ！！只按原始体积降序，和基准分支行为完全一致
+            .order_by("-raw_cbm")
         )
+        # 内存兜底，防止group by边界情况，保证和基准分支输出顺序一致
+        packing_list.sort(key=lambda x: -(x["raw_cbm"] or 0))
     elif status == "palletized" and zem_name == "JINYU":
         packing_list = await sync_to_async(list)(
             Pallet.objects.select_related("container_number")
@@ -997,10 +1003,11 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             )
             .annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
+                raw_cbm=Sum("cbm"),
+                cbm=Round(F("raw_cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by("-cbm")
+            .order_by("-raw_cbm")
         )
         packing_list_complement = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
@@ -1041,9 +1048,13 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "custom_delivery_method",
                 "note",
                 "shipment_batch_number__shipment_batch_number",
+                "master_shipment_batch_number__shipment_batch_number",
                 "PO_ID",
+                "delivery_type",
+                "delivery_method",
             )
             .annotate(
+                raw_cbm=Sum("cbm"),
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
                 shipping_marks=StringAgg(
@@ -1051,16 +1062,15 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
+                cbm=Round(F("raw_cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                 plt_ids=StringAgg(
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by(
-                "-cbm",
-            )
+            # 删掉destination、custom_delivery_method，只按原始体积降序
+            .order_by("-raw_cbm")
         )
         existing_po = {
             (plt["container_number__container_number"], plt["destination"])
@@ -1082,10 +1092,14 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                         "note": pl["note"],
                         "PO_ID": pl["PO_ID"],
                         "cbm": 0,
+                        "raw_cbm": 0,  # 必须带上raw_cbm，后面sort要用
                         "pcs": 0,
                         "n_pallet": 0,
                     }
                 )
+
+        # ==========关键：合并完成之后整体内存排序，模拟基准分支的输出顺序==========
+        packing_list.sort(key=lambda x: -(x["raw_cbm"] or 0))
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
 
@@ -1101,25 +1115,14 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         },
         axis=1,
     )
-    df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
-    if zem_name != "JINYU" and warehouse != "LA":
-        df = df.sort_values(
-            by=["cbm"],
-            ascending=[False],
-            ignore_index=True,
-        )
-    elif zem_name != "JINYU" and warehouse == "LA":
-        df = df.sort_values(
-            by=["destination", "delivery_method", "cbm"],
-            ascending=[True, True, False],
-            ignore_index=True,
-        )
-    else:
-        df = df.sort_values(
-            by=["cbm"],
-            ascending=[False],
-            ignore_index=True,
-        )
+    df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0] if pd.notna(x) else x)
+
+    # 全部统一按cbm降序导出，不再对LA做destination二次排序，保护ORM+内存排序结果
+    df = df.sort_values(
+        by=["cbm"],
+        ascending=[False],
+        ignore_index=True,
+    )
 
     # 然后再选择导出的列
     if zem_name == "JINYU":
