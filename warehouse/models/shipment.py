@@ -76,6 +76,7 @@ class Shipment(models.Model):
     delivery_type = models.CharField(max_length=255, null=True, blank=True,choices=[('public', '公仓'), ('other', '私仓'), ('dropshipping', '一件代发')],verbose_name='仓库类型')
     needLabel = models.BooleanField(default=False, null=True, blank=True, verbose_name='ltl是否需要下载label文件')
     hasOtherFile = models.BooleanField(default=False, null=True, blank=True, verbose_name='ltl是否需要下载其他文件')
+    pickup_images = models.JSONField(default=list, null=True, blank=True, verbose_name="拣货单图片列表")
     history = HistoricalRecords()
 
     class Meta:

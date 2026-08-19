@@ -5073,17 +5073,17 @@ class FleetManagement(View):
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
         
-        # 查询拣货单图片
+        # 查询拣货单图片 (从 Shipment 表)
         pickup_attachments = []
         try:
-            pallet_images = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    shipment_batch_number__shipment_batch_number=batch_number,
+            shipment_objs = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    shipment_batch_number=batch_number,
                     pickup_images__isnull=False
                 ).exclude(pickup_images=[])
                 .values_list('pickup_images', flat=True)
             )
-            for images_list in pallet_images:
+            for images_list in shipment_objs:
                 if images_list and isinstance(images_list, list):
                     for img in images_list:
                         if img and img.get('src'):
@@ -5849,17 +5849,17 @@ class FleetManagement(View):
             if marks:
                 arm["shipping_mark"] = marks.replace(",", "\n")
 
-        # 查询拣货单图片
+        # 查询拣货单图片 (从 Shipment 表)
         pickup_attachments = []
         try:
-            pallet_images = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    shipment_batch_number__fleet_number=fleet,
+            shipment_images = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    fleet_number=fleet,
                     pickup_images__isnull=False
                 ).exclude(pickup_images=[])
                 .values_list('pickup_images', flat=True)
             )
-            for images_list in pallet_images:
+            for images_list in shipment_images:
                 if images_list and isinstance(images_list, list):
                     for img in images_list:
                         if img and img.get('src'):

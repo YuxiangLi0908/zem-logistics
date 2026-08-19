@@ -106,7 +106,6 @@ class Pallet(models.Model):
     notify_cus_del_time = models.BooleanField(default=False, null=True, blank=True)
     delivery_est_start = models.DateField(null=True, blank=True)
     delivery_est_end = models.DateField(null=True, blank=True)
-    pickup_images = models.JSONField(default=list, null=True, blank=True, verbose_name="拣货单图片列表")
     history = HistoricalRecords()
 
     class Meta:
