@@ -5372,7 +5372,7 @@ class PostNsop(View):
         fm = FleetManagement()
         try:
             conn = await fm._get_sharepoint_auth()
-            folder_path = f"/{SP_DOC_LIB}/{SYSTEM_FOLDER}/ltl_other_file/{APP_ENV}"
+            folder_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/ltl_other_file/{APP_ENV}")
             sp_folder = conn.web.get_folder_by_server_relative_url(folder_path)
             files = sp_folder.files
             conn.load(files)
@@ -5385,7 +5385,7 @@ class PostNsop(View):
             for f in files:
                 if f.name.startswith(shipment_batch):
                     target_file_name = f.name
-                    file_path = f"{folder_path}/{f.name}"
+                    file_path = os.path.join(folder_path, f.name)
                     file_response = conn.web.get_file_by_server_relative_url(file_path).download(
                         io.BytesIO()
                     )
