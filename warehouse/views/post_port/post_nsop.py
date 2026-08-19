@@ -5358,7 +5358,7 @@ class PostNsop(View):
             )
 
     async def download_ltl_other_file(self, request: HttpRequest) -> HttpResponse:
-        """下载LTL其他文件 - 通过SharePoint CSOM直接下载"""
+        """下载LTL其他文件 - 直接打开SharePoint链接"""
         fleet_number = request.POST.get("fleet_number") or request.GET.get("fleet_number")
         if not fleet_number:
             return HttpResponse("缺少车次号参数", status=400)
@@ -5369,55 +5369,25 @@ class PostNsop(View):
         if not shipment or not shipment.ltl_other_file_link:
             return HttpResponse("未找到其他文件", status=404)
 
-        fm = FleetManagement()
-        try:
-            conn = await fm._get_sharepoint_auth()
-            folder_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/ltl_other_file/{APP_ENV}")
-            sp_folder = conn.web.get_folder_by_server_relative_url(folder_path)
-            files = sp_folder.files
-            conn.load(files)
-            conn.execute_query()
-
-            file_bytes = None
-            target_file_name = None
-            shipment_batch = shipment.shipment_batch_number
-
-            for f in files:
-                if f.name.startswith(shipment_batch):
-                    target_file_name = f.name
-                    file_path = os.path.join(folder_path, f.name)
-                    file_response = conn.web.get_file_by_server_relative_url(file_path).download(
-                        io.BytesIO()
-                    )
-                    conn.execute_query()
-                    file_bytes = file_response.content
-                    break
-
-            if not file_bytes:
-                return HttpResponse("未找到对应的文件", status=404)
-
-            file_ext = os.path.splitext(target_file_name)[1].lower() if target_file_name else ""
-            file_name = f"{shipment_batch}{file_ext}"
-
-            mime_map = {
-                '.pdf': 'application/pdf',
-                '.zip': 'application/zip',
-                '.doc': 'application/msword',
-                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                '.xls': 'application/vnd.ms-excel',
-                '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.png': 'image/png',
-                '.txt': 'text/plain',
-            }
-            mime_type = mime_map.get(file_ext, 'application/octet-stream')
-            response = HttpResponse(file_bytes, content_type=mime_type)
-            response['Content-Disposition'] = f'attachment; filename="{file_name}"'
-            return response
-        except Exception as e:
-            traceback.print_exc()
-            return HttpResponse(f"下载文件异常: {str(e)}", status=500)
+        file_link = shipment.ltl_other_file_link
+        safe_link = json.dumps(file_link)
+        html_content = f"""<!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>正在打开文件...</title>
+            </head>
+            <body>
+                <p>正在打开文件，如果没有自动跳转，请点击 <a href="{file_link}" target="_blank">这里</a></p>
+                <script>
+                    window.open({safe_link}, '_blank');
+                    setTimeout(() => {{
+                        window.location.href = {safe_link};
+                    }}, 500);
+                </script>
+            </body>
+            </html>"""
+        return HttpResponse(html_content)
 
     async def export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         '''新功能LTL的LABEL文件下载'''
