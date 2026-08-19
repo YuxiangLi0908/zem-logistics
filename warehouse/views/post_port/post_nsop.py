@@ -3243,8 +3243,11 @@ class PostNsop(View):
                 return JsonResponse({'success': False, 'message': '未提供公司数据'}, status=400)
 
             company_data = json.loads(company_data_str)
+            fleet_number = request.POST.get('fleet_number', '')
             
             updated_count = 0
+            all_pickup_images = []
+            
             for item in company_data:
                 container_number = item.get('container_number', '')
                 shipping_mark = item.get('shipping_mark', '')
@@ -3256,6 +3259,10 @@ class PostNsop(View):
                 
                 if not container_number:
                     continue
+                
+                # 收集所有图片到 Shipment 级别
+                if pickup_images and isinstance(pickup_images, list):
+                    all_pickup_images.extend(pickup_images)
                 
                 # 更新 PackingList 表
                 packing_list_updated = await sync_to_async(
@@ -3270,25 +3277,29 @@ class PostNsop(View):
                     name=name
                 )
                 
-                # 更新 Pallet 表
-                pallet_update_fields = {
-                    'company': company,
-                    'road': road,
-                    'city': city,
-                    'name': name
-                }
-                if pickup_images:
-                    pallet_update_fields['pickup_images'] = pickup_images
-                
+                # 更新 Pallet 表（不再存储 pickup_images）
                 pallet_updated = await sync_to_async(
                     Pallet.objects.filter(
                         container_number__container_number=container_number,
                         shipping_mark=shipping_mark
                     ).update
-                )(**pallet_update_fields)
+                )(
+                    company=company,
+                    road=road,
+                    city=city,
+                    name=name
+                )
                 
                 if packing_list_updated or pallet_updated:
                     updated_count += 1
+            
+            # 将所有图片保存到 Shipment 表
+            if fleet_number and all_pickup_images:
+                await sync_to_async(
+                    Shipment.objects.filter(
+                        fleet_number__fleet_number=fleet_number
+                    ).update
+                )(pickup_images=all_pickup_images)
             
             return JsonResponse({
                 'success': True, 
@@ -4588,6 +4599,24 @@ class PostNsop(View):
                             }
                         )
         else:  # 没有就从数据库查
+            # 先从 Shipment 表获取图片
+            shipment_images_map = {}
+            try:
+                shipment_imgs = await sync_to_async(list)(
+                    Shipment.objects.filter(
+                        fleet_number__fleet_number=fleet_number,
+                        pickup_images__isnull=False
+                    ).exclude(pickup_images=[])
+                    .values('shipment_batch_number', 'pickup_images')
+                )
+                for si in shipment_imgs:
+                    bn = si.get('shipment_batch_number', '')
+                    imgs = si.get('pickup_images', []) or []
+                    if bn:
+                        shipment_images_map[bn] = imgs
+            except Exception:
+                pass
+
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number__container_number",
@@ -4611,7 +4640,6 @@ class PostNsop(View):
                     "slot",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__pickup_time",
-                    "pickup_images",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
@@ -4621,6 +4649,11 @@ class PostNsop(View):
                 )
             )
             if arm_pickup:
+                # 将 Shipment 图片注入到 arm_pickup 每个 item 中
+                for item in arm_pickup:
+                    bn = item.get("shipment_batch_number__shipment_batch_number", "")
+                    item["pickup_images"] = shipment_images_map.get(bn, [])
+
                 # 按照 shipment_batch_number 进行分组
                 grouped_by_batch = {}
                 for item in arm_pickup:
@@ -5305,17 +5338,17 @@ class PostNsop(View):
                                             processed_notes.append(escape(part))
                                 notes_str = mark_safe("<br>".join(processed_notes))
                                 pickup_time = datetime.now().strftime("%Y-%m-%d")
-                                # 查询拣货单图片
+                                # 查询拣货单图片 (从 Shipment 表)
                                 pickup_attachments = []
                                 try:
-                                    pallet_images = await sync_to_async(list)(
-                                        Pallet.objects.filter(
-                                            shipment_batch_number__fleet_number__fleet_number=fleet_number,
+                                    shipment_objs = await sync_to_async(list)(
+                                        Shipment.objects.filter(
+                                            fleet_number__fleet_number=fleet_number,
                                             pickup_images__isnull=False
                                         ).exclude(pickup_images=[])
                                         .values_list('pickup_images', flat=True)
                                     )
-                                    for images_list in pallet_images:
+                                    for images_list in shipment_objs:
                                         if images_list and isinstance(images_list, list):
                                             for img in images_list:
                                                 if img and img.get('src'):
@@ -6552,17 +6585,17 @@ class PostNsop(View):
             if cp.image_base64:
                 carrier_image_map[cp.key] = cp.image_base64
 
-        # 查询所有fleet的拣货单图片
+        # 查询所有fleet的拣货单图片 (从 Shipment 表)
         pickup_attachments = []
         try:
-            pallet_images = await sync_to_async(list)(
-                Pallet.objects.filter(
-                    shipment_batch_number__fleet_number__fleet_number__in=fleet_numbers,
+            shipment_objs = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    fleet_number__fleet_number__in=fleet_numbers,
                     pickup_images__isnull=False
                 ).exclude(pickup_images=[])
                 .values_list('pickup_images', flat=True)
             )
-            for images_list in pallet_images:
+            for images_list in shipment_objs:
                 if images_list and isinstance(images_list, list):
                     for img in images_list:
                         if img and img.get('src'):
@@ -16597,6 +16630,22 @@ class PostNsop(View):
         return grouped_data
 
     async def _get_fleet_arm_pickup(self, fleet: Fleet):
+        # 先从 Shipment 表获取拣货单图片
+        shipment_images_map = {}
+        try:
+            shipment_images = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    fleet_number=fleet
+                ).values('shipment_batch_number', 'pickup_images')
+            )
+            for si in shipment_images:
+                bn = si.get('shipment_batch_number', '')
+                images = si.get('pickup_images', []) or []
+                if bn:
+                    shipment_images_map[bn] = images
+        except Exception:
+            pass
+
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number__container_number",
@@ -16614,6 +16663,7 @@ class PostNsop(View):
                 "shipment_batch_number__ARM_PRO",
                 "shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__fleet_number__appointment_datetime",
+                "shipment_batch_number__shipment_batch_number",
                 "address",
                 "company",
                 "road",
@@ -16622,7 +16672,6 @@ class PostNsop(View):
                 "slot",
                 "shipment_batch_number__note",
                 "shipment_batch_number__pickup_time",
-                "pickup_images",
             )
             .annotate(
                 total_pcs=Sum("pcs"),
@@ -16695,7 +16744,9 @@ class PostNsop(View):
                 'total_pallet': int(item.get('total_pallet', 0)),
                 'total_weight': float(item.get('total_weight', 0)),
                 'total_cbm': float(item.get('total_cbm', 0)),
-                'pickup_images': item.get('pickup_images', []) or [],
+                'pickup_images': shipment_images_map.get(
+                    item.get('shipment_batch_number__shipment_batch_number', ''), []
+                ),
             })
 
         arm_json_str = json.dumps(arm_json, cls=DjangoJSONEncoder)
