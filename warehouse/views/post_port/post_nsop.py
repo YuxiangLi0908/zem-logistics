@@ -3252,6 +3252,7 @@ class PostNsop(View):
                 road = item.get('road', '')
                 city = item.get('city', '')
                 name = item.get('name', '')
+                pickup_images = item.get('pickup_images', [])
                 
                 if not container_number:
                     continue
@@ -3270,17 +3271,21 @@ class PostNsop(View):
                 )
                 
                 # 更新 Pallet 表
+                pallet_update_fields = {
+                    'company': company,
+                    'road': road,
+                    'city': city,
+                    'name': name
+                }
+                if pickup_images:
+                    pallet_update_fields['pickup_images'] = pickup_images
+                
                 pallet_updated = await sync_to_async(
                     Pallet.objects.filter(
                         container_number__container_number=container_number,
                         shipping_mark=shipping_mark
                     ).update
-                )(
-                    company=company,
-                    road=road,
-                    city=city,
-                    name=name
-                )
+                )(**pallet_update_fields)
                 
                 if packing_list_updated or pallet_updated:
                     updated_count += 1
@@ -4346,6 +4351,23 @@ class PostNsop(View):
                         seen.add(image_value_str)
                         attachments.append({"kind": "image", "src": image_value_str})
 
+                # 处理 pickup_images (复数，JSONField 存储的图片列表)
+                images_list = r.get("pickup_images", [])
+                if isinstance(images_list, list) and images_list:
+                    for img_item in images_list:
+                        if isinstance(img_item, dict) and img_item.get("src"):
+                            img_src = img_item["src"]
+                            if (
+                                img_src
+                                and isinstance(img_src, str)
+                                and img_src.startswith("data:image/")
+                                and ";base64," in img_src
+                                and len(img_src) <= 5_000_000
+                                and img_src not in seen
+                            ):
+                                seen.add(img_src)
+                                attachments.append({"kind": "image", "src": img_src})
+
                 file_value = r.get("pickup_file_content", "")
                 if isinstance(file_value, str):
                     file_value_str = file_value.strip()
@@ -4470,6 +4492,7 @@ class PostNsop(View):
                         "pickup_file_content": str(
                             row.get("pickup_file_content", "")
                         ),
+                        "pickup_images": row.get("pickup_images", []) or [],
                         "shipment_batch_number__pickup_time": container_pickup_time_map.get(
                             str(row.get("container_number__container_number", "")).strip(),
                             None
@@ -4588,6 +4611,7 @@ class PostNsop(View):
                     "slot",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__pickup_time",
+                    "pickup_images",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
@@ -5281,11 +5305,31 @@ class PostNsop(View):
                                             processed_notes.append(escape(part))
                                 notes_str = mark_safe("<br>".join(processed_notes))
                                 pickup_time = datetime.now().strftime("%Y-%m-%d")
+                                # 查询拣货单图片
+                                pickup_attachments = []
+                                try:
+                                    pallet_images = await sync_to_async(list)(
+                                        Pallet.objects.filter(
+                                            shipment_batch_number__fleet_number__fleet_number=fleet_number,
+                                            pickup_images__isnull=False
+                                        ).exclude(pickup_images=[])
+                                        .values_list('pickup_images', flat=True)
+                                    )
+                                    for images_list in pallet_images:
+                                        if images_list and isinstance(images_list, list):
+                                            for img in images_list:
+                                                if img and img.get('src'):
+                                                    pickup_attachments.append({
+                                                        'kind': 'image',
+                                                        'src': img['src']
+                                                    })
+                                except Exception:
+                                    pass
                                 context = {
                                     "warehouse": origin or "",
                                     "arm_pickup": arm_pickup,
                                     "notes": notes_str,
-                                    "pickup_attachments": [],
+                                    "pickup_attachments": pickup_attachments,
                                     "pickup_has_pdf": False,
                                     "container_number": "",
                                     "shipping_mark": "",
@@ -5303,6 +5347,9 @@ class PostNsop(View):
                                 start_idx = None
                                 for idx, page in enumerate(base_reader.pages):
                                     txt = page.extract_text() or ""
+                                    if "__PICKUP_ATTACHMENTS_START__" in txt:
+                                        start_idx = idx
+                                        break
                                     if "Pickup List" in txt:
                                         start_idx = idx
                                         break
@@ -6505,6 +6552,27 @@ class PostNsop(View):
             if cp.image_base64:
                 carrier_image_map[cp.key] = cp.image_base64
 
+        # 查询所有fleet的拣货单图片
+        pickup_attachments = []
+        try:
+            pallet_images = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    shipment_batch_number__fleet_number__fleet_number__in=fleet_numbers,
+                    pickup_images__isnull=False
+                ).exclude(pickup_images=[])
+                .values_list('pickup_images', flat=True)
+            )
+            for images_list in pallet_images:
+                if images_list and isinstance(images_list, list):
+                    for img in images_list:
+                        if img and img.get('src'):
+                            pickup_attachments.append({
+                                'kind': 'image',
+                                'src': img['src']
+                            })
+        except Exception:
+            pass
+
         context = {
             "warehouse": warehouse,
             "arm_pro": arm_pro,
@@ -6516,7 +6584,7 @@ class PostNsop(View):
             "shipping_mark": group_shipping_mark,
             "destination": group_destination,
             "barcode": barcode_base64,
-            "pickup_attachments": [],
+            "pickup_attachments": pickup_attachments,
             "pickup_has_pdf": False,
             "arm_pickup": all_arm_pickup,
             "contact": {},
@@ -16554,6 +16622,7 @@ class PostNsop(View):
                 "slot",
                 "shipment_batch_number__note",
                 "shipment_batch_number__pickup_time",
+                "pickup_images",
             )
             .annotate(
                 total_pcs=Sum("pcs"),
@@ -16626,6 +16695,7 @@ class PostNsop(View):
                 'total_pallet': int(item.get('total_pallet', 0)),
                 'total_weight': float(item.get('total_weight', 0)),
                 'total_cbm': float(item.get('total_cbm', 0)),
+                'pickup_images': item.get('pickup_images', []) or [],
             })
 
         arm_json_str = json.dumps(arm_json, cls=DjangoJSONEncoder)

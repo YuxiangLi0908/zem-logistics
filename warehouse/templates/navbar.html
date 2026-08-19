@@ -1,400 +1,910 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'css/styles.css' %}">
+<style>
+    /* ===== Top Navigation Bar ===== */
+    .zem-nav {
+        background: #2d3748;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        position: sticky;
+        top: 0;
+        z-index: 1030;
+    }
+    .zem-nav-inner {
+        display: flex;
+        align-items: center;
+        height: 100px;
+        padding: 22px 20px 0 20px;
+    }
+    .zem-logo {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #f1f5f9;
+        text-decoration: none;
+        margin-right: 28px;
+        white-space: nowrap;
+        letter-spacing: 0.4px;
+        display: flex;
+        align-items: baseline;
+        padding-right: 20px;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .zem-logo-sub {
+        font-size: 0.7rem;
+        color: #a0aec0;
+        font-weight: 400;
+        margin-left: 4px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+    .zem-primary-tabs {
+        display: flex;
+        gap: 0;
+        align-items: center;
+        flex: 1;
+        overflow-x: auto;
+    }
+    .zem-primary-tabs::-webkit-scrollbar { display: none; }
+    .zem-primary-tab {
+        padding: 18px 20px;
+        color: #e2e8f0;
+        text-decoration: none;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.15s ease, background-color 0.15s ease;
+        border-bottom: 2px solid transparent;
+        display: flex;
+        align-items: center;
+        position: relative;
+        letter-spacing: 0.3px;
+        margin: 0 2px;
+    }
+    .zem-primary-tab:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.06);
+    }
+    .zem-primary-tab.active {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.08);
+        border-bottom-color: #63b3ed;
+        font-weight: 600;
+    }
+    .zem-primary-tab .zem-sub-label {
+        display: none;
+    }
+    .zem-user-area {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 16px;
+    }
+    .zem-user-area a {
+        color: #cbd5e1;
+        text-decoration: none;
+        font-size: 0.85rem;
+        padding: 5px 14px;
+        border-radius: 5px;
+        transition: all 0.15s;
+        font-weight: 500;
+    }
+    .zem-user-area a:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+    }
 
-<div class="container d-flex justify-content-between" style="margin-left: 0; padding-left: 1%; width: 100%; display: inline-block; max-width: 100%;">
-    <div style="width: 80%;">
-        <a class="navbar-brand" href="{% url 'home' %}">ZEM LOGISTICS INC</a>
+    /* ===== Secondary Tab Bar ===== */
+    .zem-secondary-bar {
+        background: #f4f6fa;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0 20px;
+        display: none;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2px;
+        min-height: 42px;
+    }
+    .zem-secondary-bar.visible {
+        display: flex;
+    }
+    .zem-secondary-tab {
+        padding: 7px 15px;
+        color: #718096;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 400;
+        border-radius: 14px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s ease;
+        margin: 4px 0;
+        line-height: 1.5;
+    }
+    .zem-secondary-tab:hover {
+        color: #2d3748;
+        background: rgba(99, 179, 237, 0.12);
+    }
+    .zem-secondary-tab.active {
+        color: #2c5282;
+        background: #ebf8ff;
+        font-weight: 500;
+    }
+    .zem-secondary-separator {
+        width: 1px;
+        height: 16px;
+        background: #e2e8f0;
+        margin: 0 4px;
+        align-self: center;
+    }
+
+    /* ===== Tertiary Dropdown ===== */
+    .zem-tertiary-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+    .zem-tertiary-btn {
+        padding: 7px 15px;
+        color: #718096;
+        font-size: 0.85rem;
+        font-weight: 400;
+        border-radius: 14px;
+        cursor: pointer;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        transition: all 0.15s ease;
+        border: none;
+        background: none;
+        margin: 4px 0;
+    }
+    .zem-tertiary-btn:hover {
+        color: #2d3748;
+        background: rgba(99, 179, 237, 0.12);
+    }
+    .zem-tertiary-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: #ffffff;
+        min-width: 190px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        border-radius: 8px;
+        padding: 6px;
+        z-index: 1050;
+        border: 1px solid #e2e8f0;
+        margin-top: 4px;
+    }
+    .zem-tertiary-wrap:hover .zem-tertiary-menu {
+        display: block;
+    }
+    .zem-tertiary-menu a {
+        display: block;
+        padding: 8px 12px;
+        color: #4a5568;
+        text-decoration: none;
+        font-size: 0.85rem;
+        border-radius: 5px;
+        white-space: nowrap;
+        transition: all 0.12s;
+    }
+    .zem-tertiary-menu a:hover {
+        background: #ebf8ff;
+        color: #2c5282;
+    }
+    .zem-tertiary-menu .zem-tertiary-separator {
+        height: 1px;
+        background: #edf2f7;
+        margin: 4px 0;
+    }
+    .zem-tertiary-menu .zem-sub-group {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #a0aec0;
+        padding: 8px 12px 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+    }
+    .zem-chevron {
+        font-size: 0.55rem;
+        transition: transform 0.15s;
+        opacity: 0.6;
+    }
+    .zem-tertiary-wrap:hover .zem-chevron {
+        transform: rotate(180deg);
+    }
+
+    /* ===== AJAX Loading ===== */
+    .zem-loading-overlay {
+        position: fixed;
+        top: 100px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #63b3ed, transparent);
+        background-size: 200% 100%;
+        animation: zem-loading 0.8s ease-in-out infinite;
+        z-index: 9999;
+        pointer-events: none;
+        display: none;
+    }
+    .zem-loading-overlay.active {
+        display: block;
+    }
+    @keyframes zem-loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    .zem-loading-indicator {
+        text-align: center;
+        padding: 60px 20px;
+        color: #718096;
+        font-size: 0.9rem;
+    }
+    .zem-loading-indicator::after {
+        content: '';
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 2px solid #e2e8f0;
+        border-top-color: #63b3ed;
+        border-radius: 50%;
+        animation: zem-spin 0.8s linear infinite;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+    @keyframes zem-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+        .zem-primary-tab { padding: 14px 10px; font-size: 0.8rem; }
+        .zem-logo { font-size: 0.85rem; margin-right: 14px; padding-right: 14px; }
+        .zem-nav-inner { padding: 16px 12px 0 12px; height: 70px; }
+        .zem-loading-overlay { top: 70px; }
+    }
+</style>
+
+<div class="zem-nav">
+    <div class="zem-nav-inner">
+        <a href="{% url 'home' %}" class="zem-logo">ZEM LOGISTICS<span class="zem-logo-sub">INC</span></a>
+
         {% if user.is_authenticated %}
-            <ul class="navbar-nav">
-                <!-- 非大方广权限用户可见：所有原有导航项（移除原大方广入口） -->
-                {% if not generous_and_wide %}
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">客户管理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'customer_management' %}" target="_blank">添加客户</a>
-                                <a href="{% url 'customer_management' %}?step=customer_balance" target="_blank">余额管理</a>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">港前操作</a>
-                            <div class="dropdown-content">
-                                <div class="nested-dropdown" >
-                                    <a>询价</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'quote_management' %}?step=new" target="_blank">新建</a>
-                                        <a href="{% url 'quote_management' %}?step=history" target="_blank">历史询价</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'create_order' %}?step=all" target="_blank">港前订单管理</a>
-                                <a href="{% url 'create_order' %}?step=repeat_all" target="_blank">订单删除</a>
-                                <a href="{% url 'create_order' %}?step=repeat_t49_all" target="_blank">T49待追踪</a>
-                                <a href="{% url 'create_order' %}?step=create_warehouse_get" target="_blank">新增仓库与供应商</a>
-                                <a href="{% url 'pre_port_tracking' %}?step=all" target="_blank">港前订单追踪</a>
-                                <a href="{% url 'terminal_dispatch' %}?step=all" target="_blank">港口调度</a>
-                                <a href="{% url 'contaier_pickup_status' %}?step=all" target="_blank">货柜状态追踪</a>
-                                <a href="{% url 'oct_summary' %}?step=all" target="_blank">OCT汇总</a>
-                                <a href="{% url 'contaier_pre_port_summary_dash' %}?step=all" target="_blank">货柜进度汇总</a>
-                                <a href="{% url 'information_update' %}?step=all" target="_blank">信息更新</a>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">仓库操作</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'palletization' %}">拆柜入库</a>
-                                <div class="nested-dropdown">
-                                    <a>仓库管理</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'warehouse_operations' %}?step=warehousing_operation">入库</a>
-                                        <a href="{% url 'warehouse_operations' %}?step=counting_pallet">盘点及特操</a>
-                                        <a href="{% url 'warehouse_operations' %}?step=upcoming_fleet">出库</a>
-                                        <a href="{% url 'warehouse_operations' %}?step=upcoming_fleet_ltl">LTL出库</a>
-                                        <a href="{% url 'warehouse_dash' %}" target="_blank">数据监控</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'warehouse_operations' %}?step=privaty_management">私仓管理</a>
-                                <a href="{% url 'palletization' %}?step=warehouse_zone">库位管理</a>
-                                <a href="{% url 'inventory' %}?step=merge_pallet">合板管理</a>
-                                <a href="{% url 'palletization' %}?step=daily_operation" target="_blank">仓库待处理</a>
-                                <a href="{% url 'inventory' %}" target="_blank">库存管理</a>
-                                <div class="nested-dropdown">
-                                    <a>异常拆柜</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'palletization' %}?step=abnormal" target="_blank">待处理异常</a>
-                                        <a href="{% url 'palletization' %}?step=abnormal_records" target="_blank">异常拆柜记录</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">工作一览</a>
-                            <div class="dropdown-content">
-                                <div class="nested-dropdown">
-                                    <a>操作组</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'post_nsop' %}?step=unscheduled_pos_all" target="_blank">四大仓备约</a>
-                                        <a href="{% url 'post_nsop' %}?step=appointment_management" target="_blank">备约</a>
-                                        <div class="nested-dropdown" >
-                                            <a href="{% url 'post_nsop' %}?step=schedule_shipment" target="_blank">库存排约</a>
-                                        </div>
-                                        <a href="{% url 'post_nsop' %}?step=batch_shipment" target="_blank">库存批量排约</a>
-                                        <a href="{% url 'post_nsop' %}?step=fleet_management" target="_blank">车次操作</a>                                     
-                                        <a href="{% url 'post_nsop' %}?step=history_shipment" target="_blank">历史排约</a>
-                                        <a href="{% url 'create_order' %}?step=peer_po_creation">外配货物登记</a>
-                                        <div class="nested-dropdown">
-                                            <a>卡板转干线</a>
-                                            <div class="nested-dropdown-content">
-                                                <a href="{% url 'transferpallet' %}?step=operation">转干线操作</a>
-                                                <a href="{% url 'transferpallet' %}?step=transfer_history">转干线历史及BOL</a>
-                                            </div>
-                                        </div>
-                                        <a href="{% url 'pod' %}?step=fleet_cost_record" target="_blank">ftl派送成本录入</a>
-                                    </div>
-                                </div>
-                                <div class="nested-dropdown">
-                                    <a>批次货物核对</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'post_nsop' %}?step=client_exception" target="_blank">客户端的异常展示</a>
-                                        <a href="{% url 'post_nsop' %}?step=master_shipment_check" target="_blank">客户端的约核对</a>
-                                        <a href="{% url 'post_nsop' %}?step=fleet_po_check" target="_blank">实际货物核对</a>
-                                        <a href="{% url 'post_nsop' %}?step=fleet_leader_check" target="_blank">出库批次核对</a>
-                                        <a href="{% url 'post_nsop' %}?step=sp_bind_history" target="_blank">历史约修改记录核对</a>
-                                        <a href="{% url 'post_nsop' %}?step=pod_reupload_check" target="_blank">POD修改</a>
-                                        <a href="{% url 'timeout_warning' %}" target="_blank">库存时效预警</a>
-                                    </div>
-                                </div>
-                                <div class="nested-dropdown">
-                                    <a>私仓组</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'post_nsop' %}?step=LTL_pallets" target="_blank">库存排约</a>
-                                        <a href="{% url 'post_nsop' %}?step=LTL_history_po" target="_blank">历史数据</a>
-                                        <a href="{% url 'pod' %}?step=fleet_cost_record_ltl" target="_blank">ltl派送成本录入</a>
-                                        <a href="{% url 'create_order' %}?step=peer_po_creation_other">私仓外配货物登记</a>
-                                        <a href="{% url 'post_nsop' %}?step=batch_shipment_other" target="_blank">私仓库存批量排约</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'post_nsop' %}?step=easy_action" target="_blank">便捷操作</a>
-                                <a href="{% url 'post_nsop' %}?step=system_parameter_add" target="_blank">系统常用参数修改</a>
-                                <div class="nested-dropdown">
-                                    <a>表格导出</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'post_port_summary' %}?step=summary_table" target="_blank">报表导出</a>
-                                        <a href="{% url 'po' %}" target="_blank">PO导出</a>
-                                        <a href="{% url 'bol' %}" target="_blank">BOL导出</a>
-                                    </div>
-                                </div>
-                                
-                                <div class="nested-dropdown">
-                                    <a>旧版预约管理</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'schedule_shipment' %}?step=appointment_management" target="_blank">备约</a>
-                                        <a href="{% url 'schedule_shipment' %}" target="_blank">预约出库</a>
-                                        <a href="{% url 'schedule_shipment' %}?step=shipment_exceptions" target="_blank">异常预约</a>
-                                    </div>
-                                </div>
-                                <div class="nested-dropdown">
-                                    <a>旧版车次管理</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'fleet_management' %}?step=fleet" target="_blank">排车</a>
-                                        <a href="{% url 'outbound' %}?step=outbound" target="_blank">出库管理</a>
-                                        <a href="{% url 'outbound' %}?step=delivery_and_pod" target="_blank">确认送达</a>
-                                        <a href="{% url 'pod' %}?step=pod_upload" target="_blank">POD上传</a>
-                                    </div>
-                                </div>
-                            </div>                        
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">一件代发</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'dropshipping' %}?step=all" target="_blank">创建订单</a>
-                                <a href="{% url 'dropshipping' %}?step=repeat_t49_all" target="_blank">T49待追踪</a>
-                                <a href="{% url 'dropshipping' %}?step=terminal_all" target="_blank">港口调度</a>
-                                <a href="{% url 'dropshipping' %}?step=contaier_pickup_status_all" target="_blank">货柜追踪提醒</a>
-                                <a href="{% url 'dropshipping' %}?step=order_management_list" target="_blank">订单列表</a>
-                                <a href="{% url 'dropshipping' %}?step=palletize_all" target="_blank">拆柜入库</a>
-                                <a href="{% url 'dropshipping' %}?step=inventory_all" target="_blank">库存管理</a>
-                                <div class="nested-dropdown">
-                                    <a>异常拆柜</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'dropshipping' %}?step=abnormal" target="_blank">待处理异常</a>
-                                        <a href="{% url 'dropshipping' %}?step=abnormal_records" target="_blank">异常拆柜记录</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'postdrop' %}?step=postport_delivery" target="_blank">港后派送</a>
-                                <a href="{% url 'postdrop' %}?step=dropship_invetory" target="_blank">货物流水查询</a>
-                                <a href="{% url 'postdrop' %}?step=shipment_batch_query" target="_blank">预约批次查询</a>
-                                <a href="{% url 'postdrop' %}?step=return_process" target="_blank">退货处理</a>
-                                <a href="{% url 'postdrop' %}?step=account_rec" target="_blank">应收账单</a>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">订单管理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'create_order' %}?step=order_management_list" target="_blank">订单列表</a>
-                                <a href="{% url 'po' %}" target="_blank">PO导出</a>
-                                <div class="nested-dropdown">
-                                    <a>PO校验</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'po' %}?step=po_check_eta" target="_blank">到港前一周</a>
-                                        <a href="{% url 'po' %}?step=po_check_retrieval" target="_blank">提柜前一天</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'po' %}?step=po_invalid" target="_blank">PO失效</a>
-                                <a href="{% url 'po' %}?step=po_list" target="_blank">PO校验总表</a>
-                            </div>
-                        </div>
-                    </li>
+        <nav class="zem-primary-tabs" id="zemPrimaryTabs">
+            <!-- Tabs injected by JS -->
+        </nav>
 
-                    <!--
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">批次管理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'pod_legacy' %}" target="_blank">确认送达</a>
-                            </div>
-                        </div>
-                    </li>
-                    -->
-                    
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">旧版财务系统</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'accounting' %}?step=pallet_data" target="_blank">托盘数据</a>
-                                <a href="{% url 'accounting' %}?step=pl_data" target="_blank">派送清单</a>
-                                <div class="nested-dropdown" >
-                                    <a>账单录入</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'accounting' %}?step=invoice" target="_blank">旧版货柜账单</a>
-                                        <div class="nested-dropdown-l1" >
-                                            <a>应收账单</a>
-                                            <div class="nested-dropdown-content-l1">
-                                                <a href="{% url 'accounting' %}?step=invoice_direct" target="_blank">整柜直送</a>
-                                                <div class="nested-dropdown-l2" >
-                                                    <a>拆送</a>
-                                                    <div class="nested-dropdown-content-l2">
-                                                        <a href="{% url 'accounting' %}?step=invoice_preport" target="_blank">提拆柜</a>
-                                                        <a href="{% url 'accounting' %}?step=invoice_warehouse" target="_blank">库内操作</a>
-                                                        <a href="{% url 'accounting' %}?step=invoice_delivery" target="_blank">派送</a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <a href="{% url 'accounting' %}?step=invoice_confirm" target="_blank">账单确认</a>
-                                        <a href="{% url 'accounting' %}?step=invoice_payable" target="_blank">应付账单</a>
-                                        <a href="{% url 'accounting' %}?step=invoice_search" target="_blank">账单录入进度</a>
-                                    </div>
-                                </div>
-                                <div class="nested-dropdown" >
-                                    <a>报价表</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'quote_management' %}?step=quote_master" target="_blank">应收报价表管理</a>
-                                        <a href="{% url 'quote_management' %}?step=payable_quote_master" target="_blank">应付报价表管理</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </li>
-                    
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">新版财务系统</a>
-                            <div class="dropdown-content">                              
-                                <!-- 进度监控类 -->
-                                <a href="{% url 'receivable_accounting' %}?step=invoice_search" target="_blank">账单录入进度</a>
-                                <!-- 录入工作 -->
-                                 <div class="nested-dropdown">
-                                    <a>应收账单录入</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'receivable_accounting' %}?step=preport" target="_blank">提拆账单录入</a>
-                                        <a href="{% url 'receivable_accounting' %}?step=warehouse" target="_blank">库内账单录入</a>
-                                        <a href="{% url 'receivable_accounting' %}?step=delivery" target="_blank">派送账单录入</a>
-                                        <a href="{% url 'receivable_accounting' %}?step=pay_out" target="_blank">赔付账单录入</a>
-                                        <a href="{% url 'receivable_accounting' %}?step=cancel_container_account" target="_blank">取消预报账单录入</a>
-                                        <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">应收手动更改</a>
-                                    </div>
-                                </div>                            
-                                
-                                <!-- 财务管理 -->
-                                 <div class="nested-dropdown">
-                                    <a>应收财务确认</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">待核销额外费用</a>   
-                                        <a href="{% url 'receivable_accounting' %}?step=fix_account" target="_blank">待核销固定费用</a>   
-                                        <a href="{% url 'receivable_accounting' %}?step=container_check" target="_blank">柜子账单自检</a>   
-                                        <a href="{% url 'receivable_accounting' %}?step=write_off_account" target="_blank">已核销账单</a>  
-                                    </div>
-                                </div>    
-                                                          
-                                <!-- 应付账单 -->
-                                <div class="nested-dropdown">
-                                    <a>应付账单</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">提拆账单</a>
-                                        <a href="{% url 'accounting' %}?step=inside_the_warehouse" target="_blank">库内账单</a>
-                                    </div>
-                                </div>
-
-
-                                <!-- 财务管理 -->
-                                <div class="nested-dropdown">
-                                    <a>应付财务确认</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'accounting' %}?step=invoice_confirm_payable" target="_blank">提拆账单</a>
-                                        <a href="{% url 'accounting' %}?step=invoice_warehouse_confirm_payable" target="_blank">库内账单</a>
-                                        <a href="{% url 'accounting' %}?step=invoice_confirm_payable_delivery" target="_blank">派送账单</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'receivable_accounting' %}?step=pl_container_fee" target="_blank">预报费用计算</a>
-                            </div>
-                        </div>
-                    </li>
-                    
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">报表汇总</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'order_statistics' %}" target="_blank">订单量统计</a>
-                                <a href="{% url 'order_statistics' %}?step=profit_analysis" target="_blank">订单利润统计</a>
-                                <a href="{% url 'order_statistics' %}?step=cbm_analysis" target="_blank">CBM统计</a>
-                                <a href="{% url 'order_statistics' %}?step=delivery_timeliness_analysis" target="_blank">时效统计</a>
-                                <a href="{% url 'order_statistics' %}?step=maersk_rate" target="_blank">马士基价格调整</a>
-                                <a href="{% url 'order_statistics' %}?step=profit_analysis_personalized" target="_blank">派送账单成本详情</a>
-                                <a href="{% url 'order_statistics' %}?step=historical_query" target="_blank">历史操作查询</a>
-                                <a href="{% url 'order_statistics' %}?step=shipment_binding_log" target="_blank">历史约记录查询</a>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">异常处理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'exception_handling' %}?step=excel_formula_tool" target="_blank">表格便捷操作</a>
-                                <a href="{% url 'exception_handling' %}?step=post_port_status" target="_blank">港后状态异常</a>
-                                <a href="{% url 'exception_handling' %}?step=shipment_actual" target="_blank">实际约主约修改</a>
-                                <a href="{% url 'exception_handling' %}?step=delivery_invoice" target="_blank">派送账单异常</a>
-                                <a href="{% url 'exception_handling' %}?step=find_table_id" target="_blank">查询各表详情</a>
-                                <a href="{% url 'exception_handling' %}?step=restore_sorted_data_get" target="_blank">恢复分拣数据Pallet</a>
-                                <a href="{% url 'exception_handling' %}?step=restore_sorted_data_get_packinglist" target="_blank">恢复分拣数据Packinglist</a>
-                                <a href="{% url 'exception_handling' %}?step=pl_plt_detail" target="_blank">pl/plt状态详情</a>
-                                <a href="{% url 'exception_handling' %}?step=temporary_function" target="_blank">上传加塞po文件-plt未排约展示</a>
-                                <a href="{% url 'exception_handling' %}?step=receivable_status_migrate" target="_blank">应收账单迁移</a>
-                                <a href="{% url 'exception_handling' %}?step=recalculate_combine" target="_blank">历史账单组合柜计算</a>
-                            </div>
-                        </div>
-                    </li>                
-                    {% if user.is_authenticated and user.is_staff %}
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">后台管理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'dbconn' %}">SQL Query</a>
-                                <a href="{% url 'stuff_user' %}?step=clean_data">清理数据</a>
-                                <div class="nested-dropdown">
-                                    <a>系统各种特殊操作</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'container_tracking' %}">上传预约表并展示</a>
-                                        <a href="{% url 'container_tracking' %}?step=actual_match" target="_blank">预约表与系统匹配情况</a>
-                                        <a href="{% url 'container_tracking' %}?step=sp_operation" target="_blank">将预约表落实到系统</a>
-                                        <a href="{% url 'container_tracking' %}?step=find_table_id" target="_blank">查询记录id</a>
-                                    </div>
-                                </div>
-                                <div class="nested-dropdown" >
-                                    <a>Test Async</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'async_view' %}?step=async" target="_blank">async</a>
-                                        <a href="{% url 'async_view' %}?step=sync" target="_blank">sync</a>
-                                    </div>
-                                </div>
-                                <div class="nested-dropdown" >
-                                    <a>港前(legacy)</a>
-                                    <div class="nested-dropdown-content">
-                                        <div class="nested-dropdown" >
-                                            <a>创建订单</a>
-                                            <div class="nested-dropdown-content">
-                                                <a href="{% url 'create_order_legacy' %}?type=DD" target="_blank">直送</a>
-                                                <a href="{% url 'create_order_legacy' %}?type=TD" target="_blank">转运</a>
-                                            </div>
-                                        </div>
-                                        <a href="{% url 'schedule_pickup' %}">预约提柜</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </li>
-                    {% endif %}
-                {% endif %}
-
-                <!-- 大方广权限用户可见：仅显示“大方广LA提柜” -->
-                {% if generous_and_wide %}
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">港前操作</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'terminal_dispatch' %}?step=handle_generous_and_wide_planted" target="_blank">大方广LA提柜</a>
-                            </div>
-                        </div>
-                    </li>
-                {% endif %}
-            </ul>
+        <div class="zem-user-area">
+            {% if user.is_authenticated %}
+                <a href="{% url 'logout' %}">登出</a>
+            {% else %}
+                <a href="{% url 'login' %}">登录</a>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 
-    <div style="width: 20%;" class="text-right">
-        {% if user.is_authenticated %}
-            <a class="nav-link" href="{% url 'logout' %}">Logout</a>
-        {% else %}
-            <a class="nav-link" href="{% url 'login' %}">Login</a>
-        {% endif %}
-    </div>
+    <!-- Secondary tab bar -->
+    <div class="zem-secondary-bar" id="zemSecondaryBar"></div>
+
+    <!-- Loading overlay for AJAX navigation -->
+    <div class="zem-loading-overlay" id="zemLoadingOverlay"></div>
 </div>
+
+<script>
+(function() {
+    const isGenerousAndWide = {{ generous_and_wide|yesno:"true,false" }};
+    const isStaff = {{ user.is_staff|yesno:"true,false" }};
+
+    // Tab definition: each primary tab with its secondary items
+    // url pattern used for auto-detection of active tab
+    const navConfig = [
+        {
+            id: 'customer',
+            label: '客户管理',
+            subLabel: '客户与报价',
+            match: [{path: '/customer_management/'}],
+            items: [
+                {label: '添加客户', url: '{% url 'customer_management' %}'},
+                {label: '余额管理', url: '{% url 'customer_management' %}?step=customer_balance'},
+            ]
+        },
+        {
+            id: 'pre_port',
+            label: '港前操作',
+            subLabel: '订单与追踪',
+            match: [
+                {path: '/quote/'},
+                {path: '/create_order/'},
+                {path: '/pre_port_tracking/'},
+                {path: '/terminal_dispatch/'},
+                {path: '/container_pickup/'},
+                {path: '/oct_summary/'},
+                {path: '/information_update/'},
+                {path: '/schedule_pickup/'},
+                {path: '/container_tracking/', query: 'step=handle_generous_and_wide_planted'},
+            ],
+            items: [
+                {label: '询价', children: [
+                    {label: '新建询价', url: '{% url 'quote_management' %}?step=new', target: '_blank'},
+                    {label: '历史询价', url: '{% url 'quote_management' %}?step=history', target: '_blank'},
+                ]},
+                {label: '港前订单管理', url: '{% url 'create_order' %}?step=all', target: '_blank'},
+                {label: '订单删除', url: '{% url 'create_order' %}?step=repeat_all', target: '_blank'},
+                {label: 'T49待追踪', url: '{% url 'create_order' %}?step=repeat_t49_all', target: '_blank'},
+                {label: '新增仓库与供应商', url: '{% url 'create_order' %}?step=create_warehouse_get', target: '_blank'},
+                {label: '港前订单追踪', url: '{% url 'pre_port_tracking' %}?step=all', target: '_blank'},
+                {label: '港口调度', url: '{% url 'terminal_dispatch' %}?step=all', target: '_blank'},
+                {label: '货柜状态追踪', url: '{% url 'contaier_pickup_status' %}?step=all', target: '_blank'},
+                {label: 'OCT汇总', url: '{% url 'oct_summary' %}?step=all', target: '_blank'},
+                {label: '货柜进度汇总', url: '{% url 'contaier_pre_port_summary_dash' %}?step=all', target: '_blank'},
+                {label: '信息更新', url: '{% url 'information_update' %}?step=all', target: '_blank'},
+            ]
+        },
+        {
+            id: 'warehouse',
+            label: '仓库操作',
+            subLabel: '入库/出库/盘点',
+            match: [
+                {path: '/palletize/'},
+                {path: '/warehouse_operations/'},
+                {path: '/warehouse_dash/'},
+                {path: '/inventory/'},
+            ],
+            items: [
+                {label: '拆柜入库', url: '{% url 'palletization' %}'},
+                {label: '仓库管理', children: [
+                    {label: '入库', url: '{% url 'warehouse_operations' %}?step=warehousing_operation'},
+                    {label: '盘点及特操', url: '{% url 'warehouse_operations' %}?step=counting_pallet'},
+                    {label: '出库', url: '{% url 'warehouse_operations' %}?step=upcoming_fleet'},
+                    {label: 'LTL出库', url: '{% url 'warehouse_operations' %}?step=upcoming_fleet_ltl'},
+                    {label: '数据监控', url: '{% url 'warehouse_dash' %}', target: '_blank'},
+                ]},
+                {label: '私仓管理', url: '{% url 'warehouse_operations' %}?step=privaty_management'},
+                {label: '库位管理', url: '{% url 'palletization' %}?step=warehouse_zone'},
+                {label: '合板管理', url: '{% url 'inventory' %}?step=merge_pallet'},
+                {label: '仓库待处理', url: '{% url 'palletization' %}?step=daily_operation', target: '_blank'},
+                {label: '库存管理', url: '{% url 'inventory' %}', target: '_blank'},
+                {label: '异常拆柜', children: [
+                    {label: '待处理异常', url: '{% url 'palletization' %}?step=abnormal', target: '_blank'},
+                    {label: '异常拆柜记录', url: '{% url 'palletization' %}?step=abnormal_records', target: '_blank'},
+                ]},
+            ]
+        },
+        {
+            id: 'work',
+            label: '工作一览',
+            subLabel: '操作组/批次核对',
+            match: [
+                {path: '/post_nsop/'},
+                {path: '/transferpallet/'},
+                {path: '/pod/'},
+                {path: '/post_port_summary/'},
+                {path: '/timeout_warning/'},
+                {path: '/generate_pdf/'},
+            ],
+            items: [
+                {label: '操作组', children: [
+                    {label: '四大仓备约', url: '{% url 'post_nsop' %}?step=unscheduled_pos_all', target: '_blank'},
+                    {label: '备约', url: '{% url 'post_nsop' %}?step=appointment_management', target: '_blank'},
+                    {label: '库存排约', url: '{% url 'post_nsop' %}?step=schedule_shipment', target: '_blank'},
+                    {label: '库存批量排约', url: '{% url 'post_nsop' %}?step=batch_shipment', target: '_blank'},
+                    {label: '车次操作', url: '{% url 'post_nsop' %}?step=fleet_management', target: '_blank'},
+                    {label: '历史排约', url: '{% url 'post_nsop' %}?step=history_shipment', target: '_blank'},
+                    {label: '外配货物登记', url: '{% url 'create_order' %}?step=peer_po_creation'},
+                    {label: '卡板转干线', children: [
+                        {label: '转干线操作', url: '{% url 'transferpallet' %}?step=operation'},
+                        {label: '转干线历史及BOL', url: '{% url 'transferpallet' %}?step=transfer_history'},
+                    ]},
+                    {label: 'FTL派送成本录入', url: '{% url 'pod' %}?step=fleet_cost_record', target: '_blank'},
+                ]},
+                {label: '批次货物核对', children: [
+                    {label: '客户端异常展示', url: '{% url 'post_nsop' %}?step=client_exception', target: '_blank'},
+                    {label: '客户端约核对', url: '{% url 'post_nsop' %}?step=master_shipment_check', target: '_blank'},
+                    {label: '实际货物核对', url: '{% url 'post_nsop' %}?step=fleet_po_check', target: '_blank'},
+                    {label: '出库批次核对', url: '{% url 'post_nsop' %}?step=fleet_leader_check', target: '_blank'},
+                    {label: '历史约修改记录核对', url: '{% url 'post_nsop' %}?step=sp_bind_history', target: '_blank'},
+                    {label: 'POD修改', url: '{% url 'post_nsop' %}?step=pod_reupload_check', target: '_blank'},
+                    {label: '库存时效预警', url: '{% url 'timeout_warning' %}', target: '_blank'},
+                ]},
+                {label: '私仓组', children: [
+                    {label: '库存排约', url: '{% url 'post_nsop' %}?step=LTL_pallets', target: '_blank'},
+                    {label: '历史数据', url: '{% url 'post_nsop' %}?step=LTL_history_po', target: '_blank'},
+                    {label: 'LTL派送成本录入', url: '{% url 'pod' %}?step=fleet_cost_record_ltl', target: '_blank'},
+                    {label: '私仓外配货物登记', url: '{% url 'create_order' %}?step=peer_po_creation_other'},
+                    {label: '私仓库存批量排约', url: '{% url 'post_nsop' %}?step=batch_shipment_other', target: '_blank'},
+                ]},
+                {label: '便捷操作', url: '{% url 'post_nsop' %}?step=easy_action', target: '_blank'},
+                {label: '系统常用参数修改', url: '{% url 'post_nsop' %}?step=system_parameter_add', target: '_blank'},
+                {label: '表格导出', children: [
+                    {label: '报表导出', url: '{% url 'post_port_summary' %}?step=summary_table', target: '_blank'},
+                    {label: 'PO导出', url: '{% url 'po' %}', target: '_blank'},
+                    {label: 'BOL导出', url: '{% url 'bol' %}', target: '_blank'},
+                ]},
+                {label: '旧版预约管理', children: [
+                    {label: '备约', url: '{% url 'schedule_shipment' %}?step=appointment_management', target: '_blank'},
+                    {label: '预约出库', url: '{% url 'schedule_shipment' %}', target: '_blank'},
+                    {label: '异常预约', url: '{% url 'schedule_shipment' %}?step=shipment_exceptions', target: '_blank'},
+                ]},
+                {label: '旧版车次管理', children: [
+                    {label: '排车', url: '{% url 'fleet_management' %}?step=fleet', target: '_blank'},
+                    {label: '出库管理', url: '{% url 'outbound' %}?step=outbound', target: '_blank'},
+                    {label: '确认送达', url: '{% url 'outbound' %}?step=delivery_and_pod', target: '_blank'},
+                    {label: 'POD上传', url: '{% url 'pod' %}?step=pod_upload', target: '_blank'},
+                ]},
+            ]
+        },
+        {
+            id: 'dropshipping',
+            label: '一件代发',
+            subLabel: '代发与派送',
+            match: [
+                {path: '/dropshipping/'},
+                {path: '/post_drop/'},
+            ],
+            items: [
+                {label: '创建订单', url: '{% url 'dropshipping' %}?step=all', target: '_blank'},
+                {label: 'T49待追踪', url: '{% url 'dropshipping' %}?step=repeat_t49_all', target: '_blank'},
+                {label: '港口调度', url: '{% url 'dropshipping' %}?step=terminal_all', target: '_blank'},
+                {label: '货柜追踪提醒', url: '{% url 'dropshipping' %}?step=contaier_pickup_status_all', target: '_blank'},
+                {label: '订单列表', url: '{% url 'dropshipping' %}?step=order_management_list', target: '_blank'},
+                {label: '拆柜入库', url: '{% url 'dropshipping' %}?step=palletize_all', target: '_blank'},
+                {label: '库存管理', url: '{% url 'dropshipping' %}?step=inventory_all', target: '_blank'},
+                {label: '异常拆柜', children: [
+                    {label: '待处理异常', url: '{% url 'dropshipping' %}?step=abnormal', target: '_blank'},
+                    {label: '异常拆柜记录', url: '{% url 'dropshipping' %}?step=abnormal_records', target: '_blank'},
+                ]},
+                {label: '港后派送', url: '{% url 'postdrop' %}?step=postport_delivery', target: '_blank'},
+                {label: '货物流水查询', url: '{% url 'postdrop' %}?step=dropship_invetory', target: '_blank'},
+                {label: '预约批次查询', url: '{% url 'postdrop' %}?step=shipment_batch_query', target: '_blank'},
+                {label: '退货处理', url: '{% url 'postdrop' %}?step=return_process', target: '_blank'},
+                {label: '应收账单', url: '{% url 'postdrop' %}?step=account_rec', target: '_blank'},
+            ]
+        },
+        {
+            id: 'order',
+            label: '订单管理',
+            subLabel: '订单与PO',
+            match: [
+                {path: '/po/'},
+                {path: '/create_order/', query: 'step=order_management_list'},
+            ],
+            items: [
+                {label: '订单列表', url: '{% url 'create_order' %}?step=order_management_list', target: '_blank'},
+                {label: 'PO导出', url: '{% url 'po' %}', target: '_blank'},
+                {label: 'PO校验', children: [
+                    {label: '到港前一周', url: '{% url 'po' %}?step=po_check_eta', target: '_blank'},
+                    {label: '提柜前一天', url: '{% url 'po' %}?step=po_check_retrieval', target: '_blank'},
+                ]},
+                {label: 'PO失效', url: '{% url 'po' %}?step=po_invalid', target: '_blank'},
+                {label: 'PO校验总表', url: '{% url 'po' %}?step=po_list', target: '_blank'},
+            ]
+        },
+        {
+            id: 'old_finance',
+            label: '旧版财务',
+            subLabel: '账单与报价',
+            match: [{path: '/accounting/', query: 'step=pallet_data'}],
+            items: [
+                {label: '托盘数据', url: '{% url 'accounting' %}?step=pallet_data', target: '_blank'},
+                {label: '派送清单', url: '{% url 'accounting' %}?step=pl_data', target: '_blank'},
+                {label: '账单录入', children: [
+                    {label: '旧版货柜账单', url: '{% url 'accounting' %}?step=invoice', target: '_blank'},
+                    {label: '应收账单', children: [
+                        {label: '整柜直送', url: '{% url 'accounting' %}?step=invoice_direct', target: '_blank'},
+                        {label: '提拆柜', url: '{% url 'accounting' %}?step=invoice_preport', target: '_blank'},
+                        {label: '库内操作', url: '{% url 'accounting' %}?step=invoice_warehouse', target: '_blank'},
+                        {label: '派送', url: '{% url 'accounting' %}?step=invoice_delivery', target: '_blank'},
+                    ]},
+                    {label: '账单确认', url: '{% url 'accounting' %}?step=invoice_confirm', target: '_blank'},
+                    {label: '应付账单', url: '{% url 'accounting' %}?step=invoice_payable', target: '_blank'},
+                    {label: '账单录入进度', url: '{% url 'accounting' %}?step=invoice_search', target: '_blank'},
+                ]},
+                {label: '报价表', children: [
+                    {label: '应收报价表管理', url: '{% url 'quote_management' %}?step=quote_master', target: '_blank'},
+                    {label: '应付报价表管理', url: '{% url 'quote_management' %}?step=payable_quote_master', target: '_blank'},
+                ]},
+            ]
+        },
+        {
+            id: 'new_finance',
+            label: '新版财务',
+            subLabel: '应收/应付',
+            match: [
+                {path: '/receivable_accounting/'},
+                {path: '/accounting/', query: 'step=invoice_payable_v1'},
+                {path: '/accounting/', query: 'step=inside_the_warehouse'},
+                {path: '/accounting/', query: 'step=invoice_confirm_payable'},
+                {path: '/accounting/', query: 'step=invoice_warehouse_confirm_payable'},
+                {path: '/accounting/', query: 'step=invoice_confirm_payable_delivery'},
+            ],
+            items: [
+                {label: '账单录入进度', url: '{% url 'receivable_accounting' %}?step=invoice_search', target: '_blank'},
+                {label: '应收账单录入', children: [
+                    {label: '提拆账单录入', url: '{% url 'receivable_accounting' %}?step=preport', target: '_blank'},
+                    {label: '库内账单录入', url: '{% url 'receivable_accounting' %}?step=warehouse', target: '_blank'},
+                    {label: '派送账单录入', url: '{% url 'receivable_accounting' %}?step=delivery', target: '_blank'},
+                    {label: '赔付账单录入', url: '{% url 'receivable_accounting' %}?step=pay_out', target: '_blank'},
+                    {label: '取消预报账单录入', url: '{% url 'receivable_accounting' %}?step=cancel_container_account', target: '_blank'},
+                    {label: '应收手动更改', url: '{% url 'receivable_accounting' %}?step=supplementary', target: '_blank'},
+                ]},
+                {label: '应收财务确认', children: [
+                    {label: '待核销额外费用', url: '{% url 'receivable_accounting' %}?step=confirm', target: '_blank'},
+                    {label: '待核销固定费用', url: '{% url 'receivable_accounting' %}?step=fix_account', target: '_blank'},
+                    {label: '柜子账单自检', url: '{% url 'receivable_accounting' %}?step=container_check', target: '_blank'},
+                    {label: '已核销账单', url: '{% url 'receivable_accounting' %}?step=write_off_account', target: '_blank'},
+                ]},
+                {label: '应付账单', children: [
+                    {label: '提拆账单', url: '{% url 'accounting' %}?step=invoice_payable_v1', target: '_blank'},
+                    {label: '库内账单', url: '{% url 'accounting' %}?step=inside_the_warehouse', target: '_blank'},
+                ]},
+                {label: '应付财务确认', children: [
+                    {label: '提拆账单', url: '{% url 'accounting' %}?step=invoice_confirm_payable', target: '_blank'},
+                    {label: '库内账单', url: '{% url 'accounting' %}?step=invoice_warehouse_confirm_payable', target: '_blank'},
+                    {label: '派送账单', url: '{% url 'accounting' %}?step=invoice_confirm_payable_delivery', target: '_blank'},
+                ]},
+                {label: '预报费用计算', url: '{% url 'receivable_accounting' %}?step=pl_container_fee', target: '_blank'},
+            ]
+        },
+        {
+            id: 'report',
+            label: '报表汇总',
+            subLabel: '统计与分析',
+            match: [{path: '/order_statistics/'}],
+            items: [
+                {label: '订单量统计', url: '{% url 'order_statistics' %}', target: '_blank'},
+                {label: '订单利润统计', url: '{% url 'order_statistics' %}?step=profit_analysis', target: '_blank'},
+                {label: 'CBM统计', url: '{% url 'order_statistics' %}?step=cbm_analysis', target: '_blank'},
+                {label: '时效统计', url: '{% url 'order_statistics' %}?step=delivery_timeliness_analysis', target: '_blank'},
+                {label: '马士基价格调整', url: '{% url 'order_statistics' %}?step=maersk_rate', target: '_blank'},
+                {label: '派送账单成本详情', url: '{% url 'order_statistics' %}?step=profit_analysis_personalized', target: '_blank'},
+                {label: '历史操作查询', url: '{% url 'order_statistics' %}?step=historical_query', target: '_blank'},
+                {label: '历史约记录查询', url: '{% url 'order_statistics' %}?step=shipment_binding_log', target: '_blank'},
+            ]
+        },
+        {
+            id: 'exception',
+            label: '异常处理',
+            subLabel: '异常与工具',
+            match: [{path: '/exception_handling/'}],
+            items: [
+                {label: '表格便捷操作', url: '{% url 'exception_handling' %}?step=excel_formula_tool', target: '_blank'},
+                {label: '港后状态异常', url: '{% url 'exception_handling' %}?step=post_port_status', target: '_blank'},
+                {label: '实际约主约修改', url: '{% url 'exception_handling' %}?step=shipment_actual', target: '_blank'},
+                {label: '派送账单异常', url: '{% url 'exception_handling' %}?step=delivery_invoice', target: '_blank'},
+                {label: '查询各表详情', url: '{% url 'exception_handling' %}?step=find_table_id', target: '_blank'},
+                {label: '恢复分拣数据Pallet', url: '{% url 'exception_handling' %}?step=restore_sorted_data_get', target: '_blank'},
+                {label: '恢复分拣数据Packinglist', url: '{% url 'exception_handling' %}?step=restore_sorted_data_get_packinglist', target: '_blank'},
+                {label: 'pl/plt状态详情', url: '{% url 'exception_handling' %}?step=pl_plt_detail', target: '_blank'},
+                {label: '上传加塞po文件', url: '{% url 'exception_handling' %}?step=temporary_function', target: '_blank'},
+                {label: '应收账单迁移', url: '{% url 'exception_handling' %}?step=receivable_status_migrate', target: '_blank'},
+                {label: '历史账单组合柜计算', url: '{% url 'exception_handling' %}?step=recalculate_combine', target: '_blank'},
+            ]
+        },
+    ];
+
+    // Admin-only tab
+    const adminTab = {
+        id: 'admin',
+        label: '后台管理',
+        subLabel: '系统管理',
+        match: [
+            {path: '/dbconn'},
+            {path: '/stuff_user/'},
+            {path: '/async_view'},
+            {path: '/container_tracking/', query: 'step=actual_match'},
+            {path: '/container_tracking/', query: 'step=sp_operation'},
+            {path: '/container_tracking/', query: 'step=find_table_id'},
+        ],
+        items: [
+            {label: 'SQL Query', url: '{% url 'dbconn' %}'},
+            {label: '清理数据', url: '{% url 'stuff_user' %}?step=clean_data'},
+            {label: '系统各种特殊操作', children: [
+                {label: '上传预约表并展示', url: '{% url 'container_tracking' %}'},
+                {label: '预约表与系统匹配情况', url: '{% url 'container_tracking' %}?step=actual_match', target: '_blank'},
+                {label: '将预约表落实到系统', url: '{% url 'container_tracking' %}?step=sp_operation', target: '_blank'},
+                {label: '查询记录id', url: '{% url 'container_tracking' %}?step=find_table_id', target: '_blank'},
+            ]},
+            {label: 'Test Async', children: [
+                {label: 'async', url: '{% url 'async_view' %}?step=async', target: '_blank'},
+                {label: 'sync', url: '{% url 'async_view' %}?step=sync', target: '_blank'},
+            ]},
+            {label: '港前(legacy)', children: [
+                {label: '创建订单', children: [
+                    {label: '直送', url: '{% url 'create_order_legacy' %}?type=DD', target: '_blank'},
+                    {label: '转运', url: '{% url 'create_order_legacy' %}?type=TD', target: '_blank'},
+                ]},
+                {label: '预约提柜', url: '{% url 'schedule_pickup' %}'},
+            ]},
+        ]
+    };
+
+    // Generous & wide tab (simplified)
+    const gwTab = {
+        id: 'pre_port_gw',
+        label: '港前操作',
+        subLabel: '大方广专用',
+        match: [{path: '/terminal_dispatch/', query: 'step=handle_generous_and_wide_planted'}],
+        items: [
+            {label: '大方广LA提柜', url: '{% url 'terminal_dispatch' %}?step=handle_generous_and_wide_planted', target: '_blank'},
+        ]
+    };
+
+    // Build primary tabs
+    const primaryContainer = document.getElementById('zemPrimaryTabs');
+    const secondaryBar = document.getElementById('zemSecondaryBar');
+    let activePrimary = null;
+
+    // Decide which tabs to show
+    let tabsToShow;
+    if (isGenerousAndWide) {
+        tabsToShow = [gwTab];
+    } else {
+        tabsToShow = [...navConfig];
+        if (isStaff) {
+            tabsToShow.push(adminTab);
+        }
+    }
+
+    // Render primary tabs
+    tabsToShow.forEach(tab => {
+        const el = document.createElement('div');
+        el.className = 'zem-primary-tab';
+        el.dataset.tabId = tab.id;
+        el.innerHTML = `<span>${tab.label}</span><span class="zem-sub-label">${tab.subLabel}</span>`;
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            setActivePrimary(tab.id);
+        });
+        primaryContainer.appendChild(el);
+    });
+
+    // URL matching to find active tab
+    function findActiveTab() {
+        const currentPath = window.location.pathname;
+        const currentSearch = window.location.search;
+        const params = new URLSearchParams(currentSearch);
+        const step = params.get('step');
+
+        for (const tab of tabsToShow) {
+            if (!tab.match) continue;
+            for (const rule of tab.match) {
+                if (rule.path && currentPath.startsWith(rule.path)) {
+                    if (rule.query) {
+                        // Check required query params
+                        const qParams = new URLSearchParams(rule.query);
+                        let allMatch = true;
+                        for (const [k, v] of qParams) {
+                            if (params.get(k) !== v) { allMatch = false; break; }
+                        }
+                        if (allMatch) return tab.id;
+                    } else {
+                        return tab.id;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    function setActivePrimary(tabId) {
+        activePrimary = tabId;
+
+        // Update primary tab active states
+        document.querySelectorAll('.zem-primary-tab').forEach(el => {
+            el.classList.toggle('active', el.dataset.tabId === tabId);
+        });
+
+        // Find the tab config
+        const tab = tabsToShow.find(t => t.id === tabId);
+        if (!tab) return;
+
+        // Render secondary items
+        renderSecondary(tab);
+
+        // Persist selection
+        try { localStorage.setItem('zem_active_primary_tab', tabId); } catch(e) {}
+    }
+
+    function renderSecondary(tab) {
+        secondaryBar.innerHTML = '';
+        secondaryBar.classList.add('visible');
+
+        tab.items.forEach((item, idx) => {
+            if (idx > 0) {
+                const sep = document.createElement('div');
+                sep.className = 'zem-secondary-separator';
+                secondaryBar.appendChild(sep);
+            }
+
+            if (item.children) {
+                // Tertiary dropdown
+                const wrap = document.createElement('div');
+                wrap.className = 'zem-tertiary-wrap';
+
+                const btn = document.createElement('button');
+                btn.className = 'zem-tertiary-btn';
+                btn.innerHTML = `${item.label} <span class="zem-chevron">▾</span>`;
+                wrap.appendChild(btn);
+
+                const menu = document.createElement('div');
+                menu.className = 'zem-tertiary-menu';
+                item.children.forEach(child => {
+                    const a = document.createElement('a');
+                    a.href = child.url;
+                    a.textContent = child.label;
+                    if (child.target) a.target = child.target;
+                    attachAjaxHandler(a);
+                    menu.appendChild(a);
+                });
+                wrap.appendChild(menu);
+                secondaryBar.appendChild(wrap);
+            } else {
+                // Simple link
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.className = 'zem-secondary-tab';
+                a.textContent = item.label;
+                if (item.target) a.target = item.target;
+                attachAjaxHandler(a);
+                secondaryBar.appendChild(a);
+            }
+        });
+    }
+
+    // Attach AJAX navigation handler to links
+    function attachAjaxHandler(el) {
+        if (el.target === '_blank') return; // Let _blank links open normally
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = el.href;
+            if (url && !url.startsWith('#') && !url.startsWith('javascript:')) {
+                navigateTo(url);
+            }
+        });
+    }
+
+    // AJAX navigation
+    const loadingOverlay = document.getElementById('zemLoadingOverlay');
+
+    async function navigateTo(url, pushState = true) {
+        const contentArea = document.getElementById('zemContentArea');
+        if (!contentArea) {
+            window.location.href = url;
+            return;
+        }
+
+        // Show loading
+        loadingOverlay.classList.add('active');
+        contentArea.innerHTML = '<div class="zem-loading-indicator">页面加载中</div>';
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Extract content area
+            const newContent = doc.getElementById('zemContentArea');
+            if (newContent) {
+                contentArea.innerHTML = newContent.innerHTML;
+            } else {
+                // Fallback: look for zem-main-container
+                const fallback = doc.querySelector('.zem-main-container');
+                if (fallback) {
+                    contentArea.innerHTML = fallback.innerHTML;
+                } else {
+                    throw new Error('Content area not found');
+                }
+            }
+
+            // Update page title
+            const titleTag = doc.querySelector('title');
+            if (titleTag) {
+                document.title = titleTag.textContent;
+            }
+
+            // Re-run scripts found in the content
+            const scripts = contentArea.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                oldScript.replaceWith(newScript);
+            });
+
+            // Update URL
+            if (pushState) {
+                history.pushState({ url: url }, '', url);
+            }
+
+            // Reset scroll
+            window.scrollTo(0, 0);
+
+            // Re-detect active tab based on new URL
+            const detectedTab = findActiveTabForUrl(url);
+            if (detectedTab && detectedTab !== activePrimary) {
+                setActivePrimary(detectedTab);
+            }
+
+        } catch (err) {
+            console.warn('AJAX navigation failed, falling back to full reload:', err);
+            window.location.href = url;
+        } finally {
+            loadingOverlay.classList.remove('active');
+        }
+    }
+
+    // Find active tab for a given URL (without relying on window.location)
+    function findActiveTabForUrl(url) {
+        try {
+            const urlObj = new URL(url, window.location.origin);
+            const path = urlObj.pathname;
+            const params = new URLSearchParams(urlObj.search);
+
+            for (const tab of tabsToShow) {
+                if (!tab.match) continue;
+                for (const rule of tab.match) {
+                    if (rule.path && path.startsWith(rule.path)) {
+                        if (rule.query) {
+                            const qParams = new URLSearchParams(rule.query);
+                            let allMatch = true;
+                            for (const [k, v] of qParams) {
+                                if (params.get(k) !== v) { allMatch = false; break; }
+                            }
+                            if (allMatch) return tab.id;
+                        } else {
+                            return tab.id;
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.url) {
+            navigateTo(e.state.url, false);
+        }
+    });
+
+    // Initialize: auto-detect or use stored tab
+    function init() {
+        let storedTab = null;
+        try { storedTab = localStorage.getItem('zem_active_primary_tab'); } catch(e) {}
+        const detectedTab = findActiveTab();
+
+        // Prefer detected tab, fall back to stored, then first tab
+        let initialTab = detectedTab || storedTab || (tabsToShow.length > 0 ? tabsToShow[0].id : null);
+
+        if (initialTab) {
+            // Validate the tab exists
+            const exists = tabsToShow.some(t => t.id === initialTab);
+            if (!exists) initialTab = tabsToShow[0].id;
+            setActivePrimary(initialTab);
+        }
+    }
+
+    // Run init
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>

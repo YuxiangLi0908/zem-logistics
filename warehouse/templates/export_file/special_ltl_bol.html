@@ -218,6 +218,7 @@
     <span style="font-size:12px; padding-top:0;">NOTE: Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. 14706(c)(1)(A) and (B)</span>
 </div>
 {% if pickup_attachments or pickup_has_pdf %}
+<div style="font-size: 1px; color: #ffffff; line-height: 1px; margin: 0; padding: 0;">__PICKUP_ATTACHMENTS_START__</div>
 <div style="padding: 10px 0;">
     {% for att in pickup_attachments %}
         {% if att.kind == "image" %}
