@@ -1103,6 +1103,12 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
 
     data = [i for i in packing_list]
+
+    # 从原始dict样本判断是否存在custom_delivery_method，规避pandas全null删除列坑
+    has_custom_delivery = False
+    if len(data) > 0 and "custom_delivery_method" in data[0]:
+        has_custom_delivery = True
+
     df = pd.DataFrame.from_records(data)
     df = df.rename(
         {
@@ -1114,12 +1120,15 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         axis=1,
     )
 
-    if "custom_delivery_method" in df.columns:
-        df["delivery_method_final"] = df["custom_delivery_method"].where(
-            df["custom_delivery_method"].notna(), df["delivery_method"]
-        )
+    # 用原始数据标记，不用df.columns，防止pandas把全null列删掉
+    if has_custom_delivery:
+        df["delivery_method_final"] = df["custom_delivery_method"]
     else:
-        df["delivery_method_final"] = df["delivery_method"]
+        # pallet主查询分支，取delivery_method，兜底为pd.NA
+        if "delivery_method" in df.columns:
+            df["delivery_method_final"] = df["delivery_method"]
+        else:
+            df["delivery_method_final"] = pd.NA
 
     def split_delivery(v):
         if pd.isna(v):
