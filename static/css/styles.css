@@ -1,7 +1,196 @@
 body {
-    background-color: #f8f9fa;
+    background-color: #f5f6f8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    color: #2d3748;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
+/* ===== Page Typography ===== */
+h1, h2, h3, h4, h5, h6 {
+    color: #1a202c;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1.05rem; }
+.page-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* ===== Cards ===== */
+.card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.15s ease;
+}
+.card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.card-body {
+    padding: 18px;
+}
+.card-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid #edf2f7;
+    background: #f8fafc;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 8px 8px 0 0;
+    color: #2d3748;
+}
+
+/* ===== Tables ===== */
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 8px;
+    font-size: 0.82rem;
+}
+.table thead th,
+.table th {
+    background: #f7fafc;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 10px 12px;
+    border-bottom: 2px solid #e2e8f0;
+    border-right: 1px solid #edf2f7;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.table th:last-child,
+.table thead th:last-child {
+    border-right: none;
+}
+.table tbody td,
+.table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #edf2f7;
+    border-right: 1px solid #edf2f7;
+    color: #2d3748;
+    vertical-align: middle;
+}
+.table td:last-child {
+    border-right: none;
+}
+.table tbody tr:hover {
+    background: #f7fafc;
+}
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ===== Form Inputs ===== */
+.form-control,
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="email"],
+select,
+textarea {
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    color: #2d3748;
+    background: #ffffff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+    box-sizing: border-box;
+}
+.form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.15);
+}
+.form-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #4a5568;
+    margin-bottom: 4px;
+    display: block;
+}
+
+/* ===== Buttons ===== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    line-height: 1.5;
+    gap: 5px;
+}
+.btn-primary,
+.btn-success {
+    background: #3182ce;
+    color: #ffffff;
+    border-color: #3182ce;
+}
+.btn-primary:hover,
+.btn-success:hover {
+    background: #2b6cb0;
+    border-color: #2b6cb0;
+}
+.btn-upload {
+    background: #38a169;
+    color: #ffffff;
+    border-color: #38a169;
+}
+.btn-upload:hover {
+    background: #2f855a;
+    border-color: #2f855a;
+}
+.btn-danger {
+    background: #e53e3e;
+    color: #ffffff;
+    border-color: #e53e3e;
+}
+.btn-danger:hover {
+    background: #c53030;
+    border-color: #c53030;
+}
+.btn-outline {
+    background: transparent;
+    color: #4a5568;
+    border-color: #cbd5e0;
+}
+.btn-outline:hover {
+    background: #edf2f7;
+    color: #2d3748;
+    border-color: #a0aec0;
+}
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 0.74rem;
+    border-radius: 5px;
+}
+
+/* ===== Utility / Existing Styles (preserved) ===== */
 .container {
     margin-top: 20px;
     margin: 0;
@@ -10,7 +199,8 @@ body {
 }
 
 .card {
-    border: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
 }
 
 .jumbotron {
@@ -19,11 +209,11 @@ body {
 }
 
 .navbar-brand {
-    font-size: 1.8rem; /* Adjust the font size for "ZEM LOGISTICS INC" */
+    font-size: 1.8rem;
 }
 
 .navbar-nav .nav-link {
-    font-size: 1.0rem; /* Adjust the font size for the tabs */
+    font-size: 1.0rem;
 }
 
 .dropdown {
@@ -123,51 +313,29 @@ body {
 }
 
 .scrollable-table {
-    max-height: 400px; /* Set the maximum height of the table */
+    max-height: 400px;
     max-width: 800px;
     overflow-x: auto;
-    overflow-y: auto; /* Enable vertical scrolling */
-    display: block; /* Ensure block-level display to handle overflow */
+    overflow-y: auto;
+    display: block;
 }
 
 .search-filters {
-    margin-bottom: 12px; /* Add some space below the input */
+    margin-bottom: 12px;
 }
 
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 5px;
-}
-
-.th, td {
-    border: 1px solid #dddddd;
+.table .th, .table td {
+    border: 1px solid #e2e8f0;
     text-align: left;
     min-width: 80px;
-    padding: 1px;
+    padding: 6px 8px;
 }
 
 .th {
-    background-color: #f2f2f2;
+    background-color: #f7fafc;
     min-width: 80px;
     position: sticky;
     top: 0;
-}
-
-.table th {
-    border: 1px solid #dddddd;
-    background-color: #f2f2f2;
-    text-align: left;
-    min-width: 80px;
-    padding: 5px;
-    position: sticky;
-    top: 0;
-}
-
-.table td {
-    border: 1px solid #dddddd;
-    padding: 5px;
-    min-width: 80px;
 }
 
 .quote-form-row {
@@ -209,7 +377,7 @@ body {
 
 .status-span-red {
     border-radius: .25rem;
-    background-color: #de3442;
+    background-color: #e53e3e;
     color: white;
     padding-bottom: .125rem;
     padding-top: .125rem;
@@ -219,7 +387,7 @@ body {
 
 .status-span-yellow {
     border-radius: .25rem;
-    background-color: #fcc405;
+    background-color: #d69e2e;
     color: white;
     padding-bottom: .125rem;
     padding-top: .125rem;
@@ -229,8 +397,8 @@ body {
 
 .status-span-green-100 {
     border-radius: .25rem;
-    background-color: #d5f6e8;
-    color: #115035;
+    background-color: #c6f6d5;
+    color: #22543d;
     padding-bottom: .125rem;
     padding-top: .125rem;
     padding-left: .225rem;
@@ -239,8 +407,8 @@ body {
 
 .status-span-red-100 {
     border-radius: .25rem;
-    background-color: #f9d8da;
-    color: #5c0f15;
+    background-color: #fed7d7;
+    color: #742a2a;
     padding-bottom: .125rem;
     padding-top: .125rem;
     padding-left: .225rem;
@@ -249,8 +417,8 @@ body {
 
 .status-span-yellow-100 {
     border-radius: .25rem;
-    background-color: #f8df99f8;
-    color: #5c0f15;
+    background-color: #fefcbf;
+    color: #744210;
     padding-bottom: .125rem;
     padding-top: .125rem;
     padding-left: .225rem;
@@ -259,8 +427,8 @@ body {
 
 .status-span-blue-100 {
     border-radius: .25rem;
-    background-color: #cce5ff;
-    color: #003166;
+    background-color: #bee3f8;
+    color: #2a4365;
     padding-bottom: .125rem;
     padding-top: .125rem;
     padding-left: .225rem;
@@ -268,17 +436,17 @@ body {
 }
 
 .tr-status-red {
-    background-color: #de3442;
+    background-color: #e53e3e;
     color: white;
 }
 
 .tr-status-yellow {
-    background-color: #fcc405;
+    background-color: #d69e2e;
     color: white;
 }
 
 #loading-bar {
-    display: none; /* Initially hidden */
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -315,7 +483,7 @@ body {
 
 .password-container input {
     width: 100%;
-    padding-right: 35px; /* Space for the eye icon */
+    padding-right: 35px;
 }
 
 .toggle-password {
@@ -329,11 +497,11 @@ body {
 }
 
 .valid-feedback {
-    color: #47c18e;
+    color: #38a169;
     display: list-item;
 }
 
 .invalid-feedback {
-    color: #de3442;
+    color: #e53e3e;
     display: list-item;
 }

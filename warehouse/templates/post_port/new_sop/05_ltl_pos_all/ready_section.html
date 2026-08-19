@@ -763,7 +763,7 @@
 
 <!-- 拣货单模态框 -->
 <div id="armPickupModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 800px; border-radius: 8px; max-height: 85vh; display: flex; flex-direction: column;">
+    <div class="modal-content" style="background-color: #fefefe; margin: 3% auto; padding: 20px; border: 1px solid #888; width: 95%; max-width: 1500px; border-radius: 8px; max-height: 88vh; display: flex; flex-direction: column;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
             <h3 style="margin: 0;">CONSIGNEE - <span id="armPickupFleetNumber"></span></h3>
             <div>
@@ -2467,17 +2467,17 @@
         console.log('数据详情',data);
         const contentDiv = document.getElementById('armPickupContent');
         let html = `
-            <div style="overflow-x: auto;">
-            <table style="min-width: 800px; border-collapse:collapse; font-size:13px;" 
+            <table style="width: 100%; border-collapse:collapse; font-size:13px; table-layout: fixed;" 
                 cellpadding="6" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">顺序</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">Company</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">Road</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">City</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">Name</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">操作</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 70px;">顺序</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 15%;">Company</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 15%;">Road</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 11%;">City</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 14%;">Name</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 17%;">图片</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 70px;">操作</th>
                 </thead>
                 <tbody id="armPickupTableBody">
         `;
@@ -2499,10 +2499,21 @@
                     name: parts[3] || ''
                 };
             }
+
+            const pickupImages = item.pickup_images || item.pickupImages || [];
+            let imageStatus = '未上传';
+            let imagePreview = '';
+            if (pickupImages.length > 0) {
+                imageStatus = `已上传 ${pickupImages.length} 张`;
+                const firstImg = pickupImages[0];
+                if (firstImg && firstImg.src) {
+                    imagePreview = `<img src="${firstImg.src}" style="max-width: 100px; max-height: 60px; border-radius: 4px; margin-top: 4px;">`;
+                }
+            }
             
             html += `
                 <tr id="arm-row-${index}" style="border-bottom: 1px solid #eee;">
-                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 80px; min-width: 80px;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 70px;">
                         <div class="arm-order-number" style="font-weight: 600; margin-bottom: 6px;">${index + 1}</div>
                         <div style="display: flex; justify-content: center; gap: 6px;">
                             <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, -1)"
@@ -2515,31 +2526,49 @@
                             </button>
                         </div>
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_company" 
                             value="${addressParts.company}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_road" 
                             value="${addressParts.road}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_city" 
                             value="${addressParts.city}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input address-part" 
                             data-field="address_name" 
                             value="${addressParts.name}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
-                    <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px; text-align: center;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <div class="ltl-image-dropzone" 
+                             style="border: 2px dashed #d0d5dd; border-radius: 6px; padding: 8px; text-align: center; cursor: pointer; background: #fafbfc; transition: all 0.15s;"
+                             ondragover="event.preventDefault(); this.style.borderColor='#2563eb'; this.style.background='#eff6ff';"
+                             ondragleave="this.style.borderColor='#d0d5dd'; this.style.background='#fafbfc';"
+                             ondrop="handleLTLDrop(event, ${index}, this);"
+                             onclick="this.querySelector('input[type=file]').click();">
+                            <input type="file" accept="image/*" multiple style="display: none;" 
+                                   onchange="handleLTLImageUpload(this, ${index});">
+                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">
+                                <i class="fas fa-cloud-upload-alt"></i> 拖拽或点击上传
+                            </div>
+                            <div class="ltl-image-status" style="font-size: 11px; color: ${pickupImages.length > 0 ? '#2563eb' : '#9ca3af'}; font-weight: 500;">
+                                ${imageStatus}
+                            </div>
+                            <div class="ltl-image-preview">${imagePreview}</div>
+                        </div>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 70px; text-align: center;">
                         <button class="arm-delete-btn" onclick="removeArmPickupRow(${index})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
@@ -2549,7 +2578,7 @@
             `;
         });
         
-        html += `</tbody></table></div>`;
+        html += `</tbody></table>`;
         
         if (data.length === 0) {
             html = '<div style="text-align:center; padding:20px; color:#666;">暂无拣货单数据</div>';
@@ -2582,6 +2611,80 @@
         
         // 其他情况转换为字符串
         return value.toString();
+    }
+
+    async function handleLTLImageUpload(input, index) {
+        const row = input.closest('tr');
+        if (!row) return;
+        const statusEl = row.querySelector('.ltl-image-status');
+        const previewEl = row.querySelector('.ltl-image-preview');
+        const files = input.files;
+        if (!files || files.length === 0) return;
+
+        if (statusEl) statusEl.textContent = '处理中...';
+        
+        const images = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!file.type.startsWith('image/')) {
+                alert('只支持上传图片文件');
+                continue;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`图片 ${file.name} 超过5MB限制`);
+                continue;
+            }
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onerror = () => reject(new Error('file read failed'));
+                    reader.onload = () => resolve(reader.result || '');
+                    reader.readAsDataURL(file);
+                });
+                images.push({
+                    src: dataUrl,
+                    name: file.name,
+                    type: file.type
+                });
+            } catch (e) {
+                console.error('处理图片失败:', e);
+            }
+        }
+
+        const rowData = editedArmPickupData[index] || {};
+        rowData.pickup_images = images;
+        editedArmPickupData[index] = rowData;
+
+        if (images.length > 0) {
+            if (statusEl) statusEl.textContent = `已上传 ${images.length} 张`;
+            if (statusEl) statusEl.style.color = '#2563eb';
+            const firstImg = images[0];
+            if (firstImg && firstImg.src && previewEl) {
+                previewEl.innerHTML = `<img src="${firstImg.src}" style="max-width: 100px; max-height: 60px; border-radius: 4px; margin-top: 4px;">`;
+            }
+        } else {
+            if (statusEl) statusEl.textContent = '未上传';
+            if (statusEl) statusEl.style.color = '#9ca3af';
+            if (previewEl) previewEl.innerHTML = '';
+        }
+
+        updateArmPickupData();
+    }
+
+    function handleLTLDrop(event, index, dropzone) {
+        event.preventDefault();
+        event.stopPropagation();
+        dropzone.style.borderColor = '#d0d5dd';
+        dropzone.style.background = '#fafbfc';
+
+        const fileInput = dropzone.querySelector('input[type=file]');
+        if (!fileInput) return;
+
+        const files = event.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        fileInput.files = files;
+        handleLTLImageUpload(fileInput, index);
     }
     // 添加事件监听器
     function addArmPickupEventListeners() {
@@ -2632,8 +2735,22 @@
             }
             
             const originalRow = editedArmPickupData[index];
-            if (originalRow && originalRow.container_number) {
-                newEditedData.push({ ...originalRow, ...rowData });
+            // Preserve pickup_images and other non-input fields
+            if (originalRow) {
+                const preservedFields = {};
+                if (originalRow.pickup_images !== undefined) preservedFields.pickup_images = originalRow.pickup_images;
+                if (originalRow.container_number !== undefined) preservedFields.container_number = originalRow.container_number;
+                if (originalRow.shipping_mark !== undefined) preservedFields.shipping_mark = originalRow.shipping_mark;
+                if (originalRow.zipcode !== undefined) preservedFields.zipcode = originalRow.zipcode;
+                if (originalRow.total_pallet !== undefined) preservedFields.total_pallet = originalRow.total_pallet;
+                if (originalRow.total_pcs !== undefined) preservedFields.total_pcs = originalRow.total_pcs;
+                if (originalRow.carrier !== undefined) preservedFields.carrier = originalRow.carrier;
+                if (originalRow.appointment_datetime !== undefined) preservedFields.appointment_datetime = originalRow.appointment_datetime;
+                if (originalRow.is_special_operation !== undefined) preservedFields.is_special_operation = originalRow.is_special_operation;
+                if (originalRow.appointment_info_detail !== undefined) preservedFields.appointment_info_detail = originalRow.appointment_info_detail;
+                if (originalRow.shipment_batch_number__note !== undefined) preservedFields.shipment_batch_number__note = originalRow.shipment_batch_number__note;
+                
+                newEditedData.push({ ...preservedFields, ...rowData });
             } else {
                 newEditedData.push(rowData);
             }
@@ -2932,7 +3049,8 @@
             company: item.address ? item.address.split(';')[0] || '' : '',
             road: item.address ? item.address.split(';')[1] || '' : '',
             city: item.address ? item.address.split(';')[2] || '' : '',
-            name: item.address ? item.address.split(';')[3] || '' : ''
+            name: item.address ? item.address.split(';')[3] || '' : '',
+            pickup_images: item.pickup_images || []
         }));
         
         // 发送到后端保存
