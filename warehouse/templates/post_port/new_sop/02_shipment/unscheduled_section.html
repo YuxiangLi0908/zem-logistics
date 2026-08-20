@@ -1566,7 +1566,18 @@
                     openQuotationModal(data.html || '');
                 } catch (e) {
                     console.error('查询报价异常:', e);
-                    alert(`查询失败：${e.message || '未知错误'}`);
+                    let errMsg = '未知错误';
+                    const msg = (e.message || '').toLowerCase();
+                    if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) {
+                        errMsg = '网络连接失败，请检查网络是否正常';
+                    } else if (msg.includes('timeout') || msg.includes('abort')) {
+                        errMsg = '请求超时，请稍后重试';
+                    } else if (msg.includes('blocked') || msg.includes('cors')) {
+                        errMsg = '请求被阻止，请联系管理员';
+                    } else {
+                        errMsg = e.message || '未知错误';
+                    }
+                    alert(`查询失败：${errMsg}`);
                 } finally {
                     this.innerHTML = originalHtml;
                     this.disabled = false;
