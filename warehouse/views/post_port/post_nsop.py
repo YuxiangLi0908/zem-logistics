@@ -2173,13 +2173,13 @@ class PostNsop(View):
                                 validation_errors.append(f'ISA {isa_int} 已经存在并且被取消了!')
                                 field_errors['isa'] = True
                             # 检查是否过期
-                            elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
+                            elif existed_appointment.shipment_appointment and existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
                                 validation_errors.append(
                                     f'ISA {isa_int} 预约时间是{existed_appointment.shipment_appointment}小于当前时间，已过期!')
                                 field_errors['isa'] = True
                             # 检查目的地是否一致
                             elif group.get('destination'):
-                                existing_dest = existed_appointment.destination.replace("Walmart", "").replace(
+                                existing_dest = (existed_appointment.destination or "").replace("Walmart", "").replace(
                                     "WALMART", "").replace("-", "").upper()
                                 current_dest = group.get('destination').replace("Walmart", "").replace("WALMART",
                                                                                                        "").replace("-",
@@ -7288,11 +7288,9 @@ class PostNsop(View):
                     error_messages.append(f"ISA {appointment_id} 已经被使用!")
                 elif existed_appointment.is_canceled:
                     error_messages.append(f"ISA {appointment_id} 已经取消!")
-                elif (existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now()):
+                elif (existed_appointment.shipment_appointment and existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now()):
                     error_messages.append(f"ISA {appointment_id} 预约时间小于当前时间，已过期!")
-                elif (existed_appointment.destination.replace("Walmart", "").replace("WALMART", "").replace("-",
-                                                                                                            "").upper() !=
-                      destination.replace("Walmart", "").replace("WALMART", "").replace("-", "").upper()):
+                elif (existed_appointment.destination or "").replace("Walmart", "").replace("WALMART", "").replace("-", "").upper() != (destination or "").replace("Walmart", "").replace("WALMART", "").replace("-", "").upper():
                     error_messages.append(
                         f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination}，此次登记的目的地是 {destination}!")
 
@@ -8765,7 +8763,7 @@ class PostNsop(View):
                 elif existed_appointment.is_canceled:
                     context.update({'error_messages': f"{appointment_id}已经被取消！"})
                 elif (
-                        existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC)
+                        existed_appointment.shipment_appointment and existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC)
                         < timezone.now()
                 ):
                     context.update({'error_messages': f"{appointment_id}在备约中登记的时间早于当前时间，请先修改备约！"})
@@ -10803,7 +10801,7 @@ class PostNsop(View):
         )
         unused_appointment = {
             s.appointment_id: {
-                "destination": s.destination.strip(),
+                "destination": (s.destination or "").strip(),
                 "shipment_appointment": s.shipment_appointment if not s.shipment_appointment else s.shipment_appointment.replace(
                     microsecond=0
                 ).isoformat(),
