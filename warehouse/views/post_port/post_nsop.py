@@ -10804,7 +10804,7 @@ class PostNsop(View):
         unused_appointment = {
             s.appointment_id: {
                 "destination": s.destination.strip(),
-                "shipment_appointment": s.shipment_appointment.replace(
+                "shipment_appointment": s.shipment_appointment if not s.shipment_appointment else s.shipment_appointment.replace(
                     microsecond=0
                 ).isoformat(),
             }
