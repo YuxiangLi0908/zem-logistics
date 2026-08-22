@@ -1255,9 +1255,11 @@ class ShippingManagement(View):
             unused_appointment = {
                 s.appointment_id: {
                     "destination": s.destination.strip(),
-                    "shipment_appointment": s.shipment_appointment.replace(
-                        microsecond=0
-                    ).isoformat(),
+                    "shipment_appointment": (
+                        s.shipment_appointment.replace(microsecond=0).isoformat()
+                        if s.shipment_appointment
+                        else ""
+                    ),
                 }
                 for s in unused_appointment
             }
