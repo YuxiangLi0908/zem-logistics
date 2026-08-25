@@ -547,6 +547,8 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "get_maersk_quote":
             return await self.handle_get_maersk_quote(request)
+        elif step == "get_multi_carrier_quote":
+            return await self.handle_get_multi_carrier_quote(request)
         elif step == "get_maersk_tracking":
             return await self.handle_get_maersk_tracking(request)
         elif step == "check_business_residential":
@@ -3532,6 +3534,151 @@ class PostNsop(View):
 
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    async def handle_get_multi_carrier_quote(self, request: HttpRequest) -> JsonResponse:
+        """通过公共网关同时询价，并等待卡卡省异步报价结果。"""
+        try:
+            raw_payload = request.POST.get("quote_payload")
+            if not raw_payload:
+                return JsonResponse({"success": False, "message": "缺少询价参数"}, status=400)
+
+            form = json.loads(raw_payload)
+            required = (
+                "pickupDate", "originCity", "originState", "originPostCode",
+                "destinationCity", "destinationState", "destinationPostCode",
+                "freightClass", "declaredValue", "items",
+            )
+            missing = [name for name in required if form.get(name) in (None, "", [])]
+            if missing:
+                return JsonResponse({
+                    "success": False,
+                    "message": "缺少必填项: " + ", ".join(missing),
+                }, status=400)
+
+            items = form["items"]
+            if not isinstance(items, list) or not items:
+                return JsonResponse({"success": False, "message": "至少需要一条货物明细"}, status=400)
+
+            pickup_date = datetime.strptime(form["pickupDate"], "%Y-%m-%d")
+            maersk_items = []
+            kakas_items = []
+            for item in items:
+                pieces = max(1, int(item.get("pieces") or 1))
+                length = max(1, math.ceil(float(item.get("length") or 0)))
+                width = max(1, math.ceil(float(item.get("width") or 0)))
+                height = max(1, math.ceil(float(item.get("height") or 0)))
+                weight = max(1, math.ceil(float(item.get("weight") or 0)))
+                description = str(item.get("description") or "Pallet")
+                maersk_items.append({
+                    "description": description, "pieces": pieces,
+                    "length": length, "width": width, "height": height,
+                    "weight": weight,
+                })
+                kakas_items.append({
+                    "describe": description,
+                    "commodityNum": pieces,
+                    "commodityUnit": int(form.get("commodityUnit") or 11),
+                    "consignNum": pieces,
+                    "palletType": int(form.get("palletType") or 1),
+                    "length": length, "width": width, "height": height,
+                    "weight": weight,
+                    "declaredValue": max(1, math.ceil(float(form["declaredValue"]))),
+                    "freightClass": str(form["freightClass"]),
+                })
+
+            need_liftgate = bool(form.get("needLiftgate"))
+
+            def kakas_address(prefix):
+                return {
+                    "type": int(form.get(prefix + "Type") or 1),
+                    "detailAddress": form.get(prefix + "DetailAddress") or "",
+                    "city": form[prefix + "City"],
+                    "state": form[prefix + "State"],
+                    "postCode": form[prefix + "PostCode"],
+                    "country": "US",
+                    "serveIds": [2] if need_liftgate else [],
+                }
+
+            gateway_base = os.environ.get(
+                "MAERSK_GATEWAY_URL",
+                "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io",
+            ).rstrip("/")
+            api_key = os.environ.get("MAERSK_GATEWAY_API_KEY") or os.environ.get("MAERSK_API_KEY")
+            if not api_key:
+                return JsonResponse({"success": False, "message": "未配置网关 API Key"}, status=500)
+
+            kakas_payload = {
+                "quoteType": int(form.get("quoteType") or 1),
+                "pickupDate": form["pickupDate"], "iu": 0,
+                "originalMsg": kakas_address("origin"),
+                "destinationMsg": kakas_address("destination"),
+                "commodityList": kakas_items,
+            }
+            if kakas_payload["quoteType"] == 2:
+                kakas_payload["carType"] = int(form.get("carType") or 1)
+
+            gateway_payload = {
+                "carrier": "all",
+                "carrierPayloads": {
+                    "maersk": {
+                        "shipDate": pickup_date.strftime("%m/%d/%Y"),
+                        "origin_zip": form["originPostCode"],
+                        "dest_zip": form["destinationPostCode"],
+                        "lineItems": maersk_items,
+                        "liftgate": "true" if need_liftgate else "false",
+                    },
+                    "kakas": kakas_payload,
+                },
+            }
+            headers = {"Content-Type": "application/json", "x-api-key": api_key}
+            timeout = aiohttp.ClientTimeout(total=40)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    f"{gateway_base}/rating", json=gateway_payload, headers=headers
+                ) as response:
+                    response_text = await response.text()
+                    if response.status != 200:
+                        return JsonResponse({
+                            "success": False,
+                            "message": f"公共询价失败: {response.status} - {response_text}",
+                        }, status=response.status)
+                    result = json.loads(response_text)
+
+                kakas_result = result.get("results", {}).get("kakas", {})
+                kakas_body = kakas_result.get("data") if kakas_result.get("status") == "success" else None
+
+                def find_uuid(value):
+                    if isinstance(value, dict):
+                        if value.get("uuid"):
+                            return value["uuid"]
+                        return find_uuid(value.get("data"))
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+                    return None
+
+                quote_uuid = find_uuid(kakas_body)
+                if quote_uuid:
+                    for _ in range(8):
+                        async with session.get(
+                            f"{gateway_base}/rating",
+                            params={"carrier": "kakas", "uuid": quote_uuid},
+                            headers=headers,
+                        ) as quote_response:
+                            if quote_response.status != 200:
+                                break
+                            quote_data = await quote_response.json()
+                            kakas_result["data"] = quote_data
+                            quote_content = quote_data.get("data", quote_data) if isinstance(quote_data, dict) else {}
+                            if quote_content.get("finish") or quote_content.get("rates"):
+                                break
+                        await asyncio.sleep(1)
+
+            return JsonResponse({"success": True, "data": result})
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            return JsonResponse({"success": False, "message": f"询价参数错误: {exc}"}, status=400)
+        except Exception as exc:
+            traceback.print_exc()
+            return JsonResponse({"success": False, "message": str(exc)}, status=500)
 
     async def handle_get_maersk_tracking(self, request: HttpRequest) -> JsonResponse:
         try:
