@@ -18655,11 +18655,32 @@ class PostNsop(View):
             shipment_batch_number=target_shipment
         )
 
+        # 收集选中pallet的PO_ID，同步更新对应PackingList的shipment_batch_number
+        pallet_pos = await sync_to_async(list)(
+            Pallet.objects.filter(id__in=selected_pallet_ids).values_list('id', 'PO_ID')
+        )
+        pl_po_ids = {po_id for _, po_id in pallet_pos if po_id}
+        packinglist_ids = []
+
+        if pl_po_ids:
+            matching_pls = await sync_to_async(list)(
+                PackingList.objects.filter(PO_ID__in=pl_po_ids)
+            )
+            if matching_pls:
+                for pl in matching_pls:
+                    pl.shipment_batch_number = target_shipment
+                await sync_to_async(bulk_update_with_history)(
+                    matching_pls,
+                    PackingList,
+                    fields=["shipment_batch_number"],
+                )
+                packinglist_ids = [pl.id for pl in matching_pls]
+
         # 记录 shipment log
         await ShipmentBindingLogger.log_shipment_operation(
             operator=request.user,
             pallet_ids=selected_pallet_ids,
-            packinglist_ids=[],
+            packinglist_ids=packinglist_ids,
             shipment_batch_number=target_shipment.shipment_batch_number,
             operation_button="工作一览的 批次货物核对的 加塞操作",
             operation_type="bind",
