@@ -1711,9 +1711,9 @@ class ShippingManagement(View):
                     else:
                         shipment_type = "actual"
                     if name == "post_nsop":
-                        operation_button = "工作一览最根本的预约出库函数更新PL的约，首约",
+                        operation_button = "工作一览最根本的预约出库函数更新PL的约，首约"
                     else:
-                        operation_button = "旧版最根本的预约出库函数更新PL的约，首约",
+                        operation_button = "旧版最根本的预约出库函数更新PL的约，首约"
 
                     await sync_to_async(ShipmentBindingLogger.log_bind)(
                         operator=request.user,
@@ -1739,7 +1739,7 @@ class ShippingManagement(View):
                     PackingList,
                     fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
-            except:
+            except Exception:
                 pass
 
             # 再更新pl绑定的约
@@ -1798,9 +1798,9 @@ class ShippingManagement(View):
                     else:
                         shipment_type = "actual"
                     if name == "post_nsop":
-                        operation_button = "工作一览最根本的预约出库函数更新PLT的约，首约",
+                        operation_button = "工作一览最根本的预约出库函数更新PLT的约，首约"
                     else:
-                        operation_button = "旧版最根本的预约出库函数更新PLT的约，首约",
+                        operation_button = "旧版最根本的预约出库函数更新PLT的约，首约"
                     await sync_to_async(ShipmentBindingLogger.log_bind)(
                         operator=request.user,
                         po_type="pallet",
@@ -1820,28 +1820,117 @@ class ShippingManagement(View):
                     Pallet,
                     fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
-            except Exception as e:
-                print(f"Global error: {str(e)}")
+            except Exception:
+                pass
             # 改同一PO_ID的板子的主约
             if plt_master_po_ids:
                 await sync_to_async(
                     Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
                 )(master_shipment_batch_number=shipment)
 
-            # 因为pl和plt的PO_ID相同，所以根据PO_ID去找pl
-            # 改同一PO_ID的pl的主约
-            if plt_master_po_ids:
-                await sync_to_async(
-                    PackingList.objects.filter(PO_ID__in=plt_master_po_ids).update
-                )(master_shipment_batch_number=shipment)
-            # 改plt对应的pl的实际约
-            if plt_shipment_po_ids:
-                await sync_to_async(
-                    PackingList.objects.filter(PO_ID__in=plt_shipment_po_ids).update
-                )(shipment_batch_number=shipment)
+            # 因为pl和plt的PO_ID相同，所以根据PO_ID去找pl同步约
+            plt_valid_po_ids = {po_id for po_id in plt_shipment_po_ids if po_id}
+            plt_valid_master_po_ids = {po_id for po_id in plt_master_po_ids if po_id}
 
-            # except:
-            #     pass
+            if plt_valid_po_ids or plt_valid_master_po_ids:
+                try:
+                    all_target_po_ids = plt_valid_po_ids | plt_valid_master_po_ids
+
+                    # 查询对应的PackingList记录
+                    existing_pls = await sync_to_async(list)(
+                        PackingList.objects.select_related("container_number").filter(
+                            PO_ID__in=all_target_po_ids
+                        )
+                    )
+
+                    existing_po_ids = {pl.PO_ID for pl in existing_pls}
+                    missing_po_ids = all_target_po_ids - existing_po_ids
+
+                    if existing_pls:
+                        # 分组记录日志 - 跟踪哪些组更新了主约
+                        pl_log_groups = {}
+                        pl_updated_master_keys = set()
+
+                        for pl in existing_pls:
+                            pl.shipment_batch_number = shipment
+
+                            container_number_val = pl.container_number.container_number if pl.container_number else None
+                            po_id_val = pl.PO_ID
+                            key = (container_number_val, po_id_val)
+
+                            # 确定是否为主约
+                            if pl.PO_ID in plt_valid_master_po_ids:
+                                pl.master_shipment_batch_number = shipment
+                                pl_updated_master_keys.add(key)
+
+                            # 记录分组信息
+                            if key not in pl_log_groups:
+                                pl_log_groups[key] = {
+                                    'container_number': container_number_val,
+                                    'po_id': po_id_val,
+                                    'destination': pl.destination,
+                                    'warehouse': None,
+                                    'delivery_type': pl.delivery_type,
+                                }
+
+                        # 记录日志：根据是否更新主约决定用all还是actual
+                        for key, log_data in pl_log_groups.items():
+                            shipment_type = "all" if key in pl_updated_master_keys else "actual"
+                            if name == "post_nsop":
+                                pl_operation_button = "工作一览最根本的预约出库函数更新PL的约，首约"
+                            else:
+                                pl_operation_button = "旧版最根本的预约出库函数更新PL的约，首约"
+
+                            await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                operator=request.user,
+                                po_type="packing_list",
+                                po_id=log_data['po_id'],
+                                shipment_batch_number=shipment.shipment_batch_number,
+                                operation_button=pl_operation_button,
+                                shipment_type=shipment_type,
+                                container_number=log_data['container_number'],
+                                destination=log_data['destination'],
+                                warehouse=log_data['warehouse'],
+                                delivery_type=log_data['delivery_type'],
+                                skip_get_po_info=True,
+                            )
+
+                        # 批量更新（触发simple_history记录）
+                        await sync_to_async(bulk_update_with_history)(
+                            existing_pls,
+                            PackingList,
+                            fields=["shipment_batch_number", "master_shipment_batch_number"],
+                        )
+
+                        # 同步更新所有匹配master PO_ID的PackingList（包括未加载的其他记录）
+                        if plt_valid_master_po_ids:
+                            await sync_to_async(
+                                PackingList.objects.filter(PO_ID__in=plt_valid_master_po_ids).update
+                            )(master_shipment_batch_number=shipment)
+
+                    # 记录PO_ID找不到的失败日志
+                    for po_id in missing_po_ids:
+                        s_type = "all" if po_id in plt_valid_master_po_ids else "actual"
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=request.user,
+                            po_type="packing_list",
+                            po_id=po_id,
+                            shipment_batch_number=shipment.shipment_batch_number,
+                            operation_button="对应pallet已更新，但pl未能更新（原因：PO_ID在PackingList中不存在）",
+                            shipment_type=s_type,
+                            skip_get_po_info=True,
+                        )
+
+                except Exception as e:
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="packing_list",
+                        po_id=str(all_target_po_ids),
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button=f"对应pallet已更新，但pl未能更新（原因：同步异常 - {str(e)}）",
+                        shipment_type="actual",
+                        skip_get_po_info=True,
+                    )
             order = await sync_to_async(list)(
                 Order.objects.select_related(
                     "retrieval_id", "warehouse", "container_number"
