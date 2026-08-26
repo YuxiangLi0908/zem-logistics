@@ -3,6 +3,7 @@ from django.utils import timezone
 import pytz
 from datetime import datetime
 from warehouse.models.shipment_bindlog import ShipmentBindingLog
+from warehouse.models.packinglist_pallet_operation_log import PackingListPalletOperationLog
 
 
 class ShipmentBindingPermission:
@@ -119,6 +120,58 @@ class ShipmentBindingLogger:
         except Exception as e:
             print(f"获取PO信息失败: {e}")
             return None
+
+    @staticmethod
+    def _log_pl_pallet_operation_from_binding(
+        *,
+        operation_type: str,
+        operator: User,
+        po_type: str,
+        po_id,
+        po_display: str,
+        shipment_batch_number: str = None,
+        operation_button: str = None,
+        note: str = None,
+        container_number: str = None,
+        destination: str = None,
+        warehouse: str = None,
+        delivery_type: str = None,
+        shipping_mark: str = None,
+    ):
+        if po_type not in {"pallet", "packing_list"}:
+            return
+
+        try:
+            action_detail_parts = [
+                "绑定约" if operation_type == "bind" else "解绑约",
+                f"Shipment: {shipment_batch_number}" if shipment_batch_number else None,
+                f"按钮: {operation_button}" if operation_button else None,
+                f"备注: {note}" if note else None,
+            ]
+            PackingListPalletOperationLog.objects.create(
+                target_type=po_type,
+                target_id=str(po_id) if po_id is not None else None,
+                target_display=po_display,
+                container_number=container_number,
+                po_id=str(po_id) if po_id is not None else None,
+                shipping_mark=shipping_mark,
+                destination=destination,
+                warehouse=warehouse,
+                operation_location=operation_button or "shipment_binding",
+                operation_name=operation_button or ("绑定约" if operation_type == "bind" else "解绑约"),
+                action_type=operation_type,
+                action_detail="；".join(part for part in action_detail_parts if part),
+                operator=operator,
+                operator_username=operator.username if operator else None,
+                operation_time_beijing=ShipmentBindingLogger.get_beijing_time(),
+                metadata={
+                    "shipment_batch_number": shipment_batch_number,
+                    "delivery_type": delivery_type,
+                    "source": "ShipmentBindingLogger",
+                },
+            )
+        except Exception as e:
+            print(f"记录PL/PLT操作日志失败: {e}")
     
     @staticmethod
     def log_bind(
@@ -197,6 +250,21 @@ class ShipmentBindingLogger:
             operation_time_beijing=ShipmentBindingLogger.get_beijing_time(),
             note=note,
             shipment_type=shipment_type,
+        )
+        ShipmentBindingLogger._log_pl_pallet_operation_from_binding(
+            operation_type="bind",
+            operator=operator,
+            po_type=po_type,
+            po_id=po_id,
+            po_display=po_display,
+            shipment_batch_number=shipment_batch_number,
+            operation_button=operation_button,
+            note=note,
+            container_number=container_number,
+            destination=destination,
+            warehouse=warehouse,
+            delivery_type=final_delivery_type,
+            shipping_mark=shipping_mark,
         )
         
         return log
@@ -284,6 +352,21 @@ class ShipmentBindingLogger:
             operation_time_beijing=ShipmentBindingLogger.get_beijing_time(),
             note=note,
             shipment_type=shipment_type,
+        )
+        ShipmentBindingLogger._log_pl_pallet_operation_from_binding(
+            operation_type="unbind",
+            operator=operator,
+            po_type=po_type,
+            po_id=po_id,
+            po_display=po_display,
+            shipment_batch_number=shipment_batch_number,
+            operation_button=operation_button,
+            note=note,
+            container_number=container_number,
+            destination=destination,
+            warehouse=warehouse,
+            delivery_type=final_delivery_type,
+            shipping_mark=shipping_mark,
         )
         
         return log

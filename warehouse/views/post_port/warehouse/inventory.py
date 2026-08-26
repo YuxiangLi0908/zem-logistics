@@ -30,6 +30,7 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
 from warehouse.models.packing_list import PackingList
+from warehouse.models.packinglist_pallet_operation_log import PackingListPalletOperationLog
 from warehouse.models.pallet import Pallet
 from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.shipment import Shipment
@@ -69,6 +70,163 @@ class Inventory(View):
     @staticmethod
     def _is_hold_delivery_method(delivery_method: str | None) -> bool:
         return "暂扣留仓(HOLD)" in str(delivery_method)
+
+    @staticmethod
+    def _log_value(value):
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return str(value)
+
+    @classmethod
+    def _snapshot_pallet(cls, pallet: Pallet) -> dict[str, Any]:
+        return {
+            "id": pallet.id,
+            "pallet_id": pallet.pallet_id,
+            "PO_ID": pallet.PO_ID,
+            "container_number": (
+                pallet.container_number.container_number
+                if pallet.container_number
+                else None
+            ),
+            "destination": pallet.destination,
+            "address": pallet.address,
+            "zipcode": pallet.zipcode,
+            "delivery_method": pallet.delivery_method,
+            "delivery_type": pallet.delivery_type,
+            "shipping_mark": pallet.shipping_mark,
+            "fba_id": pallet.fba_id,
+            "ref_id": pallet.ref_id,
+            "pcs": pallet.pcs,
+            "cbm": pallet.cbm,
+            "weight_lbs": pallet.weight_lbs,
+            "location": pallet.location,
+            "note": pallet.note,
+            "shipment_batch_number": (
+                pallet.shipment_batch_number.shipment_batch_number
+                if pallet.shipment_batch_number
+                else None
+            ),
+            "master_shipment_batch_number": (
+                pallet.master_shipment_batch_number.shipment_batch_number
+                if pallet.master_shipment_batch_number
+                else None
+            ),
+            "created_at": cls._log_value(pallet.created_at),
+            "released_at": cls._log_value(pallet.released_at),
+        }
+
+    @classmethod
+    def _snapshot_packing_list(cls, packing_list: PackingList) -> dict[str, Any]:
+        return {
+            "id": packing_list.id,
+            "PO_ID": packing_list.PO_ID,
+            "container_number": (
+                packing_list.container_number.container_number
+                if packing_list.container_number
+                else None
+            ),
+            "destination": packing_list.destination,
+            "address": packing_list.address,
+            "zipcode": packing_list.zipcode,
+            "delivery_method": packing_list.delivery_method,
+            "delivery_type": packing_list.delivery_type,
+            "shipping_mark": packing_list.shipping_mark,
+            "fba_id": packing_list.fba_id,
+            "ref_id": packing_list.ref_id,
+            "pcs": packing_list.pcs,
+            "cbm": packing_list.cbm,
+            "total_weight_lbs": packing_list.total_weight_lbs,
+            "total_weight_kg": packing_list.total_weight_kg,
+            "note": packing_list.note,
+            "shipment_batch_number": (
+                packing_list.shipment_batch_number.shipment_batch_number
+                if packing_list.shipment_batch_number
+                else None
+            ),
+            "master_shipment_batch_number": (
+                packing_list.master_shipment_batch_number.shipment_batch_number
+                if packing_list.master_shipment_batch_number
+                else None
+            ),
+        }
+
+    @staticmethod
+    def _unique_values(snapshots: list[dict[str, Any]], field: str) -> list[str]:
+        values = []
+        for snapshot in snapshots:
+            value = snapshot.get(field)
+            if value is not None and value != "":
+                values.append(str(value))
+        return sorted(set(values))
+
+    @classmethod
+    def _build_change_summary(
+        cls,
+        old_snapshots: list[dict[str, Any]],
+        new_snapshots: list[dict[str, Any]],
+        fields: list[str],
+    ) -> str:
+        changes = []
+        if len(old_snapshots) != len(new_snapshots):
+            changes.append(f"数量: {len(old_snapshots)} -> {len(new_snapshots)}")
+        for field in fields:
+            old_values = cls._unique_values(old_snapshots, field)
+            new_values = cls._unique_values(new_snapshots, field)
+            if old_values != new_values:
+                old_text = ",".join(old_values) if old_values else "-"
+                new_text = ",".join(new_values) if new_values else "-"
+                changes.append(f"{field}: {old_text} -> {new_text}")
+        return "；".join(changes) if changes else "字段无变化"
+
+    async def _record_pallet_pl_operation(
+        self,
+        request: HttpRequest,
+        *,
+        target_type: str,
+        target_ids: list[int],
+        operation_name: str,
+        action_type: str,
+        po_id: str | None = None,
+        container_number: str | None = None,
+        shipping_mark: str | None = None,
+        fba_id: str | None = None,
+        ref_id: str | None = None,
+        destination: str | None = None,
+        warehouse: str | None = None,
+        action_detail: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        user = request.user if getattr(request.user, "is_authenticated", False) else None
+        target_id_text = ",".join(str(i) for i in target_ids)
+        if len(target_id_text) > 100:
+            target_id_text = target_id_text[:97] + "..."
+        try:
+            await sync_to_async(PackingListPalletOperationLog.objects.create)(
+                target_type=target_type,
+                target_id=target_id_text,
+                target_display=f"{target_type}:{po_id or target_id_text}",
+                container_number=container_number,
+                po_id=po_id,
+                fba_id=fba_id,
+                ref_id=ref_id,
+                shipping_mark=shipping_mark,
+                destination=destination,
+                warehouse=warehouse,
+                operation_location="仓库操作-库存管理",
+                operation_name=operation_name,
+                action_type=action_type,
+                action_detail=action_detail,
+                operator=user,
+                operator_username=user.username if user else None,
+                request_path=request.path,
+                operation_time_beijing=ShipmentBindingLogger.get_beijing_time(),
+                metadata=metadata or {},
+            )
+        except Exception as e:
+            print(f"记录板子/packinglist修改日志失败: {e}")
+
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -472,7 +630,16 @@ class Inventory(View):
         """分拣操作"""
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
-        old_pallet = await sync_to_async(list)(Pallet.objects.select_related("shipment_batch_number", "master_shipment_batch_number").filter(id__in=plt_ids))
+        old_pallet = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number",
+                "shipment_batch_number",
+                "master_shipment_batch_number",
+            ).filter(id__in=plt_ids)
+        )
+        old_pallet_snapshots = await sync_to_async(
+            lambda: [self._snapshot_pallet(p) for p in old_pallet]
+        )()
         
         # 预先在同步上下文中获取 shipment 字段
         @sync_to_async
@@ -516,8 +683,19 @@ class Inventory(View):
         old_created_at = old_pallet[0].created_at
         old_released_at = old_pallet[0].released_at
         old_packinglist = await sync_to_async(list)(
-            PackingList.objects.select_related("shipment_batch_number", "master_shipment_batch_number").filter(PO_ID=old_po_id)
+            PackingList.objects.select_related(
+                "container_number",
+                "shipment_batch_number",
+                "master_shipment_batch_number",
+            ).filter(PO_ID=old_po_id)
         )
+        old_packinglist_snapshots = await sync_to_async(
+            lambda: [self._snapshot_packing_list(pl) for pl in old_packinglist]
+        )()
+        old_packinglist_ids = [pl.id for pl in old_packinglist]
+        old_shipping_marks = sorted({p.shipping_mark for p in old_pallet if p.shipping_mark})
+        old_fba_ids = sorted({p.fba_id for p in old_pallet if p.fba_id})
+        old_ref_ids = sorted({p.ref_id for p in old_pallet if p.ref_id})
         # 提取原装箱单的基础模板字段（如无则赋默认值，避免空值）
         pl_template = old_packinglist[0] if old_packinglist else None
         
@@ -633,13 +811,20 @@ class Inventory(View):
             seq_num += 1  # seq_num递增，保证PO_ID唯一
 
         # 批量创建新托盘（带历史记录）
+        created_pallet_objs = []
         if new_pallets:
             instances = [Pallet(**p) for p in new_pallets]
             await sync_to_async(bulk_create_with_history)(instances, Pallet)
+            created_pallet_objs = instances
 
         # 批量创建新装箱单
+        created_packing_lists = []
         if new_packing_lists:
-            await sync_to_async(PackingList.objects.bulk_create)(new_packing_lists)
+            created_packing_lists = await sync_to_async(PackingList.objects.bulk_create)(
+                new_packing_lists
+            )
+            if not created_packing_lists:
+                created_packing_lists = new_packing_lists
 
         # 记录 ShipmentBindingLog（如果原 pallet 有预约信息）
         if old_shipment or old_master_shipment:
@@ -687,6 +872,134 @@ class Inventory(View):
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
         if old_packinglist:
             await sync_to_async(PackingList.objects.filter(PO_ID=old_po_id).delete)()
+        new_po_ids = sorted({p["PO_ID"] for p in new_pallets if p.get("PO_ID")})
+        if new_po_ids:
+            created_pallet_objs = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number",
+                    "shipment_batch_number",
+                    "master_shipment_batch_number",
+                ).filter(container_number=container, PO_ID__in=new_po_ids)
+            )
+            created_packing_lists = await sync_to_async(list)(
+                PackingList.objects.select_related(
+                    "container_number",
+                    "shipment_batch_number",
+                    "master_shipment_batch_number",
+                ).filter(container_number=container, PO_ID__in=new_po_ids)
+            )
+        new_pallet_snapshots = await sync_to_async(
+            lambda: [self._snapshot_pallet(p) for p in created_pallet_objs]
+        )()
+        new_packinglist_snapshots = await sync_to_async(
+            lambda: [self._snapshot_packing_list(pl) for pl in created_packing_lists]
+        )()
+        pallet_change_summary = self._build_change_summary(
+            old_pallet_snapshots,
+            new_pallet_snapshots,
+            [
+                "PO_ID",
+                "destination",
+                "address",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+                "pcs",
+                "cbm",
+                "weight_lbs",
+                "location",
+                "note",
+            ],
+        )
+        packinglist_change_summary = self._build_change_summary(
+            old_packinglist_snapshots,
+            new_packinglist_snapshots,
+            [
+                "PO_ID",
+                "destination",
+                "address",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+                "pcs",
+                "cbm",
+                "total_weight_lbs",
+                "note",
+            ],
+        )
+        await self._record_pallet_pl_operation(
+            request,
+            target_type="pallet",
+            target_ids=plt_ids + [p.id for p in created_pallet_objs if p.id],
+            operation_name="分拣",
+            action_type="split",
+            po_id=old_po_id,
+            container_number=container_number,
+            shipping_mark=",".join(old_shipping_marks),
+            fba_id=",".join(old_fba_ids),
+            ref_id=",".join(old_ref_ids),
+            destination=",".join(destinations),
+            warehouse=warehouse,
+            action_detail=(
+                f"仓库操作分拣：删除旧板并新建板子；旧PO: {old_po_id}；"
+                f"新PO: {', '.join(new_po_ids)}；"
+                f"旧板ID: {', '.join(str(i) for i in plt_ids)}；"
+                f"新板ID: {', '.join(str(p.id) for p in created_pallet_objs if p.id)}；"
+                f"原PackingList ID: {', '.join(str(i) for i in old_packinglist_ids)}；"
+                f"字段变化: {pallet_change_summary}"
+            ),
+            metadata={
+                "deleted_old_pallet_ids": plt_ids,
+                "created_new_pallet_ids": [p.id for p in created_pallet_objs if p.id],
+                "old_packinglist_ids": old_packinglist_ids,
+                "new_po_ids": new_po_ids,
+                "old_pallets": old_pallet_snapshots,
+                "new_pallets": new_pallet_snapshots,
+                "pallet_change_summary": pallet_change_summary,
+                "operation": "inventory_repalletize",
+            },
+        )
+        if old_packinglist_ids:
+            await self._record_pallet_pl_operation(
+                request,
+                target_type="packing_list",
+                target_ids=old_packinglist_ids
+                + [pl.id for pl in created_packing_lists if pl.id],
+                operation_name="分拣",
+                action_type="split",
+                po_id=old_po_id,
+                container_number=container_number,
+                shipping_mark=",".join(old_shipping_marks),
+                fba_id=",".join(old_fba_ids),
+                ref_id=",".join(old_ref_ids),
+                destination=",".join(destinations),
+                warehouse=warehouse,
+                action_detail=(
+                    f"仓库操作分拣同步替换PackingList；旧PO: {old_po_id}；"
+                    f"新PO: {', '.join(new_po_ids)}；"
+                    f"旧PackingList ID: {', '.join(str(i) for i in old_packinglist_ids)}；"
+                    f"新PackingList ID: {', '.join(str(pl.id) for pl in created_packing_lists if pl.id)}；"
+                    f"字段变化: {packinglist_change_summary}"
+                ),
+                metadata={
+                    "deleted_old_pallet_ids": plt_ids,
+                    "deleted_old_packinglist_ids": old_packinglist_ids,
+                    "created_new_packinglist_ids": [
+                        pl.id for pl in created_packing_lists if pl.id
+                    ],
+                    "new_po_ids": new_po_ids,
+                    "old_packing_lists": old_packinglist_snapshots,
+                    "new_packing_lists": new_packinglist_snapshots,
+                    "packinglist_change_summary": packinglist_change_summary,
+                    "operation": "inventory_repalletize",
+                },
+            )
 
         return await self.handle_warehouse_post(request)
 
@@ -738,9 +1051,15 @@ class Inventory(View):
         if is_destroyed:
             pallets_to_destroy = await sync_to_async(list)(
                 Pallet.objects.filter(id__in=plt_ids).select_related(
-                    "container_number", "packing_list"
+                    "container_number",
+                    "packing_list",
+                    "shipment_batch_number",
+                    "master_shipment_batch_number",
                 )
             )
+            destroyed_pallet_snapshots = await sync_to_async(
+                lambda: [self._snapshot_pallet(p) for p in pallets_to_destroy]
+            )()
 
             destroyed_pallets = []
             for pallet in pallets_to_destroy:
@@ -779,6 +1098,31 @@ class Inventory(View):
                     PalletDestroyed.objects.bulk_create(destroyed_pallets)
 
             await async_transaction()
+            await self._record_pallet_pl_operation(
+                request,
+                target_type="pallet",
+                target_ids=plt_ids,
+                operation_name="更新PO",
+                action_type="delete",
+                po_id=",".join(
+                    sorted({p.PO_ID for p in pallets_to_destroy if p.PO_ID})
+                ),
+                container_number=container_number,
+                shipping_mark=",".join(
+                    sorted({p.shipping_mark for p in pallets_to_destroy if p.shipping_mark})
+                ),
+                fba_id=",".join(sorted({p.fba_id for p in pallets_to_destroy if p.fba_id})),
+                ref_id=",".join(sorted({p.ref_id for p in pallets_to_destroy if p.ref_id})),
+                destination=",".join(
+                    sorted({p.destination for p in pallets_to_destroy if p.destination})
+                ),
+                warehouse=",".join(sorted({p.location for p in pallets_to_destroy if p.location})),
+                action_detail="仓库操作更新PO页面执行销毁",
+                metadata={
+                    "destroyed_pallet_ids": plt_ids,
+                    "destroyed_pallets": destroyed_pallet_snapshots,
+                },
+            )
             return await self.handle_warehouse_post(request)
 
         # ===================== 修改板数的逻辑 =====================
@@ -802,6 +1146,26 @@ class Inventory(View):
         shipping_mark_new = request.POST.getlist("shipping_mark_new")
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
+        old_pallets_for_log = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number",
+                "shipment_batch_number",
+                "master_shipment_batch_number",
+            ).filter(id__in=plt_ids)
+        )
+        old_pallet_snapshots = await sync_to_async(
+            lambda: [self._snapshot_pallet(p) for p in old_pallets_for_log]
+        )()
+        old_packing_lists_for_log = await sync_to_async(list)(
+            PackingList.objects.select_related(
+                "container_number",
+                "shipment_batch_number",
+                "master_shipment_batch_number",
+            ).filter(id__in=pl_ids)
+        )
+        old_packinglist_snapshots = await sync_to_async(
+            lambda: [self._snapshot_packing_list(pl) for pl in old_packing_lists_for_log]
+        )()
 
         seed = 0
 
@@ -975,6 +1339,117 @@ class Inventory(View):
         co = await sync_to_async(Container.objects.get)(container_number=container_number)
         co.delivery_type = new_type
         await sync_to_async(co.save)()
+        pallet_ids_after_update = [p.id for p in pallet if p.id]
+        if pallet_ids_after_update:
+            new_pallets_for_log = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number",
+                    "shipment_batch_number",
+                    "master_shipment_batch_number",
+                ).filter(id__in=pallet_ids_after_update)
+            )
+        else:
+            new_pallets_for_log = pallet
+        new_pallet_snapshots = await sync_to_async(
+            lambda: [self._snapshot_pallet(p) for p in new_pallets_for_log]
+        )()
+        new_packing_lists_for_log = await sync_to_async(list)(
+            PackingList.objects.select_related(
+                "container_number",
+                "shipment_batch_number",
+                "master_shipment_batch_number",
+            ).filter(id__in=pl_ids)
+        )
+        new_packinglist_snapshots = await sync_to_async(
+            lambda: [self._snapshot_packing_list(pl) for pl in new_packing_lists_for_log]
+        )()
+        pallet_change_summary = self._build_change_summary(
+            old_pallet_snapshots,
+            new_pallet_snapshots,
+            [
+                "destination",
+                "address",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+                "pcs",
+                "cbm",
+                "weight_lbs",
+                "location",
+                "note",
+            ],
+        )
+        packinglist_change_summary = self._build_change_summary(
+            old_packinglist_snapshots,
+            new_packinglist_snapshots,
+            [
+                "destination",
+                "address",
+                "zipcode",
+                "delivery_method",
+                "delivery_type",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+            ],
+        )
+        await self._record_pallet_pl_operation(
+            request,
+            target_type="pallet",
+            target_ids=plt_ids + pallet_ids_after_update,
+            operation_name="更新PO",
+            action_type="update",
+            po_id=",".join(sorted({p.PO_ID for p in pallet if p.PO_ID})),
+            container_number=container_number,
+            shipping_mark=",".join(shipping_mark_new),
+            fba_id=",".join(fba_id_new),
+            ref_id=",".join(ref_id_new),
+            destination=destination_new,
+            warehouse=location_new,
+            action_detail=(
+                f"仓库操作更新PO：删除旧板并按新板数重建；"
+                f"旧板ID: {', '.join(str(i) for i in plt_ids)}；"
+                f"新板ID: {', '.join(str(i) for i in pallet_ids_after_update)}；"
+                f"字段变化: {pallet_change_summary}"
+            ),
+            metadata={
+                "deleted_old_pallet_ids": plt_ids,
+                "created_new_pallet_ids": pallet_ids_after_update,
+                "packinglist_ids": pl_ids,
+                "old_pallets": old_pallet_snapshots,
+                "new_pallets": new_pallet_snapshots,
+                "pallet_change_summary": pallet_change_summary,
+            },
+        )
+        if pl_ids:
+            await self._record_pallet_pl_operation(
+                request,
+                target_type="packing_list",
+                target_ids=pl_ids,
+                operation_name="更新PO",
+                action_type="update",
+                po_id=",".join(sorted({p.PO_ID for p in pallet if p.PO_ID})),
+                container_number=container_number,
+                shipping_mark=",".join(shipping_mark_new),
+                fba_id=",".join(fba_id_new),
+                ref_id=",".join(ref_id_new),
+                destination=destination_new,
+                warehouse=location_new,
+                action_detail=(
+                    f"仓库操作更新PO同步修改PackingList；字段变化: "
+                    f"{packinglist_change_summary}"
+                ),
+                metadata={
+                    "old_pallet_ids": plt_ids,
+                    "packinglist_ids": pl_ids,
+                    "old_packing_lists": old_packinglist_snapshots,
+                    "new_packing_lists": new_packinglist_snapshots,
+                    "packinglist_change_summary": packinglist_change_summary,
+                },
+            )
 
         return await self.handle_warehouse_post(request)
 

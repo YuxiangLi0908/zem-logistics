@@ -370,7 +370,6 @@
                     {label: 'LTL出库', url: '{% url 'warehouse_operations' %}?step=upcoming_fleet_ltl'},
                     {label: '数据监控', url: '{% url 'warehouse_dash' %}', target: '_blank'},
                 ]},
-                {label: '私仓管理', url: '{% url 'warehouse_operations' %}?step=privaty_management'},
                 {label: '库位管理', url: '{% url 'palletization' %}?step=warehouse_zone'},
                 {label: '合板管理', url: '{% url 'inventory' %}?step=merge_pallet'},
                 {label: '仓库待处理', url: '{% url 'palletization' %}?step=daily_operation', target: '_blank'},
@@ -570,6 +569,7 @@
                 {label: '派送账单成本详情', url: '{% url 'order_statistics' %}?step=profit_analysis_personalized', target: '_blank'},
                 {label: '历史操作查询', url: '{% url 'order_statistics' %}?step=historical_query', target: '_blank'},
                 {label: '历史约记录查询', url: '{% url 'order_statistics' %}?step=shipment_binding_log', target: '_blank'},
+                {label: '板子/packinglist修改记录', url: '{% url 'packinglist_pallet_operation_log' %}', target: '_blank'},
             ]
         },
         {

@@ -42,6 +42,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.fleet import Fleet
 from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
+from warehouse.models.packinglist_pallet_operation_log import PackingListPalletOperationLog
 from warehouse.models.pallet import Pallet
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.views.dropshipping import Dropshipping
@@ -1142,10 +1143,50 @@ class WarehouseOperations(View):
         plt_int_list = [int(id) for id in plt_list]
         actual_pallets = request.POST.get('actual_pallets')
         pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_int_list))
+        operation_name = "调整库存"
         if len(pallets) > int(actual_pallets):
             print('是减少库存')
+            operation_name = "调整库存-减少库存"
         else:
             print('增加库存')
+            operation_name = "调整库存-增加库存"
+        if pallets:
+            first_pallet = pallets[0]
+            user = request.user if getattr(request.user, "is_authenticated", False) else None
+            await sync_to_async(PackingListPalletOperationLog.objects.create)(
+                target_type="pallet",
+                target_id=plt_ids[:97] + "..." if len(plt_ids) > 100 else plt_ids,
+                target_display=f"pallet:{first_pallet.PO_ID or plt_ids}",
+                container_number=(
+                    first_pallet.container_number.container_number
+                    if first_pallet.container_number
+                    else None
+                ),
+                po_id=first_pallet.PO_ID,
+                fba_id=first_pallet.fba_id,
+                ref_id=first_pallet.ref_id,
+                shipping_mark=first_pallet.shipping_mark,
+                destination=first_pallet.destination,
+                warehouse=warehouse,
+                operation_location="仓库操作-盘点及特操",
+                operation_name=operation_name,
+                action_type="update",
+                action_detail=(
+                    f"盘点及特操调整库存；原页面库存板数: {actual_pallets}；"
+                    f"选中板子数: {len(pallets)}；选中Pallet ID: {plt_ids}"
+                ),
+                operator=user,
+                operator_username=user.username if user else None,
+                request_path=request.path,
+                operation_time_beijing=timezone.localtime(
+                    timezone.now(), timezone.get_fixed_timezone(timedelta(hours=8))
+                ),
+                metadata={
+                    "pallet_ids": plt_int_list,
+                    "actual_pallets": actual_pallets,
+                    "source": "warehouse_operations.adjust_inventory",
+                },
+            )
         return await self.handle_counting_pallet_post(request)
 
     async def handle_counting_pallet_post(

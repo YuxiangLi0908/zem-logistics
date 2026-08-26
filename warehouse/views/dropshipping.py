@@ -719,7 +719,6 @@ class Dropshipping(View):
         if not old_pallet:
             raise ValueError("选中的货物在系统中不存在")
         old_po_id = old_pallet[0].PO_ID
-
         cargo_list = await sync_to_async(
             lambda: list(DropshipCargo.objects.select_related("order", "container", "warehouse").filter(id__in=plt_ids))
         )()

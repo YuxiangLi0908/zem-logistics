@@ -27,6 +27,7 @@ from warehouse.models.offload import Offload
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
+from warehouse.models.packinglist_pallet_operation_log import PackingListPalletOperationLog
 from warehouse.models.pallet import Pallet
 from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.pallet_exception import PalletException
@@ -92,6 +93,57 @@ admin.site.register(DropshipCargo, SimpleHistoryAdmin)
 admin.site.register(DropshipInventory, SimpleHistoryAdmin)
 admin.site.register(DropshipShipment, SimpleHistoryAdmin)
 admin.site.register(DropshipShipmentDetail, SimpleHistoryAdmin)
+
+
+class PackingListPalletOperationLogAdmin(admin.ModelAdmin):
+    list_display = [
+        "operation_time_beijing",
+        "operator_username",
+        "target_type",
+        "target_id",
+        "action_type",
+        "operation_name",
+        "operation_location",
+        "container_number",
+        "po_id",
+        "warehouse",
+    ]
+    list_filter = [
+        "target_type",
+        "action_type",
+        "operation_name",
+        "operation_location",
+        "warehouse",
+        "operation_time_beijing",
+    ]
+    search_fields = [
+        "operator_username",
+        "target_display",
+        "target_id",
+        "container_number",
+        "po_id",
+        "fba_id",
+        "ref_id",
+        "shipping_mark",
+        "destination",
+        "operation_name",
+        "action_detail",
+        "request_path",
+    ]
+    readonly_fields = [field.name for field in PackingListPalletOperationLog._meta.fields]
+    date_hierarchy = "operation_time_beijing"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
+admin.site.register(PackingListPalletOperationLog, PackingListPalletOperationLogAdmin)
 
 
 class ShipmentBindingLogAdmin(SimpleHistoryAdmin):
