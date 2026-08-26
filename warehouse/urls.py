@@ -17,6 +17,7 @@ from warehouse.views.order_creation import OrderCreationLegacy
 from warehouse.views.palletization import Palletization as LegacyPalletization
 from warehouse.views.po import PO
 from warehouse.views.pod import POD
+from warehouse.views.packinglist_pallet_operation_log import PackingListPalletOperationLogView
 from warehouse.views.home import Home
 from warehouse.views.post_port.power_automate_webhook import PowerAutomateWebhook
 from warehouse.views.post_port.post_nsop import PostNsop
@@ -116,6 +117,11 @@ urlpatterns = [
     path("async_view", AsyncView.as_view(), name="async_view"),
     path("dbconn", DBConn.as_view(), name="dbconn"),
     path("order_statistics", OrderQuantity.as_view(), name="order_statistics"),
+    path(
+        "packinglist_pallet_operation_log/",
+        PackingListPalletOperationLogView.as_view(),
+        name="packinglist_pallet_operation_log",
+    ),
     # legacy views, to be removed in the future
     path(
         "palletize_legacy/", LegacyPalletization.as_view(), name="palletization_legacy"
