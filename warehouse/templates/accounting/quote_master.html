@@ -2,115 +2,117 @@
 {% load custom_filters %}
 {% block content %}
 
-<div style="padding: 20px; background: #f8f9fa; position: relative; z-index: 1;">
-    <form method="post" enctype="multipart/form-data" style="font-size:12px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        {% csrf_token %}      
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="white-space: nowrap;">导入模版:</span>
-                <input type="file" name="file" style="padding: 6px; border: 1px solid #ddd;">
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <label style="display: flex; align-items: center; gap: 5px;">
-                    <input type="checkbox" name="is_user_exclusive" id="is_user_exclusive" style="margin: 0;">
-                    <span style="white-space: nowrap;">用户专属</span>
-                </label>
-                <div style="margin: 5px 0; display: none;" id="user_selection">
-                    <b style="margin-right: 5px;">客户:</b>
-                    <input type="text" id="customerQuickSearch" placeholder="输入关键字筛选客户..." autocomplete="off"
-                    style="padding: 6px; border: 1px solid #ddd; font-size: 12px; border-radius: 4px; width: 220px; margin-right: 6px;">
-                    {{ order_form.customer_name }}
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+    <div style="width: 320px; flex-shrink: 0;">
+        <form method="post" enctype="multipart/form-data" style="font-size:12px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            {% csrf_token %}
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="white-space: nowrap; font-weight: 500;">导入模版:</span>
+                    <input type="file" name="file" style="padding: 6px; border: 1px solid #ddd;">
                 </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" name="is_user_exclusive" id="is_user_exclusive" style="margin: 0;">
+                        <span style="white-space: nowrap;">用户专属</span>
+                    </label>
+                    <div style="display: none;" id="user_selection">
+                        <div style="margin-bottom: 5px;"><b>客户:</b></div>
+                        <input type="text" id="customerQuickSearch" placeholder="输入关键字筛选客户..." autocomplete="off"
+                        style="padding: 6px; border: 1px solid #ddd; font-size: 12px; border-radius: 4px; width: 100%; box-sizing: border-box; margin-bottom: 5px;">
+                        {{ order_form.customer_name }}
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="white-space: nowrap; font-weight: 500;">生效日期:</span>
+                    <input type="date" name="effective_date" required style="padding: 6px; border: 1px solid #ddd;">
+                </div>
+
+                <button type="submit" class="btn btn-success" style="padding: 8px 20px; font-size: 14px; background: #28a745; border-color: #28a745;">
+                    上传报价表
+                </button>
+                <input type="hidden" name="step" value="upload_quote_excel">
             </div>
+        </form>
+    </div>
 
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <span style="white-space: nowrap; margin-right: 5px;">生效日期:</span>
-                <input type="date" name="effective_date" required style="padding: 6px; border: 1px solid #ddd;">
-            </div>
-
-            <button type="submit" class="btn btn-success" style="padding: 8px 20px; font-size: 14px; background: #28a745; border-color: #28a745;">
-                上传报价表
-            </button>
-            <input type="hidden" name="step" value="upload_quote_excel">
-        </div>
-    </form>
-</div>
-
-<div style="max-width: 1500px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">应收报价表版本管理</h3>
-    <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;table-layout: fixed;">
-        <thead style="background: #e9ecef;">
-            <tr>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:320px;">文件名</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:150px;">
-                    生效时间
-                    <button type="button" onclick="sortTable(1)" class="sort-btn" title="排序">
-                        ↕️
-                    </button>
-                </th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:150px;">
-                    上传时间
-                    <button type="button" onclick="sortTable(2)" class="sort-btn" title="排序">
-                        ↕️
-                    </button>
-                </th>            
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">专属客户</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">version</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:150px;">操作</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">删除</th>
-            </tr>
-            <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
-                <th class="th"><input type="text" style="width:110px;" id="filename-search-input" placeholder="搜索文件名..." oninput="filterTable()"></th>
-                <th class="th">
-                    <input type="date" style="width:110px;" id="effective-date-search-input" placeholder="生效日期..." oninput="filterTable()">
-                </th>
-                <th class="th">
-                    <input type="date" style="width:110px;" id="upload-date-search-input" placeholder="上传日期..." oninput="filterTable()">
-                </th>
-                <th class="th"></th>
-                <th class="th">
-                    <input type="text" style="width:110px;" id="customer-search-input" placeholder="(空值输入#)..." oninput="filterTable()" title="搜索客户，输入#null查找空值">
-                </th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for q in quotes %}
-            <form id="quote-form" method="post" enctype="multipart/form-data" action="">
-                {% csrf_token %}
-                <tr style="background: {% cycle '#ffffff' '#f8f9fa' %};">
-                    <td style="padding: 15px; text-align: center;">{{ q.filename }}</td>
-                    <td style="padding: 15px; text-align: center;"
-                    data-sort-value="{{ q.effective_date|date:'Y-m-d' }}">{{ q.effective_date|date:"Y-M-j" }}</td>
-                    <td style="padding: 15px; text-align: center;"
-                    data-sort-value="{{ q.upload_date|date:'Y-m-d' }}">{{ q.upload_date|date:"Y-M-j" }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
-                    <td style="padding: 15px; text-align: center;" data-customer-value="{{ q.exclusive_user|default:'' }}">{{ q.exclusive_user|default:"" }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ q.version }}</td>
-                    <td style="padding: 15px; text-align: center;">
-                        <a href="?step=receivable_quote_detail&qid={{ q.id }}" class="btn btn-info" style="padding: 8px 16px; font-size: 13px; background: #28a745; border-color: #28a745; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; display: inline-block;">
-                            查看详情
-                        </a>
-                    </td>
-                    <td style="padding: 15px; text-align: center;">
-                        <form method="post" action="" onsubmit="return confirm('确定要删除这份报价表吗？');" style="margin: 0; display: inline;">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="delete_quote">
-                            <input type="hidden" name="qid" value="{{ q.id }}">
-                            <button type="submit" class="btn btn-danger" style="padding: 8px 16px; font-size: 13px; background: #dc3545; border-color: #dc3545; color: white; border-radius: 4px; cursor: pointer;">
-                                删除
-                            </button>
-                        </form>
-                    </td>
-                </tr>            
-            </form>    
-            {% endfor %}
-        </tbody>
-    </table>
+    <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 0;">
+        <h3 style="text-align: center; margin-bottom: 20px; color: #333;">应收报价表版本管理</h3>
+        <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;table-layout: fixed;">
+            <thead style="background: #e9ecef;">
+                <tr>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:320px;">文件名</th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:150px;">
+                        生效时间
+                        <button type="button" onclick="sortTable(1)" class="sort-btn" title="排序">
+                            ↕️
+                        </button>
+                    </th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:150px;">
+                        上传时间
+                        <button type="button" onclick="sortTable(2)" class="sort-btn" title="排序">
+                            ↕️
+                        </button>
+                    </th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">专属客户</th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">version</th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:150px;">操作</th>
+                    <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">删除</th>
+                </tr>
+                <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
+                    <th class="th"><input type="text" style="width:110px;" id="filename-search-input" placeholder="搜索文件名..." oninput="filterTable()"></th>
+                    <th class="th">
+                        <input type="date" style="width:110px;" id="effective-date-search-input" placeholder="生效日期..." oninput="filterTable()">
+                    </th>
+                    <th class="th">
+                        <input type="date" style="width:110px;" id="upload-date-search-input" placeholder="上传日期..." oninput="filterTable()">
+                    </th>
+                    <th class="th"></th>
+                    <th class="th">
+                        <input type="text" style="width:110px;" id="customer-search-input" placeholder="(空值输入#)..." oninput="filterTable()" title="搜索客户，输入#null查找空值">
+                    </th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in quotes %}
+                <form id="quote-form" method="post" enctype="multipart/form-data" action="">
+                    {% csrf_token %}
+                    <tr style="background: {% cycle '#ffffff' '#f8f9fa' %};">
+                        <td style="padding: 15px; text-align: center;">{{ q.filename }}</td>
+                        <td style="padding: 15px; text-align: center;"
+                        data-sort-value="{{ q.effective_date|date:'Y-m-d' }}">{{ q.effective_date|date:"Y-M-j" }}</td>
+                        <td style="padding: 15px; text-align: center;"
+                        data-sort-value="{{ q.upload_date|date:'Y-m-d' }}">{{ q.upload_date|date:"Y-M-j" }}</td>
+                        <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
+                        <td style="padding: 15px; text-align: center;" data-customer-value="{{ q.exclusive_user|default:'' }}">{{ q.exclusive_user|default:"" }}</td>
+                        <td style="padding: 15px; text-align: center;">{{ q.version }}</td>
+                        <td style="padding: 15px; text-align: center;">
+                            <a href="?step=receivable_quote_detail&qid={{ q.id }}" class="btn btn-info" style="padding: 8px 16px; font-size: 13px; background: #28a745; border-color: #28a745; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; display: inline-block;">
+                                查看详情
+                            </a>
+                        </td>
+                        <td style="padding: 15px; text-align: center;">
+                            <form method="post" action="" onsubmit="return confirm('确定要删除这份报价表吗？');" style="margin: 0; display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="delete_quote">
+                                <input type="hidden" name="qid" value="{{ q.id }}">
+                                <button type="submit" class="btn btn-danger" style="padding: 8px 16px; font-size: 13px; background: #dc3545; border-color: #dc3545; color: white; border-radius: 4px; cursor: pointer;">
+                                    删除
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                </form>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <style>
