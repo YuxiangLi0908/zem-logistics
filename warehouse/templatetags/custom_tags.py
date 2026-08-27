@@ -101,7 +101,14 @@ def _render_amazon_details(details):
 def _render_combina_details(details):
     """渲染组合柜详情"""
     html = '<table class="table" style="width: 100%; border-collapse: collapse; font-size: 15px;">'
-    html += '<thead style="background: #bbf7d0;"><tr><th style="padding: 12px; border: 1px solid #86efac; width: 22%;">区域</th><th style="padding: 12px; border: 1px solid #86efac; width: 28%;">价格</th><th style="padding: 12px; border: 1px solid #86efac; width: 35%;">仓点</th><th style="padding: 12px; border: 1px solid #86efac; width: 15%;">是否不能超区</th></tr></thead>'
+    html += '<thead style="background: #bbf7d0;"><tr>'
+    html += '<th style="padding: 12px; border: 1px solid #86efac; width: 18%;">区域</th>'
+    html += '<th style="padding: 12px; border: 1px solid #86efac; width: 22%;">价格</th>'
+    html += '<th style="padding: 12px; border: 1px solid #86efac; width: 30%;">仓点</th>'
+    html += '<th style="padding: 12px; border: 1px solid #86efac; width: 10%;">是否不能超区</th>'
+    html += '<th style="padding: 12px; border: 1px solid #86efac; width: 10%;">基础仓点上限</th>'
+    html += '<th style="padding: 12px; border: 1px solid #86efac; width: 10%;">每超一仓加收</th>'
+    html += '</tr></thead>'
     html += '<tbody>'
     
     for region, groups in details.items():
@@ -110,10 +117,14 @@ def _render_combina_details(details):
             prices = group.get("prices", [])
             locations = group.get("location", [])
             no_cross_zone = group.get("no_cross_zone", "否")
+            warehouse_limit = group.get("warehouse_limit")
+            extra_per_warehouse = group.get("extra_per_warehouse")
             price_str = ", ".join(str(p) for p in prices) if prices else ""
             location_str = ", ".join(locations) if locations else ""
             no_cross_display = "是" if no_cross_zone == "是" else "否"
             no_cross_color = "#16a34a" if no_cross_zone == "是" else "#6b7280"
+            limit_str = f"${warehouse_limit}" if warehouse_limit else ""
+            extra_str = f"${extra_per_warehouse}" if extra_per_warehouse else ""
             
             html += '<tr>'
             if first_row:
@@ -122,6 +133,8 @@ def _render_combina_details(details):
             html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; word-wrap: break-word;">{price_str}</td>'
             html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; word-wrap: break-word;">{location_str}</td>'
             html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; text-align: center;"><span style="color: {no_cross_color}; font-weight: 600;">{no_cross_display}</span></td>'
+            html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; text-align: center;">{limit_str}</td>'
+            html += f'<td style="padding: 10px; border: 1px solid #bbf7d0; text-align: center;">{extra_str}</td>'
             html += '</tr>'
     
     html += '</tbody></table>'
