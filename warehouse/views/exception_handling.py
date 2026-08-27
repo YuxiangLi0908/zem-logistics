@@ -19,6 +19,7 @@ from django.utils.timezone import make_aware, now
 from datetime import datetime, timedelta, date
 from django.contrib import messages
 from simple_history.manager import HistoryManager
+from simple_history.utils import bulk_update_with_history
 
 from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
 from warehouse.forms.upload_file import UploadFileForm
@@ -3191,6 +3192,7 @@ class ExceptionHandling(View):
             try:
                 # 批量更新并记录日志
                 log_groups = {}  # 按container_number和PO_ID分组
+                pl_po_ids = set()  # 收集需要同步PackingList的PO_ID
                 
                 for pallet in empty_pallets:
                     pallet.shipment_batch_number = shipment
@@ -3208,6 +3210,7 @@ class ExceptionHandling(View):
                             'warehouse': pallet.location,
                             'delivery_type': pallet.delivery_type,
                         }
+                    pl_po_ids.add(po_id_val)
                 
                 # 记录日志（分组记录）
                 for log_data in log_groups.values():
@@ -3234,6 +3237,68 @@ class ExceptionHandling(View):
                         )
                 
                 await sync_to_async(bulk_update_pallets)(empty_pallets)
+                
+                # 同步PackingList的约信息，确保与Pallet一致
+                valid_pl_po_ids = {po_id for po_id in pl_po_ids if po_id}
+                if valid_pl_po_ids:
+                    existing_pls = await sync_to_async(list)(
+                        PackingList.objects.select_related("container_number").filter(
+                            PO_ID__in=valid_pl_po_ids
+                        )
+                    )
+                    missing_po_ids = valid_pl_po_ids - {pl.PO_ID for pl in existing_pls}
+
+                    if existing_pls:
+                        pl_log_groups = {}
+                        for pl in existing_pls:
+                            pl.shipment_batch_number = shipment
+                            pl.master_shipment_batch_number = shipment
+
+                            container_number_val = pl.container_number.container_number if pl.container_number else None
+                            po_id_val = pl.PO_ID
+                            key = (container_number_val, po_id_val)
+
+                            if key not in pl_log_groups:
+                                pl_log_groups[key] = {
+                                    'container_number': container_number_val,
+                                    'po_id': po_id_val,
+                                    'destination': pl.destination,
+                                    'warehouse': None,
+                                    'delivery_type': pl.delivery_type,
+                                }
+
+                        for log_data in pl_log_groups.values():
+                            await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                operator=user,
+                                po_type='packing_list',
+                                po_id=log_data['po_id'],
+                                shipment_batch_number=shipment.shipment_batch_number,
+                                operation_button='异常处理的上传加塞po文件的上传文件按钮',
+                                shipment_type='all',
+                                container_number=log_data['container_number'],
+                                destination=log_data['destination'],
+                                warehouse=log_data['warehouse'],
+                                delivery_type=log_data['delivery_type'],
+                                skip_get_po_info=True,
+                            )
+
+                        await sync_to_async(bulk_update_with_history)(
+                            existing_pls,
+                            PackingList,
+                            fields=["shipment_batch_number", "master_shipment_batch_number"],
+                        )
+
+                    for po_id in missing_po_ids:
+                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                            operator=user,
+                            po_type='packing_list',
+                            po_id=po_id,
+                            shipment_batch_number=shipment.shipment_batch_number,
+                            operation_button='异常处理的上传加塞po文件的上传文件按钮（PLT已更新，但pl未能绑定）',
+                            shipment_type='all',
+                            skip_get_po_info=True,
+                        )
+                
                 updated_count = len(empty_pallets)
                 processing_logs.append({
                     'row': row_number,

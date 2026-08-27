@@ -17,11 +17,13 @@ from warehouse.models.container import Container
 from warehouse.models.shipment import Shipment
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
+from warehouse.models.packing_list import PackingList
 from warehouse.models.invoice import Invoice
 from warehouse.models.invoice_details import InvoiceDelivery
 
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
+from simple_history.utils import bulk_update_with_history
 
 class ContainerTracking(View):
     t49_tracking_url = "https://api.terminal49.com/v2/tracking_requests"
@@ -648,6 +650,9 @@ class ContainerTracking(View):
                             # 分组记录日志
                             log_groups_actual = {}  # 只更新实际约的组
                             log_groups_all = {}     # 更新主约和实际约的组
+                            # 收集需要同步PackingList的PO_ID
+                            pl_actual_by_master = {}  # master_id -> set of po_ids
+                            pl_all_po_ids = set()     # po_ids for both fields set to shipment
                             
                             for plt in unmatched_pallets:
                                 #如果有主约，就把实际约=主约
@@ -667,6 +672,11 @@ class ContainerTracking(View):
                                             'delivery_type': plt.delivery_type,
                                             'shipment_batch_number': plt.master_shipment_batch_number.shipment_batch_number,
                                         }
+                                    # 收集同步PackingList的信息（actual约=主约）
+                                    master_id = plt.master_shipment_batch_number_id
+                                    if master_id not in pl_actual_by_master:
+                                        pl_actual_by_master[master_id] = set()
+                                    pl_actual_by_master[master_id].add(po_id_val)
                                 else:
                                     #如果没有主约，让主约，实际约=这个约
                                     plt.shipment_batch_number = shipment
@@ -685,6 +695,8 @@ class ContainerTracking(View):
                                             'delivery_type': plt.delivery_type,
                                             'shipment_batch_number': shipment.shipment_batch_number,
                                         }
+                                    # 收集同步PackingList的信息（主约+实际约都设为shipment）
+                                    pl_all_po_ids.add(po_id_val)
                                 await plt.asave()
                             
                             # 记录实际约的日志
@@ -718,6 +730,126 @@ class ContainerTracking(View):
                                     delivery_type=log_data['delivery_type'],
                                     skip_get_po_info=True,
                                 )
+                            
+                            # 同步PackingList的约信息，确保与Pallet一致
+                            pl_all_valid = {po_id for po_id in pl_all_po_ids if po_id}
+                            if pl_all_valid:
+                                all_pls = await sync_to_async(list)(
+                                    PackingList.objects.select_related("container_number").filter(
+                                        PO_ID__in=pl_all_valid
+                                    )
+                                )
+                                all_missing = pl_all_valid - {pl.PO_ID for pl in all_pls}
+
+                                if all_pls:
+                                    pl_all_log_groups = {}
+                                    for pl in all_pls:
+                                        pl.shipment_batch_number = shipment
+                                        pl.master_shipment_batch_number = shipment
+
+                                        cn = pl.container_number.container_number if pl.container_number else None
+                                        key = (cn, pl.PO_ID)
+                                        if key not in pl_all_log_groups:
+                                            pl_all_log_groups[key] = {
+                                                'container_number': cn,
+                                                'po_id': pl.PO_ID,
+                                                'destination': pl.destination,
+                                                'warehouse': None,
+                                                'delivery_type': pl.delivery_type,
+                                            }
+
+                                    for log_data in pl_all_log_groups.values():
+                                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                            operator=user,
+                                            po_type='packing_list',
+                                            po_id=log_data['po_id'],
+                                            shipment_batch_number=shipment.shipment_batch_number,
+                                            operation_button='后台管理的系统各种特殊操作的预约表落实到系统，绑定主约和实际约',
+                                            shipment_type='all',
+                                            container_number=log_data['container_number'],
+                                            destination=log_data['destination'],
+                                            warehouse=log_data['warehouse'],
+                                            delivery_type=log_data['delivery_type'],
+                                            skip_get_po_info=True,
+                                        )
+
+                                    await sync_to_async(bulk_update_with_history)(
+                                        all_pls,
+                                        PackingList,
+                                        fields=["shipment_batch_number", "master_shipment_batch_number"],
+                                    )
+
+                                for po_id in all_missing:
+                                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                        operator=user,
+                                        po_type='packing_list',
+                                        po_id=po_id,
+                                        shipment_batch_number=shipment.shipment_batch_number,
+                                        operation_button='后台管理的预约表落实到系统（PLT已更新，但pl未能绑定）',
+                                        shipment_type='all',
+                                        skip_get_po_info=True,
+                                    )
+
+                            for master_id, po_ids in pl_actual_by_master.items():
+                                valid_po_ids = {po_id for po_id in po_ids if po_id}
+                                if not valid_po_ids:
+                                    continue
+                                master_shipment_obj = await sync_to_async(Shipment.objects.get)(id=master_id)
+
+                                matched_pls = await sync_to_async(list)(
+                                    PackingList.objects.select_related("container_number").filter(
+                                        PO_ID__in=valid_po_ids
+                                    )
+                                )
+                                actual_missing = valid_po_ids - {pl.PO_ID for pl in matched_pls}
+
+                                if matched_pls:
+                                    pl_actual_log_groups = {}
+                                    for pl in matched_pls:
+                                        pl.shipment_batch_number = master_shipment_obj
+
+                                        cn = pl.container_number.container_number if pl.container_number else None
+                                        key = (cn, pl.PO_ID)
+                                        if key not in pl_actual_log_groups:
+                                            pl_actual_log_groups[key] = {
+                                                'container_number': cn,
+                                                'po_id': pl.PO_ID,
+                                                'destination': pl.destination,
+                                                'warehouse': None,
+                                                'delivery_type': pl.delivery_type,
+                                            }
+
+                                    for log_data in pl_actual_log_groups.values():
+                                        await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                            operator=user,
+                                            po_type='packing_list',
+                                            po_id=log_data['po_id'],
+                                            shipment_batch_number=master_shipment_obj.shipment_batch_number,
+                                            operation_button='后台管理的系统各种特殊操作的预约表落实到系统，让实际约等于主约',
+                                            shipment_type='actual',
+                                            container_number=log_data['container_number'],
+                                            destination=log_data['destination'],
+                                            warehouse=log_data['warehouse'],
+                                            delivery_type=log_data['delivery_type'],
+                                            skip_get_po_info=True,
+                                        )
+
+                                    await sync_to_async(bulk_update_with_history)(
+                                        matched_pls,
+                                        PackingList,
+                                        fields=["shipment_batch_number"],
+                                    )
+
+                                for po_id in actual_missing:
+                                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                                        operator=user,
+                                        po_type='packing_list',
+                                        po_id=po_id,
+                                        shipment_batch_number=master_shipment_obj.shipment_batch_number,
+                                        operation_button='后台管理的预约表落实到系统（PLT已更新，但pl未能绑定）',
+                                        shipment_type='actual',
+                                        skip_get_po_info=True,
+                                    )
 
                             
                         if repair_count > 0:
