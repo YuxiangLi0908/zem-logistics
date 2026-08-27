@@ -109,9 +109,7 @@ class QuoteManagement(View):
 
     def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
-        quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by(
-            "-effective_date"
-        )
+        quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by("-id")
         context = {"order_form": OrderForm(), "quotes": quotes}
         return self.template_quote_master, context
 
@@ -557,59 +555,48 @@ class QuoteManagement(View):
         fee_detail.save()
 
     def process_la_combina_new_sheet(self, df, file, quote):
-        # 查找"是否不能超区"列
-        no_cross_col_idx = None
-        if "是否不能超区" in df.columns:
-            no_cross_col_idx = df.columns.get_loc("是否不能超区")
-
         result = {}
         group = []
         region = None
         current_prices = None
-        current_no_cross_zone = "否"  # 默认值
+        current_no_cross_zone = "否"
+        last_seen_prices = None
+        last_seen_no_cross = "否"
         for index, row in df.iloc[1:].iterrows():
-            if pd.notna(row.iloc[1]):
-                if (
-                    pd.notna(row.iloc[2])
-                    and pd.notna(row.iloc[3])
-                    and pd.notna(row.iloc[4])
-                ):  # 如果值不为空，说明是一个新的价格组
-                    if (
-                        len(group) > 0
-                    ):  # 首先要判断下，如果这是一个新价格组，且已经记录了上一个价格组，先存储上一组价格组
-                        if region not in result:
-                            result[region] = []
-                        new_group = [
-                            item.split("-")[-1] if "Walmart" in item else item
-                            for item in group
-                        ]
-                        result[region].append(
-                            {
-                                "prices": current_prices,
-                                "location": new_group,
-                                "no_cross_zone": current_no_cross_zone,
-                            }
-                        )
-                        group = []
-                    # 然后开始存新的价格组，直接存价格和第一行仓库代码
-                    region = (
-                        region if pd.isna(row.iloc[0]) else row.iloc[0]
-                    )  # A区B区这种是外键
-                    current_prices = [row.iloc[2], row.iloc[3], row.iloc[4]]
-                    group_partial = row.iloc[1].replace("\n", "/").split("/")
-                    group.extend(group_partial)
-                    # 读取"是否不能超区"值
-                    if no_cross_col_idx is not None:
-                        val = row.iloc[no_cross_col_idx]
-                        if pd.notna(val) and str(val).strip() == "是":
-                            current_no_cross_zone = "是"
-                        else:
-                            current_no_cross_zone = "否"
-                    else:
-                        current_no_cross_zone = "否"
-                else:  # 如果这一行的价格已记录，直接加仓库代码就可以
-                    group_partial = row.iloc[1].replace("\n", "/").split("/")
-                    group.extend(group_partial)
+            if not pd.notna(row.iloc[1]):
+                continue
+            region_changed = pd.notna(row.iloc[0]) and str(row.iloc[0]).strip() != ""
+            if region_changed:
+                if len(group) > 0:
+                    if region not in result:
+                        result[region] = []
+                    new_group = [
+                        item.split("-")[-1] if "Walmart" in item else item
+                        for item in group
+                    ]
+                    result[region].append(
+                        {
+                            "prices": current_prices,
+                            "location": new_group,
+                            "no_cross_zone": current_no_cross_zone,
+                        }
+                    )
+                    group = []
+                region = str(row.iloc[0]).strip()
+                p40 = row.iloc[2]
+                p45 = row.iloc[3]
+                if pd.notna(p40) and pd.notna(p45):
+                    current_prices = [p40, p45]
+                    last_seen_prices = current_prices
+                else:
+                    current_prices = last_seen_prices
+                nc = row.iloc[4] if len(row) > 4 else None
+                if pd.notna(nc) and str(nc).strip() == "是":
+                    current_no_cross_zone = "是"
+                else:
+                    current_no_cross_zone = "否"
+            group_partial = str(row.iloc[1]).replace("\n", "/").split("/")
+            group.extend(group_partial)
 
         if region and current_prices and group:
             if region not in result:
@@ -622,7 +609,6 @@ class QuoteManagement(View):
                 }
             )
 
-        # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
@@ -1563,7 +1549,7 @@ class QuoteManagement(View):
                 quote.is_dropship = True
                 quote.save()
                 self.process_dropship_sheet(df, quote)
-                quotes = QuotationMaster.objects.filter(quote_type="receivable")
+                quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by("-id")
                 context = {"quotes": quotes}
                 return self.template_quote_master, context
 
@@ -1615,7 +1601,7 @@ class QuoteManagement(View):
                     df = excel_file.parse(sheet_name)
                     handler = SHEET_HANDLERS[sheet_key]
                     handler(df, file, quote)
-        quotes = QuotationMaster.objects.filter(quote_type="receivable")
+        quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by("-id")
         context = {"quotes": quotes}
         return self.template_quote_master, context
 
