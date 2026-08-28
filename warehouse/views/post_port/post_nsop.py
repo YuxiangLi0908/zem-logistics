@@ -15162,19 +15162,24 @@ class PostNsop(View):
         container = order_selected.container_number
         offload = order_selected.offload_id
         order_packing_list = []
-        warehouse = request.GET.get("warehouse").split("-")[0].strip()
+        warehouse = request.GET.get("warehouse").split("-")[0].strip().upper()
         if (
                 request.GET.get("step", None) == "other_selfdelivery_container_palletization"
                 and offload.offload_other_selfdelivery_at is None and warehouse == "LA"
         ):
-            packing_list = await self._get_packing_list_other_selfdelivery(container_number=container.container_number,
-                                                                           status="non_palletized")
+            packing_list = await self._get_packing_list_other_selfdelivery(
+                container_number=container.container_number,
+                status="non_palletized",
+                warehouse=warehouse,
+            )
             context = {
                 "status": "non_palletized",
             }
         else:
             packing_list = await self._get_packing_list_other_selfdelivery(
-                container_number=container.container_number, status="palletized"
+                container_number=container.container_number,
+                status="palletized",
+                warehouse=warehouse,
             )
             context = {
                 "status": "palletized",
@@ -15201,19 +15206,24 @@ class PostNsop(View):
         container = order_selected.container_number
         offload = order_selected.offload_id
         order_packing_list = []
-        warehouse = request.GET.get("warehouse").split("-")[0].strip()
+        warehouse = request.GET.get("warehouse").split("-")[0].strip().upper()
         if (
                 request.GET.get("step", None) == "other_selfpick_cargos_container_palletization"
                 and offload.offload_other_at is None and warehouse == "LA"
         ):
             packing_list = await self._get_packing_list_other_selfpick_cargos(
-                container_number=container.container_number, status="non_palletized")
+                container_number=container.container_number,
+                status="non_palletized",
+                warehouse=warehouse,
+            )
             context = {
                 "status": "non_palletized",
             }
         else:
             packing_list = await self._get_packing_list_other_selfpick_cargos(
-                container_number=container.container_number, status="palletized"
+                container_number=container.container_number,
+                status="palletized",
+                warehouse=warehouse,
             )
             context = {
                 "status": "palletized",
@@ -16104,10 +16114,15 @@ class PostNsop(View):
         ]
 
     async def _get_packing_list_other_selfdelivery(
-            self, container_number: str, status: str
+            self, container_number: str, status: str, warehouse: str = ""
     ) -> PackingList:
         """用于具体拆柜 私仓卡车派送 未拆柜 已拆柜"""
         if status == "non_palletized":
+            order_by_fields = (
+                ("destination", "delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
                 .filter(container_number__container_number=container_number, delivery_type='other',
@@ -16146,9 +16161,14 @@ class PostNsop(View):
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         elif status == "palletized":
+            order_by_fields = (
+                ("destination", "delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
                 .filter(container_number__container_number=container_number, delivery_type='other',
@@ -16196,17 +16216,22 @@ class PostNsop(View):
                         "str_weight", delimiter=",", ordering="str_weight"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         else:
             raise ValueError(f"invalid status: {status}")
 
     # 私仓客户自提
     async def _get_packing_list_other_selfpick_cargos(
-            self, container_number: str, status: str
+            self, container_number: str, status: str, warehouse: str = ""
     ) -> PackingList:
         """用于具体拆柜 私仓客户自提 未拆柜 已拆柜"""
         if status == "non_palletized":
+            order_by_fields = (
+                ("destination", "custom_delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
                 .filter(container_number__container_number=container_number, delivery_type='other')
@@ -16221,6 +16246,14 @@ class PostNsop(View):
                                 "fba_id",
                                 Value("-"),
                                 "id",
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") & ~Q(destination="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "destination",
                             ),
                         ),
                         When(
@@ -16271,9 +16304,14 @@ class PostNsop(View):
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         elif status == "palletized":
+            order_by_fields = (
+                ("destination", "delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
                 .filter(container_number__container_number=container_number, delivery_type='other')
@@ -16320,7 +16358,7 @@ class PostNsop(View):
                         "str_weight", delimiter=",", ordering="str_weight"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         else:
             raise ValueError(f"invalid status: {status}")

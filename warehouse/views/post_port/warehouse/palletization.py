@@ -826,14 +826,18 @@ class Palletization(View):
                 # 私仓未拆柜
                 if offload.offload_other_at is None:
                     packing_list = await self._get_packing_list_other(
-                        container_number=container.container_number, status="non_palletized"
+                        container_number=container.container_number,
+                        status="non_palletized",
+                        warehouse=warehouse,
                     )
                     context = {"status": "non_palletized"}
 
                 # 私仓已拆柜
                 else:
                     packing_list = await self._get_packing_list_other(
-                        container_number=container.container_number, status="palletized"
+                        container_number=container.container_number,
+                        status="palletized",
+                        warehouse=warehouse,
                     )
                     context = {"status": "palletized"}
 
@@ -3485,9 +3489,14 @@ class Palletization(View):
             raise ValueError(f"invalid status: {status}")
 
     async def _get_packing_list_other(
-        self, container_number: str, status: str
+        self, container_number: str, status: str, warehouse: str = ""
     ) -> PackingList:
         if status == "non_palletized":
+            order_by_fields = (
+                ("destination", "custom_delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
                 .filter(container_number__container_number=container_number, delivery_type='other')
@@ -3502,6 +3511,14 @@ class Palletization(View):
                                 "fba_id",
                                 Value("-"),
                                 "id",
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") & ~Q(destination="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "destination",
                             ),
                         ),
                         When(
@@ -3551,9 +3568,14 @@ class Palletization(View):
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         elif status == "palletized":
+            order_by_fields = (
+                ("destination", "delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
                 .filter(container_number__container_number=container_number, delivery_type='other')
@@ -3600,7 +3622,7 @@ class Palletization(View):
                         "str_weight", delimiter=",", ordering="str_weight"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         else:
             raise ValueError(f"invalid status: {status}")
