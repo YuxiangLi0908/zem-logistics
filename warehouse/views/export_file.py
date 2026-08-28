@@ -1022,7 +1022,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 cbm=Round(F("raw_cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by("-raw_cbm")
+            .order_by("destination", "delivery_method", "-raw_cbm")
         )
         packing_list_complement = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
@@ -1034,6 +1034,14 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                         | Q(delivery_method="暂扣留仓"),
                         then=Concat(
                             "delivery_method", Value("-"), "fba_id", Value("-"), "id"
+                        ),
+                    ),
+                    When(
+                        Q(delivery_method="客户自提") & ~Q(destination="客户自提"),
+                        then=Concat(
+                            "delivery_method",
+                            Value("-"),
+                            "destination",
                         ),
                     ),
                     When(
@@ -1084,7 +1092,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-raw_cbm")
+            .order_by("destination", "custom_delivery_method", "-raw_cbm")
         )
         existing_po = {
             (plt["container_number__container_number"], plt["destination"])
@@ -1112,7 +1120,13 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     }
                 )
 
-        packing_list.sort(key=lambda x: -(x["raw_cbm"] or 0))
+        packing_list.sort(
+            key=lambda x: (
+                x.get("destination") or "",
+                x.get("delivery_method") or "",
+                -(x.get("raw_cbm") or 0),
+            )
+        )
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
 
@@ -1153,10 +1167,9 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
 
     df["delivery_method"] = df["delivery_method_final"].apply(split_delivery)
 
-    # LA non-palletized keeps the query order to match the new export.
+    # LA keeps the query order to match the new export.
     if not (
-        status == "non_palletized"
-        and zem_name != "JINYU"
+        zem_name != "JINYU"
         and warehouse == "LA"
     ):
         df = df.sort_values(
