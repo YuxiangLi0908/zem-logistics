@@ -778,7 +778,7 @@ class Palletization(View):
         # 获取参数（增加安全获取，防止为空报错）
         warehouse = request.GET.get("warehouse", "")
         if warehouse:
-            warehouse = warehouse.split("-")[0].strip()
+            warehouse = warehouse.split("-")[0].strip().upper()
 
         storehouse = request.GET.get("storehouse", "")
         step = request.GET.get("step", "")
@@ -795,7 +795,9 @@ class Palletization(View):
                     # LA / SAV 走 public 专用接口
                     if warehouse in ["LA", "SAV"]:
                         packing_list = await self._get_packing_list_public(
-                            container_number=container.container_number, status="non_palletized"
+                            container_number=container.container_number,
+                            status="non_palletized",
+                            warehouse=warehouse,
                         )
                     # 其他仓库走普通接口
                     else:
@@ -808,7 +810,9 @@ class Palletization(View):
                 else:
                     if warehouse in ["LA", "SAV"]:
                         packing_list = await self._get_packing_list_public(
-                            container_number=container.container_number, status="palletized"
+                            container_number=container.container_number,
+                            status="palletized",
+                            warehouse=warehouse,
                         )
                     else:
                         packing_list = await self._get_packing_list(
@@ -3342,9 +3346,14 @@ class Palletization(View):
             )
 
     async def _get_packing_list_public(
-        self, container_number: str, status: str
+        self, container_number: str, status: str, warehouse: str = ""
     ) -> PackingList:
         if status == "non_palletized":
+            order_by_fields = (
+                ("destination", "custom_delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
                 .filter(container_number__container_number=container_number, delivery_type='public')
@@ -3359,6 +3368,14 @@ class Palletization(View):
                                 "fba_id",
                                 Value("-"),
                                 "id",
+                            ),
+                        ),
+                        When(
+                            Q(delivery_method="客户自提") & ~Q(destination="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "destination",
                             ),
                         ),
                         When(
@@ -3408,9 +3425,14 @@ class Palletization(View):
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         elif status == "palletized":
+            order_by_fields = (
+                ("destination", "delivery_method", "-cbm")
+                if warehouse == "LA"
+                else ("-cbm",)
+            )
             return await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
                 .filter(container_number__container_number=container_number, delivery_type='public')
@@ -3457,7 +3479,7 @@ class Palletization(View):
                         "str_weight", delimiter=",", ordering="str_weight"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*order_by_fields)
             )
         else:
             raise ValueError(f"invalid status: {status}")
