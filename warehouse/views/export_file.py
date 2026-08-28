@@ -579,6 +579,12 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
+    storehouse = request.POST.get("storehouse")
+    delivery_type_filter = (
+        {"delivery_type": storehouse}
+        if storehouse in {"public", "other"}
+        else {}
+    )
     offload_id = request.POST.get("offload_id")
 
     zem_name = await sync_to_async(
@@ -742,7 +748,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     elif status == "non_palletized" and zem_name != "JINYU" and warehouse == "LA":
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
-            .filter(container_number__container_number=container_number)
+            .filter(container_number__container_number=container_number, **delivery_type_filter)
             .annotate(
                 custom_delivery_method=Case(
                     When(
@@ -1005,7 +1011,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     elif status == "palletized" and zem_name != "JINYU" and warehouse == "LA":
         packing_list = await sync_to_async(list)(
             Pallet.objects.select_related("container_number")
-            .filter(container_number__container_number=container_number)
+            .filter(container_number__container_number=container_number, **delivery_type_filter)
             .values(
                 "container_number__container_number",
                 "delivery_method",
@@ -1026,7 +1032,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         )
         packing_list_complement = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
-            .filter(container_number__container_number=container_number)
+            .filter(container_number__container_number=container_number, **delivery_type_filter)
             .annotate(
                 custom_delivery_method=Case(
                     When(
