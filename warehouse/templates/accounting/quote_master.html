@@ -40,6 +40,7 @@
 
     <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 0;">
         <h3 style="text-align: center; margin-bottom: 20px; color: #333;">应收报价表版本管理</h3>
+        <div id="month-summary" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px;"></div>
         <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;table-layout: fixed;">
             <thead style="background: #e9ecef;">
                 <tr>
@@ -211,6 +212,87 @@
     })();
     let currentSortColumn = -1;
     let currentSortDirection = 1; // 1: 升序, -1: 降序
+    let activeMonthFilter = null;
+
+    function renderMonthSummary() {
+        const summaryDiv = document.getElementById("month-summary");
+        if (!summaryDiv) return;
+        const counts = {};
+        const table = document.getElementById("quote-table");
+        const tbody = table.getElementsByTagName("tbody")[0];
+        const rows = tbody.getElementsByTagName("tr");
+
+        for (let i = 0; i < rows.length; i++) {
+            const tds = rows[i].getElementsByTagName("td");
+            if (tds.length < 2) continue;
+            const val = tds[1].getAttribute("data-sort-value");
+            if (!val) continue;
+            const ym = val.substring(0, 7);
+            counts[ym] = (counts[ym] || 0) + 1;
+        }
+
+        const PALETTE = [
+            { bg: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", shadow: "rgba(102,126,234,0.45)" },
+            { bg: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", shadow: "rgba(245,87,108,0.45)" },
+            { bg: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", shadow: "rgba(79,172,254,0.45)" },
+            { bg: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", shadow: "rgba(67,233,123,0.45)" },
+            { bg: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)", shadow: "rgba(250,112,154,0.45)" },
+            { bg: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)", shadow: "rgba(161,140,209,0.45)" },
+            { bg: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)", shadow: "rgba(252,182,159,0.55)" },
+            { bg: "linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)", shadow: "rgba(132,250,176,0.45)" },
+            { bg: "linear-gradient(135deg, #a6c0fe 0%, #f68084 100%)", shadow: "rgba(246,128,132,0.45)" },
+            { bg: "linear-gradient(135deg, #d299c2 0%, #fef9d7 100%)", shadow: "rgba(210,153,194,0.45)" },
+            { bg: "linear-gradient(135deg, #fccb90 0%, #d57eeb 100%)", shadow: "rgba(213,126,235,0.45)" },
+            { bg: "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)", shadow: "rgba(142,197,252,0.45)" },
+        ];
+
+        const months = Object.keys(counts).sort().reverse();
+        let html = "";
+
+        const allActive = activeMonthFilter === null;
+        html += `<button type="button" data-month="" class="month-chip" style="padding: 8px 18px; border-radius: 20px; border: none; background: ${allActive ? 'linear-gradient(135deg, #2d3436 0%, #636e72 100%)' : '#f1f3f5'}; color: ${allActive ? 'white' : '#495057'}; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.25s ease; box-shadow: ${allActive ? '0 4px 14px rgba(45,52,54,0.4)' : '0 1px 3px rgba(0,0,0,0.08)'}; letter-spacing: 0.3px;">全部 ▾</button>`;
+
+        months.forEach((ym, idx) => {
+            const [y, m] = ym.split("-");
+            const label = `${y}年${parseInt(m)}月`;
+            const active = activeMonthFilter === ym;
+            const c = PALETTE[idx % PALETTE.length];
+            const count = counts[ym];
+            html += `<button type="button" data-month="${ym}" class="month-chip" style="position: relative; padding: 8px 18px; border-radius: 20px; border: none; background: ${active ? c.bg : '#f8f9fa'}; color: ${active ? 'white' : '#495057'}; cursor: pointer; font-size: 12px; font-weight: ${active ? '700' : '500'}; transition: all 0.25s ease; box-shadow: ${active ? `0 6px 18px ${c.shadow}` : '0 1px 3px rgba(0,0,0,0.06)'}; letter-spacing: 0.3px; overflow: hidden;">`;
+            if (!active) {
+                html += `<span style="position: absolute; inset: 0; border-radius: 20px; padding: 1px; background: ${c.bg}; -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;"></span>`;
+            }
+            html += `${label}`;
+            html += `<span style="display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: ${active ? 'rgba(255,255,255,0.25)' : c.bg}; color: ${active ? 'white' : 'white'};">${count}</span>`;
+            html += `</button>`;
+        });
+        summaryDiv.innerHTML = html;
+
+        summaryDiv.querySelectorAll(".month-chip").forEach(btn => {
+            btn.addEventListener("click", function() {
+                const month = this.getAttribute("data-month") || null;
+                if (activeMonthFilter === month) {
+                    activeMonthFilter = null;
+                } else {
+                    activeMonthFilter = month;
+                    const dateInput = document.getElementById("effective-date-search-input");
+                    if (dateInput) dateInput.value = "";
+                }
+                renderMonthSummary();
+                filterTable();
+            });
+            btn.addEventListener("mouseenter", function() {
+                if (this.getAttribute("data-month") !== activeMonthFilter) {
+                    this.style.transform = "translateY(-2px)";
+                    this.style.boxShadow = "0 6px 16px rgba(0,0,0,0.15)";
+                }
+            });
+            btn.addEventListener("mouseleave", function() {
+                this.style.transform = "translateY(0)";
+                renderMonthSummary();
+            });
+        });
+    }
 
     function sortTable(columnIndex) {
         const table = document.getElementById("quote-table");
@@ -298,7 +380,12 @@
                 let filenameMatch = filenameParts.length === 0 ? true :
                     filenameParts.some(part => filenameTxt.includes(part));
 
-                const effectiveDateMatch = !effectiveDateFilter || effectiveDateValue === effectiveDateFilter;
+                let effectiveDateMatch = true;
+                if (effectiveDateFilter) {
+                    effectiveDateMatch = effectiveDateValue === effectiveDateFilter;
+                } else if (activeMonthFilter) {
+                    effectiveDateMatch = effectiveDateValue && effectiveDateValue.startsWith(activeMonthFilter);
+                }
                 const uploadDateMatch = !uploadDateFilter || uploadDateValue === uploadDateFilter;
                 let customerMatch = true;
                 if (customerFilter) {
@@ -315,6 +402,18 @@
             }
         }
     };
+
+    renderMonthSummary();
+
+    const effectiveDateInput = document.getElementById("effective-date-search-input");
+    if (effectiveDateInput) {
+        effectiveDateInput.addEventListener("change", function() {
+            if (this.value) {
+                activeMonthFilter = null;
+                renderMonthSummary();
+            }
+        });
+    }
 </script>
 
 {% endblock %}
