@@ -251,7 +251,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by(["-cbm"])
+            .order_by("-cbm")
         )
     elif status == "non_palletized" and zem_name != "JINYU":
         vessel_prefetch_queryset = Vessel.objects.all()
@@ -801,11 +801,17 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            # ！！只按原始体积降序，和基准分支行为完全一致
-            .order_by("-raw_cbm")
+            # LA keeps the same grouping order as the new export.
+            .order_by("destination", "custom_delivery_method", "-raw_cbm")
         )
-        # 内存兜底，防止group by边界情况，保证和基准分支输出顺序一致
-        packing_list.sort(key=lambda x: -(x["raw_cbm"] or 0))
+        # Keep a Python-side fallback sort for consistent grouped output.
+        packing_list.sort(
+            key=lambda x: (
+                x.get("destination") or "",
+                x.get("custom_delivery_method") or "",
+                -(x.get("raw_cbm") or 0),
+            )
+        )
     elif status == "palletized" and zem_name == "JINYU":
         packing_list = await sync_to_async(list)(
             Pallet.objects.select_related("container_number")
@@ -1139,12 +1145,17 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
 
     df["delivery_method"] = df["delivery_method_final"].apply(split_delivery)
 
-    # 全部统一按cbm降序导出
-    df = df.sort_values(
-        by=["cbm"],
-        ascending=[False],
-        ignore_index=True,
-    )
+    # LA non-palletized keeps the query order to match the new export.
+    if not (
+        status == "non_palletized"
+        and zem_name != "JINYU"
+        and warehouse == "LA"
+    ):
+        df = df.sort_values(
+            by=["cbm"],
+            ascending=[False],
+            ignore_index=True,
+        )
 
     # 然后再选择导出的列
     if zem_name == "JINYU":
