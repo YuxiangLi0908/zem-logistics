@@ -146,9 +146,9 @@
                             <td class="td"><input type="text" name="container_numer" value="{{ container_number }}" disabled></td>
                             <td class="td"><input type="text" name="new_destinations" required></td>
                             <td class="td">
-                                <select name="delivery_type" class="new-delivery-method" style="font-size: 13px;">
-                                    <option value="public">public</option>
-                                    <option value="other">other</option>
+                                <select name="new_delivery_type" class="new-delivery-method" style="font-size: 13px;">
+                                    <option value="public" {% if storehouse != 'other' %}selected{% endif %}>public</option>
+                                    <option value="other" {% if storehouse == 'other' %}selected{% endif %}>other</option>
                                 </select>
                             </td>
                             <td class="td">

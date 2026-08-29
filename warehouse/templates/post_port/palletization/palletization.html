@@ -365,9 +365,9 @@
                                 <td class="td">{{ c.offload_id.offload_at|date:"M-j" }}</td>
                             {% endif %}
                             {% if 'LA' in warehouse %}
-                                <td class="td">{{ c.offload_id.public_total_pallet }}</td>
+                                <td class="td">{{ c.offload_id.public_total_pallet|default_if_none:c.public_pallet_count }}</td>
                             {% elif 'SAV' in warehouse and storehouse == "public" %}
-                                <td class="td">{{ c.offload_id.public_total_pallet }}</td>
+                                <td class="td">{{ c.offload_id.public_total_pallet|default_if_none:c.public_pallet_count }}</td>
                             {% elif 'SAV' in warehouse and storehouse == "other" %}
                                 <td class="td">{{ c.offload_id.other_total_pallet }}</td>
                             {% else %}
