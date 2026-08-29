@@ -15289,6 +15289,7 @@ class PostNsop(View):
             notes = [d for d in request.POST.getlist("notes")]
             po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
+            additional_total_pallet = 0
             abnormal_offloads = []
             pallet_data = []
             for (
@@ -15399,6 +15400,9 @@ class PostNsop(View):
                 # 计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
                 new_destinations = request.POST.getlist("new_destinations")
                 new_delivery_method = request.POST.getlist("new_delivery_method")
+                new_delivery_types = request.POST.getlist("new_delivery_type")
+                if len(new_delivery_types) < len(new_destinations):
+                    new_delivery_types = [None] * len(new_destinations)
                 new_pcs_actul = [
                     int(value) for value in request.POST.getlist("new_pcs_actul")
                 ]
@@ -15411,6 +15415,8 @@ class PostNsop(View):
                 new_dw_sts = request.POST.getlist("new_delivery_window_starts")
                 new_dw_ends = request.POST.getlist("new_delivery_window_ends")
                 new_slots = request.POST.getlist("new_slots")
+                if not new_slots:
+                    new_slots = [None] * len(new_destinations)
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [
                     float(value) if value else 0
@@ -15438,6 +15444,7 @@ class PostNsop(View):
                         p_a,
                         c,
                         dest,
+                        submitted_delivery_type,
                         d_m,
                         note,
                         shipping_mark,
@@ -15452,6 +15459,7 @@ class PostNsop(View):
                     new_pcs_actul,
                     new_cbm,
                     new_destinations,
+                    new_delivery_types,
                     new_delivery_method,
                     new_notes,
                     shipping_marks,
@@ -15462,9 +15470,10 @@ class PostNsop(View):
                     new_dw_ends,
                     new_slots,
                 ):
-                    delivery_type = (
+                    delivery_type = submitted_delivery_type or (
                         "public" if palletization.is_public_destination(dest) else "other"
                     )
+                    additional_total_pallet += n
                     if isinstance(dw_st, str):
                         if dw_st == "None" or dw_st.strip() == "":
                             dw_st = None
@@ -15512,13 +15521,14 @@ class PostNsop(View):
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
-                            "delivery_type": d_t,
+                            "delivery_type": delivery_type,
                             "pcs_reported": 0,
                             "pcs_actual": p_a,
                             "delivery_window_start": dw_st,
                             "delivery_window_end": dw_end,
                         }
                     )
+            total_pallet += additional_total_pallet
             offload.other_selfdelivery_total_pallet = total_pallet
             if offload.total_pallet is None:
                 offload.total_pallet = total_pallet
@@ -15610,6 +15620,7 @@ class PostNsop(View):
             notes = [d for d in request.POST.getlist("notes")]
             po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
+            additional_total_pallet = 0
             abnormal_offloads = []
             pallet_data = []
             log_infos = []
@@ -15735,6 +15746,9 @@ class PostNsop(View):
                 # 计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
                 new_destinations = request.POST.getlist("new_destinations")
                 new_delivery_method = request.POST.getlist("new_delivery_method")
+                new_delivery_types = request.POST.getlist("new_delivery_type")
+                if len(new_delivery_types) < len(new_destinations):
+                    new_delivery_types = [None] * len(new_destinations)
                 new_pcs_actul = [
                     int(value) for value in request.POST.getlist("new_pcs_actul")
                 ]
@@ -15747,6 +15761,8 @@ class PostNsop(View):
                 new_dw_sts = request.POST.getlist("new_delivery_window_starts")
                 new_dw_ends = request.POST.getlist("new_delivery_window_ends")
                 new_slots = request.POST.getlist("new_slots")
+                if not new_slots:
+                    new_slots = [None] * len(new_destinations)
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [
                     float(value) if value else 0
@@ -15775,6 +15791,7 @@ class PostNsop(View):
                         p_a,
                         c,
                         dest,
+                        submitted_delivery_type,
                         d_m,
                         note,
                         shipping_mark,
@@ -15789,6 +15806,7 @@ class PostNsop(View):
                     new_pcs_actul,
                     new_cbm,
                     new_destinations,
+                    new_delivery_types,
                     new_delivery_method,
                     new_notes,
                     shipping_marks,
@@ -15799,9 +15817,11 @@ class PostNsop(View):
                     new_dw_ends,
                     new_slots,
                 ):
-                    delivery_type = (
+                    delivery_type = submitted_delivery_type or (
                         "public" if palletization.is_public_destination(dest) else "other"
                     )
+                    if delivery_type == "other":
+                        additional_total_pallet += n
                     if isinstance(dw_st, str):
                         if dw_st == "None" or dw_st.strip() == "":
                             dw_st = None
@@ -15863,13 +15883,14 @@ class PostNsop(View):
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
-                            "delivery_type": d_t,
+                            "delivery_type": delivery_type,
                             "pcs_reported": 0,
                             "pcs_actual": p_a,
                             "delivery_window_start": dw_st,
                             "delivery_window_end": dw_end,
                         }
                     )
+            total_pallet += additional_total_pallet
             offload.other_total_pallet = total_pallet
             if offload.total_pallet is None:
                 offload.total_pallet = total_pallet
