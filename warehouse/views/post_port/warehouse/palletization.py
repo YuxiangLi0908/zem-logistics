@@ -640,10 +640,25 @@ class Palletization(View):
 
         if warehouse and storehouse:
             warehouse = None if warehouse == "Empty" else warehouse
-            if 'LA' in warehouse or 'SAV' in warehouse:
+            if ('LA' in warehouse or 'SAV' in warehouse) and storehouse == "public":
                 order_not_palletized = await self._get_order_not_palletized_public(warehouse)
                 order_palletized = await self._get_order_palletized_public(warehouse)
                 order_with_shipment = await self._get_order_shipment_public(warehouse)
+                context = {
+                    "order_not_palletized": order_not_palletized,
+                    "order_palletized": order_palletized,
+                    "order_with_shipment": order_with_shipment,
+                    "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "warehouse": warehouse,
+                    "storehouse": storehouse,
+                    "storehouse_form": {"public": "public", "other": "other"},
+                    "unpacking_personnel": unpacking_personnel,
+                    "error_msg": error_msg,
+                }
+            elif ('LA' in warehouse or 'SAV' in warehouse) and storehouse == "other":
+                order_not_palletized = await self._get_order_not_palletized_other_selfpick_cargos(warehouse)
+                order_palletized = await self._get_order_palletized_other_selfpick_cargos(warehouse)
+                order_with_shipment = await self._get_order_shipment_other_selfpick_cargos(warehouse)
                 context = {
                     "order_not_palletized": order_not_palletized,
                     "order_palletized": order_palletized,
@@ -2625,7 +2640,14 @@ class Palletization(View):
                     container_number__pallet__delivery_type='other',
                 )
             )
-            .order_by("offload_id__offload_at")
+            .annotate(
+                other_pallet_count=Count(
+                    "container_number__pallet__pallet_id",
+                    distinct=True,
+                    filter=Q(container_number__pallet__delivery_type="other"),
+                )
+            )
+            .order_by("offload_id__offload_other_at")
         )
         seen = set()
         return [
