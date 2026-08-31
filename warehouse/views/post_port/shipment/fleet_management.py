@@ -56,7 +56,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from PIL import Image
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
-from simple_history.utils import bulk_update_with_history
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 from xhtml2pdf import pisa
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
 import zipfile
@@ -88,6 +88,18 @@ from warehouse.utils.constants import (
 )
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.export_file import link_callback
+
+
+def _update_queryset_with_history(queryset, model, **changes):
+    """Apply constant-value updates while creating a history row per object."""
+    instances = list(queryset)
+    if not instances:
+        return 0
+    for instance in instances:
+        for field, value in changes.items():
+            setattr(instance, field, value)
+    bulk_update_with_history(instances, model, fields=list(changes))
+    return len(instances)
 
 matplotlib.use("Agg")
 matplotlib.rcParams["font.size"] = 100
@@ -1394,8 +1406,8 @@ class FleetManagement(View):
                 )
                 new_fleet_shipment_pallets.append(new_record)
 
-            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets, batch_size=500
+            await sync_to_async(bulk_create_with_history)(
+                new_fleet_shipment_pallets, FleetShipmentPallet, batch_size=500
             )
 
             # 重新查询
@@ -1432,8 +1444,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -1490,8 +1502,8 @@ class FleetManagement(View):
                             ))
 
                     if invoices_to_create:
-                        await sync_to_async(Invoicev2.objects.bulk_create)(
-                            invoices_to_create, batch_size=500
+                        await sync_to_async(bulk_create_with_history)(
+                            invoices_to_create, Invoicev2, batch_size=500
                         )
             except Exception as e:
                 raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}")
@@ -1526,8 +1538,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -1653,8 +1665,9 @@ class FleetManagement(View):
 
                 # 4. 批量更新（只改这3个字段）
                 if update_list:
-                    FleetShipmentPallet.objects.bulk_update(
+                    bulk_update_with_history(
                         update_list,
+                        FleetShipmentPallet,
                         fields=['total_pallet', 'cost_input_time', 'operator'],
                         batch_size=500
                     )
@@ -1692,8 +1705,8 @@ class FleetManagement(View):
                     update_records.append(shipment)
 
             if update_records:
-                await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                    update_records, ["expense"], batch_size=500
+                await sync_to_async(bulk_update_with_history)(
+                    update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                 )
         except Exception as e:
             raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}")
@@ -1756,8 +1769,8 @@ class FleetManagement(View):
                 )
                 new_fleet_shipment_pallets.append(new_record)
 
-            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets, batch_size=500
+            await sync_to_async(bulk_create_with_history)(
+                new_fleet_shipment_pallets, FleetShipmentPallet, batch_size=500
             )
 
             # 重新查询
@@ -1794,8 +1807,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -1852,8 +1865,8 @@ class FleetManagement(View):
                             ))
 
                     if invoices_to_create:
-                        await sync_to_async(Invoicev2.objects.bulk_create)(
-                            invoices_to_create, batch_size=500
+                        await sync_to_async(bulk_create_with_history)(
+                            invoices_to_create, Invoicev2, batch_size=500
                         )
             except Exception as e:
                 raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}")
@@ -1888,8 +1901,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -1987,8 +2000,8 @@ class FleetManagement(View):
                 )
                 new_fleet_shipment_pallets.append(new_record)
 
-            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets, batch_size=500
+            await sync_to_async(bulk_create_with_history)(
+                new_fleet_shipment_pallets, FleetShipmentPallet, batch_size=500
             )
 
             fleet_shipments = await sync_to_async(list)(
@@ -2024,8 +2037,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -2082,8 +2095,8 @@ class FleetManagement(View):
                             ))
 
                     if invoices_to_create:
-                        await sync_to_async(Invoicev2.objects.bulk_create)(
-                            invoices_to_create, batch_size=500
+                        await sync_to_async(bulk_create_with_history)(
+                            invoices_to_create, Invoicev2, batch_size=500
                         )
             except Exception as e:
                 raise RuntimeError(f"转仓费用记录创建/分摊失败：{str(e)}")
@@ -2118,8 +2131,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -2224,8 +2237,8 @@ class FleetManagement(View):
                 )
                 new_fleet_shipment_pallets.append(new_record)
             # 批量新增退回费用记录
-            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets, batch_size=500
+            await sync_to_async(bulk_create_with_history)(
+                new_fleet_shipment_pallets, FleetShipmentPallet, batch_size=500
             )
             # 关键修复：创建后重新查询并赋值fleet_shipments
             fleet_shipments = await sync_to_async(list)(
@@ -2262,8 +2275,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -2320,8 +2333,8 @@ class FleetManagement(View):
                             ))
 
                     if invoices_to_create:
-                        await sync_to_async(Invoicev2.objects.bulk_create)(
-                            invoices_to_create, batch_size=500
+                        await sync_to_async(bulk_create_with_history)(
+                            invoices_to_create, Invoicev2, batch_size=500
                         )
             except Exception as e:
                 raise RuntimeError(f"退回费用记录创建/分摊失败：{str(e)}")
@@ -2356,8 +2369,8 @@ class FleetManagement(View):
                         update_records.append(shipment)
 
                 if update_records:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        update_records, ["expense"], batch_size=500
+                    await sync_to_async(bulk_update_with_history)(
+                        update_records, FleetShipmentPallet, fields=["expense"], batch_size=500
                     )
 
                     # 按柜号汇总费用
@@ -2975,9 +2988,11 @@ class FleetManagement(View):
                         return 0
 
                     # 2. 更新这些 Shipment 下所有 Pallet 的 ltl_correlation_id
-                    updated_count = Pallet.objects.filter(
-                        shipment_batch_number__in=shipment_ids
-                    ).update(ltl_correlation_id=correlation_id)
+                    updated_count = _update_queryset_with_history(
+                        Pallet.objects.filter(shipment_batch_number__in=shipment_ids),
+                        Pallet,
+                        ltl_correlation_id=correlation_id,
+                    )
 
                     return updated_count
 
@@ -3022,9 +3037,11 @@ class FleetManagement(View):
                         return 0
 
                     # 2. 清空这些 Shipment 下所有 Pallet 的 ltl_correlation_id
-                    updated_count = Pallet.objects.filter(
-                        shipment_batch_number__in=shipment_ids
-                    ).update(ltl_correlation_id=None)
+                    updated_count = _update_queryset_with_history(
+                        Pallet.objects.filter(shipment_batch_number__in=shipment_ids),
+                        Pallet,
+                        ltl_correlation_id=None,
+                    )
 
                     return updated_count
 
@@ -4169,9 +4186,11 @@ class FleetManagement(View):
                     return 0, [f"未找到匹配的车次号：{fleet_numbers}"]
 
                 # 同步批量更新
-                success_count = Fleet.objects.filter(
-                    fleet_number__in=fleet_numbers
-                ).update(fleet_verify_status=verify_status)
+                success_count = _update_queryset_with_history(
+                    Fleet.objects.filter(fleet_number__in=fleet_numbers),
+                    Fleet,
+                    fleet_verify_status=verify_status,
+                )
 
                 logger.info(f"【更新成功】{'核实' if verify_status else '取消核实'} {success_count} 条记录")
                 return success_count, [f"成功{'核实' if verify_status else '取消核实'} {success_count} 条记录"]
@@ -4251,7 +4270,7 @@ class FleetManagement(View):
                         "fleet_cost_back": None,
                         "fleet_ltl_status": False,
                     }
-                    fleet_query.update(**update_fields)
+                    _update_queryset_with_history(fleet_query, Fleet, **update_fields)
                     logger.info(f"【车次状态重置完成，更新字段：{list(update_fields.keys())}")
 
                     # 查询成本托盘明细
@@ -4372,7 +4391,9 @@ class FleetManagement(View):
                     if match_count == 0:
                         raise ValueError("选中车次均已是已录入状态，无需重复确认")
                     # 批量更新状态
-                    fleet_query.update(fleet_ltl_status=True)
+                    _update_queryset_with_history(
+                        fleet_query, Fleet, fleet_ltl_status=True
+                    )
                     logger.info(f"成功更新{match_count}条车次状态为已录入")
                 # 返回更新成功的所有车次对象，供外层异步分摊使用
                 return match_count, list(Fleet.objects.filter(fleet_number__in=target_fleet_nums))
@@ -4466,9 +4487,11 @@ class FleetManagement(View):
                     return 0, [f"未找到匹配的记录ID：{fleet_ids}"]
 
                 # 同步批量更新（按ID更新）
-                success_count = Fleet.objects.filter(
-                    id__in=fleet_ids
-                ).update(fleet_verify_status=verify_status)
+                success_count = _update_queryset_with_history(
+                    Fleet.objects.filter(id__in=fleet_ids),
+                    Fleet,
+                    fleet_verify_status=verify_status,
+                )
                 return success_count, None
 
             except Exception as e:
@@ -4530,10 +4553,10 @@ class FleetManagement(View):
                     return 0, [f"未找到匹配的记录ID：{fleet_ids}"]
 
                 # 同步批量更新（重置为未录入状态）
-                success_count = Fleet.objects.filter(
-                    id__in=fleet_ids  # 按ID更新，精准操作
-                ).update(
-                    fleet_verify_status=False  # 重置核实状态为未核实
+                success_count = _update_queryset_with_history(
+                    Fleet.objects.filter(id__in=fleet_ids),
+                    Fleet,
+                    fleet_verify_status=False,
                 )
 
                 return success_count, []
@@ -5132,7 +5155,9 @@ class FleetManagement(View):
         """ltl保存备注 """
         shipment_id = request.POST.get("shipment_id")
         note = request.POST.get("note")
-        await sync_to_async(lambda: Shipment.objects.filter(id=shipment_id).update(note=note))()
+        await sync_to_async(_update_queryset_with_history)(
+            Shipment.objects.filter(id=shipment_id), Shipment, note=note
+        )
         return await self.handle_fleet_cost_record_get_ltl(request, None, 1)
 
     async def handle_export_bol_packing_list_post(self, request: HttpRequest) -> HttpResponse:
@@ -5467,9 +5492,11 @@ class FleetManagement(View):
                 return await self.handle_outbound_warehouse_search_post(request,error_messages)
 
         #未出的就是甩板，记录甩板状态
-        await sync_to_async(
-            lambda: Pallet.objects.filter(id__in=unshipped_pallet_ids).update(is_dropped_pallet=True)
-        )()
+        await sync_to_async(_update_queryset_with_history)(
+            Pallet.objects.filter(id__in=unshipped_pallet_ids),
+            Pallet,
+            is_dropped_pallet=True,
+        )
         #要出库的查看下是否有未解扣的
         shipped_pallets = await sync_to_async(
             lambda: list(Pallet.objects.filter(id__in=shipped_pallet_ids).select_related('container_number'))
@@ -5492,24 +5519,25 @@ class FleetManagement(View):
             )
         )
         # 把出库的板子的slot改为空    
-        await sync_to_async(
-            lambda: Pallet.objects.filter(id__in=shipped_pallet_ids)
-            .update(slot=None)
-        )()
+        await sync_to_async(_update_queryset_with_history)(
+            Pallet.objects.filter(id__in=shipped_pallet_ids), Pallet, slot=None
+        )
         unshipped_pallet_ids = [int(pid) for pid in unshipped_pallet_ids]
 
-        await sync_to_async(Pallet.objects.filter(
-            id__in=unshipped_pallet_ids
-        ).update)(shipment_batch_number=None)
+        await sync_to_async(_update_queryset_with_history)(
+            Pallet.objects.filter(id__in=unshipped_pallet_ids),
+            Pallet,
+            shipment_batch_number=None,
+        )
         
         # 处理需要解绑的cargo_ids，把packinglist表的shipment_batch_number设为空
         if cargo_ids:
-            await sync_to_async(
-                lambda: PackingList.objects.filter(id__in=cargo_ids).update(
-                    shipment_batch_number=None,
-                    master_shipment_batch_number=None
-                )
-            )()
+            await sync_to_async(_update_queryset_with_history)(
+                PackingList.objects.filter(id__in=cargo_ids),
+                PackingList,
+                shipment_batch_number=None,
+                master_shipment_batch_number=None,
+            )
      
         shipment_pallet = {}
         for p in unshipped_pallet:
@@ -5596,6 +5624,7 @@ class FleetManagement(View):
                 "pallet_dumpped",
                 "is_full_out",
                 "arrived_at",
+                "arrived_at_utc",
                 "is_arrived",
             ],
         )
@@ -5651,8 +5680,8 @@ class FleetManagement(View):
             new_fleet_shipment_pallets.append(new_record)
 
         if new_fleet_shipment_pallets:
-            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets, batch_size=500
+            await sync_to_async(bulk_create_with_history)(
+                new_fleet_shipment_pallets, FleetShipmentPallet, batch_size=500
             )
         else:
             if name == "post_nsop":
@@ -5952,11 +5981,11 @@ class FleetManagement(View):
 
     async def _upload_shipping_order_file_to_sharepoint(
         self, conn, shipment_batch_number: str, file
-    ) -> None:
+    ) -> Shipment:
         '''上传出库单到云盘'''
-        shipment = await sync_to_async(Shipment.objects.get)(
-            shipment_batch_number=shipment_batch_number
-        )
+        shipment = await sync_to_async(
+            Shipment.objects.select_related("fleet_number").get
+        )(shipment_batch_number=shipment_batch_number)
         file_extension = os.path.splitext(file.name)[1]  # 提取扩展名
         # 文档库名称，系统文件夹名称，当前环境
         file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/delivery_order/{APP_ENV}")
@@ -5980,11 +6009,7 @@ class FleetManagement(View):
             .value.to_json()["sharingLinkInfo"]["Url"]
         )
         shipment.shipping_order_link = link
-        if shipment.shipment_type == "客户自提":
-            shipment.pod_link = "No Link"
-            shipment.pod_uploaded_at = timezone.now()
-
-        await sync_to_async(shipment.save)()
+        return shipment
 
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")

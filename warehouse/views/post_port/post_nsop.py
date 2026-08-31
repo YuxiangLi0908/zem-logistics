@@ -6320,49 +6320,86 @@ class PostNsop(View):
     async def handle_batch_fleet_departure_post(
             self, request: HttpRequest, context: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        '''LTL 批量确认出库'''
         if not context:
             context = {}
-        
+
         departured_at_str = request.POST.get("departured_at")
         if not departured_at_str:
             raise ValueError("出库时间不能为空")
-        
+
         try:
-            departured_at = datetime.strptime(departured_at_str, "%Y-%m-%dT%H:%M")
+            datetime.strptime(departured_at_str, "%Y-%m-%dT%H:%M")
         except ValueError:
             raise ValueError("出库时间格式错误")
-        
-        shipment_batches_str = request.POST.get("batch_shipment_batches")
-        if not shipment_batches_str:
-            raise ValueError("没有获取到预约批次号")
-        
+
+        fleet_numbers_str = request.POST.get("batch_fleet_numbers")
+        if not fleet_numbers_str:
+            raise ValueError("没有获取到车次号")
+
         try:
-            shipment_batches = json.loads(shipment_batches_str)
-        except ValueError:
-            raise ValueError("预约批次号解析错误")
-        
-        if not isinstance(shipment_batches, list) or len(shipment_batches) == 0:
-            raise ValueError("预约批次号列表为空")
-        
-        def _update_shipments_and_fleet():
-            shipments = Shipment.objects.filter(shipment_batch_number__in=shipment_batches)
-            for shipment in shipments:
-                shipment.shipped_at = departured_at
-                shipment.is_shipped = True
-                shipment.save()
-            
-            fleet_numbers = shipments.values_list('fleet_number__fleet_number', flat=True).distinct()
-            for fleet_number in fleet_numbers:
-                try:
-                    fleet = Fleet.objects.get(fleet_number=fleet_number)
-                    fleet.departured_at = departured_at
-                    fleet.save()
-                except Fleet.DoesNotExist:
-                    pass
-        
-        await sync_to_async(_update_shipments_and_fleet)()
-        
-        return await self.handle_ltl_unscheduled_pos_post(request)
+            fleet_numbers = json.loads(fleet_numbers_str)
+        except (TypeError, ValueError):
+            raise ValueError("车次号解析错误")
+
+        if not isinstance(fleet_numbers, list) or not fleet_numbers:
+            raise ValueError("车次号列表为空")
+
+        # 批量出库不提供甩板编辑，按所选车次全部出库，并复用单个出库的
+        # 核心逻辑，确保客户自提自动送达、车辆汇总及历史记录处理一致。
+        fm = FleetManagement()
+        original_post = request.POST
+        errors = []
+        completed = 0
+        try:
+            for fleet_number in dict.fromkeys(str(n).strip() for n in fleet_numbers if str(n).strip()):
+                batch_numbers = await sync_to_async(list)(
+                    Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+                    .exclude(shipment_batch_number__isnull=True)
+                    .values_list("shipment_batch_number", flat=True)
+                    .distinct()
+                )
+                if not batch_numbers:
+                    errors.append(f"{fleet_number}: 未找到预约批次")
+                    continue
+
+                pallet_ids = await sync_to_async(list)(
+                    Pallet.objects.filter(
+                        shipment_batch_number__shipment_batch_number__in=batch_numbers
+                    ).values_list("id", flat=True)
+                )
+
+                fleet_post = original_post.copy()
+                fleet_post["fleet_number"] = fleet_number
+                fleet_post["cargo_ids"] = ""
+                fleet_post.setlist("batch_number", batch_numbers)
+                if pallet_ids:
+                    pallet_count = str(len(pallet_ids))
+                    fleet_post.setlist("plt_ids", [",".join(str(pid) for pid in pallet_ids)])
+                    fleet_post.setlist("scheduled_pallet", [pallet_count])
+                    fleet_post.setlist("actual_shipped_pallet", [pallet_count])
+                else:
+                    fleet_post.setlist("plt_ids", [""])
+                    fleet_post.setlist("scheduled_pallet", ["0"])
+                    fleet_post.setlist("actual_shipped_pallet", ["0"])
+                fleet_post.setlist("scheduled_cbm", ["0"])
+                fleet_post.setlist("scheduled_weight", ["0"])
+                request.POST = fleet_post
+
+                result = await fm.handle_fleet_departure_post(request, "post_nsop")
+                if result.get("error_messages"):
+                    errors.append(f"{fleet_number}: {result['error_messages']}")
+                else:
+                    completed += 1
+        finally:
+            request.POST = original_post
+
+        template, page_context = await self.handle_ltl_unscheduled_pos_post(request, context)
+        if completed:
+            page_context["success_messages"] = f"已成功出库 {completed} 个车次"
+        if errors:
+            page_context["error_messages"] = "；".join(errors)
+        return template, page_context
 
     async def handle_batch_pickup_list(self, request: HttpRequest) -> HttpResponse:
         'ltl 批量拣货单 - 按fleet_number分组生成PDF表格'
@@ -14941,18 +14978,51 @@ class PostNsop(View):
 
                 file = request.FILES[file_key]
                 shipment_batch_number = request.POST[batch_key]
-                await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
+                shipment = await fm._upload_shipping_order_file_to_sharepoint(
+                    conn, shipment_batch_number, file
+                )
+                if shipment.shipment_type == "客户自提":
+                    await self._mark_customer_pickup_delivered(shipment)
+                else:
+                    await sync_to_async(shipment.save)()
                 index += 1
         else:
             # 单个上传
             shipment_batch_number = request.POST.get("shipment_batch_number")
             if "file" in request.FILES and shipment_batch_number:
                 file = request.FILES["file"]
-                await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
+                shipment = await fm._upload_shipping_order_file_to_sharepoint(
+                    conn, shipment_batch_number, file
+                )
+                if shipment.shipment_type == "客户自提":
+                    await self._mark_customer_pickup_delivered(shipment)
+                else:
+                    await sync_to_async(shipment.save)()
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
         context.update({"success_messages": '出库单上传成功!'})
         return template, context
+
+    async def _mark_customer_pickup_delivered(self, shipment: Shipment) -> None:
+        """客户自提出库单处理完成后，同步POD、Shipment和Fleet送达状态。"""
+        shipment.pod_link = "No Link"
+        shipment.pod_uploaded_at = timezone.now()
+        shipment.is_arrived = True
+        if shipment.shipped_at:
+            shipment.arrived_at = shipment.shipped_at
+            shipment.arrived_at_utc = shipment.shipped_at_utc or self._parse_ts(
+                shipment.shipped_at, self._parse_tzinfo(shipment.origin)
+            )
+        else:
+            shipment.arrived_at = timezone.now()
+            shipment.arrived_at_utc = shipment.arrived_at
+
+        await sync_to_async(shipment.save)()
+        if shipment.fleet_number:
+            shipment.fleet_number.arrived_at = shipment.arrived_at
+            await sync_to_async(shipment.fleet_number.save)(
+                update_fields=["arrived_at"]
+            )
 
     async def handle_set_shipping_no_link(
             self, request: HttpRequest
@@ -14970,14 +15040,14 @@ class PostNsop(View):
                     break
                 shipment_batch_number = request.POST[batch_key]
                 try:
-                    shipment = await sync_to_async(Shipment.objects.get)(
-                        shipment_batch_number=shipment_batch_number
-                    )
+                    shipment = await sync_to_async(
+                        Shipment.objects.select_related("fleet_number").get
+                    )(shipment_batch_number=shipment_batch_number)
                     shipment.shipping_order_link = "No Link"
                     if shipment.shipment_type == "客户自提":
-                        shipment.pod_link = "No Link"
-                        shipment.pod_uploaded_at = timezone.now()
-                    await sync_to_async(shipment.save)()
+                        await self._mark_customer_pickup_delivered(shipment)
+                    else:
+                        await sync_to_async(shipment.save)()
                     count += 1
                 except Exception as e:
                     pass
@@ -14987,14 +15057,14 @@ class PostNsop(View):
             # 单个设置
             shipment_batch_number = request.POST.get("shipment_batch_number")
             if shipment_batch_number:
-                shipment = await sync_to_async(Shipment.objects.get)(
-                    shipment_batch_number=shipment_batch_number
-                )
+                shipment = await sync_to_async(
+                    Shipment.objects.select_related("fleet_number").get
+                )(shipment_batch_number=shipment_batch_number)
                 shipment.shipping_order_link = "No Link"
                 if shipment.shipment_type == "客户自提":
-                    shipment.pod_link = "No Link"
-                    shipment.pod_uploaded_at = timezone.now()
-                await sync_to_async(shipment.save)()
+                    await self._mark_customer_pickup_delivered(shipment)
+                else:
+                    await sync_to_async(shipment.save)()
             success_message = '已设置为不回传!'
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
