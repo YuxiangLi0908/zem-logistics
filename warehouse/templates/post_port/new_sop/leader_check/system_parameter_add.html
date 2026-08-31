@@ -515,6 +515,27 @@
                     <button type="submit" class="btn btn-primary" style="margin-top:10px;">添加</button>
                 </form>
             </div>
+            {% elif current_category == "ZEM仓库地址" %}
+            <div class="add-card">
+                <div class="add-card-title">添加或更新ZEM仓库地址</div>
+                <form method="post" class="fba-add-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="system_parameter_add_item">
+                    <input type="hidden" name="category" value="ZEM仓库地址">
+                    <div class="fba-fields">
+                        <input type="text" name="warehouse_name" class="fba-field fba-field-code" placeholder="仓库名" required>
+                        <input type="text" name="warehouse_company" class="fba-field" placeholder="公司名" value="ZEM LOGISTICS INC">
+                        <input type="text" name="warehouse_address" class="fba-field fba-field-addr" placeholder="详细地址" required>
+                        <input type="text" name="warehouse_city" class="fba-field fba-field-city" placeholder="城市" required>
+                        <input type="text" name="warehouse_state" class="fba-field fba-field-sm" maxlength="2" placeholder="州" required>
+                        <input type="text" name="warehouse_zipcode" class="fba-field fba-field-sm" placeholder="邮编" required>
+                        <input type="text" name="warehouse_contact" class="fba-field fba-field-city" placeholder="联系人">
+                        <input type="text" name="warehouse_phone" class="fba-field fba-field-code" placeholder="电话">
+                        <select name="warehouse_address_type" class="fba-field"><option value="3">装卸平台</option><option value="1">商业地址</option><option value="2">住宅地址</option></select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top:10px;">保存</button>
+                </form>
+            </div>
             {% else %}
             <!-- 添加参数 -->
             <div class="add-card">
@@ -576,6 +597,9 @@
                         <th style="width: 80px;">城市</th>
                         <th style="width: 60px;">州</th>
                         <th style="width: 90px;">邮编</th>
+                        {% elif current_category == "ZEM仓库地址" %}
+                        <th style="width: 130px;">仓库名</th>
+                        <th>地址</th>
                         {% else %}
                         {% if current_category == "私仓供应商" %}
                         <th style="width: 120px;">参数值</th>
@@ -607,6 +631,9 @@
                         <td>{{ param.fba_city|default:"-" }}</td>
                         <td>{{ param.fba_state|default:"-" }}</td>
                         <td>{{ param.fba_zipcode|default:"-" }}</td>
+                        {% elif current_category == "ZEM仓库地址" %}
+                        <td><strong>{{ param.key }}</strong></td>
+                        <td><span class="val-text">{{ param.address_data.company }} {{ param.address_data.detailAddress }}, {{ param.address_data.city }}, {{ param.address_data.state }} {{ param.address_data.postCode }}{% if param.address_data.contact %} / {{ param.address_data.contact }} {{ param.address_data.phone }}{% endif %}</span></td>
                         {% else %}
                         {% if current_category == "私仓供应商" %}
                         <td><span class="val-text">{{ param.value }}</span></td>

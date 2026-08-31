@@ -69,3 +69,19 @@ class SystemParameter(models.Model):
             except (json.JSONDecodeError, TypeError):
                 pass
         return result
+
+    @staticmethod
+    def get_zem_warehouse_addresses():
+        """Return active ZEM warehouse addresses as selector-ready dictionaries."""
+        params = SystemParameter.objects.filter(
+            category="ZEM仓库地址", is_active=True
+        ).order_by("sort_order", "id")
+        result = []
+        for param in params:
+            try:
+                address = json.loads(param.value)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(address, dict):
+                result.append({"warehouse": param.key, **address})
+        return result
