@@ -28,12 +28,12 @@
                                 <!-- FTL 专用 -->
                                 <th class="ftl-field">预约账号</th>
                                 
-                                <th>预约号</th>
+                                <th class="ftl-field">预约号</th>
                                 <!-- FTL 显示 Scheduled Time，外配显示 提货时间 (两者共用 shipment_appointment 参数名) -->
                                 <th class="ftl-field">Scheduled Time</th>                            
                                 <th>Pickup Time</th>                             
                                 <th>发货仓库</th>
-                                <th class="outside-field" style="display:none;"></th> <!-占位-->
+                                <th class="outside-field courier-field" style="display:none;"></th> <!-占位-->
                             </tr>
                         </thead>
                         <tbody>
@@ -54,7 +54,7 @@
                                     </select>
                                 </td>
                                 
-                                <td>
+                                <td class="ftl-field">
                                     <input type="text" name="appointment_id" id="appointment_id" class="form-input">
                                 </td>
                                 <!-- 时间段: shipment_appointment -->
@@ -77,7 +77,7 @@
                                         {% endfor %}
                                     </select>
                                 </td>
-                                <td class="outside-field">
+                                <td class="outside-field courier-field">
                                     
                                 </td>
                             </tr>
@@ -86,12 +86,14 @@
                                 <th class="ftl-field">装车类型</th>
                                 <th class="ftl-field">Pickup Number</th>
                                 <!-- 外配专用 -->
-                                <th class="outside-field" style="display:none;">Carrier</th>
-                                <th>目的地</th>
-                                <th>地址</th>
+                                <th class="outside-field courier-field" style="display:none;">Carrier</th>
+                                <th class="optional-field">目的地</th>
+                                <th class="optional-field">地址</th>
                                 <th>备注</th>                             
                                 <th class="ftl-field">shipment ID</th>
                                 <th class="outside-field" style="display:none;">BOL号</th>
+                                <!-- 快递专用 -->
+                                <th class="courier-field" style="display:none;">快递单号</th>
                             </tr>
                             <tr>
                                 <!-- FTL 专用字段 -->
@@ -106,14 +108,14 @@
                                     <input type="text" name="pickupNumber" id="pickup_number" class="form-input">                                   
                                 </td>
                                 <!-- 外配: Carrier -->
-                                <td class="outside-field" style="display:none;">
+                                <td class="outside-field courier-field" style="display:none;">
                                     <input type="text" name="carrier" id="carrier" class="form-input">
                                 </td>
                                 <!-- 通用字段 -->
-                                <td>
+                                <td class="optional-field">
                                     <input type="text" name="destination" id="ftl-destination" class="form-input" required>
                                 </td>
-                                <td>
+                                <td class="optional-field">
                                     <input type="text" name="address" id="address_detail" class="form-input">
                                 </td>
                                 <td>
@@ -126,6 +128,10 @@
                                 <!-- 外配: arm_bol -->
                                 <td class="outside-field" style="display:none;">
                                     <input type="text" name="arm_bol" id="arm_bol" class="form-input">
+                                </td>
+                                <!-- 快递: 快递单号 -->
+                                <td class="courier-field" style="display:none;">
+                                    <input type="text" name="express_number" id="express_number" class="form-input" placeholder="快递单号">
                                 </td>
                             </tr>
                         </tbody>
@@ -400,32 +406,53 @@
         const selectedText = typeSelect.options[typeSelect.selectedIndex].text;
         const ftlFields = document.querySelectorAll('.ftl-field');
         const outsideFields = document.querySelectorAll('.outside-field');
+        const optionalFields = document.querySelectorAll('.optional-field');
+        const courierFields = document.querySelectorAll('.courier-field');
         
-        // 获取 Scheduled Time 的表头文字，动态修改它
-        const timeHeader = document.getElementById('time-header-label');
         const scheduledInput = document.getElementById('scheduled-time-input');
         const appointmentInput = document.getElementById('appointment_id');
+        const destinationInput = document.getElementById('ftl-destination');
 
-        if (selectedText.includes('外配')) {
+        if (selectedText.includes('快递')) {
+            // --- 快递模式 ---
+            ftlFields.forEach(el => el.style.display = 'none');
+            outsideFields.forEach(el => {
+                // Carrier 同时有 courier-field，显示；BOL号只带 outside-field，隐藏
+                el.style.display = el.classList.contains('courier-field') ? '' : 'none';
+            });
+            optionalFields.forEach(el => el.style.display = 'none');
+            courierFields.forEach(el => el.style.display = '');
+
+            if (scheduledInput) scheduledInput.required = false;
+            if (appointmentInput) appointmentInput.required = false;
+            if (destinationInput) destinationInput.required = false;
+        } else if (selectedText.includes('外配')) {
             // --- 外配模式 ---
             ftlFields.forEach(el => el.style.display = 'none');
-            outsideFields.forEach(el => el.style.display = ''); // 显示外配专用
-            
-            if (timeHeader) timeHeader.innerText = '提货时间';
-            if (scheduledInput) {
-                scheduledInput.required = false; 
-            }
+            outsideFields.forEach(el => el.style.display = '');
+            optionalFields.forEach(el => el.style.display = '');
+            // 纯 courier-field（快递单号）隐藏；Carrier 有 outside-field 已被上面显示
+            courierFields.forEach(el => {
+                if (el.classList.contains('outside-field')) {
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+
+            if (scheduledInput) scheduledInput.required = false;
             if (appointmentInput) appointmentInput.required = false;
+            if (destinationInput) destinationInput.required = true;
         } else {
             // --- FTL 模式 ---
-            ftlFields.forEach(el => el.style.display = ''); // 显示FTL专用
+            ftlFields.forEach(el => el.style.display = '');
             outsideFields.forEach(el => el.style.display = 'none');
-            
-            if (timeHeader) timeHeader.innerText = 'Scheduled Time';
-            if (scheduledInput) {
-                scheduledInput.required = true;
-            }
+            optionalFields.forEach(el => el.style.display = '');
+            courierFields.forEach(el => el.style.display = 'none');
+
+            if (scheduledInput) scheduledInput.required = true;
             if (appointmentInput) appointmentInput.required = true;
+            if (destinationInput) destinationInput.required = true;
         }
     }
     // 绑定预约模态框的JavaScript

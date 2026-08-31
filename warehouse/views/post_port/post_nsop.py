@@ -172,7 +172,7 @@ class PostNsop(View):
         "FTL": "FTL",
         "外配": "外配",
         # "LTL": "LTL",     
-        # "快递": "快递",
+        "快递": "快递",
         # "客户自提": "客户自提",
     }
     RE_PUBLIC_WH = re.compile(
@@ -558,8 +558,15 @@ class PostNsop(View):
         elif step == 'save_company_info':
             return await self.handle_save_company_info(request)
         elif step == "bind_group_shipment":
-            template, context = await self.handle_appointment_post(request)
-            return render(request, template, context) 
+            sm = ShippingManagement()
+            if request.POST.get("shipment_type", "").strip() == "快递":
+                batch_number = await sm.handle_courier_shipment_post(request)
+                template, context = await self.handle_td_shipment_post(request)
+                context["success_messages"] = f"快递预约出库成功！批次号：{batch_number}"
+                return render(request, template, context)
+            else:
+                template, context = await self.handle_appointment_post(request)
+                return render(request, template, context)
         elif step =="ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
             return render(request, template, context) 

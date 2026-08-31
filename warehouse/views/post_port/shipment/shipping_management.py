@@ -1355,6 +1355,292 @@ class ShippingManagement(View):
             ).update(unpacking_priority=priority)
         )()
 
+    async def handle_courier_shipment_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """快递类型 shipment 的精简保存，不走 handle_appointment_post"""
+        current_time = datetime.now()
+        origin = request.POST.get("origin", "")
+        pickup_time = request.POST.get("pickup_time", None)
+        note = request.POST.get("note", "")
+        carrier = request.POST.get("carrier", "").strip()
+        express_number = request.POST.get("express_number", "").strip()
+        tzinfo = self._parse_tzinfo(origin)
+
+        # 自动生成 shipment_batch_number
+        batch_number = "UPS" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:4].upper()
+
+        # 解析 pickup_time 为 UTC
+        if pickup_time:
+            pickup_time_utc = self._parse_ts(pickup_time, tzinfo)
+        else:
+            pickup_time = current_time
+            pickup_time_utc = current_time
+
+        # 解析 non_master_ids
+        non_master_pl_ids = []
+        non_master_pallet_ids = []
+        non_master_ids_str = request.POST.get("non_master_ids", "")
+        if non_master_ids_str:
+            for section in non_master_ids_str.split(";"):
+                section = section.strip()
+                if section and ":" in section:
+                    key, value = section.split(":", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if key == "pl" and value:
+                        for v in value.split(","):
+                            v = v.strip()
+                            if v:
+                                try:
+                                    non_master_pl_ids.append(int(v))
+                                except ValueError:
+                                    pass
+                    elif key == "pallet" and value:
+                        for v in value.split(","):
+                            v = v.strip()
+                            if v:
+                                try:
+                                    non_master_pallet_ids.append(int(v))
+                                except ValueError:
+                                    pass
+
+        # --- 1. 创建 Fleet ---
+        fleet_number_str = "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+        fleet = Fleet(
+            carrier=carrier,
+            fleet_type="快递",
+            pickup_number=None,
+            appointment_datetime=pickup_time,
+            fleet_number=fleet_number_str,
+            scheduled_at=current_time,
+            origin=origin,
+            departured_at=pickup_time,
+            arrived_at=pickup_time,
+        )
+        await sync_to_async(fleet.save)()
+
+        # --- 2. 创建 Shipment ---
+        shipment = Shipment(
+            shipment_batch_number=batch_number,
+            shipment_type="快递",
+            origin=origin,
+            destination=carrier,
+            carrier=carrier,
+            note=note,
+            express_number=express_number,
+            shipment_schduled_at=current_time,
+            is_shipment_schduled=True,
+            shipment_appointment=pickup_time,
+            shipment_appointment_utc=pickup_time_utc,
+            pickup_time=pickup_time,
+            fleet_number=fleet,
+            in_use=True,
+            is_shipped=True,
+            shipped_at=pickup_time,
+            shipped_at_utc=pickup_time_utc,
+            is_arrived=True,
+            arrived_at=pickup_time,
+            arrived_at_utc=pickup_time_utc,
+            pod_link="Without",
+            pod_uploaded_at=timezone.now(),
+        )
+        await sync_to_async(shipment.save)()
+
+        # --- 3. 绑定 PackingList ---
+        pl_ids = request.POST.get("pl_ids")
+        packing_list = []
+        if pl_ids:
+            try:
+                pl_ids_list = [int(i) for i in pl_ids.strip("][").split(", ") if i.strip()]
+            except Exception:
+                pl_ids_list = [int(i) for i in pl_ids.split(",") if i.strip()]
+            try:
+                packing_list = await sync_to_async(list)(
+                    PackingList.objects.select_related("container_number").filter(id__in=pl_ids_list)
+                )
+                pl_po_ids = set()
+                pl_log_groups = {}
+                pl_updated_master_keys = set()
+
+                for pl in packing_list:
+                    pl.shipment_batch_number = shipment
+                    is_master = pl.id not in non_master_pl_ids
+                    key = (
+                        pl.container_number.container_number if pl.container_number else None,
+                        pl.PO_ID,
+                    )
+                    if is_master:
+                        pl_master_shipment = await self.get_master_shipment(pl)
+                        if pl_master_shipment is None:
+                            pl_po_ids.add(pl.PO_ID)
+                            pl.master_shipment_batch_number = shipment
+                            pl_updated_master_keys.add(key)
+                    if key not in pl_log_groups:
+                        pl_log_groups[key] = {
+                            "container_number": key[0],
+                            "po_id": pl.PO_ID,
+                            "destination": pl.destination,
+                            "warehouse": None,
+                            "delivery_type": pl.delivery_type,
+                        }
+
+                for key, log_data in pl_log_groups.items():
+                    mt = "all" if key in pl_updated_master_keys else "actual"
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="packing_list",
+                        po_id=log_data["po_id"],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button="快递预约出库绑定PL",
+                        shipment_type=mt,
+                        container_number=log_data["container_number"],
+                        destination=log_data["destination"],
+                        warehouse=log_data["warehouse"],
+                        delivery_type=log_data["delivery_type"],
+                        skip_get_po_info=True,
+                    )
+                if pl_po_ids:
+                    await sync_to_async(
+                        PackingList.objects.filter(PO_ID__in=pl_po_ids).update
+                    )(master_shipment_batch_number=shipment)
+                await sync_to_async(bulk_update_with_history)(
+                    packing_list, PackingList,
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
+                )
+            except Exception:
+                pass
+
+        # --- 4. 绑定 Pallet ---
+        plt_ids = request.POST.get("plt_ids")
+        pallet = []
+        if plt_ids:
+            try:
+                plt_ids_list = [int(i) for i in plt_ids.strip("][").split(", ") if i.strip()]
+            except Exception:
+                plt_ids_list = [int(i) for i in plt_ids.split(",") if i.strip()]
+            try:
+                pallet = await sync_to_async(list)(
+                    Pallet.objects.select_related("container_number").filter(
+                        id__in=plt_ids_list
+                    )
+                )
+                plt_master_po_ids = set()
+                plt_log_groups = {}
+                plt_updated_master_keys = set()
+
+                for p in pallet:
+                    p.shipment_batch_number = shipment
+                    is_master = p.id not in non_master_pallet_ids
+                    key = (
+                        p.container_number.container_number if p.container_number else None,
+                        p.PO_ID,
+                    )
+                    if is_master:
+                        p_master_shipment = await self.get_master_shipment(p)
+                        if p_master_shipment is None:
+                            plt_master_po_ids.add(p.PO_ID)
+                            p.master_shipment_batch_number = shipment
+                            plt_updated_master_keys.add(key)
+                    if key not in plt_log_groups:
+                        plt_log_groups[key] = {
+                            "container_number": key[0],
+                            "po_id": p.PO_ID,
+                            "destination": p.destination,
+                            "warehouse": p.location,
+                            "delivery_type": p.delivery_type,
+                        }
+
+                for key, log_data in plt_log_groups.items():
+                    mt = "all" if key in plt_updated_master_keys else "actual"
+                    await sync_to_async(ShipmentBindingLogger.log_bind)(
+                        operator=request.user,
+                        po_type="pallet",
+                        po_id=log_data["po_id"],
+                        shipment_batch_number=shipment.shipment_batch_number,
+                        operation_button="快递预约出库绑定PLT",
+                        shipment_type=mt,
+                        container_number=log_data["container_number"],
+                        destination=log_data["destination"],
+                        warehouse=log_data["warehouse"],
+                        delivery_type=log_data["delivery_type"],
+                        skip_get_po_info=True,
+                    )
+                await sync_to_async(bulk_update_with_history)(
+                    pallet, Pallet,
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
+                )
+                if plt_master_po_ids:
+                    await sync_to_async(
+                        Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
+                    )(master_shipment_batch_number=shipment)
+            except Exception:
+                pass
+
+        # --- 5. 计算 totals 并更新 Shipment / Fleet ---
+        try:
+            total_weight = 0.0
+            total_cbm = 0.0
+            total_pcs = 0
+            pallet_count = 0
+
+            if pallet:
+                # Pallet 模式: 重量/cbm/pcs 来自 Pallet，pallet 数 = len(pallet_ids)
+                for p in pallet:
+                    total_weight += p.weight_lbs or 0
+                    total_cbm += p.cbm or 0
+                    total_pcs += p.pcs or 0
+                pallet_count = len(pallet)
+            elif packing_list:
+                # PackingList 模式: 重量/cbm/pcs 来自 PackingList，pallet 数 = ceil(cbm/1.8)
+                for pl in packing_list:
+                    total_weight += pl.total_weight_lbs or 0
+                    total_cbm += pl.cbm or 0
+                    total_pcs += pl.pcs or 0
+                pallet_count = math.ceil(total_cbm / 1.8) if total_cbm > 0 else 0
+            else:
+                # 都没有，用 pl_ids / plt_ids 的数量兜底
+                if pl_ids:
+                    try:
+                        pl_ids_list = [int(i) for i in pl_ids.strip("][").split(", ") if i.strip()]
+                    except Exception:
+                        pl_ids_list = [int(i) for i in pl_ids.split(",") if i.strip()]
+                    pallet_count = math.ceil(len(pl_ids_list))
+                if plt_ids:
+                    try:
+                        plt_ids_list = [int(i) for i in plt_ids.strip("][").split(", ") if i.strip()]
+                    except Exception:
+                        plt_ids_list = [int(i) for i in plt_ids.split(",") if i.strip()]
+                    pallet_count = len(plt_ids_list)
+
+            # 更新 Shipment
+            shipment.total_weight = total_weight
+            shipment.total_cbm = total_cbm
+            shipment.total_pallet = pallet_count
+            shipment.total_pcs = total_pcs
+            # 快递已直接出库，total = shipped
+            shipment.shipped_weight = total_weight
+            shipment.shipped_cbm = total_cbm
+            shipment.shipped_pallet = pallet_count
+            shipment.shipped_pcs = total_pcs
+            await sync_to_async(shipment.save)()
+
+            # 更新 Fleet
+            fleet.total_weight = total_weight
+            fleet.total_cbm = total_cbm
+            fleet.total_pallet = pallet_count
+            fleet.total_pcs = total_pcs
+            fleet.shipped_weight = total_weight
+            fleet.shipped_cbm = total_cbm
+            fleet.shipped_pallet = pallet_count
+            fleet.shipped_pcs = total_pcs
+            fleet.warehouse_process_status = "shipped"
+            await sync_to_async(fleet.save)()
+        except Exception:
+            pass
+
+        return batch_number
+
     async def handle_appointment_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
