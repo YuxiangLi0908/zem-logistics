@@ -237,18 +237,20 @@ class PostNsop(View):
             )}
             return await sync_to_async(render)(request, self.template_main_dash, context)
         elif step == "schedule_shipment":
-            context = {"warehouse_options": await sync_to_async(list)(
-                ZemWarehouse.objects
-                .order_by("name")
-                .values_list("name", "name")
-            )}
+            context = {
+                "warehouse_options": await sync_to_async(list)(
+                    ZemWarehouse.objects.order_by("name").values_list("name", "name")
+                ),
+                "zem_warehouse_addresses": await sync_to_async(SystemParameter.get_zem_warehouse_addresses)(),
+            }
             return render(request, self.template_td_shipment, context)
         elif step == "schedule_unshipment":
-            context = {"warehouse_options": await sync_to_async(list)(
-                ZemWarehouse.objects
-                .order_by("name")
-                .values_list("name", "name")
-            )}
+            context = {
+                "warehouse_options": await sync_to_async(list)(
+                    ZemWarehouse.objects.order_by("name").values_list("name", "name")
+                ),
+                "zem_warehouse_addresses": await sync_to_async(SystemParameter.get_zem_warehouse_addresses)(),
+            }
             return render(request, self.template_td_unshipment, context)
         elif step == "fleet_management":
             context = {"warehouse_options": await sync_to_async(list)(
@@ -11079,6 +11081,7 @@ class PostNsop(View):
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
             "carrier_options": await self.get_carrier_options(),
+            "zem_warehouse_addresses": await sync_to_async(SystemParameter.get_zem_warehouse_addresses)(),
             'active_tab': request.POST.get('active_tab')
         })
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
@@ -11615,6 +11618,7 @@ class PostNsop(View):
             "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
             "carrier_options": await self.get_carrier_options(),
+            "zem_warehouse_addresses": await sync_to_async(SystemParameter.get_zem_warehouse_addresses)(),
             'active_tab': request.POST.get('active_tab')
         })
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
@@ -20280,6 +20284,7 @@ class PostNsop(View):
             visible_categories.append("公仓供应商")
             visible_categories.append("FBA仓点")
             visible_categories.append("州仓点")
+            visible_categories.append("ZEM仓库地址")
         if has_other:
             visible_categories.append("私仓供应商")
         
@@ -20318,6 +20323,12 @@ class PostNsop(View):
                             p.fba_city = ""
                             p.fba_state = ""
                             p.fba_zipcode = ""
+                elif current_category == "ZEM仓库地址":
+                    for p in params:
+                        try:
+                            p.address_data = json.loads(p.value)
+                        except (json.JSONDecodeError, TypeError):
+                            p.address_data = {}
                 context["parameters"] = params
             else:
                 context["parameters"] = []
@@ -20338,6 +20349,7 @@ class PostNsop(View):
                 allowed_categories.append("公仓供应商")
                 allowed_categories.append("FBA仓点")
                 allowed_categories.append("州仓点")
+                allowed_categories.append("ZEM仓库地址")
                 
             if has_other:
                 allowed_categories.append("私仓供应商")
@@ -20372,14 +20384,45 @@ class PostNsop(View):
             allowed_categories.append("公仓供应商")
             allowed_categories.append("FBA仓点")
             allowed_categories.append("州仓点")
+            allowed_categories.append("ZEM仓库地址")
             
         if has_other:
             allowed_categories.append("私仓供应商")
 
         if category not in allowed_categories:
             messages.error(request, "您无权操作该分类")
-        elif not param_value:
+        elif category != "ZEM仓库地址" and not param_value:
             messages.error(request, "参数值不能为空")
+        elif category == "ZEM仓库地址":
+            warehouse_name = request.POST.get("warehouse_name", "").strip()
+            address_data = {
+                "company": request.POST.get("warehouse_company", "").strip(),
+                "detailAddress": request.POST.get("warehouse_address", "").strip(),
+                "city": request.POST.get("warehouse_city", "").strip(),
+                "state": request.POST.get("warehouse_state", "").strip().upper(),
+                "postCode": request.POST.get("warehouse_zipcode", "").strip(),
+                "contact": request.POST.get("warehouse_contact", "").strip(),
+                "phone": request.POST.get("warehouse_phone", "").strip(),
+                "type": int(request.POST.get("warehouse_address_type", "3") or 3),
+            }
+            if not warehouse_name or not all(address_data[k] for k in ("detailAddress", "city", "state", "postCode")):
+                messages.error(request, "仓库名、详细地址、城市、州和邮编不能为空")
+            else:
+                existing = await sync_to_async(
+                    lambda: SystemParameter.objects.filter(category=category, key=warehouse_name).first()
+                )()
+                encoded_address = json.dumps(address_data, ensure_ascii=False)
+                if existing:
+                    existing.value = encoded_address
+                    existing.is_active = True
+                    existing.created_by = username
+                    await sync_to_async(existing.save)()
+                    messages.success(request, f"已更新ZEM仓库地址: {warehouse_name}")
+                else:
+                    await sync_to_async(SystemParameter.objects.create)(
+                        category=category, key=warehouse_name, value=encoded_address, created_by=username
+                    )
+                    messages.success(request, f"已添加ZEM仓库地址: {warehouse_name}")
         elif category == "州仓点":
             key = param_key if param_key else "NJ"
             values = [v.strip().strip('"').strip("'") for v in param_value.split(",")]

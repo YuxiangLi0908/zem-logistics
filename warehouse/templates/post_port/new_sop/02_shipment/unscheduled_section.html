@@ -826,6 +826,7 @@
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="st_type" value="{{ st_type }}">
 </form>
+{{ zem_warehouse_addresses|default_if_none:""|json_script:"zem-warehouse-addresses-data" }}
 <script>
     function openExportPoModal() {
         const modal = document.getElementById('exportPoModal');
@@ -1833,6 +1834,25 @@
     }
 
     let multiCarrierQuoteItems = [];
+    const zemWarehouseAddressData = JSON.parse(
+        document.getElementById('zem-warehouse-addresses-data')?.textContent || '[]'
+    );
+    const zemWarehouseAddresses = Array.isArray(zemWarehouseAddressData) ? zemWarehouseAddressData : [];
+
+    function applyMultiOriginWarehouse(warehouseName) {
+        const address = zemWarehouseAddresses.find(item => item.warehouse === warehouseName);
+        const fields = {
+            multi_origin_address: address?.detailAddress || '',
+            multi_origin_city: address?.city || '',
+            multi_origin_state: address?.state || '',
+            multi_origin_zip: address?.postCode || '',
+            multi_origin_type: String(address?.type || 3)
+        };
+        Object.entries(fields).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.value = value;
+        });
+    }
 
     function openMultiCarrierQuoteFromUnscheduled(btn) {
         const row = btn.closest('tr');
@@ -1851,7 +1871,11 @@
 
         const origin = String("{{ warehouse|escapejs }}");
         const destination = String(row.dataset.destination || '');
-        document.getElementById('multi_origin_zip').value = (origin.match(/\b\d{5}(?:-\d{4})?\b/) || [''])[0];
+        const originSelect = document.getElementById('multi_origin_warehouse');
+        if (originSelect) {
+            originSelect.value = zemWarehouseAddresses.some(item => item.warehouse === origin) ? origin : '';
+            applyMultiOriginWarehouse(originSelect.value);
+        }
         document.getElementById('multi_destination_zip').value = (destination.match(/\b\d{5}(?:-\d{4})?\b/) || [''])[0];
         document.getElementById('multi_pickup_date').value = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
         document.getElementById('multi_quote_result').innerHTML = '';
@@ -2004,7 +2028,7 @@
                         <div class="col-md-3"><label class="form-label">申报价值 ($) *</label><input id="multi_declared_value" type="number" min="1" step="0.01" class="form-control" required></div>
                     </div>
                     <div class="row g-3 mb-3">
-                        <div class="col-md-6"><div class="border rounded p-3"><h6>发货地址</h6><div class="row g-2"><div class="col-4"><select id="multi_origin_type" class="form-select"><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div><div class="col-8"><input id="multi_origin_address" class="form-control" placeholder="详细地址（可选）"></div><div class="col-5"><input id="multi_origin_city" class="form-control" placeholder="城市 *" required></div><div class="col-3"><input id="multi_origin_state" maxlength="2" class="form-control" placeholder="州 *" required></div><div class="col-4"><input id="multi_origin_zip" class="form-control" placeholder="邮编 *" required></div></div></div></div>
+                        <div class="col-md-6"><div class="border rounded p-3"><h6>发货地址</h6><div class="row g-2"><div class="col-12"><select id="multi_origin_warehouse" class="form-select" onchange="applyMultiOriginWarehouse(this.value)" required><option value="">请选择ZEM仓库</option>{% for item in zem_warehouse_addresses %}<option value="{{ item.warehouse }}">{{ item.warehouse }}</option>{% endfor %}</select></div><div class="col-4"><select id="multi_origin_type" class="form-select" disabled><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div><div class="col-8"><input id="multi_origin_address" class="form-control" placeholder="详细地址" readonly></div><div class="col-5"><input id="multi_origin_city" class="form-control" placeholder="城市 *" readonly required></div><div class="col-3"><input id="multi_origin_state" maxlength="2" class="form-control" placeholder="州 *" readonly required></div><div class="col-4"><input id="multi_origin_zip" class="form-control" placeholder="邮编 *" readonly required></div></div></div></div>
                         <div class="col-md-6"><div class="border rounded p-3"><h6>收货地址</h6><div class="row g-2"><div class="col-4"><select id="multi_destination_type" class="form-select"><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div><div class="col-8"><input id="multi_destination_address" class="form-control" placeholder="详细地址（可选）"></div><div class="col-5"><input id="multi_destination_city" class="form-control" placeholder="城市 *" required></div><div class="col-3"><input id="multi_destination_state" maxlength="2" class="form-control" placeholder="州 *" required></div><div class="col-4"><input id="multi_destination_zip" class="form-control" placeholder="邮编 *" required></div></div></div></div>
                     </div>
                     <div class="row g-3 mb-3"><div class="col-md-3"><label class="form-label">货物单位</label><select id="multi_commodity_unit" class="form-select"><option value="11">PALLETS</option><option value="2">BOXES</option><option value="3">CARTONS</option><option value="14">CRATE</option></select></div><div class="col-md-3"><label class="form-label">托盘类型</label><select id="multi_pallet_type" class="form-select"><option value="1">PALLETS</option><option value="2">CRATES</option></select></div><div class="col-md-3 d-flex align-items-end"><div class="form-check mb-2"><input id="multi_liftgate" type="checkbox" class="form-check-input"><label class="form-check-label" for="multi_liftgate">需要 Liftgate</label></div></div></div>
