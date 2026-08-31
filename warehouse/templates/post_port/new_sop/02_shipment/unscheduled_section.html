@@ -187,6 +187,43 @@
         font-size: 0.9rem;
     }
 
+    .multi-carrier-quote-btn {
+        background: linear-gradient(135deg, #7c3aed, #9333ea) !important;
+        border-color: #7c3aed !important;
+        color: #fff !important;
+    }
+
+    .multi-carrier-quote-btn:hover {
+        background: linear-gradient(135deg, #6d28d9, #7e22ce) !important;
+        border-color: #6d28d9 !important;
+        color: #fff !important;
+        box-shadow: 0 2px 6px rgba(124, 58, 237, 0.35);
+    }
+
+    .intelligent-po-btn {
+        background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+        border-color: #16a34a !important;
+        color: #fff !important;
+    }
+
+    .intelligent-po-btn:hover {
+        background: linear-gradient(135deg, #15803d, #16a34a) !important;
+        border-color: #15803d !important;
+        color: #fff !important;
+    }
+
+    .virtual-fleet-btn {
+        background: linear-gradient(135deg, #ea580c, #f97316) !important;
+        border-color: #ea580c !important;
+        color: #fff !important;
+    }
+
+    .virtual-fleet-btn:hover {
+        background: linear-gradient(135deg, #c2410c, #ea580c) !important;
+        border-color: #c2410c !important;
+        color: #fff !important;
+    }
+
     .destination-tag.selected {
         background: linear-gradient(135deg, #e74c3c 0%, #ff7675 100%) !important;
         border-color: #c0392b !important;
@@ -493,16 +530,13 @@
                                 <button class="action-btn btn-primary" style="margin-top: 5px;" onclick="openMaerskQuoteFromUnscheduled(this)">
                                     <i class="fas fa-calculator"></i> 马士基询价
                                 </button>
-                                <button class="action-btn btn-info" style="margin-top: 5px; color: #fff;" onclick="openMultiCarrierQuoteFromUnscheduled(this)">
+                               <button class="action-btn multi-carrier-quote-btn" style="margin-top: 5px;" onclick="openMultiCarrierQuoteFromUnscheduled(this)">
                                     <i class="fas fa-tags"></i> 三方询价
                                 </button>
                                 {% with sid="suggestion_"|add:suggestion.suggestion_id %}
                                     <div class="intelligent-po-action">
                                         <button type="button"
-                                                class="action-btn btn-primary open-intelligent-modal"
-                                    <div class="intelligent-po-action">
-                                        <button type="button"
-                                                class="action-btn btn-primary open-intelligent-modal"
+                                                class="action-btn intelligent-po-btn open-intelligent-modal"
                                                 data-script-id="{{ sid }}">
                                             <i class="fas fa-plus"></i> 智能找PO
                                         </button>
@@ -512,7 +546,7 @@
                                 {% endwith %}
                                 {% with sid="suggestion_"|add:suggestion.suggestion_id %}
                                     <div class="intelligent-po-action">
-                                        <button type="button" class="action-btn btn-primary" 
+                                        <button type="button" class="action-btn virtual-fleet-btn"
                                                 onclick="openVirtualFleetModal('{{ suggestion.suggestion_id }}')">
                                             <i class="fas fa-truck-loading"></i> 一提多卸
                                         </button>
@@ -672,13 +706,13 @@
                                 <button class="action-btn btn-primary" style="margin-top: 5px;" onclick="openMaerskQuoteFromUnscheduled(this)">
                                     <i class="fas fa-calculator"></i> 马士基询价
                                 </button>
-                                <button class="action-btn btn-info" style="margin-top: 5px; color: #fff;" onclick="openMultiCarrierQuoteFromUnscheduled(this)">
+                                <button class="action-btn multi-carrier-quote-btn" style="margin-top: 5px;" onclick="openMultiCarrierQuoteFromUnscheduled(this)">
                                     <i class="fas fa-tags"></i> 三方询价
                                 </button>
                                 {% with sid="suggestion_"|add:suggestion.suggestion_id %}
                                     <div class="intelligent-po-action">
                                         <button type="button"
-                                                class="action-btn btn-primary open-intelligent-modal"
+                                                class="action-btn intelligent-po-btn open-intelligent-modal"
                                                 data-script-id="{{ sid }}">
                                             <i class="fas fa-plus"></i> 智能找PO
                                         </button>
@@ -688,7 +722,7 @@
                                 {% endwith %}
                                 {% with sid="suggestion_"|add:suggestion.suggestion_id %}
                                     <div class="intelligent-po-action">
-                                        <button type="button" class="action-btn btn-primary" 
+                                        <button type="button" class="action-btn virtual-fleet-btn"
                                                 onclick="openVirtualFleetModal('{{ suggestion.suggestion_id }}')">
                                             <i class="fas fa-truck-loading"></i> 一提多卸
                                         </button>
@@ -2003,6 +2037,21 @@
         overflow-y: auto;
         overscroll-behavior: contain;
     }
+    #multiCarrierQuoteModal .multi-quote-close {
+        padding: 0 4px;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        font-size: 32px;
+        font-weight: 400;
+        line-height: 1;
+        opacity: 0.95;
+        cursor: pointer;
+    }
+    #multiCarrierQuoteModal .multi-quote-close:hover {
+        opacity: 1;
+        transform: scale(1.08);
+    }
     @media (max-height: 700px) {
         #multiCarrierQuoteModal .modal-dialog,
         #multiCarrierQuoteModal .modal-content {
@@ -2017,7 +2066,7 @@
 <div class="modal fade" id="multiCarrierQuoteModal" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-info text-white"><h5 class="modal-title"><i class="fas fa-tags me-2"></i>三方询价</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header bg-info text-white"><h5 class="modal-title"><i class="fas fa-tags me-2"></i>三方询价</h5><button type="button" class="multi-quote-close" data-bs-dismiss="modal" aria-label="关闭">&times;</button></div>
             <div class="modal-body">
                 <form id="multiCarrierQuoteForm">
                     <div class="row g-3 mb-3">
@@ -2028,7 +2077,7 @@
                         <div class="col-md-3"><label class="form-label">申报价值 ($) *</label><input id="multi_declared_value" type="number" min="1" step="0.01" class="form-control" required></div>
                     </div>
                     <div class="row g-3 mb-3">
-                        <div class="col-md-6"><div class="border rounded p-3"><h6>发货地址</h6><div class="row g-2"><div class="col-12"><select id="multi_origin_warehouse" class="form-select" onchange="applyMultiOriginWarehouse(this.value)" required><option value="">请选择ZEM仓库</option>{% for item in zem_warehouse_addresses %}<option value="{{ item.warehouse }}">{{ item.warehouse }}</option>{% endfor %}</select></div><div class="col-4"><select id="multi_origin_type" class="form-select" disabled><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div><div class="col-8"><input id="multi_origin_address" class="form-control" placeholder="详细地址" readonly></div><div class="col-5"><input id="multi_origin_city" class="form-control" placeholder="城市 *" readonly required></div><div class="col-3"><input id="multi_origin_state" maxlength="2" class="form-control" placeholder="州 *" readonly required></div><div class="col-4"><input id="multi_origin_zip" class="form-control" placeholder="邮编 *" readonly required></div></div></div></div>
+                        <div class="col-md-6"><div class="border rounded p-3"><h6>发货地址</h6><div class="row g-2"><div class="col-3"><select id="multi_origin_warehouse" class="form-select" onchange="applyMultiOriginWarehouse(this.value)" required><option value="">请选择ZEM仓库</option>{% for item in zem_warehouse_addresses %}<option value="{{ item.warehouse }}">{{ item.warehouse }}</option>{% endfor %}</select></div><div class="col-3"><select id="multi_origin_type" class="form-select" disabled><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div><div class="col-6"><input id="multi_origin_address" class="form-control" placeholder="详细地址" readonly></div><div class="col-5"><input id="multi_origin_city" class="form-control" placeholder="城市 *" readonly required></div><div class="col-3"><input id="multi_origin_state" maxlength="2" class="form-control" placeholder="州 *" readonly required></div><div class="col-4"><input id="multi_origin_zip" class="form-control" placeholder="邮编 *" readonly required></div></div></div></div>
                         <div class="col-md-6"><div class="border rounded p-3"><h6>收货地址</h6><div class="row g-2"><div class="col-4"><select id="multi_destination_type" class="form-select"><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div><div class="col-8"><input id="multi_destination_address" class="form-control" placeholder="详细地址（可选）"></div><div class="col-5"><input id="multi_destination_city" class="form-control" placeholder="城市 *" required></div><div class="col-3"><input id="multi_destination_state" maxlength="2" class="form-control" placeholder="州 *" required></div><div class="col-4"><input id="multi_destination_zip" class="form-control" placeholder="邮编 *" required></div></div></div></div>
                     </div>
                     <div class="row g-3 mb-3"><div class="col-md-3"><label class="form-label">货物单位</label><select id="multi_commodity_unit" class="form-select"><option value="11">PALLETS</option><option value="2">BOXES</option><option value="3">CARTONS</option><option value="14">CRATE</option></select></div><div class="col-md-3"><label class="form-label">托盘类型</label><select id="multi_pallet_type" class="form-select"><option value="1">PALLETS</option><option value="2">CRATES</option></select></div><div class="col-md-3 d-flex align-items-end"><div class="form-check mb-2"><input id="multi_liftgate" type="checkbox" class="form-check-input"><label class="form-check-label" for="multi_liftgate">需要 Liftgate</label></div></div></div>
