@@ -14978,18 +14978,51 @@ class PostNsop(View):
 
                 file = request.FILES[file_key]
                 shipment_batch_number = request.POST[batch_key]
-                await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
+                shipment = await fm._upload_shipping_order_file_to_sharepoint(
+                    conn, shipment_batch_number, file
+                )
+                if shipment.shipment_type == "客户自提":
+                    await self._mark_customer_pickup_delivered(shipment)
+                else:
+                    await sync_to_async(shipment.save)()
                 index += 1
         else:
             # 单个上传
             shipment_batch_number = request.POST.get("shipment_batch_number")
             if "file" in request.FILES and shipment_batch_number:
                 file = request.FILES["file"]
-                await fm._upload_shipping_order_file_to_sharepoint(conn, shipment_batch_number, file)
+                shipment = await fm._upload_shipping_order_file_to_sharepoint(
+                    conn, shipment_batch_number, file
+                )
+                if shipment.shipment_type == "客户自提":
+                    await self._mark_customer_pickup_delivered(shipment)
+                else:
+                    await sync_to_async(shipment.save)()
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)
         context.update({"success_messages": '出库单上传成功!'})
         return template, context
+
+    async def _mark_customer_pickup_delivered(self, shipment: Shipment) -> None:
+        """客户自提出库单处理完成后，同步POD、Shipment和Fleet送达状态。"""
+        shipment.pod_link = "No Link"
+        shipment.pod_uploaded_at = timezone.now()
+        shipment.is_arrived = True
+        if shipment.shipped_at:
+            shipment.arrived_at = shipment.shipped_at
+            shipment.arrived_at_utc = shipment.shipped_at_utc or self._parse_ts(
+                shipment.shipped_at, self._parse_tzinfo(shipment.origin)
+            )
+        else:
+            shipment.arrived_at = timezone.now()
+            shipment.arrived_at_utc = shipment.arrived_at
+
+        await sync_to_async(shipment.save)()
+        if shipment.fleet_number:
+            shipment.fleet_number.arrived_at = shipment.arrived_at
+            await sync_to_async(shipment.fleet_number.save)(
+                update_fields=["arrived_at"]
+            )
 
     async def handle_set_shipping_no_link(
             self, request: HttpRequest
@@ -15007,14 +15040,14 @@ class PostNsop(View):
                     break
                 shipment_batch_number = request.POST[batch_key]
                 try:
-                    shipment = await sync_to_async(Shipment.objects.get)(
-                        shipment_batch_number=shipment_batch_number
-                    )
+                    shipment = await sync_to_async(
+                        Shipment.objects.select_related("fleet_number").get
+                    )(shipment_batch_number=shipment_batch_number)
                     shipment.shipping_order_link = "No Link"
                     if shipment.shipment_type == "客户自提":
-                        shipment.pod_link = "No Link"
-                        shipment.pod_uploaded_at = timezone.now()
-                    await sync_to_async(shipment.save)()
+                        await self._mark_customer_pickup_delivered(shipment)
+                    else:
+                        await sync_to_async(shipment.save)()
                     count += 1
                 except Exception as e:
                     pass
@@ -15024,14 +15057,14 @@ class PostNsop(View):
             # 单个设置
             shipment_batch_number = request.POST.get("shipment_batch_number")
             if shipment_batch_number:
-                shipment = await sync_to_async(Shipment.objects.get)(
-                    shipment_batch_number=shipment_batch_number
-                )
+                shipment = await sync_to_async(
+                    Shipment.objects.select_related("fleet_number").get
+                )(shipment_batch_number=shipment_batch_number)
                 shipment.shipping_order_link = "No Link"
                 if shipment.shipment_type == "客户自提":
-                    shipment.pod_link = "No Link"
-                    shipment.pod_uploaded_at = timezone.now()
-                await sync_to_async(shipment.save)()
+                    await self._mark_customer_pickup_delivered(shipment)
+                else:
+                    await sync_to_async(shipment.save)()
             success_message = '已设置为不回传!'
 
         template, context = await self.handle_ltl_unscheduled_pos_post(request)

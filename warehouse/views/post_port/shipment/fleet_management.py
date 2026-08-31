@@ -6012,11 +6012,11 @@ class FleetManagement(View):
 
     async def _upload_shipping_order_file_to_sharepoint(
         self, conn, shipment_batch_number: str, file
-    ) -> None:
+    ) -> Shipment:
         '''上传出库单到云盘'''
-        shipment = await sync_to_async(Shipment.objects.get)(
-            shipment_batch_number=shipment_batch_number
-        )
+        shipment = await sync_to_async(
+            Shipment.objects.select_related("fleet_number").get
+        )(shipment_batch_number=shipment_batch_number)
         file_extension = os.path.splitext(file.name)[1]  # 提取扩展名
         # 文档库名称，系统文件夹名称，当前环境
         file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/delivery_order/{APP_ENV}")
@@ -6040,11 +6040,7 @@ class FleetManagement(View):
             .value.to_json()["sharingLinkInfo"]["Url"]
         )
         shipment.shipping_order_link = link
-        if shipment.shipment_type == "客户自提":
-            shipment.pod_link = "No Link"
-            shipment.pod_uploaded_at = timezone.now()
-
-        await sync_to_async(shipment.save)()
+        return shipment
 
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
