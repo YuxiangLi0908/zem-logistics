@@ -11666,8 +11666,6 @@ class PostNsop(View):
         """获取未排约数据"""
         delivery_method_filter = (
                 ~models.Q(delivery_method__icontains='暂扣') &
-                ~models.Q(delivery_method__icontains='UPS') &
-                ~models.Q(delivery_method__icontains='FEDEX') &
                 ~models.Q(delivery_method__icontains='自提')
         )
         has_any_timestamp = (
