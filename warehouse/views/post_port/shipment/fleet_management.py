@@ -2702,44 +2702,13 @@ class FleetManagement(View):
         naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
         end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
 
-        # 过滤Order
-        order_filter = Q()
+        # Filter the current Shipment by shipped_at directly.
+        # The previous container-based lookup could include other shipments
+        # for the same container that were outside the selected date range.
         if start_datetime:
-            order_filter &= Q(
-                container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
-            )
+            criteria &= Q(shipped_at__gte=start_datetime)
         if end_datetime:
-            order_filter &= Q(
-                container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
-            )
-
-        # 获取Container ID
-        container_ids = await sync_to_async(list)(
-            Order.objects.filter(order_filter)
-            .values_list('container_number_id', flat=True)
-            .distinct()
-        )
-
-        # 获取Pallet ID
-        pallet_ids = []
-        if container_ids:
-            pallet_ids = await sync_to_async(list)(
-                Pallet.objects.filter(container_number_id__in=container_ids)
-                .values_list('id', flat=True)
-                .distinct()
-            )
-
-        # 获取Shipment ID
-        shipment_ids = []
-        if pallet_ids:
-            shipment_ids = await sync_to_async(list)(
-                Pallet.objects.filter(id__in=pallet_ids)
-                .values_list('shipment_batch_number', flat=True)
-                .distinct()
-            )
-
-        if shipment_ids:
-            criteria &= Q(id__in=shipment_ids)
+            criteria &= Q(shipped_at__lte=end_datetime)
 
 
         # 核心修改：新增按核实状态排序（未核实在前）
