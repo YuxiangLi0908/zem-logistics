@@ -5627,6 +5627,7 @@ class FleetManagement(View):
                 "pallet_dumpped",
                 "is_full_out",
                 "arrived_at",
+                "arrived_at_utc",
                 "is_arrived",
             ],
         )
