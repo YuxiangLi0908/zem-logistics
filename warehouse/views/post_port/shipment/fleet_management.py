@@ -2723,7 +2723,6 @@ class FleetManagement(View):
         if end_datetime:
             criteria &= Q(shipped_at__lte=end_datetime)
 
-
         # 核心修改：新增按核实状态排序（未核实在前）
         # 核心修改：正确实现 Supplier 为空在前，有值在后
         shipment = await sync_to_async(list)(
