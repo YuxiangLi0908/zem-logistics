@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .quote-history-page {
+        min-height: calc(100vh - 100px);
+        width: 100%;
+        padding: 24px 20px;
+        background: linear-gradient(135deg, #f5f8fc 0%, #f8f6fc 52%, #f3f9f7 100%);
+        color: #172033;
+    }
+    .quote-history-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin: 0 auto 20px;
+        width: 100%;
+    }
+    .quote-history-title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.4px; }
+    .quote-history-subtitle { margin: 7px 0 0; color: #7b8799; font-size: 13px; }
+    .quote-history-count {
+        padding: 7px 12px;
+        border: 1px solid #dbe3ec;
+        border-radius: 999px;
+        background: #fff;
+        color: #536176;
+        font-size: 12px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+    }
+    .quote-history-card {
+        width: 100%;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid #e6ebf1;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(23, 32, 51, .06);
+    }
+    .quote-history-card::before {
+        display: block;
+        height: 4px;
+        background: linear-gradient(90deg, #2563eb, #7c3aed 38%, #0891b2 68%, #059669);
+        content: "";
+    }
+    .quote-history-table-wrap {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: calc(100vh - 220px);
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, .08);
+    }
+    .quote-history-table { width: 100%; min-width: 1750px; margin: 0; border-collapse: collapse; font-size: 15px; }
+    .quote-history-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        padding: 12px;
+        border: 0;
+        background: #2c3e50;
+        color: #fff;
+        font-size: .9rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        white-space: nowrap;
+        text-align: left;
+        vertical-align: middle;
+    }
+    .quote-history-table thead tr:first-child th:hover { background: #34495e; }
+    .quote-history-table thead tr.search-row th { top: 45px; padding: 6px; background: #edf2f7; }
+    .quote-history-table th:first-child,
+    .quote-history-table td:first-child {
+        width: 52px;
+        min-width: 52px;
+        max-width: 52px;
+        padding-left: 6px;
+        padding-right: 6px;
+        text-align: center;
+    }
+    .quote-history-table th:first-child .quote-history-search {
+        min-width: 0;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+    .quote-history-search {
+        width: 100%;
+        min-width: 76px;
+        padding: 7px 9px;
+        border: 1px solid #e2e8f0;
+        border-radius: 7px;
+        background: #f8fafc;
+        color: #334155;
+        font-size: 13px;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .quote-history-search:focus { border-color: #8ba7c3; background: #fff; box-shadow: 0 0 0 3px rgba(0, 63, 125, .08); }
+    .quote-history-search::placeholder { color: #a7b0bd; }
+    .quote-history-table tbody td {
+        padding: 12px;
+        border: 0;
+        border-bottom: 1px solid #eaecef;
+        color: #3b4658;
+        font-size: 15px;
+        vertical-align: top;
+        white-space: nowrap;
+    }
+    .quote-history-table tbody tr:nth-child(even) { background-color: #f9fafb; }
+    .quote-history-table tbody tr:hover { background-color: #edf2f7; }
+    .quote-history-table tbody tr:last-child td { border-bottom: 0; }
+    .quote-history-table tbody td:nth-child(12) { background: rgba(237, 245, 255, .42); }
+    .quote-history-table tbody td:nth-child(13) { background: rgba(255, 247, 232, .42); }
+    .quote-history-table tbody td:nth-child(14) { background: rgba(241, 248, 238, .46); }
+    .record-id { color: #003f7d; font-weight: 750; }
+    .quote-time { min-width: 105px; line-height: 1.45; text-align: center; }
+    .quote-time-date { color: #334155; font-weight: 650; }
+    .quote-time-clock { color: #7b8799; font-size: 13px; }
+    .warehouse-name { color: #172033; font-weight: 650; }
+    .type-pill {
+        display: inline-flex;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #e8f1ff, #eeeafe);
+        color: #3f51a2;
+        font-size: 13px;
+        font-weight: 700;
+    }
+    .quote-history-table .items-cell, .quote-history-table .price-cell { white-space: normal; min-width: 205px; }
+    .items-cell > div { margin-bottom: 6px; color: #5b6678; line-height: 1.5; }
+    .quote-price-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 0 9px;
+        margin-bottom: 9px;
+        border-bottom: 1px solid #dbe3ec;
+        line-height: 1.4;
+    }
+    .quote-price-row:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
+    .quote-price-value { color: #003f7d; font-size: 16px; font-weight: 800; white-space: nowrap; }
+    .quote-code { color: #8490a2; font-size: 12px; }
+    @media (max-width: 768px) { .quote-history-page { padding: 14px 8px; } }
+</style>
+
+<div class="quote-history-page">
+    <div class="quote-history-header">
+        <div>
+            <h1 class="quote-history-title">三方询价历史</h1>
+            <p class="quote-history-subtitle">集中查看每次询价条件、货物明细与承运商报价</p>
+        </div>
+        <span class="quote-history-count">共 {{ histories|length }} 条记录</span>
+    </div>
+    <div class="quote-history-card">
+      <div class="quote-history-table-wrap">
+        <table class="table quote-history-table" id="multiCarrierQuoteHistoryTable">
+            <thead>
+                <tr>
+                    <th>ID</th><th>询价时间</th><th>询价人</th><th>发货仓库</th><th>收货仓点</th>
+                    <th>取件日期</th><th>运输类型</th><th>FTL车型</th><th>Freight Class</th><th>申报价值</th>
+                    <th>板子明细</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th>
+                </tr>
+                <tr class="search-row">
+                    {% for index in "01234567890123" %}
+                    <th><input class="quote-history-search" data-column="{{ forloop.counter0 }}" placeholder="搜索"></th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for history in histories %}
+                <tr>
+                    <td class="record-id">#{{ history.id }}</td>
+                    <td class="quote-time"><div class="quote-time-date">{{ history.created_at|date:"Y-m-d" }}</div><div class="quote-time-clock">{{ history.created_at|date:"H:i" }}</div></td>
+                    <td>{{ history.operator.username|default:"-" }}</td>
+                    <td class="warehouse-name">{{ history.origin_warehouse|default:"-" }}</td>
+                    <td class="warehouse-name">{{ history.destination_warehouse|default:"-" }}</td>
+                    <td>{{ history.pickup_date|date:"Y-m-d" }}</td>
+                    <td><span class="type-pill">{{ history.quote_type }}</span></td>
+                    <td>{{ history.ftl_car_type|default:"-" }}</td>
+                    <td>{{ history.freight_class|default:"-" }}</td>
+                    <td>${{ history.declared_value|floatformat:2 }}</td>
+                    <td class="items-cell">
+                        {% for item in history.pallet_items %}
+                        <div>{{ item.pieces }}件，{{ item.length }}×{{ item.width }}×{{ item.height }} in，{{ item.weight }} lb</div>
+                        {% empty %}-{% endfor %}
+                    </td>
+                    <td class="price-cell">
+                        {% for row in history.maersk_price_rows %}
+                        <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
+                        {% empty %}-{% endfor %}
+                    </td>
+                    <td class="price-cell">
+                        {% for row in history.kakas_price_rows %}
+                        <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
+                        {% empty %}-{% endfor %}
+                    </td>
+                    <td class="price-cell">
+                        {% for row in history.abf_price_rows %}
+                        <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
+                        {% empty %}-{% endfor %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="14" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+      </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('multiCarrierQuoteHistoryTable');
+    const inputs = Array.from(table.querySelectorAll('.quote-history-search'));
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    function filterRows() {
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            row.style.display = inputs.every(input => {
+                const term = input.value.trim().toLowerCase();
+                const cell = cells[Number(input.dataset.column)];
+                return !term || (cell && cell.textContent.toLowerCase().includes(term));
+            }) ? '' : 'none';
+        });
+    }
+    inputs.forEach(input => input.addEventListener('input', filterRows));
+});
+</script>
+{% endblock %}
