@@ -11728,7 +11728,7 @@ class PostNsop(View):
             delivery_method_filter
             & models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__orders__offload_id__offload_at__gt=datetime(2025, 1, 1),
+                container_number__orders__offload_id__offload_at__gt=datetime(2026, 1, 1),
                 location=warehouse,
                 delivery_type='public',
             ), True
