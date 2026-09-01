@@ -92,6 +92,7 @@ from warehouse.models.invoicev2 import (
 from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.system_parameter import SystemParameter
+from warehouse.models.multi_carrier_quote_history import MultiCarrierQuoteHistory
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.warehouse.palletization import Palletization
@@ -131,6 +132,7 @@ class PostNsop(View):
     template_easy_action_table = "post_port/new_sop/leader_check/easy_action_table.html"
     template_sp_bind_history = "post_port/new_sop/leader_check/sp_bind_history.html"
     template_system_parameter_add = "post_port/new_sop/leader_check/system_parameter_add.html"
+    template_multi_carrier_quote_history = "post_port/new_sop/leader_check/multi_carrier_quote_history.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -351,6 +353,15 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "easy_action":
             return render(request, self.template_easy_action_table, {})
+        elif step == "multi_carrier_quote_history":
+            histories = await sync_to_async(list)(
+                MultiCarrierQuoteHistory.objects.select_related("operator").order_by("id")
+            )
+            for history in histories:
+                history.maersk_price_rows = self._quote_price_rows(history.maersk_quotes, "maersk")
+                history.kakas_price_rows = self._quote_price_rows(history.kakas_quotes, "kakas")
+                history.abf_price_rows = self._quote_price_rows(history.abf_quotes, "abf")
+            return render(request, self.template_multi_carrier_quote_history, {"histories": histories})
         elif step == "system_parameter_add":
             context = await self._get_system_parameter_context(request)
             return render(request, self.template_system_parameter_add, context)
@@ -3553,7 +3564,8 @@ class PostNsop(View):
 
             form = json.loads(raw_payload)
             required = (
-                "pickupDate", "originCity", "originState", "originPostCode",
+                "originWarehouse", "destinationWarehouse", "pickupDate",
+                "originCity", "originState", "originPostCode",
                 "destinationCity", "destinationState", "destinationPostCode",
                 "declaredValue", "items",
             )
@@ -3719,12 +3731,72 @@ class PostNsop(View):
                         await asyncio.sleep(1)
 
             result.setdefault("freightClass", freight_class)
+            carrier_results = result.get("results", {})
+            car_type_labels = {
+                1: "53尺厢式货车", 2: "冷链车", 3: "48尺平板车",
+                10: "26尺小车", 12: "26尺小车带尾板", 13: "快速拖车",
+            }
+            quote_type = int(form.get("quoteType") or 1)
+            car_type = int(form.get("carType") or 1)
+            await sync_to_async(MultiCarrierQuoteHistory.objects.create)(
+                origin_warehouse=str(form.get("originWarehouse") or "").strip(),
+                destination_warehouse=str(form.get("destinationWarehouse") or "").strip(),
+                pickup_date=pickup_date.date(),
+                quote_type="LTL" if quote_type == 1 else "FTL",
+                ftl_car_type=car_type_labels.get(car_type, str(car_type)) if quote_type == 2 else "",
+                freight_class=freight_class,
+                declared_value=form["declaredValue"],
+                pallet_items=items,
+                maersk_quotes=carrier_results.get("maersk", {}),
+                kakas_quotes=carrier_results.get("kakas", {}),
+                abf_quotes=carrier_results.get("abf", {}),
+                operator_id=request.user.pk if request.user.is_authenticated else None,
+            )
             return JsonResponse({"success": True, "data": result})
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             return JsonResponse({"success": False, "message": f"询价参数错误: {exc}"}, status=400)
         except Exception as exc:
             traceback.print_exc()
             return JsonResponse({"success": False, "message": str(exc)}, status=500)
+
+    @staticmethod
+    def _quote_price_rows(payload, carrier):
+        """Flatten a carrier's flexible response into category/price rows for history display."""
+        target_keys = ("rates",) if carrier == "kakas" else ("quotes", "rates")
+
+        def find_rows(value):
+            if isinstance(value, dict):
+                for target_key in target_keys:
+                    if isinstance(value.get(target_key), list):
+                        return value[target_key]
+                for child in value.values():
+                    found = find_rows(child)
+                    if found:
+                        return found
+            elif isinstance(value, list):
+                for child in value:
+                    found = find_rows(child)
+                    if found:
+                        return found
+            return []
+
+        rows = []
+        for quote in find_rows(payload):
+            if not isinstance(quote, dict):
+                continue
+            if carrier == "maersk":
+                category = quote.get("DisplayService") or quote.get("Service") or "Maersk"
+                code = quote.get("Service") or ""
+                price = quote.get("TotalQuote", quote.get("totalPrice", quote.get("price")))
+            else:
+                category = (
+                    quote.get("carrierName") or quote.get("serviceName")
+                    or quote.get("carrierCode") or quote.get("serviceCode") or carrier.upper()
+                )
+                code = quote.get("serviceCode") or quote.get("carrierCode") or ""
+                price = quote.get("totalPrice", quote.get("TotalQuote", quote.get("price")))
+            rows.append({"category": category, "code": code, "price": price})
+        return rows
 
     async def handle_get_maersk_tracking(self, request: HttpRequest) -> JsonResponse:
         try:

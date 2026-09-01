@@ -173,6 +173,8 @@
             weight: Number(row.querySelector('.mq-weight').value)
         }));
         return {
+            originWarehouse: value('multi_origin_warehouse'),
+            destinationWarehouse: document.getElementById('multi_destination_warehouse_point').textContent.replace(/^\s*-\s*/, '').trim(),
             pickupDate: value('multi_pickup_date'), quoteType: Number(value('multi_quote_type')),
             carType: Number(value('multi_car_type')),
             originType: Number(value('multi_origin_type')), originDetailAddress: value('multi_origin_address'),
