@@ -86,8 +86,28 @@ from warehouse.utils.constants import (
     SP_URL,
     SYSTEM_FOLDER,
 )
-from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.export_file import link_callback
+
+
+async def generate_unique_fleet_number(
+    prefix: str = "FO",
+    timestamp: datetime | None = None,
+    random_length: int = 2,
+    initial_candidate: str | None = None,
+) -> str:
+    """生成 Fleet 表中尚不存在的车次号。"""
+    generated_at = timestamp or datetime.now()
+    candidate = (initial_candidate or "").strip()
+
+    while True:
+        if not candidate:
+            random_part = uuid.uuid4().hex[:random_length].upper()
+            candidate = f"{prefix}{generated_at.strftime('%m%d%H%M%S')}{random_part}"
+
+        if not await Fleet.objects.filter(fleet_number=candidate).aexists():
+            return candidate
+
+        candidate = ""
 
 
 def _update_queryset_with_history(queryset, model, **changes):
@@ -4624,11 +4644,7 @@ class FleetManagement(View):
             current_time = datetime.now()
             # 加载出库批次管理原状态信息
             _, context = await self.handle_fleet_warehouse_search_post(request)
-            fleet_number = (
-                "F"
-                + current_time.strftime("%m%d%H%M%S")
-                + str(uuid.uuid4())[:2].upper()
-            )
+            fleet_number = await generate_unique_fleet_number(prefix="F", timestamp=current_time)
             shipment_selected = await sync_to_async(list)(
                 Shipment.objects.filter(id__in=selected_ids)
             )
@@ -4684,12 +4700,12 @@ class FleetManagement(View):
         shipment_type = shipment[0].shipment_type if shipment else None
         fleet_type = request.POST.get("fleet_type", "") or shipment_type
 
+        fleet_data["fleet_number"] = await generate_unique_fleet_number(
+            prefix="F",
+            timestamp=current_time,
+            initial_candidate=fleet_data.get("fleet_number"),
+        )
         try:
-            await sync_to_async(Fleet.objects.get)(
-                fleet_number=fleet_data["fleet_number"]
-            )
-            return await self.handle_fleet_warehouse_search_post(request)
-        except:
             fleet_data.update(
                 {
                     "carrier": request.POST.get("carrier", ""),
@@ -4727,12 +4743,11 @@ class FleetManagement(View):
                 Shipment,
                 fields=["fleet_number"],
             )
-            # await sync_to_async(Shipment.objects.bulk_update)(
-            #     shipment, ["fleet_number"]
-            # )
-            if name == "post_nsop":
-                return True
-            return await self.handle_fleet_warehouse_search_post(request)
+        except Exception:
+            raise
+        if name == "post_nsop":
+            return fleet.fleet_number
+        return await self.handle_fleet_warehouse_search_post(request)
 
     async def handle_update_fleet_post(
         self, request: HttpRequest, name: str | None = None

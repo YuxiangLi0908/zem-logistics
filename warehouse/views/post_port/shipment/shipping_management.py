@@ -65,6 +65,7 @@ from warehouse.utils.shipment_binding_utils import (
     ShipmentBindingPermission,
 )
 from django.http import HttpResponseForbidden
+from warehouse.views.post_port.shipment.fleet_management import generate_unique_fleet_number
 
 CLIENT_PICKUP_SUPPLIER = "client pickup"
 CLIENT_PICKUP_NOTE = "客提货"
@@ -972,11 +973,10 @@ class ShippingManagement(View):
                 )
                 n += 1
             # 创建车次
+            fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
             fleet = Fleet(
                 **{
-                    "fleet_number": "FO"
-                    + current_time.strftime("%m%d%H%M%S")
-                    + str(uuid.uuid4())[:2].upper(),
+                    "fleet_number": fleet_number,
                     "fleet_zem_serial": fleet_serial,
                     "carrier": fleet_data["carrier"],
                     "appointment_datetime": fleet_data["appointment_datetime"],
@@ -1413,7 +1413,7 @@ class ShippingManagement(View):
                                     pass
 
         # --- 1. 创建 Fleet ---
-        fleet_number_str = "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+        fleet_number_str = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
         fleet = Fleet(
             carrier=carrier,
             fleet_type="快递",
@@ -1901,15 +1901,14 @@ class ShippingManagement(View):
                         pickupNumber = None
                     else:
                         pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
+                    fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
                             "fleet_type": shipment_type,
                             "pickup_number": pickupNumber,
                             "appointment_datetime": appointment_datetime,  # 车次的提货时间
-                            "fleet_number": "FO"
-                            + current_time.strftime("%m%d%H%M%S")
-                            + str(uuid.uuid4())[:2].upper(),
+                            "fleet_number": fleet_number,
                             "scheduled_at": current_time,
                             "total_weight": shipment_data["total_weight"],
                             "total_cbm": shipment_data["total_cbm"],
@@ -3180,15 +3179,14 @@ class ShippingManagement(View):
                     month_day = dt.strftime("%m%d")
                     destination = request.POST.get("destination").replace("WALMART", "Walmart")
                     pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
+                    fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
                             "fleet_type": shipment_type,
                             "pickup_number": pickupNumber,
                             "appointment_datetime": shipment_appointment,
-                            "fleet_number": "FO"
-                            + current_time.strftime("%m%d%H%M%S")
-                            + str(uuid.uuid4())[:2].upper(),
+                            "fleet_number": fleet_number,
                             "scheduled_at": current_time,
                             "total_weight": shipment.total_weight,
                             "total_cbm": shipment.total_cbm,
@@ -3264,15 +3262,14 @@ class ShippingManagement(View):
                 month_day = dt.strftime("%m%d")
                 destination = request.POST.get("destination").replace("WALMART", "Walmart")
                 pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
+                fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
                 fleet = Fleet(
                     **{
                         "carrier": request.POST.get("carrier").strip(),
                         "fleet_type": shipment_type,
                         "pickup_number": pickupNumber,
                         "appointment_datetime": shipment_appointment,
-                        "fleet_number": "FO"
-                        + current_time.strftime("%m%d%H%M%S")
-                        + str(uuid.uuid4())[:2].upper(),
+                        "fleet_number": fleet_number,
                         "scheduled_at": current_time,
                         "total_weight": shipment.total_weight,
                         "total_cbm": shipment.total_cbm,
@@ -3726,14 +3723,13 @@ class ShippingManagement(View):
                         shipment_appointment = parse(shipmentappointment).replace(
                             tzinfo=None
                         )
+                        fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
                         fleet = Fleet(
                             **{
                                 "carrier": request.POST.get("carrier").strip(),
                                 "fleet_type": shipment_type,
                                 "appointment_datetime": shipment_appointment,  # 车次的提货时间=约的提货时间
-                                "fleet_number": "FO"
-                                + current_time.strftime("%m%d%H%M%S")
-                                + str(uuid.uuid4())[:2].upper(),
+                                "fleet_number": fleet_number,
                                 "scheduled_at": current_time,
                                 "total_weight": shipment_data["total_weight"],
                                 "total_cbm": shipment_data["total_cbm"],
@@ -3833,14 +3829,13 @@ class ShippingManagement(View):
                 if shipment_type in ["LTL", "外配", "快递"]:
                     shipment_data["ARM_BOL"] = request.POST.get("arm_bol", "").strip()
                     shipment_data["ARM_PRO"] = request.POST.get("arm_pro", "").strip()
+                    fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
                             "fleet_type": shipment_type,
                             "appointment_datetime": shipment_appointment,
-                            "fleet_number": "FO"
-                            + current_time.strftime("%m%d%H%M%S")
-                            + str(uuid.uuid4())[:2].upper(),
+                            "fleet_number": fleet_number,
                             "scheduled_at": current_time,
                             "total_weight": old_shipment.shipped_weight,
                             "total_cbm": old_shipment.shipped_cbm,

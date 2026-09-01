@@ -93,7 +93,7 @@ from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.models.multi_carrier_quote_history import MultiCarrierQuoteHistory
-from warehouse.views.post_port.shipment.fleet_management import FleetManagement
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement, generate_unique_fleet_number
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.post_port.posport_dash import PostportDash
@@ -1700,6 +1700,7 @@ class PostNsop(View):
             if fleet_cost:
                 fleet_cost = float(fleet_cost)
 
+            fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
             fleet = Fleet(
                 **{
                     "carrier": group.get('carrier', ''),
@@ -1707,9 +1708,7 @@ class PostNsop(View):
                     "fleet_type": shipment_type,
                     "pickup_number": pickupNumber,
                     "appointment_datetime": pickup_time,
-                    "fleet_number": "FO"
-                                    + current_time.strftime("%m%d%H%M%S")
-                                    + str(uuid.uuid4())[:2].upper(),
+                    "fleet_number": fleet_number,
                     "scheduled_at": current_time,
                     "total_weight": total_weight,
                     "total_cbm": total_cbm,
@@ -7603,11 +7602,7 @@ class PostNsop(View):
 
     async def _add_appointments_to_fleet(self, appointment_ids):
         current_time = datetime.now()
-        fleet_number = (
-                "F"
-                + current_time.strftime("%m%d%H%M%S")
-                + str(uuid.uuid4())[:2].upper()
-        )
+        fleet_number = await generate_unique_fleet_number(prefix="F", timestamp=current_time)
         shipment_info = await sync_to_async(list)(
             Shipment.objects.filter(appointment_id__in=appointment_ids)
             .values('id', 'shipment_type', 'origin')
@@ -9330,13 +9325,12 @@ class PostNsop(View):
                     total_pallet += round(pl.cbm/1.8,2)
 
             # 默认全都自动排车
+            fleet_number = await generate_unique_fleet_number(prefix="FO", timestamp=current_time)
             fleet = Fleet(
                 **{
                     "fleet_type": 'LTL',
                     "appointment_datetime": pickup_time,  # 车次的提货时间
-                    "fleet_number": "FO"
-                                    + current_time.strftime("%m%d%H%M%S")
-                                    + str(uuid.uuid4())[:2].upper(),
+                    "fleet_number": fleet_number,
                     "scheduled_at": current_time,
                     "total_weight": total_weight,
                     "total_cbm": total_cbm,
@@ -9794,11 +9788,7 @@ class PostNsop(View):
         if selected_ids:
             # 先生成fleet_number
             current_time = datetime.now()
-            fleet_number = (
-                    "F"
-                    + current_time.strftime("%m%d%H%M%S")
-                    + str(uuid.uuid4())[:2].upper()
-            )
+            fleet_number = await generate_unique_fleet_number(prefix="F", timestamp=current_time)
             shipment_selected = await sync_to_async(list)(
                 Shipment.objects.filter(id__in=selected_ids)
             )
@@ -9834,6 +9824,8 @@ class PostNsop(View):
         request.POST['selected_ids'] = selected_ids
 
         info = await fm.handle_fleet_confirmation_post(request, 'post_nsop')
+        if info:
+            fleet_number = info
         context = {}
         if error_message:
             context.update({"error_messages": error_message})
