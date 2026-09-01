@@ -11656,6 +11656,7 @@ class PostNsop(View):
             "shipment_type_options": self.shipment_type_options,
             "carrier_options": await self.get_carrier_options(),
             "zem_warehouse_addresses": await sync_to_async(SystemParameter.get_zem_warehouse_addresses)(),
+            "fba_locations": await sync_to_async(SystemParameter.get_fba_locations)(),
             'active_tab': request.POST.get('active_tab')
         })
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
