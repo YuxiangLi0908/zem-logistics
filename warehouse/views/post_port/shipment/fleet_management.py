@@ -1131,9 +1131,6 @@ class FleetManagement(View):
                         item.fleet_number and item.fleet_number.fleet_number) else '-',
                 '预约批次': item.shipment_batch_number,
                 '备注': item.note,
-                '退回费用': item.fleet_number.fleet_cost_back if (
-                        item.fleet_number and item.fleet_number.fleet_cost_back) else 0,
-                '核实状态': '已核实' if (item.fleet_number and item.fleet_number.fleet_verify_status) else '未核实'
             }
             for item in processed_data
         ])
@@ -2723,8 +2720,7 @@ class FleetManagement(View):
         if end_datetime:
             criteria &= Q(shipped_at__lte=end_datetime)
 
-        # 核心修改：新增按核实状态排序（未核实在前）
-        # 核心修改：正确实现 Supplier 为空在前，有值在后
+        # Supplier 为空在前，有值在后
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
@@ -2732,9 +2728,6 @@ class FleetManagement(View):
             .filter(criteria)
             .distinct()
             .order_by(
-                # 1. 未核实(FALSE=0) 在上，已核实(TRUE=1) 在下
-                "fleet_number__fleet_verify_status",
-                # 2. 每组内部：Supplier 为空 → 最上 | 有值 → 最下
                 F("fleet_number__Supplier").asc(nulls_first=True),
             )
         )
@@ -4084,8 +4077,6 @@ class FleetManagement(View):
                     "shipped_pallet": pallet_summary.get(s.id, {}).get("total_pallets", 0),
                     # 其他字段
                     "note": s.note or "",
-                    "fleet_cost_back": s.fleet_number.fleet_cost_back if (
-                                s.fleet_number and s.fleet_number.fleet_cost_back) else "",
                     "pallet_cost_input_time": latest_pallet.cost_input_time.strftime("%Y-%m-%d")
                     if (latest_pallet and latest_pallet.cost_input_time) else "",
                     "pallet_operator_name": latest_pallet.operator.username
@@ -4109,7 +4100,7 @@ class FleetManagement(View):
         writer.writerow([
             'PickUp Number', '费用', '出库批次', '预约批次', '预约号',
             '供应商', '预约发车日期', '实际发车日期', '总重lbs', '总CBM',
-            '总卡板数', '备注', '退回费用', '录入时间', '操作人'
+            '总卡板数', '备注', '录入时间', '操作人'
         ])
 
         # 写入数据行
@@ -4127,7 +4118,6 @@ class FleetManagement(View):
                 item["shipped_cbm"],
                 item["shipped_pallet"],
                 item["note"],
-                item["fleet_cost_back"],
                 item["pallet_cost_input_time"],
                 item["pallet_operator_name"]
             ])
