@@ -3555,7 +3555,7 @@ class PostNsop(View):
             required = (
                 "pickupDate", "originCity", "originState", "originPostCode",
                 "destinationCity", "destinationState", "destinationPostCode",
-                "freightClass", "declaredValue", "items",
+                "declaredValue", "items",
             )
             missing = [name for name in required if form.get(name) in (None, "", [])]
             if missing:
@@ -3571,12 +3571,16 @@ class PostNsop(View):
             pickup_date = datetime.strptime(form["pickupDate"], "%Y-%m-%d")
             maersk_items = []
             kakas_items = []
+            total_weight = 0
+            total_cube = 0
             for item in items:
                 pieces = max(1, int(item.get("pieces") or 1))
                 length = max(1, math.ceil(float(item.get("length") or 0)))
                 width = max(1, math.ceil(float(item.get("width") or 0)))
                 height = max(1, math.ceil(float(item.get("height") or 0)))
                 weight = max(1, math.ceil(float(item.get("weight") or 0)))
+                total_weight += weight
+                total_cube += length * width * height / 1728
                 description = str(item.get("description") or "Pallet")
                 maersk_items.append({
                     "description": description, "pieces": pieces,
@@ -3592,8 +3596,26 @@ class PostNsop(View):
                     "length": length, "width": width, "height": height,
                     "weight": weight,
                     "declaredValue": max(1, math.ceil(float(form["declaredValue"]))),
-                    "freightClass": str(form["freightClass"]),
                 })
+
+            freight_class = str(form.get("freightClass") or "").strip()
+            if not freight_class:
+                density = total_weight / total_cube
+                density_classes = (
+                    (50, "50"), (35, "55"), (30, "60"), (22.5, "65"),
+                    (15, "70"), (13.5, "77.5"), (12, "85"),
+                    (10.5, "92.5"), (9, "100"), (8, "110"),
+                    (7, "125"), (6, "150"), (5, "175"), (4, "200"),
+                    (3, "250"), (2, "300"), (1, "400"), (0, "500"),
+                )
+                freight_class = next(
+                    freight_class_value
+                    for minimum_density, freight_class_value in density_classes
+                    if density >= minimum_density
+                )
+
+            for kakas_item in kakas_items:
+                kakas_item["freightClass"] = freight_class
 
             need_liftgate = bool(form.get("needLiftgate"))
 
@@ -3682,6 +3704,7 @@ class PostNsop(View):
                                 break
                         await asyncio.sleep(1)
 
+            result.setdefault("freightClass", freight_class)
             return JsonResponse({"success": True, "data": result})
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             return JsonResponse({"success": False, "message": f"询价参数错误: {exc}"}, status=400)
