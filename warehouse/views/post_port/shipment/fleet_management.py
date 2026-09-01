@@ -109,8 +109,6 @@ plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 
 COST_DESC = "成本费用"
 DECIMAL_ZERO = Decimal("0.0000")
-CLIENT_PICKUP_SUPPLIER = "client pickup"
-CLIENT_PICKUP_NOTE = "客提货"
 class FleetManagement(View):
     template_fleet = "post_port/shipment/03_fleet_main.html"
     template_fleet_schedule = "post_port/shipment/03_1_fleet_schedule.html"
@@ -2725,15 +2723,6 @@ class FleetManagement(View):
         if end_datetime:
             criteria &= Q(shipped_at__lte=end_datetime)
 
-        auto_count, auto_errors = await self._auto_record_client_pickup_ltl_costs(
-            request, warehouse, start_datetime, end_datetime
-        )
-        if auto_errors:
-            error_messages = list(error_messages or [])
-            error_messages.extend(auto_errors)
-        if auto_count:
-            success_count += auto_count
-
         # 核心修改：新增按核实状态排序（未核实在前）
         # 核心修改：正确实现 Supplier 为空在前，有值在后
         shipment = await sync_to_async(list)(
@@ -2969,73 +2958,6 @@ class FleetManagement(View):
             "supplier_list": supplier_list,
         }
         return self.template_fleet_cost_record_ltl, context
-
-    async def _auto_record_client_pickup_ltl_costs(
-            self, request: HttpRequest, warehouse: str | None, start_datetime, end_datetime
-    ) -> tuple[int, list[str]]:
-        if not warehouse:
-            return 0, []
-
-        target_fleets = await sync_to_async(list)(
-            Fleet.objects.filter(
-                fleet_type="客户自提",
-                fleet_ltl_status=False,
-                shipment__is_shipped=True,
-                shipment__shipped_at__gte=start_datetime,
-                shipment__shipped_at__lte=end_datetime,
-                shipment__pallet__delivery_type="other",
-                shipment__pallet__container_number__orders__warehouse__name=warehouse,
-            ).distinct()
-        )
-        if not target_fleets:
-            return 0, []
-
-        shipment_map = await sync_to_async(
-            lambda: {
-                fleet_id: list(shipments)
-                for fleet_id, shipments in (
-                    (fleet.id, Shipment.objects.filter(fleet_number=fleet))
-                    for fleet in target_fleets
-                )
-            }
-        )()
-
-        success_count = 0
-        error_messages = []
-        for fleet in target_fleets:
-            try:
-                fleet.Supplier = CLIENT_PICKUP_SUPPLIER
-                fleet.fleet_cost = 0
-                await sync_to_async(fleet.save)(
-                    update_fields=["Supplier", "fleet_cost"]
-                )
-
-                shipments = shipment_map.get(fleet.id, [])
-                for shipment in shipments:
-                    shipment.note = CLIENT_PICKUP_NOTE
-                if shipments:
-                    await sync_to_async(bulk_update_with_history)(
-                        shipments, Shipment, fields=["note"], batch_size=500
-                    )
-
-                await self.insert_fleet_shipment_pallet_fleet_cost(
-                    request, fleet.fleet_number, DECIMAL_ZERO
-                )
-
-                fleet.fleet_ltl_status = True
-                await sync_to_async(fleet.save)(update_fields=["fleet_ltl_status"])
-                success_count += 1
-            except Exception as e:
-                error_messages.append(
-                    f"客提车次 {fleet.fleet_number} 自动录入成本失败：{str(e)}"
-                )
-
-        if success_count:
-            self._append_session_success(
-                request,
-                f"已自动录入 {success_count} 个客提车次：供应商 client pickup，成本 0，备注 客提货"
-            )
-        return success_count, error_messages
 
     async def handle_bind_multi_unload(self, request: HttpRequest):
         """绑定一提多卸（批量更新 Pallet.ltl_correlation_id 字段）"""

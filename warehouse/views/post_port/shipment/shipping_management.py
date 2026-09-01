@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,7 @@ from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
 from warehouse.models.fleet import Fleet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
+from warehouse.models.invoicev2 import Invoicev2
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -63,6 +65,11 @@ from warehouse.utils.shipment_binding_utils import (
     ShipmentBindingPermission,
 )
 from django.http import HttpResponseForbidden
+
+CLIENT_PICKUP_SUPPLIER = "client pickup"
+CLIENT_PICKUP_NOTE = "客提货"
+CLIENT_PICKUP_COST_DESC = "成本费用"
+DECIMAL_ZERO = Decimal("0.0000")
 
 
 class ShippingManagement(View):
@@ -2244,9 +2251,11 @@ class ShippingManagement(View):
                 Retrieval,
                 fields=["retrieval_destination_precise", "assigned_by_appt"],
             )
-            # 如果是客户自提且NJ，那么FleetShipmentPallet表也应该增加记录
+            # 已放行客提预约出库后，自动完成LTL派送成本录入。
             if shipment_type == "客户自提":
-                shipment_ava = await sync_to_async(self.sync_query_and_create)(shipment, fleet)
+                await sync_to_async(self.sync_query_and_create)(
+                    shipment, fleet, request.user
+                )
             # 历史FleetShipmentPallet 客户自提费用改为0,后续不调用
             # await self.history_fleet_shipment_pallet()
             mutable_post = request.POST.copy()
@@ -2288,7 +2297,18 @@ class ShippingManagement(View):
             return True
         return await self.handle_warehouse_post(request)
 
-    def sync_query_and_create(self, shipment, fleet):
+    def sync_query_and_create(self, shipment, fleet, user=None):
+        now_time = timezone.now()
+        current_date = now_time.date()
+
+        shipment.note = CLIENT_PICKUP_NOTE
+        shipment.save(update_fields=["note"])
+
+        fleet.Supplier = CLIENT_PICKUP_SUPPLIER
+        fleet.fleet_cost = 0
+        fleet.fleet_ltl_status = True
+        fleet.save(update_fields=["Supplier", "fleet_cost", "fleet_ltl_status"])
+
         list_data = list(
             Pallet.objects.filter(
                 shipment_batch_number__shipment_batch_number=shipment.shipment_batch_number
@@ -2312,10 +2332,31 @@ class ShippingManagement(View):
         container_identifiers = [item['container_number'] for item in list_data]
         containers = Container.objects.filter(id__in=container_identifiers)
         container_map = {str(container.id): container for container in containers}
-        records = []
+        existing_records = {
+            (record.PO_ID, record.container_number_id): record
+            for record in FleetShipmentPallet.objects.filter(
+                fleet_number=fleet,
+                shipment_batch_number=shipment,
+                description=CLIENT_PICKUP_COST_DESC,
+            )
+        }
+        records_to_create = []
+        records_to_update = []
         for item in list_data:
             container = container_map.get(str(item['container_number']))
-            records.append(
+            key = (item['PO_ID'], container.id if container else None)
+            if key in existing_records:
+                record = existing_records[key]
+                record.pickup_number = fleet.pickup_number
+                record.total_pallet = item['pallet_count']
+                record.expense = DECIMAL_ZERO
+                record.is_recorded = True
+                record.cost_input_time = now_time
+                record.operator = user
+                records_to_update.append(record)
+                continue
+
+            records_to_create.append(
                 FleetShipmentPallet(
                     fleet_number=fleet,
                     pickup_number=fleet.pickup_number,
@@ -2323,11 +2364,62 @@ class ShippingManagement(View):
                     PO_ID=item['PO_ID'],
                     total_pallet=item['pallet_count'],
                     container_number=container,
-                    expense=0
+                    expense=DECIMAL_ZERO,
+                    is_recorded=True,
+                    description=CLIENT_PICKUP_COST_DESC,
+                    cost_input_time=now_time,
+                    operator=user,
                 )
             )
-        if records:
-            FleetShipmentPallet.objects.bulk_create(records)
+        if records_to_create:
+            bulk_create_with_history(
+                records_to_create, FleetShipmentPallet, batch_size=500
+            )
+        if records_to_update:
+            bulk_update_with_history(
+                records_to_update,
+                FleetShipmentPallet,
+                fields=[
+                    "pickup_number",
+                    "total_pallet",
+                    "expense",
+                    "is_recorded",
+                    "cost_input_time",
+                    "operator",
+                ],
+                batch_size=500,
+            )
+
+        for container_id in container_identifiers:
+            invoice = Invoicev2.objects.filter(
+                container_number_id=container_id
+            ).order_by("created_at").first()
+            if invoice:
+                invoice.invoice_date = current_date
+                invoice.payable_delivery_cost = Decimal(
+                    str(invoice.payable_delivery_cost or DECIMAL_ZERO)
+                )
+                invoice.payable_delivery_amount = Decimal(
+                    str(invoice.payable_delivery_amount or DECIMAL_ZERO)
+                )
+                invoice.payable_total_amount = Decimal(
+                    str(invoice.payable_total_amount or DECIMAL_ZERO)
+                )
+                invoice.save(update_fields=[
+                    "invoice_date",
+                    "payable_delivery_cost",
+                    "payable_delivery_amount",
+                    "payable_total_amount",
+                ])
+            else:
+                Invoicev2.objects.create(
+                    container_number_id=container_id,
+                    created_at=current_date,
+                    invoice_date=current_date,
+                    payable_delivery_cost=DECIMAL_ZERO,
+                    payable_delivery_amount=DECIMAL_ZERO,
+                    payable_total_amount=DECIMAL_ZERO,
+                )
 
         return list_data
 
