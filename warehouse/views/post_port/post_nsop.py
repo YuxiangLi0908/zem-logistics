@@ -3662,18 +3662,32 @@ class PostNsop(View):
                 },
             }
             headers = {"Content-Type": "application/json", "x-api-key": api_key}
-            timeout = aiohttp.ClientTimeout(total=40)
+            timeout = aiohttp.ClientTimeout(total=50, connect=10, sock_connect=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    f"{gateway_base}/rating", json=gateway_payload, headers=headers
-                ) as response:
-                    response_text = await response.text()
-                    if response.status != 200:
-                        return JsonResponse({
-                            "success": False,
-                            "message": f"公共询价失败: {response.status} - {response_text}",
-                        }, status=response.status)
-                    result = json.loads(response_text)
+                result = None
+                for attempt in range(3):
+                    try:
+                        async with session.post(
+                            f"{gateway_base}/rating", json=gateway_payload, headers=headers
+                        ) as response:
+                            response_text = await response.text()
+                            if response.status != 200:
+                                return JsonResponse({
+                                    "success": False,
+                                    "message": f"公共询价失败: {response.status} - {response_text}",
+                                }, status=response.status)
+                            result = json.loads(response_text)
+                            break
+                    except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
+                        if attempt == 2:
+                            return JsonResponse({
+                                "success": False,
+                                "message": (
+                                    "询价网关连接超时，已自动重试 3 次。"
+                                    "请检查 MAERSK_GATEWAY_URL 配置或网关服务状态。"
+                                ),
+                            }, status=503)
+                        await asyncio.sleep(attempt + 1)
 
                 kakas_result = result.get("results", {}).get("kakas", {})
                 kakas_body = kakas_result.get("data") if kakas_result.get("status") == "success" else None
