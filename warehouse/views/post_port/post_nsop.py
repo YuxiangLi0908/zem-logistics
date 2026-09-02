@@ -674,6 +674,8 @@ class PostNsop(View):
         elif step == "edit_appointment":
             template, context = await self.handle_edit_appointment_post(request)
             return render(request, template, context) 
+        elif step == "inline_edit_shipment_time":
+            return await self.handle_inline_edit_shipment_time(request)
         elif step == "save_external_shipment":
             template, context = await self.handle_save_external_shipment_post(request)
             return render(request, template, context) 
@@ -8974,6 +8976,7 @@ class PostNsop(View):
             elif page == "01_appointment":
                 return await self.handle_appointment_management_post(request, context)
             return await self.handle_td_shipment_post(request, context)
+
         else:
             context = await self._check_ISA_is_repetition(appointment_id_new, destination)
             if context.get('success_messages'):
@@ -8998,6 +9001,41 @@ class PostNsop(View):
             elif page == "01_appointment":
                 return await self.handle_appointment_management_post(request, context)
             return await self.handle_td_shipment_post(request, context)
+
+    async def handle_inline_edit_shipment_time(self, request: HttpRequest) -> JsonResponse:
+        """Update one scheduled-page time field without rebuilding every tab."""
+        shipment_id = request.POST.get("shipment_id", "").strip()
+        field = request.POST.get("field", "").strip()
+        raw_value = request.POST.get("value", "").strip()
+
+        if field not in {"shipment_appointment", "pickup_time"}:
+            return JsonResponse({"success": False, "message": "不允许修改该字段。"}, status=400)
+        if not shipment_id:
+            return JsonResponse({"success": False, "message": "缺少 shipment ID。"}, status=400)
+        if field == "shipment_appointment" and not raw_value:
+            return JsonResponse({"success": False, "message": "预约时间不能为空。"}, status=400)
+
+        value = None
+        if raw_value:
+            try:
+                # datetime-local has no timezone. Keep its numeric components unchanged.
+                parsed = datetime.strptime(raw_value, "%Y-%m-%dT%H:%M")
+                value = parsed.replace(tzinfo=pytz.UTC)
+            except ValueError:
+                return JsonResponse({"success": False, "message": "时间格式不正确。"}, status=400)
+
+        updated = await sync_to_async(
+            Shipment.objects.filter(id=shipment_id).update
+        )(**{field: value})
+        if not updated:
+            return JsonResponse({"success": False, "message": "未找到对应的预约记录。"}, status=404)
+
+        return JsonResponse({
+            "success": True,
+            "message": "已保存",
+            "field": field,
+            "value": raw_value,
+        })
 
     async def handle_save_external_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         """保存外配的约的修改"""
