@@ -43,6 +43,23 @@
         font-size: 14px;
         color: #495057;
     }
+    .inline-time-editor {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 190px;
+    }
+    .inline-time-input {
+        width: 165px;
+        padding: 4px 5px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.78rem;
+    }
+    .inline-save-status { min-width: 16px; font-size: 12px; }
+    .inline-save-status.saving { color: #6c757d; }
+    .inline-save-status.saved { color: #198754; }
+    .inline-save-status.error { color: #dc3545; cursor: help; }
 </style>
 <div class="content-section" id="scheduled-section">
     <div class="filter-notice">
@@ -125,10 +142,16 @@
                             {{ shipment_group.destination }}
                         </td>
                         <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                            <div class="inline-time-editor">
+                                <input type="datetime-local" class="inline-time-input" data-shipment-id="{{ shipment_group.shipment_id }}" data-field="shipment_appointment" value="{{ shipment_group.shipment_appointment|db_datetime }}" aria-label="预约时间">
+                                <span class="inline-save-status" aria-live="polite"></span>
+                            </div>
                         </td>
                         <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            {{ shipment_group.pickup_time|date:"Y-m-d H:i"|default:"-" }}
+                            <div class="inline-time-editor">
+                                <input type="datetime-local" class="inline-time-input" data-shipment-id="{{ shipment_group.shipment_id }}" data-field="pickup_time" value="{{ shipment_group.pickup_time|db_datetime }}" aria-label="提货时间">
+                                <span class="inline-save-status" aria-live="polite"></span>
+                            </div>
                         </td>
                         <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                             {{ shipment_group.load_type }}
@@ -273,10 +296,16 @@
                         {{ shipment_group.destination }}
                     </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
-                        {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                        <div class="inline-time-editor">
+                            <input type="datetime-local" class="inline-time-input" data-shipment-id="{{ shipment_group.shipment_id }}" data-field="shipment_appointment" value="{{ shipment_group.shipment_appointment|db_datetime }}" aria-label="预约时间">
+                            <span class="inline-save-status" aria-live="polite"></span>
+                        </div>
                     </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
-                        {{ shipment_group.pickup_time|date:"Y-m-d H:i"|default:"-" }}
+                        <div class="inline-time-editor">
+                            <input type="datetime-local" class="inline-time-input" data-shipment-id="{{ shipment_group.shipment_id }}" data-field="pickup_time" value="{{ shipment_group.pickup_time|db_datetime }}" aria-label="提货时间">
+                            <span class="inline-save-status" aria-live="polite"></span>
+                        </div>
                     </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.load_type }}
@@ -424,6 +453,53 @@
     </div>
 </div>
 <script>
+    function getScheduledCsrfToken() {
+        const input = document.querySelector('#scheduled-section input[name="csrfmiddlewaretoken"]') ||
+                      document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return input ? input.value : '';
+    }
+
+    async function saveInlineShipmentTime(input) {
+        if (input.dataset.savedValue === input.value) return;
+
+        const status = input.parentElement.querySelector('.inline-save-status');
+        const previousValue = input.dataset.savedValue || '';
+        input.disabled = true;
+        status.className = 'inline-save-status saving';
+        status.textContent = '保存中';
+
+        const body = new URLSearchParams({
+            step: 'inline_edit_shipment_time',
+            shipment_id: input.dataset.shipmentId,
+            field: input.dataset.field,
+            value: input.value,
+            csrfmiddlewaretoken: getScheduledCsrfToken()
+        });
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                body: body,
+                credentials: 'same-origin'
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '保存失败');
+            input.dataset.savedValue = result.value;
+            status.className = 'inline-save-status saved';
+            status.textContent = '✓';
+            status.title = '已保存';
+        } catch (error) {
+            input.value = previousValue;
+            status.className = 'inline-save-status error';
+            status.textContent = '!';
+            status.title = error.message;
+            alert(error.message);
+        } finally {
+            input.disabled = false;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const searchInputs = document.querySelectorAll('#scheduled-section .header-search');
         const rows = document.querySelectorAll('#scheduled-section tbody tr');
@@ -445,6 +521,11 @@
                     applyMultiFilter();
                 }
             });
+        });
+
+        document.querySelectorAll('#scheduled-section .inline-time-input').forEach(input => {
+            input.dataset.savedValue = input.value;
+            input.addEventListener('change', () => saveInlineShipmentTime(input));
         });
     });
     function handleScheduledSearchForVisible(rows, searchTerm) {

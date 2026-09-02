@@ -9,6 +9,19 @@ register = template.Library()
 
 
 @register.filter
+def db_datetime(value):
+    """Format a database datetime without applying Django's local-time conversion."""
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value[:16].replace(" ", "T")
+    try:
+        return value.replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M")
+    except (AttributeError, TypeError, ValueError):
+        return ""
+
+
+@register.filter
 def split_and_get_first(value: str) -> str:
     if not value:  # 处理 None 或空字符串
         return ""
