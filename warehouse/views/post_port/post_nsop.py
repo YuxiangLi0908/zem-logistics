@@ -3581,54 +3581,50 @@ class PostNsop(View):
             if not isinstance(items, list) or not items:
                 return JsonResponse({"success": False, "message": "至少需要一条货物明细"}, status=400)
 
+            quote_type = int(form.get("quoteType") or 1)
+            if quote_type == 2 and not form.get("carType"):
+                return JsonResponse({"success": False, "message": "FTL 询价必须选择车型"}, status=400)
+
             pickup_date = datetime.strptime(form["pickupDate"], "%Y-%m-%d")
             maersk_items = []
             kakas_items = []
-            total_weight = 0
-            total_cube = 0
+            freight_classes = []
+
+            def calculate_freight_class(length, width, height, weight):
+                density = weight / ((length * width * height) / 1728)
+                density_classes = (
+                    (1, "400"), (2, "300"), (4, "250"), (6, "175"),
+                    (8, "125"), (10, "100"), (12, "92.5"), (15, "85"),
+                    (22.5, "70"), (30, "65"), (35, "60"), (50, "55"),
+                )
+                return next((code for maximum_density, code in density_classes if density <= maximum_density), "50")
+
             for item in items:
                 pieces = max(1, int(item.get("pieces") or 1))
+                pallet_count = max(1, int(item.get("palletCount") or 1))
                 length = max(1, math.ceil(float(item.get("length") or 0)))
                 width = max(1, math.ceil(float(item.get("width") or 0)))
                 height = max(1, math.ceil(float(item.get("height") or 0)))
                 weight = max(1, math.ceil(float(item.get("weight") or 0)))
-                total_weight += weight
-                total_cube += length * width * height / 1728
+                freight_class = calculate_freight_class(length, width, height, weight)
+                freight_classes.append(freight_class)
                 description = str(item.get("description") or "Pallet")
                 maersk_items.append({
-                    "description": description, "pieces": pieces,
+                    "description": description, "pieces": pallet_count,
                     "length": length, "width": width, "height": height,
                     "weight": weight,
                 })
                 kakas_items.append({
                     "describe": description,
-                    "commodityNum": pieces,
+                    "commodityNum": pieces * pallet_count,
                     "commodityUnit": int(form.get("commodityUnit") or 11),
-                    "consignNum": pieces,
+                    "consignNum": pallet_count,
                     "palletType": int(form.get("palletType") or 1),
                     "length": length, "width": width, "height": height,
                     "weight": weight,
                     "declaredValue": max(1, math.ceil(float(form["declaredValue"]))),
+                    "freightClass": freight_class,
                 })
-
-            freight_class = str(form.get("freightClass") or "").strip()
-            if not freight_class:
-                density = total_weight / total_cube
-                density_classes = (
-                    (50, "50"), (35, "55"), (30, "60"), (22.5, "65"),
-                    (15, "70"), (13.5, "77.5"), (12, "85"),
-                    (10.5, "92.5"), (9, "100"), (8, "110"),
-                    (7, "125"), (6, "150"), (5, "175"), (4, "200"),
-                    (3, "250"), (2, "300"), (1, "400"), (0, "500"),
-                )
-                freight_class = next(
-                    freight_class_value
-                    for minimum_density, freight_class_value in density_classes
-                    if density >= minimum_density
-                )
-
-            for kakas_item in kakas_items:
-                kakas_item["freightClass"] = freight_class
 
             need_liftgate = bool(form.get("needLiftgate"))
 
@@ -3652,7 +3648,7 @@ class PostNsop(View):
                 return JsonResponse({"success": False, "message": "未配置网关 API Key"}, status=500)
 
             kakas_payload = {
-                "quoteType": int(form.get("quoteType") or 1),
+                "quoteType": quote_type,
                 "pickupDate": form["pickupDate"], "iu": 0,
                 "originalMsg": kakas_address("origin"),
                 "destinationMsg": kakas_address("destination"),
@@ -3731,7 +3727,7 @@ class PostNsop(View):
                                 break
                         await asyncio.sleep(1)
 
-            result.setdefault("freightClass", freight_class)
+            result.setdefault("freightClasses", freight_classes)
             carrier_results = result.get("results", {})
             car_type_labels = {
                 1: "53尺厢式货车", 2: "冷链车", 3: "48尺平板车",
@@ -3745,7 +3741,7 @@ class PostNsop(View):
                 pickup_date=pickup_date.date(),
                 quote_type="LTL" if quote_type == 1 else "FTL",
                 ftl_car_type=car_type_labels.get(car_type, str(car_type)) if quote_type == 2 else "",
-                freight_class=freight_class,
+                freight_class="/".join(dict.fromkeys(freight_classes))[:20],
                 declared_value=form["declaredValue"],
                 pallet_items=items,
                 maersk_quotes=carrier_results.get("maersk", {}),
