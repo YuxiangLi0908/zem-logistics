@@ -719,6 +719,8 @@
                 <th>Invoice Status ID</th>
                 <th>Invoice ID</th>
                 <th>Invoice Number</th>
+                <th>主账单</th>
+                <th>Receivable Total Amount</th>
                 <th>类型</th>
                 <th>港前状态</th>
                 <th>公仓仓库</th>
@@ -735,6 +737,14 @@
                 <td>{{ status.id }}</td>
                 <td>{{ status.invoice.id|default:'' }}</td>
                 <td>{{ status.invoice.invoice_number|default:'' }}</td>
+                <td style="text-align: center; font-size: 18px;">
+                    {% if status.invoice.is_master_bill %}
+                        <span style="color: #27ae60;" title="主账单">✓</span>
+                    {% else %}
+                        <span style="color: #e74c3c;" title="非主账单">✕</span>
+                    {% endif %}
+                </td>
+                <td>{{ status.invoice.receivable_total_amount|default_if_none:'' }}</td>
                 <td>
                     {% if status.invoice_type == 'receivable' %}
                         应收
