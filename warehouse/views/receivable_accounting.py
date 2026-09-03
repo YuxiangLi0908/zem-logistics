@@ -6066,10 +6066,6 @@ class ReceivableAccounting(View):
             else:
                 # 有invoice，处理每条invoice
                 for invoice in invoices:
-                    # 检查is_master_bill，如果是False就跳过
-                    if invoice.is_master_bill == False:
-                        continue
-                        
                     # 获取预加载的状态列表
                     status_list = getattr(invoice, 'receivable_status_list', [])
                     status_obj = status_list[0] if status_list else None
@@ -6186,10 +6182,9 @@ class ReceivableAccounting(View):
         for container, order in dropship_eligible:
             container_number = container.container_number
             
-            # 查该柜子的所有主发票
+            # 查该柜子的所有发票（主账单和补开账单均参与分类）
             invoices = Invoicev2.objects.filter(
                 container_number=container,
-                is_master_bill=True,
             ).select_related('statement_id').prefetch_related(
                 Prefetch('invoicestatusv2_set', 
                          queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
@@ -6304,7 +6299,6 @@ class ReceivableAccounting(View):
                 # 检查是否有invoice但已完成且待核销金额为0
                 invoices = Invoicev2.objects.filter(
                     container_number__container_number=container_number_filter,
-                    is_master_bill=True
                 ).prefetch_related(
                     Prefetch('invoicestatusv2_set', 
                              queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
@@ -6756,22 +6750,11 @@ class ReceivableAccounting(View):
                 
                 status_obj = status_list[0] # 取第一个匹配的状态
 
-                # 提取状态字段
-                preport_status = status_obj.preport_status
-                wh_public = status_obj.warehouse_public_status
-                wh_other = status_obj.warehouse_other_status
-                del_other = status_obj.delivery_other_status
-                del_public = status_obj.delivery_public_status
                 finance_status = status_obj.finance_status
 
-                # --- 核心判断逻辑：前置节点全 Completed 且 待核销为0 ---
+                # 已核销只看财务状态，不受其他业务节点状态影响。
                 rec_offset = getattr(invoice, 'remain_offset', 0) or 0
-                if (preport_status == "completed" and 
-                    wh_public == "completed" and 
-                    wh_other == "completed" and 
-                    del_other == "completed" and 
-                    del_public == "completed" and
-                    rec_offset == 0):
+                if finance_status == "completed" and rec_offset == 0:
 
                     is_extra_invoice = False
                     if has_multiple_invoices and invoice.created_at > earliest_created_at:
