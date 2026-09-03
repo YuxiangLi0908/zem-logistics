@@ -3589,6 +3589,7 @@ class PostNsop(View):
             maersk_items = []
             kakas_items = []
             freight_classes = []
+            commodity_unit = int(form.get("commodityUnit") or 11)
 
             def calculate_freight_class(length, width, height, weight):
                 density = weight / ((length * width * height) / 1728)
@@ -3616,12 +3617,14 @@ class PostNsop(View):
                 })
                 kakas_items.append({
                     "describe": description,
-                    "commodityNum": pieces * pallet_count,
-                    "commodityUnit": int(form.get("commodityUnit") or 11),
+                    # PALLETS 的货物数量就是板数；其他单位按每板件数累计。
+                    "commodityNum": pallet_count if commodity_unit == 11 else pieces * pallet_count,
+                    "commodityUnit": commodity_unit,
                     "consignNum": pallet_count,
                     "palletType": int(form.get("palletType") or 1),
                     "length": length, "width": width, "height": height,
-                    "weight": weight,
+                    # 卡卡省的尺寸是单板尺寸，重量是该合并行所有板的总重量。
+                    "weight": weight * pallet_count,
                     "declaredValue": max(1, math.ceil(float(form["declaredValue"]))),
                     "freightClass": freight_class,
                 })
