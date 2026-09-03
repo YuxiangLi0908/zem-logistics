@@ -3370,6 +3370,19 @@ class ExceptionHandling(View):
         # 设置可用的查询字段
         context['available_fields'] = await self.get_available_fields(table_name)
         context['table_name'] = table_name
+
+        # 将字段类型交给模板，避免数值 0/0.0 因为与 False 相等而被显示成布尔值。
+        model = await self.get_model_by_name(table_name)
+        if model:
+            field_model = model.model if isinstance(model, HistoryManager) else model
+            context['numeric_fields'] = [
+                field.name for field in field_model._meta.fields
+                if isinstance(field, (models.IntegerField, models.FloatField, models.DecimalField))
+            ]
+            context['boolean_fields'] = [
+                field.name for field in field_model._meta.fields
+                if isinstance(field, models.BooleanField)
+            ]
         
         return self.template_find_all_table, context
 

@@ -404,11 +404,13 @@
                                 <option value="in_stock" {% if value == 'in_stock' %}selected{% endif %}>in_stock</option>
                                 <option value="all_out" {% if value == 'all_out' %}selected{% endif %}>all_out</option>
                             </select>
+                        {% elif field in numeric_fields %}
+                            {{ value|default_if_none:"" }}
                         {% elif value == None %}
                             <span style="color: #95a5a6; font-style: italic;">null</span>
-                        {% elif value == True %}
+                        {% elif field in boolean_fields and value == True %}
                             <span style="color: #27ae60;">True</span>
-                        {% elif value == False %}
+                        {% elif field in boolean_fields and value == False %}
                             <span style="color: #e74c3c;">False</span>
                         {% else %}
                             {{ value|default:""|truncatechars:50 }}
