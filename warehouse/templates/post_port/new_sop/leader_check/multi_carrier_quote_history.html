@@ -180,7 +180,7 @@
                     <td>${{ history.declared_value|floatformat:2 }}</td>
                     <td class="items-cell">
                         {% for item in history.pallet_items %}
-                        <div>{{ item.pieces }}件，{{ item.length }}×{{ item.width }}×{{ item.height }} in，{{ item.weight }} lb</div>
+                        <div>{{ item.pieces }}件，{{ item.palletCount|default:1 }}板，{{ item.length }}×{{ item.width }}×{{ item.height }} in，{{ item.weight }} lb</div>
                         {% empty %}-{% endfor %}
                     </td>
                     <td class="price-cell">
