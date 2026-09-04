@@ -23,21 +23,17 @@
                     <h4><i class="fas fa-truck"></i> 预约信息</h4>
                     <table class="modal-table">
                         <thead>
-                            <tr>
-                                <th>预约类型</th>
-                                <!-- FTL 专用 -->
-                                <th class="ftl-field">预约账号</th>
-                                
-                                <th class="ftl-field">预约号</th>
-                                <!-- FTL 显示 Scheduled Time，外配显示 提货时间 (两者共用 shipment_appointment 参数名) -->
-                                <th class="ftl-field">Scheduled Time</th>                            
+                            <tr class="booking-primary-header-row">
+                                <th class="booking-type-cell">预约类型</th>
+                                <th class="ftl-column"><span class="ftl-field">预约账号</span><span class="outside-field" style="display:none;">Carrier</span></th>
+                                <th class="ftl-column"><span class="ftl-field">预约号</span></th>
+                                <th class="ftl-column"><span class="ftl-field">Scheduled Time</span></th>
                                 <th>Pickup Time</th>                             
                                 <th>发货仓库</th>
-                                <th class="outside-field courier-field" style="display:none;"></th> <!-占位-->
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
+                            <tr class="booking-primary-value-row">
                                 <td>
                                     <select name="shipment_type" id="shipment-type-select" class="form-select">
                                         {% for k, v in shipment_type_options.items %}
@@ -46,20 +42,25 @@
                                     </select>
                                 </td>
                                 <!-- FTL: 预约账号 -->
-                                <td class="ftl-field">
-                                    <select name="shipment_account" id="shipment-account-select" class="form-select">
-                                        {% for k, v in account_options.items %}
-                                            <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                    </select>
+                                <td>
+                                    <div class="ftl-field">
+                                        <select name="shipment_account" id="shipment-account-select" class="form-select">
+                                            {% for k, v in account_options.items %}
+                                                <option value="{{ v }}">{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="outside-field" id="outside-carrier-slot" style="display:none;"></div>
                                 </td>
-                                
-                                <td class="ftl-field">
-                                    <input type="text" name="appointment_id" id="appointment_id" class="form-input">
+                                <td>
+                                    <div class="ftl-field">
+                                        <input type="text" name="appointment_id" id="appointment_id" class="form-input">
+                                    </div>
                                 </td>
-                                <!-- 时间段: shipment_appointment -->
-                                <td class="ftl-field">
-                                    <input type="datetime-local" id="scheduled-time-input" name="shipment_appointment" class="form-input" required>
+                                <td>
+                                    <div class="ftl-field">
+                                        <input type="datetime-local" id="scheduled-time-input" name="shipment_appointment" class="form-input" required>
+                                    </div>
                                 </td>
                                 
                                  <td>
@@ -77,61 +78,57 @@
                                         {% endfor %}
                                     </select>
                                 </td>
-                                <td class="outside-field courier-field">
-                                    
-                                </td>
                             </tr>
                              <!-- 第二行表头 -->
-                            <tr>
-                                <th class="ftl-field">装车类型</th>
-                                <th class="ftl-field">Pickup Number</th>
-                                <!-- 外配专用 -->
-                                <th class="outside-field courier-field" style="display:none;">Carrier</th>
-                                <th class="optional-field">目的地</th>
-                                <th class="optional-field">地址</th>
+                            <tr class="booking-secondary-header-row">
+                                <th><span class="ftl-field">装车类型</span><span class="courier-field" style="display:none;">Carrier</span></th>
+                                <th><span class="ftl-field">Pickup Number</span></th>
+                                <th><span class="optional-field">目的地</span></th>
+                                <th><span class="optional-field">地址</span></th>
                                 <th>备注</th>                             
-                                <th class="ftl-field">shipment ID</th>
-                                <th class="outside-field" style="display:none;">BOL号</th>
-                                <!-- 快递专用 -->
-                                <th class="courier-field" style="display:none;">快递单号</th>
+                                <th><span class="ftl-field">shipment ID</span><span class="outside-field" style="display:none;">BOL号</span><span class="courier-field" style="display:none;">快递单号</span></th>
                             </tr>
-                            <tr>
-                                <!-- FTL 专用字段 -->
-                                <td class="ftl-field">
-                                    <select name="load_type" id="load-type-select" class="form-select">
-                                        {% for k, v in load_type_options.items %}
-                                            <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                    </select>
+                            <tr class="booking-secondary-value-row">
+                                <td>
+                                    <div class="ftl-field">
+                                        <select name="load_type" id="load-type-select" class="form-select">
+                                            {% for k, v in load_type_options.items %}
+                                                <option value="{{ v }}">{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="courier-field" id="courier-carrier-slot" style="display:none;">
+                                        <input type="text" name="carrier" id="carrier" class="form-input">
+                                    </div>
                                 </td>
-                                <td class="ftl-field">
-                                    <input type="text" name="pickupNumber" id="pickup_number" class="form-input">                                   
+                                <td>
+                                    <div class="ftl-field">
+                                        <input type="text" name="pickupNumber" id="pickup_number" class="form-input">
+                                    </div>
                                 </td>
-                                <!-- 外配: Carrier -->
-                                <td class="outside-field courier-field" style="display:none;">
-                                    <input type="text" name="carrier" id="carrier" class="form-input">
+                                <td>
+                                    <div class="optional-field">
+                                        <input type="text" name="destination" id="ftl-destination" class="form-input" required>
+                                    </div>
                                 </td>
-                                <!-- 通用字段 -->
-                                <td class="optional-field">
-                                    <input type="text" name="destination" id="ftl-destination" class="form-input" required>
-                                </td>
-                                <td class="optional-field">
-                                    <input type="text" name="address" id="address_detail" class="form-input">
+                                <td>
+                                    <div class="optional-field">
+                                        <input type="text" name="address" id="address_detail" class="form-input">
+                                    </div>
                                 </td>
                                 <td>
                                     <input type="text" name="note" id="note" class="form-input">
                                 </td>
-                                <!-- FTL: shipment ID -->
-                                <td class="ftl-field">
-                                    <input type="text" name="shipment_cargo_id" id="shipment_cargo_id" class="form-input">
-                                </td>
-                                <!-- 外配: arm_bol -->
-                                <td class="outside-field" style="display:none;">
-                                    <input type="text" name="arm_bol" id="arm_bol" class="form-input">
-                                </td>
-                                <!-- 快递: 快递单号 -->
-                                <td class="courier-field" style="display:none;">
-                                    <input type="text" name="express_number" id="express_number" class="form-input" placeholder="快递单号">
+                                <td>
+                                    <div class="ftl-field">
+                                        <input type="text" name="shipment_cargo_id" id="shipment_cargo_id" class="form-input">
+                                    </div>
+                                    <div class="outside-field" style="display:none;">
+                                        <input type="text" name="arm_bol" id="arm_bol" class="form-input">
+                                    </div>
+                                    <div class="courier-field" style="display:none;">
+                                        <input type="text" name="express_number" id="express_number" class="form-input" placeholder="快递单号">
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -412,9 +409,55 @@
         const scheduledInput = document.getElementById('scheduled-time-input');
         const appointmentInput = document.getElementById('appointment_id');
         const destinationInput = document.getElementById('ftl-destination');
+        const carrierInput = document.getElementById('carrier');
+        const outsideCarrierSlot = document.getElementById('outside-carrier-slot');
+        const courierCarrierSlot = document.getElementById('courier-carrier-slot');
+
+        const primaryRows = [
+            document.querySelector('.booking-primary-header-row'),
+            document.querySelector('.booking-primary-value-row')
+        ];
+        const secondaryRows = [
+            document.querySelector('.booking-secondary-header-row'),
+            document.querySelector('.booking-secondary-value-row')
+        ];
+
+        function configureBookingColumns(mode) {
+            [...primaryRows, ...secondaryRows].forEach(row => {
+                if (!row) return;
+                Array.from(row.children).forEach(cell => {
+                    cell.style.display = '';
+                    cell.colSpan = 1;
+                });
+            });
+
+            if (mode === 'outside') {
+                // 外配：上方为预约类型、Carrier、Pickup Time、发货仓库，下方为目的地、地址、备注、BOL号。
+                primaryRows.forEach(row => {
+                    if (!row) return;
+                    [2, 3].forEach(index => row.children[index].style.display = 'none');
+                });
+                secondaryRows.forEach(row => {
+                    if (!row) return;
+                    [0, 1].forEach(index => row.children[index].style.display = 'none');
+                });
+            } else if (mode === 'courier') {
+                // 快递：两组都只保留 3 个实际字段，不留下隐藏字段占位。
+                primaryRows.forEach(row => {
+                    if (!row) return;
+                    [1, 2, 3].forEach(index => row.children[index].style.display = 'none');
+                });
+                secondaryRows.forEach(row => {
+                    if (!row) return;
+                    [1, 2, 3].forEach(index => row.children[index].style.display = 'none');
+                });
+            }
+        }
 
         if (selectedText.includes('快递')) {
             // --- 快递模式 ---
+            if (carrierInput && courierCarrierSlot) courierCarrierSlot.appendChild(carrierInput);
+            configureBookingColumns('courier');
             ftlFields.forEach(el => el.style.display = 'none');
             outsideFields.forEach(el => {
                 // Carrier 同时有 courier-field，显示；BOL号只带 outside-field，隐藏
@@ -428,6 +471,8 @@
             if (destinationInput) destinationInput.required = false;
         } else if (selectedText.includes('外配')) {
             // --- 外配模式 ---
+            if (carrierInput && outsideCarrierSlot) outsideCarrierSlot.appendChild(carrierInput);
+            configureBookingColumns('outside');
             ftlFields.forEach(el => el.style.display = 'none');
             outsideFields.forEach(el => el.style.display = '');
             optionalFields.forEach(el => el.style.display = '');
@@ -445,6 +490,8 @@
             if (destinationInput) destinationInput.required = true;
         } else {
             // --- FTL 模式 ---
+            if (carrierInput && courierCarrierSlot) courierCarrierSlot.appendChild(carrierInput);
+            configureBookingColumns('ftl');
             ftlFields.forEach(el => el.style.display = '');
             outsideFields.forEach(el => el.style.display = 'none');
             optionalFields.forEach(el => el.style.display = '');

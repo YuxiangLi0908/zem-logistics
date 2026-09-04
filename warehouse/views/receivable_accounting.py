@@ -8553,6 +8553,11 @@ class ReceivableAccounting(View):
         except Exception as e:
             context.update({"error_messages": f'{quotation.filename}-{quotation.version}-缺少组合柜信息'})
             return template, context
+        cbm_per_pl = (
+            COMBINA_STIPULATE.details.get("global_rules", {})
+            .get("cbm_per_pl", {})
+            .get("default", "")
+        )
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
 
         total_container_cbm = PackingList.objects.filter(
@@ -8587,6 +8592,7 @@ class ReceivableAccounting(View):
                 "filename": quotation.filename,  # 添加文件名
             },
             "combina_rules_text": rules_text,
+            "cbm_per_pl": cbm_per_pl,
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "activation_fee_groups": activation_fee_groups,
             "activation_table": activation_table,
