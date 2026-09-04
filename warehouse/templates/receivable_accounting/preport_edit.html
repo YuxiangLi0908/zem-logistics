@@ -821,8 +821,8 @@
                             
                             <div class="fee-cell">
                                 {% if fee.description == '提拆/打托缠膜' and not fee.id %}
-                                <input type="number" class="input-field" name="fee_rate" 
-                                       value="{{ fee.rate }}" step="0.01" 
+                                <input type="number" class="input-field rate-input" name="fee_rate"
+                                       value="{{ fee.rate }}" step="0.01"
                                        style="background: #e8f5e9; border-color: #4caf50;">
                                 {% else %}
                                 <input type="number" class="input-field rate-input" name="fee_rate" 
@@ -833,8 +833,8 @@
                             
                             <div class="fee-cell">
                                 {% if fee.description == '提拆/打托缠膜' and not fee.id %}
-                                <input type="number" class="input-field" name="fee_qty" 
-                                       value="{{ fee.qty }}" step="0.1" 
+                                <input type="number" class="input-field qty-input" name="fee_qty"
+                                       value="{{ fee.qty }}" step="0.1"
                                        style="background: #e8f5e9; border-color: #4caf50;">
                                 {% else %}
                                 <input type="number" class="input-field qty-input" name="fee_qty" 
@@ -967,8 +967,8 @@
     // 计算单个费用项目的总价
     function calculateFeeTotal(input) {
         const feeRow = input.closest('.fee-row');
-        const rateInput = feeRow.querySelector('.rate-input');
-        const qtyInput = feeRow.querySelector('.qty-input');
+        const rateInput = feeRow.querySelector('.rate-input, input[name="fee_rate"]');
+        const qtyInput = feeRow.querySelector('.qty-input, input[name="fee_qty"]');
         const surchargeInput = feeRow.querySelector('.surcharge-input');
         const amountDisplay = feeRow.querySelector('.amount-display');
         const amountInput = feeRow.querySelector('input[name="fee_amount"]');
