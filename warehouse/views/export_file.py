@@ -1198,40 +1198,21 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             ]
         ]
     else:
-        if warehouse == "LA":
-            # LA仓：cbm在前，pcs在后
-            df = df[
-                [
-                    "container_number",
-                    "destination",
-                    "delivery_method",
-                    "fba_id",
-                    "ref_id",
-                    "shipping_mark",
-                    "cbm",
-                    "pcs",
-                    "n_pallet",
-                    "PO_ID",
-                    "note",
-                ]
+        df = df[
+            [
+                "container_number",
+                "destination",
+                "delivery_method",
+                "fba_id",
+                "ref_id",
+                "shipping_mark",
+                "pcs",
+                "cbm",
+                "n_pallet",
+                "PO_ID",
+                "note",
             ]
-        else:
-            # 其他仓库：原有顺序 pcs -> cbm
-            df = df[
-                [
-                    "container_number",
-                    "destination",
-                    "delivery_method",
-                    "fba_id",
-                    "ref_id",
-                    "shipping_mark",
-                    "pcs",
-                    "cbm",
-                    "n_pallet",
-                    "PO_ID",
-                    "note",
-                ]
-            ]
+        ]
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
