@@ -579,12 +579,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
-    storehouse = request.POST.get("storehouse")
-    delivery_type_filter = (
-        {"delivery_type": storehouse}
-        if storehouse in {"public", "other"}
-        else {}
-    )
+    # 拆柜单导出需要和(新)拆柜单一致，始终导出整柜数据，不按公仓/私仓拆分。
+    delivery_type_filter = {}
     offload_id = request.POST.get("offload_id")
 
     zem_name = await sync_to_async(
