@@ -132,6 +132,7 @@ class PostNsop(View):
     template_easy_action_table = "post_port/new_sop/leader_check/easy_action_table.html"
     template_sp_bind_history = "post_port/new_sop/leader_check/sp_bind_history.html"
     template_system_parameter_add = "post_port/new_sop/leader_check/system_parameter_add.html"
+    template_multi_carrier_quote = "post_port/new_sop/leader_check/multi_carrier_quote.html"
     template_multi_carrier_quote_history = "post_port/new_sop/leader_check/multi_carrier_quote_history.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -353,6 +354,13 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "easy_action":
             return render(request, self.template_easy_action_table, {})
+        elif step == "multi_carrier_quote":
+            context = {
+                "zem_warehouse_addresses": await sync_to_async(
+                    SystemParameter.get_zem_warehouse_addresses
+                )(),
+            }
+            return render(request, self.template_multi_carrier_quote, context)
         elif step == "multi_carrier_quote_history":
             histories = await sync_to_async(list)(
                 MultiCarrierQuoteHistory.objects.select_related("operator").order_by("id")
