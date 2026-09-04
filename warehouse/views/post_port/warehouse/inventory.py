@@ -1146,6 +1146,13 @@ class Inventory(View):
         shipping_mark_new = request.POST.getlist("shipping_mark_new")
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
+
+        def join_packing_list_values(values: list[str]) -> str:
+            return ",".join(v.strip() for v in values if v and v.strip())
+
+        pallet_shipping_mark_new = join_packing_list_values(shipping_mark_new)
+        pallet_fba_id_new = join_packing_list_values(fba_id_new)
+        pallet_ref_id_new = join_packing_list_values(ref_id_new)
         old_pallets_for_log = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number",
@@ -1174,32 +1181,55 @@ class Inventory(View):
         def adjust_pallets():
             with transaction.atomic():
                 # 1. 获取当前这批 Pallet
-                old_pallets = list(Pallet.objects.filter(id__in=plt_ids))
+                old_pallets = list(
+                    Pallet.objects.select_related("packing_list")
+                    .filter(id__in=plt_ids)
+                    .order_by("id")
+                )
                 if not old_pallets:
                     return []
 
-                # 取第一个作为模板
+                def apply_common_fields(plt: Pallet, source: Pallet) -> Pallet:
+                    plt.destination = destination_new
+                    plt.address = address_new
+                    plt.zipcode = zipcode_new
+                    plt.delivery_method = delivery_method_new
+                    plt.delivery_type = delivery_type_new
+                    plt.shipping_mark = pallet_shipping_mark_new
+                    plt.fba_id = pallet_fba_id_new
+                    plt.ref_id = pallet_ref_id_new
+                    plt.location = location_new
+                    plt.note = note_new
+                    plt.released_at = (
+                        None
+                        if self._is_hold_delivery_method(delivery_method_new)
+                        else source.created_at
+                    )
+                    return plt
+
                 template = old_pallets[0]
                 container = template.container_number
-                released_at_new = (
-                    None
-                    if self._is_hold_delivery_method(delivery_method_new)
-                    else template.created_at
-                )
 
-                # 2. 删除旧的
-                Pallet.objects.filter(id__in=plt_ids).delete()
+                kept_pallets = old_pallets[:n_pallet_new]
+                for i, plt in enumerate(kept_pallets):
+                    apply_common_fields(plt, plt)
+                    plt.sequence_number = i + 1
 
-                # 3. 创建新 Pallet（数量 = n_pallet_new）
+                if n_pallet_new < len(old_pallets):
+                    extra_pallet_ids = [plt.id for plt in old_pallets[n_pallet_new:]]
+                    Pallet.objects.filter(id__in=extra_pallet_ids).delete()
+
+                # 只在卡板数增加时新增缺少的板，避免更新PO时整组旧板被重建
                 new_pallets = []
-                for i in range(n_pallet_new):
+                for i in range(len(old_pallets), n_pallet_new):
+                    source = template
                     plt = Pallet(
                         pallet_id=str(
                             uuid.uuid3(
                                 uuid.NAMESPACE_DNS, str(uuid.uuid4()) + str(i) + str(seed)
                             )
                         ),
-                        packing_list=template.packing_list,
+                        packing_list=source.packing_list,
                         container_number=container,
                         destination=destination_new,
                         address=address_new,
@@ -1207,33 +1237,37 @@ class Inventory(View):
                         delivery_method=delivery_method_new,
                         delivery_type=delivery_type_new,
                         PO_ID=template.PO_ID,
-                        shipping_mark=shipping_mark_new[0] if shipping_mark_new else template.shipping_mark,
-                        fba_id=fba_id_new[0] if fba_id_new else template.fba_id,
-                        ref_id=ref_id_new[0] if ref_id_new else template.ref_id,
+                        shipping_mark=pallet_shipping_mark_new,
+                        fba_id=pallet_fba_id_new,
+                        ref_id=pallet_ref_id_new,
                         sequence_number=i + 1,
-                        length=template.length,
-                        width=template.width,
-                        height=template.height,
-                        abnormal_palletization=template.abnormal_palletization,
-                        po_expired=template.po_expired,
-                        priority=template.priority,
+                        length=source.length,
+                        width=source.width,
+                        height=source.height,
+                        abnormal_palletization=source.abnormal_palletization,
+                        po_expired=source.po_expired,
+                        priority=source.priority,
                         location=location_new,
-                        contact_name=template.contact_name,
+                        contact_name=source.contact_name,
                         note=note_new,
-                        created_at=template.created_at,
-                        released_at=released_at_new,
+                        created_at=source.created_at,
+                        released_at=(
+                            None
+                            if self._is_hold_delivery_method(delivery_method_new)
+                            else source.created_at
+                        ),
                         pcs=0,
                         cbm=0,
                         weight_lbs=0,
                         # 保留原有预约信息
-                        shipment_batch_number=template.shipment_batch_number,
-                        master_shipment_batch_number=template.master_shipment_batch_number,
+                        shipment_batch_number=source.shipment_batch_number,
+                        master_shipment_batch_number=source.master_shipment_batch_number,
                     )
                     new_pallets.append(plt)
 
-                # 批量创建
-                Pallet.objects.bulk_create(new_pallets)
-                return new_pallets
+                if new_pallets:
+                    Pallet.objects.bulk_create(new_pallets)
+                return kept_pallets + new_pallets
 
         # 执行创建/删除
         pallet = await adjust_pallets()
@@ -1287,7 +1321,7 @@ class Inventory(View):
             ],
         )
 
-        # 更新 Pallet 标记信息
+        # 更新 PackingList 标记信息；Pallet 已同步为所有 PackingList 标记的组合值
         for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
                 pl_ids, shipping_mark, fba_id, ref_id, shipping_mark_new, fba_id_new, ref_id_new
         ):
@@ -1297,11 +1331,6 @@ class Inventory(View):
                 packing_list.fba_id = fba_new
                 packing_list.ref_id = ref_new
                 await sync_to_async(packing_list.save)()
-
-            for p in pallet:
-                p.shipping_mark = sm_new
-                p.fba_id = fba_new
-                p.ref_id = ref_new
 
         # 保存新 Pallet
         await sync_to_async(bulk_update_with_history)(
