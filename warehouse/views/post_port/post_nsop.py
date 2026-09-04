@@ -361,6 +361,9 @@ class PostNsop(View):
                 history.maersk_price_rows = self._quote_price_rows(history.maersk_quotes, "maersk")
                 history.kakas_price_rows = self._quote_price_rows(history.kakas_quotes, "kakas")
                 history.abf_price_rows = self._quote_price_rows(history.abf_quotes, "abf")
+                history.kakas_request_payload_json = json.dumps(
+                    history.kakas_request_payload, ensure_ascii=False, separators=(",", ":")
+                )
             return render(request, self.template_multi_carrier_quote_history, {"histories": histories})
         elif step == "system_parameter_add":
             context = await self._get_system_parameter_context(request)
@@ -3749,6 +3752,7 @@ class PostNsop(View):
                 pallet_items=items,
                 maersk_quotes=carrier_results.get("maersk", {}),
                 kakas_quotes=carrier_results.get("kakas", {}),
+                kakas_request_payload=kakas_payload,
                 abf_quotes=carrier_results.get("abf", {}),
                 operator_id=request.user.pk if request.user.is_authenticated else None,
             )

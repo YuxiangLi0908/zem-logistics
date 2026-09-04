@@ -13,6 +13,7 @@ class MultiCarrierQuoteHistory(models.Model):
     pallet_items = models.JSONField(default=list, verbose_name="板子明细")
     maersk_quotes = models.JSONField(default=dict, blank=True, verbose_name="马士基报价")
     kakas_quotes = models.JSONField(default=dict, blank=True, verbose_name="卡卡省报价")
+    kakas_request_payload = models.JSONField(default=dict, blank=True, verbose_name="卡卡省询价请求体")
     abf_quotes = models.JSONField(default=dict, blank=True, verbose_name="ABF报价")
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -18,6 +18,7 @@
     }
     .quote-history-title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.4px; }
     .quote-history-subtitle { margin: 7px 0 0; color: #7b8799; font-size: 13px; }
+    .quote-history-actions { display: flex; align-items: center; gap: 10px; }
     .quote-history-count {
         padding: 7px 12px;
         border: 1px solid #dbe3ec;
@@ -49,7 +50,7 @@
         border-radius: 8px;
         box-shadow: 0 3px 10px rgba(0, 0, 0, .08);
     }
-    .quote-history-table { width: 100%; min-width: 1750px; margin: 0; border-collapse: collapse; font-size: 15px; }
+    .quote-history-table { width: 100%; min-width: 2050px; margin: 0; border-collapse: collapse; font-size: 15px; }
     .quote-history-table thead th {
         position: sticky;
         top: 0;
@@ -107,9 +108,9 @@
     .quote-history-table tbody tr:nth-child(even) { background-color: #f9fafb; }
     .quote-history-table tbody tr:hover { background-color: #edf2f7; }
     .quote-history-table tbody tr:last-child td { border-bottom: 0; }
-    .quote-history-table tbody td:nth-child(12) { background: rgba(237, 245, 255, .42); }
-    .quote-history-table tbody td:nth-child(13) { background: rgba(255, 247, 232, .42); }
-    .quote-history-table tbody td:nth-child(14) { background: rgba(241, 248, 238, .46); }
+    .quote-history-table tbody td:nth-child(13) { background: rgba(237, 245, 255, .42); }
+    .quote-history-table tbody td:nth-child(14) { background: rgba(255, 247, 232, .42); }
+    .quote-history-table tbody td:nth-child(15) { background: rgba(241, 248, 238, .46); }
     .record-id { color: #003f7d; font-weight: 750; }
     .quote-time { min-width: 105px; line-height: 1.45; text-align: center; }
     .quote-time-date { color: #334155; font-weight: 650; }
@@ -125,6 +126,18 @@
         font-weight: 700;
     }
     .quote-history-table .items-cell, .quote-history-table .price-cell { white-space: normal; min-width: 205px; }
+    .request-payload-cell { min-width: 280px; max-width: 380px; }
+    .request-payload-preview {
+        display: block;
+        max-width: 340px;
+        overflow-wrap: anywhere;
+        color: #64748b;
+        font-family: Consolas, Monaco, monospace;
+        font-size: 12px;
+        line-height: 1.55;
+        white-space: normal;
+    }
+    .copy-payload-btn { display: block; margin-bottom: 8px; padding: 4px 10px; font-size: 12px; white-space: nowrap; }
     .items-cell > div { margin-bottom: 6px; color: #5b6678; line-height: 1.5; }
     .quote-price-row {
         display: flex;
@@ -148,7 +161,12 @@
             <h1 class="quote-history-title">三方询价历史</h1>
             <p class="quote-history-subtitle">集中查看每次询价条件、货物明细与承运商报价</p>
         </div>
-        <span class="quote-history-count">共 {{ histories|length }} 条记录</span>
+        <div class="quote-history-actions">
+            <span class="quote-history-count">共 {{ histories|length }} 条记录</span>
+            <button type="button" class="btn btn-primary" id="refreshQuoteHistoryButton">
+                <i class="fas fa-search"></i> 重新查询
+            </button>
+        </div>
     </div>
     <div class="quote-history-card">
       <div class="quote-history-table-wrap">
@@ -157,10 +175,10 @@
                 <tr>
                     <th>ID</th><th>询价时间</th><th>询价人</th><th>发货仓库</th><th>收货仓点</th>
                     <th>取件日期</th><th>运输类型</th><th>FTL车型</th><th>Freight Class</th><th>申报价值</th>
-                    <th>板子明细</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th>
+                    <th>板子明细</th><th>卡卡省请求体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th>
                 </tr>
                 <tr class="search-row">
-                    {% for index in "01234567890123" %}
+                    {% for index in "012345678901234" %}
                     <th><input class="quote-history-search" data-column="{{ forloop.counter0 }}" placeholder="搜索"></th>
                     {% endfor %}
                 </tr>
@@ -183,6 +201,15 @@
                         <div>{{ item.pieces }}件，{{ item.palletCount|default:1 }}板，{{ item.length }}×{{ item.width }}×{{ item.height }} in，{{ item.weight }} lb</div>
                         {% empty %}-{% endfor %}
                     </td>
+                    <td class="request-payload-cell">
+                        {% if history.kakas_request_payload %}
+                        <button type="button" class="btn btn-outline-primary copy-payload-btn">
+                            <i class="fas fa-copy"></i> 一键复制
+                        </button>
+                        <span class="request-payload-preview"></span>
+                        <textarea class="request-payload-source" hidden readonly>{{ history.kakas_request_payload_json }}</textarea>
+                        {% else %}-{% endif %}
+                    </td>
                     <td class="price-cell">
                         {% for row in history.maersk_price_rows %}
                         <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
@@ -200,7 +227,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="14" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
+                <tr><td colspan="15" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -213,6 +240,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const table = document.getElementById('multiCarrierQuoteHistoryTable');
     const inputs = Array.from(table.querySelectorAll('.quote-history-search'));
     const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const refreshButton = document.getElementById('refreshQuoteHistoryButton');
+    refreshButton.addEventListener('click', function () {
+        refreshButton.disabled = true;
+        refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查询中...';
+        window.location.reload();
+    });
     function filterRows() {
         rows.forEach(row => {
             const cells = row.querySelectorAll('td');
@@ -224,6 +257,37 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     inputs.forEach(input => input.addEventListener('input', filterRows));
+
+    table.querySelectorAll('.copy-payload-btn').forEach(button => {
+        const source = button.parentElement.querySelector('.request-payload-source');
+        const payloadText = source ? source.value : '';
+        const preview = button.parentElement.querySelector('.request-payload-preview');
+        if (preview) {
+            preview.textContent = payloadText;
+            preview.title = payloadText;
+        }
+        button.addEventListener('click', async function () {
+            try {
+                await navigator.clipboard.writeText(payloadText);
+            } catch (error) {
+                const textarea = document.createElement('textarea');
+                textarea.value = payloadText;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                textarea.remove();
+            }
+            const originalHtml = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> 已复制';
+            button.classList.replace('btn-outline-primary', 'btn-success');
+            setTimeout(() => {
+                button.innerHTML = originalHtml;
+                button.classList.replace('btn-success', 'btn-outline-primary');
+            }, 1500);
+        });
+    });
 });
 </script>
 {% endblock %}
