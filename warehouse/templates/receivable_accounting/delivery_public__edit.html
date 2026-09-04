@@ -1157,6 +1157,17 @@
         color: #0369a1;
         font-weight: 600;
     }
+    .pallet-rule-tip {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-left: 3px solid #38bdf8;
+        border-radius: 4px;
+        background: #f0f9ff;
+        color: #475569;
+        font-size: 0.82rem;
+        line-height: 1.65;
+    }
+    .pallet-rule-tip strong { color: #075985; }
     .btn-change-order-type {
         margin-left: 10px;
         padding: 6px 16px;
@@ -1368,6 +1379,13 @@
                     {% if order_type == '转运' %}
                         <!-- 原本就是转运单 -->
                         <strong>类型:</strong> <span class="info-highlight">转运</span>
+                        <span class="divider-line"></span>
+                        <strong>每板CBM:</strong> <span class="info-highlight">{{ cbm_per_pl|default:"-" }}</span>
+                        <div class="pallet-rule-tip">
+                            <strong>板数计算规则：</strong>先用总 CBM ÷ 每板 CBM。结果为整数时按实际板数；存在小数时：<br>
+                            新规（ETD ≥ 2025-04-01，LA 除外）：冷门仓点小数不超过 0.5 按 0.5 板、超过 0.5 按 1 板；热门仓点小数不超过 0.5 不计、超过 0.5 按 1 板。<br>
+                            旧规（ETD ＜ 2025-04-01，或 LA 仓）：冷门仓点有小数即按 1 板；热门仓点小数不超过 0.9 按 0.5 板、超过 0.9 按 1 板。
+                        </div>
 
                     {% elif order_type == '转运组合' %}
                         <form method="post" action="" class="order-type-form">
