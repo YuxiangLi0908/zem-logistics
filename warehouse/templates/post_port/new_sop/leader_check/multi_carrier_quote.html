@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setOrigin(name) {
         const address = warehouses.find(item => item.warehouse === name) || {};
-        document.getElementById('quote_origin_type').value = String(address.type || 3);
+        document.getElementById('quote_origin_type').value = '1';
         document.getElementById('quote_origin_address').value = address.detailAddress || '';
         document.getElementById('quote_origin_city').value = address.city || '';
         document.getElementById('quote_origin_state').value = address.state || '';

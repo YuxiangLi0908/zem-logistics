@@ -95,7 +95,7 @@
             multi_origin_city: address?.city || '',
             multi_origin_state: address?.state || '',
             multi_origin_zip: address?.postCode || '',
-            multi_origin_type: String(address?.type || 3)
+            multi_origin_type: '1'
         };
         Object.entries(fields).forEach(([id, value]) => {
             const element = document.getElementById(id);
