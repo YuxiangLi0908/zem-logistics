@@ -170,6 +170,20 @@
                                             <input type="hidden" name="storehouse" value="{{ storehouse }}">
                                             <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
                                             <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="n_label" value="1">
+                                            <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
+                                                <small>打印托盘标(1张)</small>
+                                                <i class="bi bi-cloud-arrow-down-fill"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="status" value="non_palletized">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                            <input type="hidden" name="storehouse" value="{{ storehouse }}">
+                                            <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                             <input type="hidden" name="n_label" value="3">
                                             <button type="submit" class="btn btn-success" style="font-size: 12px; padding: 4px 6px; border-radius: 4px;">
                                                 <small>托盘标(3张)</small>
