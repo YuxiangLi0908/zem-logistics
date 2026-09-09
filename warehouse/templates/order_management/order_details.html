@@ -359,6 +359,11 @@
         </div>
 
         <div style="overflow-x: auto; table-layout: fixed;">
+            <div role="note" style="margin: 10px 0; padding: 10px 12px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; color: #856404; font-size: 13px; line-height: 1.6;">
+                <strong>Packing List 更新提示：</strong><br>
+                <strong>拆柜前：</strong>修改任意 Packing List 信息时，请勾选本柜全部记录后统一更新，避免影响拆柜录入。<br>
+                <strong>拆柜后：</strong>请仅勾选需要修改的记录进行更新，避免影响已拿约数据。
+            </div>
             <form method="post" id="packing-list-form" action="">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="update_order_packing_list_info_v1">
