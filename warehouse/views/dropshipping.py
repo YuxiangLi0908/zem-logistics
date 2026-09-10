@@ -2347,10 +2347,18 @@ class Dropshipping(View):
             )
             .order_by("offload_id__offload_at")
         )
+        orders_empty_report = []
+        orders_empty_return = []
+        for order in orders_palletized:
+            if order.retrieval_id.retrieval_carrier == "客户自送":
+                orders_empty_report.append(order)
+            else:
+                orders_empty_return.append(order)
         context = {
+            "orders_empty_report": orders_empty_report,
             "orders_pickup_scheduled": orders_pickup_scheduled,
             "orders_at_warehouse": orders_at_warehouse,
-            "orders_palletized": orders_palletized,
+            "orders_palletized": orders_empty_return,
             "current_date": current_date,
             "page_title": "货柜追踪提醒",
         }
