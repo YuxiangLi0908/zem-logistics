@@ -1,0 +1,45 @@
+.tracking-page { color: #26364a; font-size: 13px; }
+.tracking-page * { box-sizing: border-box; }
+.tracking-page > div:first-child { margin-bottom: 16px; font-size: 18px; }
+.tracking-card { width: 100%; margin-bottom: 16px; padding: 18px 20px; background: #fff; border: 1px solid #e0e6ed; border-radius: 10px; box-shadow: 0 2px 5px #21375405; }
+.tracking-stages, .tracking-empty-stages { display: block; width: 100%; min-width: 0; }
+.tracking-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.tracking-panel-title { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.tracking-panel-title::before { content: ''; width: 4px; height: 18px; background: #367bdb; border-radius: 3px; }
+.tracking-count { display: inline-flex; min-width: 25px; height: 23px; justify-content: center; align-items: center; padding: 0 7px; border-radius: 6px; background: #edf3fb; color: #326cb8; font-size: 12px; font-weight: 600; }
+.tracking-panel-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tracking-page label { margin-bottom: 0; white-space: nowrap; color: #65758a; font-size: 12px !important; }
+.tracking-page input[type='datetime-local'], .tracking-page input[type='text'] { height: 32px; padding: 5px 9px; border: 1px solid #d7dfe9; border-radius: 5px; background: #fff; color: #36465b; font-size: 12px !important; margin-right: 0 !important; }
+.tracking-page input[type='datetime-local'] { width: 190px; }
+.tracking-page input[type='text'] { width: 220px; }
+.tracking-page input:focus { outline: 2px solid #c4dcfa; outline-offset: 1px; }
+.tracking-page input[type='checkbox'] { accent-color: #367bdb; width: 14px; height: 14px; cursor: pointer; }
+.tracking-page .btn { height: 32px !important; padding: 5px 14px !important; border: 1px solid transparent; border-radius: 5px; font-size: 12px !important; line-height: 20px; cursor: pointer; white-space: nowrap; }
+.tracking-page .btn-success { background: #2874d0; color: #fff; }
+.tracking-page .btn-success:hover { background: #1e60b1; }
+.tracking-page .btn-primary { background: #edf4ff; color: #2469bd; border-color: #d5e5fb; margin-left: 0 !important; }
+.tracking-page .btn-primary:hover { background: #dceaff; }
+.tracking-search { padding: 12px 0; }
+.tracking-table-scroll, .tracking-card > div[style*='overflow-x'] { overflow: auto !important; max-height: 310px !important; }
+.tracking-page .table { width: 100%; min-width: 850px; margin: 0; border-collapse: separate; border-spacing: 0; font-size: 12px !important; }
+.tracking-page .table .th, .tracking-page .table .td { padding: 10px 12px; border: 0; border-bottom: 1px solid #edf0f4; text-align: left; vertical-align: middle; white-space: nowrap; }
+.tracking-page .table .th { background: #f3f6fa; color: #63738a; font-weight: 500; height: 39px; }
+.tracking-page .table thead tr { position: static !important; }
+.tracking-page .table thead { position: sticky; top: 0; z-index: 1; }
+.tracking-page .table tbody tr:hover { background: #f8fbff; }
+.tracking-page .single-form { display: flex; align-items: center; gap: 8px; margin: 0; }
+.tracking-page .tr-status-red, .tracking-page .tr-status-red .td { background: #fff1f0; color: #b54444; }
+.tracking-page .tr-status-yellow, .tracking-page .tr-status-yellow .td { background: #fffae9; color: #8e6e24; }
+.tracking-page .tracking-empty-row .td { text-align: center; color: #8b98aa; height: 58px; }
+.tracking-offload .table { min-width: 500px; }
+.tracking-card:has(.tracking-empty-row) .tracking-search,
+.tracking-card:has(.tracking-empty-row) thead { display: none; }
+.tracking-card:has(.tracking-empty-row) .table { min-width: 0; }
+.tracking-card:has(.tracking-empty-row) .tracking-empty-row .td { height: 40px; padding-bottom: 0; border-bottom: 0; }
+.tracking-card:has(.tracking-empty-row) .tracking-panel-actions { opacity: .55; }
+.tracking-arrival > div:first-child b, .tracking-offload > div:first-child b { background: transparent !important; color: #26364a !important; font-size: 15px !important; padding: 0 !important; }
+.tracking-arrival > div[style*='overflow-x'] > div[style*='background'] { background: transparent !important; padding: 12px 0 0 !important; margin-bottom: 0 !important; }
+@media (max-width: 800px) {
+    .tracking-card { padding: 14px 12px; }
+    .tracking-panel-actions { width: 100%; }
+}
