@@ -1,16 +1,13 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/dropshipping_tracking.css' %}">
+<div class="tracking-page">
 <div style="max-height: 100%; max-width: 100%;">
     <div><b>货柜状态追踪</b></div>
 </div>
-<div style="height: 400px; max-height: 400px; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%;">
-    <div style="display: flex;">
-        <div style="width: 60%;">
-            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                确认到仓 - {{ orders_pickup_scheduled|length }}
-            </b>
-        </div>
-    </div>
+<div class="tracking-card tracking-arrival">
+    <div class="tracking-panel-header"><div class="tracking-panel-title"><b>确认到仓</b><span class="tracking-count">{{ orders_pickup_scheduled|length }}</span></div></div>
     <div style="overflow-x: scroll; overflow-y: scroll; max-height: 90%;">
     <!-- 批量操作区域：全选 + 统一时间 + 批量按钮 -->
     <div style="margin-bottom: 10px; padding: 5px; background: #f5f5f5;">
@@ -23,6 +20,7 @@
         </button>
     </div>
 
+    <div class="tracking-search"><input type="text" id="ctnSearch1" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></div>
     <table class="table" id="pickup-schedule-table" style="font-size: 11px; overflow-y: scroll; max-height: 90%;">
         <thead>
             <tr style="position: sticky; top: 0;">
@@ -36,19 +34,7 @@
                 <th class="th">到仓时间</th>
                 <th class="th">优先级</th>
             </tr>
-            <tr style="position: sticky; top: 20px;">
-                <th class="th"></th>
-                <th class="th">
-                    <input type="text" id="ctnSearch1" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
-                </th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-            </tr>
+
         </thead>
         <tbody>
             {% for o in orders_pickup_scheduled%}
@@ -89,30 +75,19 @@
 </form>
 </div>
 
-<div style="display: flex;">
-    <div style="height: 350px; max-height: 350px; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
-        <div style="display: flex;">
-            <div style="width: 60%;">
-                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                    确认拆柜 - {{ orders_at_warehouse|length }}
-                </b>
-            </div>
-        </div>
+<div class="tracking-stages">
+    <div class="tracking-card tracking-offload">
+        <div class="tracking-panel-header"><div class="tracking-panel-title"><b>确认拆柜</b><span class="tracking-count">{{ orders_at_warehouse|length }}</span></div></div>
         <div style="overflow-x: scroll; overflow-y: scroll; max-height: 90%;">
-            <table class="table" id="orders-at-warehouse-table" style="font-size: 11px; max-height: 90%;">
+            <div class="tracking-search"><input type="text" id="ctnSearch2" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;"></div>
+    <table class="table" id="orders-at-warehouse-table" style="font-size: 11px; max-height: 90%;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
                         <th class="th">柜号</th>
                         <th class="th">仓库</th>
                         <th class="th">到仓时间</th>
                     </tr>
-                    <tr style="position: sticky; top: 28px;">
-                        <th class="th">
-                            <input type="text" id="ctnSearch2" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
-                        </th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                    </tr>
+
                 </thead>
                 <tbody>
                     {% for o in orders_at_warehouse%}
@@ -121,6 +96,8 @@
                         <td class="td">{{ o.warehouse.name }}</td>
                         <td class="td">{{ o.retrieval_id.arrive_at|date:'M-j' }}</td>
                     </tr>
+                    {% empty %}
+                    <tr class="tracking-empty-row"><td class="td" colspan="3">暂无待拆柜货柜</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -128,12 +105,13 @@
     </div>
 
 
-    <div style="width: 70%; min-width: 0;">
+    <div class="tracking-empty-stages">
         {% include 'dropshipping/empty_confirmation_panel.html' with orders=orders_palletized title="确认还空" time_label="还柜时间" panel_id="empty-return" %}
         {% include 'dropshipping/empty_confirmation_panel.html' with orders=orders_empty_report title="确认报空" time_label="报空时间" panel_id="empty-report" %}
     </div>
 </div>
 
+</div>
 <script>
     // 页面加载时初始化所有行的可见状态为true
     document.addEventListener('DOMContentLoaded', function() {
@@ -149,11 +127,12 @@
 
     function filterTable(filterInput, col_idx, trim) {
         const searchKeywords = filterInput.value.trim().split(/\s+/).filter(keyword => keyword);
-        const table = filterInput.closest('table');
+        const table = filterInput.closest('table') || filterInput.closest('.tracking-card').querySelector('table');
         if (!table) return;
         const rows = table.querySelectorAll('tbody tr');
 
         rows.forEach(row => {
+            if (row.classList.contains('tracking-empty-row')) return;
             const targetCell = row.cells[col_idx];
             if (!targetCell) {
                 row.style.display = 'none';

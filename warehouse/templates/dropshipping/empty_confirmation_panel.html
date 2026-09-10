@@ -1,11 +1,9 @@
-    <div class="empty-confirm-panel" data-time-label="{{ time_label }}" style="height: 350px; max-height: 350px; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
-        <div style="display: flex;">
-            <div style="width: 60%;">
-                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                    {{ title }} - {{ orders|length }}
-                </b>
+    <div class="tracking-card empty-confirm-panel" data-time-label="{{ time_label }}">
+        <div class="tracking-panel-header">
+            <div class="tracking-panel-title">
+                <b>{{ title }}</b><span class="tracking-count">{{ orders|length }}</span>
             </div>
-            <div style="width: 40%; text-align: right;">
+            <div class="tracking-panel-actions">
                 <label style="font-size: 11px; margin-right: 10px;">
                     <input type="checkbox" class="empty-select-all" id="{{ panel_id }}-select-all" style="vertical-align: middle;"> 全选
                 </label>
@@ -15,7 +13,8 @@
                 </button>
             </div>
         </div>
-        <div style="overflow-x: scroll; overflow-y: scroll; max-height: 90%;">
+        <div class="tracking-search"><input type="text" id="{{ panel_id }}-search" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></div>
+        <div class="tracking-table-scroll">
             <table class="table" id="{{ panel_id }}-table" style="font-size: 11px; max-height: 90%;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
@@ -28,18 +27,7 @@
                         <th class="th">{{ time_label }}</th>
                         <th class="th">优先级</th>
                     </tr>
-                    <tr style="position: sticky; top: 28px;">
-                        <th class="th"></th>
-                        <th class="th">
-                            <input type="text" id="{{ panel_id }}-search" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
-                        </th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                    </tr>
+
                 </thead>
                 <tbody>
                     {% for o in orders%}
@@ -65,6 +53,8 @@
                             </td>
                             <td class="td">{{ o.unpacking_priority }}</td>
                         </tr>
+                    {% empty %}
+                        <tr class="tracking-empty-row"><td class="td" colspan="8">暂无待处理货柜</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
