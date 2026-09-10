@@ -869,7 +869,7 @@
                         <th class="th">预约时间</th>
                         <th class="th">实际提柜时间</th>
                         <th class="th">确认到仓时间</th>
-                        <th class="th">还空时间</th>
+                        <th class="th" id="empty-returned-at-label">{% if retrieval.retrieval_carrier == "客户自送" %}报空时间{% else %}还空时间{% endif %}</th>
                         <th class="th">提柜备注</th>
                     </tr>
                 </thead>
@@ -907,7 +907,7 @@
                             <input type="date" name="arrive_at" {%if retrieval %} value="{{ retrieval.arrive_at|date:'Y-m-d' }}"{% endif %}>
                         </td>
                         <td class="td">
-                            <input type="date" name="empty_returned_at" {%if retrieval %} value="{{ retrieval.empty_returned_at|date:'Y-m-d' }}"{% endif %}>
+                            <input type="date" name="empty_returned_at" aria-labelledby="empty-returned-at-label" {%if retrieval %} value="{{ retrieval.empty_returned_at|date:'Y-m-d' }}"{% endif %}>
                         </td>
                         <td class="td">
                             <input type="text" name="retrieval_note" {%if retrieval %} value="{{ retrieval.note }}"{% endif %} >
@@ -1101,6 +1101,17 @@
 
 </style>
 <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const carrierSelect = document.getElementById('retrieval-carrier-select');
+        const timeLabel = document.getElementById('empty-returned-at-label');
+        if (!carrierSelect || !timeLabel) return;
+        function updateEmptyTimeLabel() {
+            timeLabel.textContent = carrierSelect.value === '客户自送' ? '报空时间' : '还空时间';
+        }
+        carrierSelect.addEventListener('change', updateEmptyTimeLabel);
+        updateEmptyTimeLabel();
+    });
+
     function openAddPackingListModal() {
 
         document.getElementById(
