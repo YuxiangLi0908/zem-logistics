@@ -128,87 +128,12 @@
     </div>
 
 
-    <div style="height: 350px; max-height: 350px; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
-        <div style="display: flex;">
-            <div style="width: 60%;">
-                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                    确认还空 - {{ orders_palletized|length }}
-                </b>
-            </div>
-            <div style="width: 40%; text-align: right;">
-                <label style="font-size: 11px; margin-right: 10px;">
-                    <input type="checkbox" id="selectAllEmptyReturn" style="vertical-align: middle;"> 全选
-                </label>
-                <input type="datetime-local" id="batchEmptyReturnedAt" style="font-size: 11px; margin-right: 10px;" required>
-                <button id="batchEmptyReturnBtn" class="btn btn-success" style="height: 25px; font-size: 11px; padding: 0 10px;">
-                    批量确认
-                </button>
-            </div>
-        </div>
-        <div style="overflow-x: scroll; overflow-y: scroll; max-height: 90%;">
-            <table class="table" id="palletized-order-table" style="font-size: 11px; max-height: 90%;">
-                <thead>
-                    <tr style="position: sticky; top: 0;">
-                        <th class="th" style="width: 50px;">选择</th>
-                        <th class="th">柜号</th>
-                        <th class="th">目的地</th>
-                        <th class="th">到仓时间</th>
-                        <th class="th">拆柜时间</th>
-                        <th class="th">供应商</th>
-                        <th class="th">还柜时间</th>
-                        <th class="th">优先级</th>
-                    </tr>
-                    <tr style="position: sticky; top: 28px;">
-                        <th class="th"></th>
-                        <th class="th">
-                            <input type="text" id="ctnSearch3" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
-                        </th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for o in orders_palletized%}
-                    <form method="post" action="" style="width: 100%;" class="single-form">
-                        {% csrf_token %}
-                        <tr {% if o.offload_id.offload_status == "past_due" %}class="tr-status-red"{% endif %}>
-                            <td class="td">
-                                <input type="checkbox" name="emptyReturnContainerNumbers" value="{{ o.container_number.container_number }}" style="vertical-align: middle;">
-                            </td>
-                            <td class="td">{{ o.container_number.container_number }}</td>
-                            <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
-                            <td class="td">{{ o.retrieval_id.arrive_at|date:'M-j' }}</td>
-                            <td class="td">{{ o.offload_id.offload_at|date:'M-j' }}</td>
-                            <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
-                            <td class="td">
-                                <input type="datetime-local" name="empty_returned_at" style="font-size: 13px;" required>
-                                <input type="hidden" name="step" value="empty_return">
-                                <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
-                                <button id="empty-return-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
-                                    确认
-                                </button>
-                            </td>
-                            <td class="td">{{ o.unpacking_priority }}</td>
-                        </tr>
-                    </form>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div style="width: 70%; min-width: 0;">
+        {% include 'dropshipping/empty_confirmation_panel.html' with orders=orders_palletized title="确认还空" time_label="还柜时间" panel_id="empty-return" %}
+        {% include 'dropshipping/empty_confirmation_panel.html' with orders=orders_empty_report title="确认报空" time_label="报空时间" panel_id="empty-report" %}
     </div>
 </div>
 
-
-<form id="batchEmptyReturnForm" method="post" action="" style="display: none;">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="batch_empty_return">
-    <input type="hidden" name="batch_empty_returned_at" id="batchEmptyReturnedAtInput">
-    <input type="hidden" name="batch_container_numbers" id="batchEmptyReturnContainerNumbersInput">
-</form>
 <script>
     // 页面加载时初始化所有行的可见状态为true
     document.addEventListener('DOMContentLoaded', function() {
@@ -217,7 +142,7 @@
             row.dataset.visible = 'true';
         });
         // 初始化“确认还空”表格
-        document.querySelectorAll('#palletized-order-table tbody tr').forEach(row => {
+        document.querySelectorAll('.empty-confirm-panel tbody tr').forEach(row => {
             row.dataset.visible = 'true';
         });
     });
@@ -292,46 +217,36 @@
         });
     });
 
-    // 4. 「确认还空」全选功能（仅选中可见行）
-    document.getElementById('selectAllEmptyReturn').addEventListener('change', function (e) {
-        const visibleCheckboxes = document.querySelectorAll(
-            '#palletized-order-table tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]'
-        );
-        visibleCheckboxes.forEach(checkbox => {
-            checkbox.checked = e.target.checked;
+    // 两个确认区域独立选择和批量提交，共用还柜时间字段。
+    document.querySelectorAll('.empty-confirm-panel').forEach(panel => {
+        panel.querySelector('.empty-select-all').addEventListener('change', function () {
+            panel.querySelectorAll('tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]')
+                .forEach(checkbox => { checkbox.checked = this.checked; });
         });
-    });
-
-    // 5. 「确认还空」批量提交
-    document.getElementById('batchEmptyReturnBtn').addEventListener('click', function () {
-        const checkedBoxes = document.querySelectorAll(
-            '#palletized-order-table tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]:checked'
-        );
-        if (checkedBoxes.length === 0) {
-            alert('请先选择需要批量更新的柜号！');
-            return;
-        }
-        const containerNumbers = Array.from(checkedBoxes).map(box => box.value);
-        const batchEmptyReturnedAt = document.getElementById('batchEmptyReturnedAt').value;
-        if (!batchEmptyReturnedAt) {
-            alert('请选择批量更新的还柜时间！');
-            return;
-        }
-        const batchForm = document.getElementById('batchEmptyReturnForm');
-        document.getElementById('batchEmptyReturnedAtInput').value = batchEmptyReturnedAt;
-        document.getElementById('batchEmptyReturnContainerNumbersInput').value = containerNumbers.join(',');
-        batchForm.submit();
-    });
-
-    // 6. 「确认还空」行点击选中优化
-    document.querySelectorAll('#palletized-order-table tbody tr').forEach(tr => {
-        tr.addEventListener('click', function (e) {
-            if (e.target.tagName !== 'INPUT' || e.target.name !== 'emptyReturnContainerNumbers') {
-                const checkbox = this.querySelector('input[name="emptyReturnContainerNumbers"]');
-                if (checkbox && this.dataset.visible === 'true') {
-                    checkbox.checked = !checkbox.checked;
-                }
+        panel.querySelector('.empty-batch-submit').addEventListener('click', function () {
+            const checkedBoxes = panel.querySelectorAll(
+                'tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]:checked'
+            );
+            if (!checkedBoxes.length) {
+                alert('请先选择需要批量更新的柜号！');
+                return;
             }
+            const time = panel.querySelector('.empty-batch-time').value;
+            if (!time) {
+                alert('请选择批量更新的' + panel.dataset.timeLabel + '！');
+                return;
+            }
+            const form = panel.querySelector('.empty-batch-form');
+            form.elements.batch_empty_returned_at.value = time;
+            form.elements.batch_container_numbers.value = Array.from(checkedBoxes, box => box.value).join(',');
+            form.submit();
+        });
+        panel.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', function (event) {
+                if (event.target.closest('input, button, label, a, select, textarea')) return;
+                const checkbox = this.querySelector('input[name="emptyReturnContainerNumbers"]');
+                if (checkbox && this.dataset.visible === 'true') checkbox.checked = !checkbox.checked;
+            });
         });
     });
 </script>
