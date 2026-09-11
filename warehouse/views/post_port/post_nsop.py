@@ -57,6 +57,7 @@ from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.shipment_bindlog import ShipmentBindingLog
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.config import app_config
+from warehouse.utils.kakas_polling import wait_for_kakas_quotes
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
 import asyncio
 import aiohttp
@@ -3730,25 +3731,9 @@ class PostNsop(View):
 
                 quote_uuid = find_uuid(kakas_body)
                 if quote_uuid:
-                    for _ in range(8):
-                        async with session.get(
-                            f"{gateway_base}/rating",
-                            params={"carrier": "kakas", "uuid": quote_uuid},
-                            headers=headers,
-                        ) as quote_response:
-                            quote_response_text = await quote_response.text()
-                            try:
-                                kakas_response_payload = json.loads(quote_response_text)
-                            except json.JSONDecodeError:
-                                kakas_response_payload = quote_response_text
-                            if quote_response.status != 200:
-                                break
-                            quote_data = await quote_response.json()
-                            kakas_result["data"] = quote_data
-                            quote_content = quote_data.get("data", quote_data) if isinstance(quote_data, dict) else {}
-                            if quote_content.get("finish") or quote_content.get("rates"):
-                                break
-                        await asyncio.sleep(1)
+                    kakas_response_payload = await wait_for_kakas_quotes(
+                        session, f"{gateway_base}/rating", headers, quote_uuid, kakas_result
+                    )
 
             result.setdefault("freightClasses", freight_classes)
             carrier_results = result.get("results", {})
