@@ -372,6 +372,9 @@ class PostNsop(View):
                 history.kakas_request_payload_json = json.dumps(
                     history.kakas_request_payload, ensure_ascii=False, separators=(",", ":")
                 )
+                history.kakas_response_payload_json = json.dumps(
+                    history.kakas_response_payload, ensure_ascii=False, separators=(",", ":")
+                )
             return render(request, self.template_multi_carrier_quote_history, {"histories": histories})
         elif step == "system_parameter_add":
             context = await self._get_system_parameter_context(request)
@@ -3713,6 +3716,7 @@ class PostNsop(View):
                         await asyncio.sleep(attempt + 1)
 
                 kakas_result = result.get("results", {}).get("kakas", {})
+                kakas_response_payload = kakas_result.get("data", kakas_result)
                 kakas_body = kakas_result.get("data") if kakas_result.get("status") == "success" else None
 
                 def find_uuid(value):
@@ -3732,6 +3736,11 @@ class PostNsop(View):
                             params={"carrier": "kakas", "uuid": quote_uuid},
                             headers=headers,
                         ) as quote_response:
+                            quote_response_text = await quote_response.text()
+                            try:
+                                kakas_response_payload = json.loads(quote_response_text)
+                            except json.JSONDecodeError:
+                                kakas_response_payload = quote_response_text
                             if quote_response.status != 200:
                                 break
                             quote_data = await quote_response.json()
@@ -3761,6 +3770,7 @@ class PostNsop(View):
                 maersk_quotes=carrier_results.get("maersk", {}),
                 kakas_quotes=carrier_results.get("kakas", {}),
                 kakas_request_payload=kakas_payload,
+                kakas_response_payload=kakas_response_payload,
                 abf_quotes=carrier_results.get("abf", {}),
                 operator_id=request.user.pk if request.user.is_authenticated else None,
             )

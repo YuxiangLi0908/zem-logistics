@@ -50,7 +50,7 @@
         border-radius: 8px;
         box-shadow: 0 3px 10px rgba(0, 0, 0, .08);
     }
-    .quote-history-table { width: 100%; min-width: 2050px; margin: 0; border-collapse: collapse; font-size: 15px; }
+    .quote-history-table { width: 100%; min-width: 2330px; margin: 0; border-collapse: collapse; font-size: 15px; }
     .quote-history-table thead th {
         position: sticky;
         top: 0;
@@ -108,9 +108,9 @@
     .quote-history-table tbody tr:nth-child(even) { background-color: #f9fafb; }
     .quote-history-table tbody tr:hover { background-color: #edf2f7; }
     .quote-history-table tbody tr:last-child td { border-bottom: 0; }
-    .quote-history-table tbody td:nth-child(13) { background: rgba(237, 245, 255, .42); }
-    .quote-history-table tbody td:nth-child(14) { background: rgba(255, 247, 232, .42); }
-    .quote-history-table tbody td:nth-child(15) { background: rgba(241, 248, 238, .46); }
+    .quote-history-table tbody td:nth-child(14) { background: rgba(237, 245, 255, .42); }
+    .quote-history-table tbody td:nth-child(15) { background: rgba(255, 247, 232, .42); }
+    .quote-history-table tbody td:nth-child(16) { background: rgba(241, 248, 238, .46); }
     .record-id { color: #003f7d; font-weight: 750; }
     .quote-time { min-width: 105px; line-height: 1.45; text-align: center; }
     .quote-time-date { color: #334155; font-weight: 650; }
@@ -175,10 +175,10 @@
                 <tr>
                     <th>ID</th><th>询价时间</th><th>询价人</th><th>发货仓库</th><th>收货仓点</th>
                     <th>取件日期</th><th>运输类型</th><th>FTL车型</th><th>Freight Class</th><th>申报价值</th>
-                    <th>板子明细</th><th>卡卡省请求体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th>
+                    <th>板子明细</th><th>卡卡省请求体</th><th>卡卡省返回体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th>
                 </tr>
                 <tr class="search-row">
-                    {% for index in "012345678901234" %}
+                    {% for index in "0123456789012345" %}
                     <th><input class="quote-history-search" data-column="{{ forloop.counter0 }}" placeholder="搜索"></th>
                     {% endfor %}
                 </tr>
@@ -210,6 +210,15 @@
                         <textarea class="request-payload-source" hidden readonly>{{ history.kakas_request_payload_json }}</textarea>
                         {% else %}-{% endif %}
                     </td>
+                    <td class="request-payload-cell">
+                        {% if history.kakas_response_payload != None %}
+                        <button type="button" class="btn btn-outline-primary copy-payload-btn">
+                            <i class="fas fa-copy"></i> 一键复制
+                        </button>
+                        <span class="request-payload-preview"></span>
+                        <textarea class="request-payload-source" hidden readonly>{{ history.kakas_response_payload_json }}</textarea>
+                        {% else %}-{% endif %}
+                    </td>
                     <td class="price-cell">
                         {% for row in history.maersk_price_rows %}
                         <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
@@ -227,7 +236,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="15" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
+                <tr><td colspan="16" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
                 {% endfor %}
             </tbody>
         </table>
