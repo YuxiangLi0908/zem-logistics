@@ -127,6 +127,7 @@
     }
     .quote-history-table .items-cell, .quote-history-table .price-cell { white-space: normal; min-width: 205px; }
     .request-payload-cell { min-width: 280px; max-width: 380px; }
+    .quote-history-table .request-payload-source { display: none !important; }
     .request-payload-preview {
         display: block;
         max-width: 340px;
@@ -135,11 +136,15 @@
         font-family: Consolas, Monaco, monospace;
         font-size: 12px;
         line-height: 1.55;
+        height: 1.55em;
+        max-height: 1.55em;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     .request-payload-cell.is-expanded .request-payload-preview {
+        height: auto;
+        max-height: none;
         white-space: pre-wrap;
         overflow: visible;
         text-overflow: clip;
