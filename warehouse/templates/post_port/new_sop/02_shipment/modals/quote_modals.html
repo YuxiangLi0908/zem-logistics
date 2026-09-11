@@ -324,7 +324,7 @@
             const rows = card.rows.length
                 ? card.rows.map(r => `<div class="border rounded p-2 mb-2"><strong>${escapeMultiQuoteHtml(r.name)}</strong><span class="float-end multi-quote-price">${money(r.price)}</span>${r.serviceCode ? `<div class="small text-muted">服务代码：${escapeMultiQuoteHtml(r.serviceCode)}</div>` : ''}${r.days ? `<div class="small text-muted">预计 ${r.days} 天</div>` : ''}</div>`).join('')
                 : `<div class="alert alert-secondary mb-0">${card.name === 'ABF' ? '暂未接入' : escapeMultiQuoteHtml(card.state?.error || '暂未返回可用报价')}</div>`;
-            return `<div class="col-md-4"><div class="card h-100"><div class="card-header fw-bold">${card.name}</div><div class="card-body">${rows}</div></div></div>`;
+            return `<div class="col-md-4"><div class="card h-100"><div class="card-header fw-bold">${card.name}</div><div class="card-body">${card.state?.warning ? `<div class="alert alert-warning">${escapeMultiQuoteHtml(card.state.warning)}</div>` : ''}${rows}</div></div></div>`;
         }).join('')}</div>`;
     }
     
