@@ -135,9 +135,16 @@
         font-family: Consolas, Monaco, monospace;
         font-size: 12px;
         line-height: 1.55;
-        white-space: normal;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .copy-payload-btn { display: block; margin-bottom: 8px; padding: 4px 10px; font-size: 12px; white-space: nowrap; }
+    .request-payload-cell.is-expanded .request-payload-preview {
+        white-space: pre-wrap;
+        overflow: visible;
+        text-overflow: clip;
+    }
+    .copy-payload-btn, .toggle-payload-btn { display: inline-block; margin-bottom: 8px; padding: 4px 10px; font-size: 12px; white-space: nowrap; }
     .items-cell > div { margin-bottom: 6px; color: #5b6678; line-height: 1.5; }
     .quote-price-row {
         display: flex;
@@ -273,7 +280,17 @@ document.addEventListener('DOMContentLoaded', function () {
         const preview = button.parentElement.querySelector('.request-payload-preview');
         if (preview) {
             preview.textContent = payloadText;
-            preview.title = payloadText;
+            const toggleButton = document.createElement('button');
+            toggleButton.type = 'button';
+            toggleButton.className = 'btn btn-outline-secondary toggle-payload-btn';
+            toggleButton.textContent = '展开';
+            toggleButton.setAttribute('aria-expanded', 'false');
+            button.after(toggleButton);
+            toggleButton.addEventListener('click', function () {
+                const expanded = button.parentElement.classList.toggle('is-expanded');
+                toggleButton.textContent = expanded ? '收起' : '展开';
+                toggleButton.setAttribute('aria-expanded', String(expanded));
+            });
         }
         button.addEventListener('click', async function () {
             try {
