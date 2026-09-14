@@ -2274,6 +2274,10 @@ class ReceivableAccounting(View):
             invoice=invoice,
             invoice_type="receivable"
         )
+        # 一件代发跳过公仓仓库和公仓派送环节，直接设为已完成
+        if order.order_type == "一件代发":
+            invoice_status.warehouse_public_status = "completed"
+            invoice_status.delivery_public_status = "completed"
         invoice.save()
         invoice_status.save()
         return invoice, invoice_status
@@ -2491,6 +2495,14 @@ class ReceivableAccounting(View):
         status_obj.finance_status = "completed"
         if status_obj.preport_status == "pending_review":
             status_obj.preport_status = "completed"
+        # 一件代发：跳过公仓仓库和公仓派送环节，直接设为已完成
+        try:
+            _order = Order.objects.get(container_number=container)
+            if _order.order_type == "一件代发":
+                status_obj.warehouse_public_status = "completed"
+                status_obj.delivery_public_status = "completed"
+        except Order.DoesNotExist:
+            pass
         status_obj.save()
         #生成excel账单
         order = Order.objects.select_related("retrieval_id", "container_number").get(
@@ -2687,7 +2699,12 @@ class ReceivableAccounting(View):
             invoice_type="receivable"
         )
 
-        # 7.4 同步已完成的状态（避免重复确认）
+        # 7.4 一件代发跳过公仓仓库和公仓派送环节，直接设为已完成
+        if order.order_type == "一件代发":
+            invoice_status_receivable.warehouse_public_status = "completed"
+            invoice_status_receivable.delivery_public_status = "completed"
+
+        # 7.5 同步已完成的状态（避免重复确认）
         if completed_statuses['preport_status']:
             invoice_status_receivable.preport_status = "completed"
         if completed_statuses['warehouse_public_status']:
@@ -6263,9 +6280,7 @@ class ReceivableAccounting(View):
                                 'invoice_id__statement_id__statement_link': stmt_link,
                             })
                             previous_order_data_list.append(row_data)
-                        else:
-                            # 已完成但核销金额为0，仍归入待开（需展示）
-                            filtered_order_data_list.append(row_data)
+                        # else: remain_offset == 0，丢弃（和非一件代发一致）
                     else:
                         # 未完成，归入待开
                         filtered_order_data_list.append(row_data)
