@@ -689,10 +689,10 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选商品型号..." data-column="4" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-item-model-col" data-column="6">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选商品类型..." data-column="5" onkeyup="fleet_applyColumnFilter(this)">
+                        <textarea class="fleet-filter-input" rows="1" style="min-width: 180px; resize: vertical;" placeholder="多个商品类型用逗号或空格分隔" title="支持逗号、空格、分号或换行分隔，匹配任意商品类型" data-column="5" oninput="fleet_applyColumnFilter(this)"></textarea>
                     </td>
                     <td class="fleet-mark-col" data-column="7">
-                        <input type="text" class="fleet-filter-input" placeholder="筛选唛头..." data-column="6" onkeyup="fleet_applyColumnFilter(this)">
+                        <textarea class="fleet-filter-input" rows="1" style="min-width: 180px; resize: vertical;" placeholder="多个唛头用逗号或空格分隔" title="支持逗号、空格、分号或换行分隔，匹配任意唛头" data-column="6" oninput="fleet_applyColumnFilter(this)"></textarea>
                     </td>
                     <td data-column="8">
                         <input type="text" class="fleet-filter-input" placeholder="筛选地址..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
@@ -1262,7 +1262,10 @@
         // 组合筛选函数 - 双重匹配：先按td[data-column]查找，fallback用TR的data-*属性
         function fleet_applyCombinedFilter() {
             const rows = document.querySelectorAll('#fleet_cargoTable .fleet-data-row');
-            const containerFilters = (fleet_columnFilters[3] || '').split(/[\s,，;；、]+/).filter(Boolean);
+            const multiValueFilters = {};
+            [3, 5, 6].forEach(columnIndex => {
+                multiValueFilters[columnIndex] = (fleet_columnFilters[columnIndex] || '').split(/[\s,，;；、]+/).filter(Boolean);
+            });
             let visibleCount = 0;
             rows.forEach(row => {
                 if (row.classList.contains('fleet-filter-row')) return;
@@ -1320,8 +1323,9 @@
                         }
                     }
                     
-                    const cellMatches = idx === 3
-                        ? containerFilters.length === 0 || containerFilters.some(value => cellValue.includes(value))
+                    const filterValues = multiValueFilters[idx];
+                    const cellMatches = filterValues
+                        ? filterValues.length === 0 || filterValues.some(value => cellValue.includes(value))
                         : cellValue.includes(searchVal);
                     if (!foundCell || !cellMatches) {
                         match = false;

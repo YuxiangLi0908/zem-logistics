@@ -463,10 +463,10 @@
                         <input type="text" class="filter-input" placeholder="筛选商品型号..." data-column="3" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td data-column="5">
-                        <input type="text" class="filter-input" placeholder="筛选商品类型..." data-column="4" onkeyup="applyColumnFilter(this)">
+                        <textarea class="filter-input" rows="1" style="min-width: 180px; resize: vertical;" placeholder="多个商品类型用逗号或空格分隔" title="支持逗号、空格、分号或换行分隔，匹配任意商品类型" data-column="4" oninput="applyColumnFilter(this)"></textarea>
                     </td>
                     <td class="fleet-mark-col" data-column="6">
-                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="5" onkeyup="applyColumnFilter(this)">
+                        <textarea class="filter-input" rows="1" style="min-width: 180px; resize: vertical;" placeholder="多个唛头用逗号或空格分隔" title="支持逗号、空格、分号或换行分隔，匹配任意唛头" data-column="5" oninput="applyColumnFilter(this)"></textarea>
                     </td>
                     <td data-column="7">
                         <input type="text" class="filter-input" placeholder="筛选地址..." data-column="6" onkeyup="applyColumnFilter(this)">
@@ -718,7 +718,10 @@
         function applyCombinedFilter() {
 
             const rows = document.querySelectorAll('#unscheduled_cargoTable .data-row');
-            const containerFilters = (columnFilters[2] || '').split(/[\s,，;；、]+/).filter(Boolean);
+            const multiValueFilters = {};
+            [2, 4, 5].forEach(columnIndex => {
+                multiValueFilters[columnIndex] = (columnFilters[columnIndex] || '').split(/[\s,，;；、]+/).filter(Boolean);
+            });
             let visibleCount = 0;
             let hiddenCount = 0;
             
@@ -775,8 +778,9 @@
                             cellValue = isVerified ? '已核实' : '未核实';
                         }
                         
-                        const cellMatches = idx === 2
-                            ? containerFilters.length === 0 || containerFilters.some(value => cellValue.includes(value))
+                        const filterValues = multiValueFilters[idx];
+                        const cellMatches = filterValues
+                            ? filterValues.length === 0 || filterValues.some(value => cellValue.includes(value))
                             : cellValue.includes(filterValue.toLowerCase());
                         if (!cellMatches) {
                             match = false;
