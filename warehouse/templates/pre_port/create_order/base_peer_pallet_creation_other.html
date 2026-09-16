@@ -451,7 +451,7 @@
             </form>
         </div>
     </div>
-    <form method="post" action="">
+    <form method="post" action="" id="peer-order-form" onsubmit="event.preventDefault(); validateForm(this);">
         {% csrf_token %}
         <input type="hidden" name="step" value="peer_po_save_other">
         <div class="peer-main-content">
@@ -570,7 +570,10 @@
                                     <td style="min-width: 300px;"><textarea name="details" style="width: 100%; padding: 5px; resize: vertical;" oninput="this.style.height = ''; this.style.height = Math.max(30, this.scrollHeight) + 'px'">{{ o.details }}</textarea></td>
                                     <td><input type="text" name="total_cbm" style="width: 100%; padding: 5px;" value="{{ o.total_cbm }}"></td>
                                     <td><input type="text" name="total_pcs" style="width: 100%; padding: 5px;" value="{{ o.total_pcs }}"></td>
-                                    <td><input type="text" name="total_pallet" style="width: 100%; padding: 5px;" value="{{ o.total_pallet }}"></td>
+                                    <td>
+                                        <input type="text" name="total_pallet" inputmode="numeric" pattern="[0-9]+" required style="width: 100%; padding: 5px;" value="{{ o.total_pallet }}" aria-describedby="pallet-error-{{ forloop.counter }}" oninput="validatePalletInput(this)">
+                                        <span id="pallet-error-{{ forloop.counter }}" class="peer-pallet-error" style="color: #c62828; font-size: 12px;" role="alert" hidden>板数只能填写非负整数，不能输入小数。</span>
+                                    </td>
                                     <td><input type="text" name="total_weight" style="width: 100%; padding: 5px;" value="{{ o.total_weight }}"></td>
                                     <td><input type="text" name="total_weight_kg" style="width: 100%; padding: 5px;" value="{{ o.total_weight_kg }}"></td>
                                 </tr>
@@ -582,10 +585,10 @@
             </div>
             
             <div class="peer-action-buttons">
-                <button class="peer-btn peer-btn-cancel" onclick="clearForm()">
+                <button type="button" class="peer-btn peer-btn-cancel" onclick="clearForm()">
                     <i class="fas fa-times"></i>取消
                 </button>
-                <button class="peer-btn peer-btn-submit" onclick="validateForm()">
+                <button type="submit" class="peer-btn peer-btn-submit">
                     <i class="fas fa-check"></i>提交建单
                 </button>
             </div>
@@ -595,6 +598,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#peer-order-form input[name="total_pallet"]').forEach(validatePalletInput);
         const customerSelect = document.getElementById('customer_select');
         const containerInput = document.getElementById('container_number');
         
@@ -667,6 +671,15 @@
             closeModal();
         }
     }
+    function validatePalletInput(input) {
+        const isValid = input.value === '' || /^[0-9]+$/.test(input.value);
+        input.setCustomValidity(isValid ? '' : '板数只能填写非负整数，不能输入小数。');
+        input.setAttribute('aria-invalid', String(!isValid));
+        input.style.border = isValid ? '' : '2px solid red';
+        input.parentElement.querySelector('.peer-pallet-error').hidden = isValid;
+        return isValid;
+    }
+
     function clearForm() {
         document.querySelectorAll('input, select').forEach(el => {
             if (el.type === 'file') {
@@ -677,14 +690,20 @@
                 el.value = '';
             }
             el.style.border = ""; 
+            if (el.name === 'total_pallet') validatePalletInput(el);
         });
     }
 
-    function validateForm() {
+    function validateForm(form) {
         let isValid = true;
         let firstInvalid = null;
 
-        document.querySelectorAll('input, select').forEach(el => {
+        form.querySelectorAll('input, select').forEach(el => {
+            if (el.name === 'total_pallet' && !validatePalletInput(el)) {
+                isValid = false;
+                if (!firstInvalid) firstInvalid = el;
+                return;
+            }
             if (el.type === 'hidden' || el.name === 'csrfmiddlewaretoken' || el.type === 'file' || el.name === 'total_weight_kg') return;
 
             if (!el.value.trim()) {
@@ -711,7 +730,7 @@
             if (firstInvalid) firstInvalid.focus();
         } else {
             // 验证通过，提交表单
-            document.querySelector('form').submit();
+            form.submit();
         }
     }
 </script>
