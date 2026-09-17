@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'warehouse.response_delivery.LargePageResponseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -158,6 +159,25 @@ STATIC_ROOT = BASE_DIR / "static_root"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'response_delivery': {'format': '{asctime} {levelname} {name} {message}', 'style': '{'},
+    },
+    'handlers': {
+        'response_delivery': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'response_delivery',
+        },
+    },
+    'loggers': {
+        'warehouse.response_delivery': {
+            'handlers': ['response_delivery'], 'level': 'INFO', 'propagate': False,
+        },
+    },
+}
 
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
