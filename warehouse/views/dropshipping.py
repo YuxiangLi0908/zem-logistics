@@ -1005,6 +1005,7 @@ class Dropshipping(View):
         offload = order_selected.offload_id
         container = order_selected.container_number
         additional_pallets = request.POST.getlist("new_models")
+        abnormal_offloads = []
         if not offload.offload_at:
             offload_time = request.POST.get("offload_time")
             if not offload_time:
@@ -1039,7 +1040,6 @@ class Dropshipping(View):
             notes = [d for d in request.POST.getlist("notes")]
             po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
-            abnormal_offloads = []
             for (
                     n,
                     p_a,
@@ -1219,6 +1219,9 @@ class Dropshipping(View):
         )
         co.delivery_type = "一件代发"
         await sync_to_async(co.save, thread_sensitive=True)()
+
+        if abnormal_offloads:
+            return await self.handle_palletization_abnormal_get()
 
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
