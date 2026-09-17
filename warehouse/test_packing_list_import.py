@@ -112,6 +112,23 @@ class PackingListImportTests(SimpleTestCase):
         self.assertNotIn("已拆柜订单", html)
         self.assertIn("未获取到导入状态", html)
 
+    def test_unpacked_orders_keep_selected_rows_update_button(self):
+        request = RequestFactory().get("/")
+        request.user = AnonymousUser()
+        for area in ("order_management", "dropshipping"):
+            for unpacked in (False, True):
+                with self.subTest(area=area, unpacked=unpacked):
+                    order = self.make_order(Offload(id=1, offload_at="2026-09-17" if unpacked else None))
+                    html = render_to_string(f"{area}/order_details.html", {
+                        "selected_order": order,
+                        "can_import_packing_list": not unpacked,
+                    }, request=request)
+                    self.assertIn("更新选中PackingList信息", html)
+                    self.assertIn('form="packing-list-form"', html)
+                    self.assertIn('onclick="openAddPackingListModal();"', html)
+                    self.assertIn("删除选中行", html)
+                    self.assertEqual('value="upload_template"' in html, not unpacked)
+
     async def test_import_confirmation_builds_complete_replacement(self):
         for view_class, module, _, _, save_method in self.cases:
             with self.subTest(view=view_class.__name__):

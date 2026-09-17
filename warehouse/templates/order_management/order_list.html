@@ -8,11 +8,11 @@
         {% csrf_token %}
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <b style="min-width: 40px;">ETA:</b>
-            <input type="date" name="start_date_eta" value="{{ start_date_eta }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-            <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" name="start_date_eta" value="{{ start_date_eta }}" style="width: 150px; height: 35px; flex: 0 0 150px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="width: 150px; height: 35px; flex: 0 0 150px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
             <b style="min-width: 40px;">ETD:</b>
-            <input type="date" name="start_date_etd" value="{{ start_date_etd }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-            <input type="date" name="end_date_etd" value="{{ end_date_etd }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" name="start_date_etd" value="{{ start_date_etd }}" style="width: 150px; height: 35px; flex: 0 0 150px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" name="end_date_etd" value="{{ end_date_etd }}" style="width: 150px; height: 35px; flex: 0 0 150px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
             <input type="hidden" name="step" value="order_management_search">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 10px; border: none; border-radius: 4px; cursor: pointer;">查询</button>
         </div>
