@@ -98,7 +98,6 @@ class DropshipCargo (models.Model):
     # 备注
     note = models.TextField(null=True, blank=True, verbose_name="备注")
     class Meta:
-        unique_together = [['shipping_mark', 'order']]  # 同一订单下唛头唯一
         indexes = [
             models.Index(fields=['shipping_mark']),
             models.Index(fields=['order', 'shipping_mark']),
