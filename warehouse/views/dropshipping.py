@@ -42,6 +42,9 @@ from xhtml2pdf import pisa
 
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.packing_list_import import (
+    can_import_packing_list, replace_packing_list, validate_packing_list_import,
+)
 from django.utils import timezone
 
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -3196,6 +3199,16 @@ class Dropshipping(View):
     async def handle_update_order_retrieval_info_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        # 与港前 OCT 页保持相同的时间格式和时区；旧表单未传字段时保留原值。
+        if "planned_release_time" in request.POST:
+            release_time = request.POST.get("planned_release_time", "").strip()
+            try:
+                planned_release_time = (
+                    timezone.make_aware(datetime.strptime(release_time, "%Y-%m-%dT%H:%M"))
+                    if release_time else None
+                )
+            except ValueError:
+                return "error_template.html", {"error": "放行时间格式无效，应为 YYYY-MM-DDTHH:MM"}
         container_number = request.POST.get("container_number")
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             container_number__container_number=container_number
@@ -3239,6 +3252,8 @@ class Dropshipping(View):
         )
         if not empty_returned_at:
             retrieval.empty_returned = False
+        if "planned_release_time" in request.POST:
+            retrieval.planned_release_time = planned_release_time
         retrieval.note = request.POST.get("retrieval_note").strip()
         await sync_to_async(retrieval.save)()
         mutable_get = request.GET.copy()
@@ -3699,6 +3714,7 @@ class Dropshipping(View):
             "shipping_lines": SHIPPING_LINE_OPTIONS,
             "delivery_options": DROPSHIPPING_DELIVERY_METHOD_OPTIONS,
             "packing_list_upload_form": UploadFileForm(),
+            "can_import_packing_list": can_import_packing_list(offload),
             "order_type": self.order_type,
             "container_type": self.container_type,
             "customers": customers,
@@ -3797,7 +3813,15 @@ class Dropshipping(View):
     async def handle_upload_template_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        form = UploadFileForm(request.POST, request.FILES)
+        source = request.POST.get("source")
+        context = None
+        if source == "order_management":
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = request.POST.get("container_number")
+            request.GET = mutable_get
+            _, context = await self.handle_order_management_container_get(request)
+            validate_packing_list_import(context["selected_order"].offload_id)
+        form = UploadFileForm(request.POST, request.FILES, required=True)
         if form.is_valid():
             file = request.FILES["file"]
             df = pd.read_excel(file)
@@ -3832,13 +3856,7 @@ class Dropshipping(View):
             dropship_cargo = [DropshipCargo(**data) for data in pl_data]
         else:
             raise ValueError(f"invalid file format!")
-        source = request.POST.get("source")
         if source == "order_management":
-            container_number = request.POST.get("container_number")
-            mutable_get = request.GET.copy()
-            mutable_get["container_number"] = container_number
-            request.GET = mutable_get
-            _, context = await self.handle_order_management_container_get(request)
             context["dropship_cargo"] = dropship_cargo
             return self.template_order_details_pl, context
         else:
@@ -3886,6 +3904,8 @@ class Dropshipping(View):
         else:
             warehouse = None
         offload = order.offload_id
+        if request.POST.get("source") == "order_management" and "pl_id" not in request.POST:
+            validate_packing_list_import(offload)
         if (
                 offload.offload_at and "pl_id" in request.POST
         ):  # 打板后走更新逻辑
@@ -3950,11 +3970,6 @@ class Dropshipping(View):
             )
         else:
             # 没打板：删除旧数据，批量新建
-            await sync_to_async(
-                DropshipCargo.objects.filter(
-                    container__container_number=container_number
-                ).delete
-            )()
             # Generate PO_ID
             po_ids = []
             po_id_hash = {}
@@ -4072,7 +4087,10 @@ class Dropshipping(View):
                 for d in pl_data
             ]
 
-            await sync_to_async(bulk_create_with_history)(pl_to_create, DropshipCargo)
+            await sync_to_async(replace_packing_list)(
+                DropshipCargo.objects.filter(container__container_number=container_number),
+                pl_to_create,
+            )
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
 
