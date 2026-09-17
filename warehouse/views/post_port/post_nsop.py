@@ -1,4 +1,5 @@
 import string
+from time import perf_counter
 from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Tuple
 from django.db.models import Prefetch, F, Subquery, OuterRef, Exists, Min
@@ -53,6 +54,7 @@ from django.db.models import (
 )
 
 from warehouse.forms.packling_list_form import PackingListForm
+from warehouse.response_delivery import logger as response_delivery_logger
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.shipment_bindlog import ShipmentBindingLog
 from warehouse.models.warehouse import ZemWarehouse
@@ -241,13 +243,21 @@ class PostNsop(View):
             )}
             return await sync_to_async(render)(request, self.template_main_dash, context)
         elif step == "schedule_shipment":
+            started = perf_counter()
             context = {
                 "warehouse_options": await sync_to_async(list)(
                     ZemWarehouse.objects.order_by("name").values_list("name", "name")
                 ),
                 "zem_warehouse_addresses": await sync_to_async(SystemParameter.get_zem_warehouse_addresses)(),
             }
-            return render(request, self.template_td_shipment, context)
+            queried = perf_counter()
+            response = await sync_to_async(render)(request, self.template_td_shipment, context)
+            response_delivery_logger.info(
+                "schedule_shipment_rendered pid=%s context_ms=%.1f render_ms=%.1f bytes=%s",
+                os.getpid(), (queried - started) * 1000,
+                (perf_counter() - queried) * 1000, len(response.content),
+            )
+            return response
         elif step == "schedule_unshipment":
             context = {
                 "warehouse_options": await sync_to_async(list)(
