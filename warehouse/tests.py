@@ -32,6 +32,7 @@ class DropshippingUnpackTests(SimpleTestCase):
                 })
                 view = Dropshipping()
                 view.handle_warehouse_post_palletize = AsyncMock(return_value=("page", {}))
+                view.handle_palletization_abnormal_get = AsyncMock(return_value=("abnormal", {}))
                 with (
                     patch("warehouse.views.dropshipping.Order") as order_model,
                     patch("warehouse.views.dropshipping.Container") as container_model,
@@ -43,7 +44,7 @@ class DropshippingUnpackTests(SimpleTestCase):
                     order_model.objects.select_related.return_value.prefetch_related.return_value.get.return_value = order
                     container_model.objects.get.return_value = container
                     cargo_model.objects.filter.return_value = cargos
-                    await view.handle_packing_list_post(request, 1)
+                    result = await view.handle_packing_list_post(request, 1)
 
                     self.assertEqual([cargo.pcs for cargo in cargos], list(actual_counts))
                     self.assertEqual([cargo.pallets for cargo in cargos], [8, 10])
@@ -59,3 +60,11 @@ class DropshippingUnpackTests(SimpleTestCase):
                     )
                     for call in abnormal_model.call_args_list:
                         self.assertEqual(call.kwargs["delivery_type"], "一件代发")
+                    if expected:
+                        self.assertEqual(result, ("abnormal", {}))
+                        view.handle_palletization_abnormal_get.assert_awaited_once_with()
+                        view.handle_warehouse_post_palletize.assert_not_awaited()
+                    else:
+                        self.assertEqual(result, ("page", {}))
+                        view.handle_warehouse_post_palletize.assert_awaited_once_with(request)
+                        view.handle_palletization_abnormal_get.assert_not_awaited()
