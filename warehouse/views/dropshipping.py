@@ -1014,6 +1014,14 @@ class Dropshipping(View):
             n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
             pcs_actual = [int(n) for n in request.POST.getlist("pcs_actul")]
             pcs_reported = [int(d) for d in request.POST.getlist("pcs_reported")]
+            # 每行对应一条货物，避免合并行展开后箱数、板数与货物错位。
+            if not (len(ids) == len(n_pallet) == len(pcs_actual) == len(pcs_reported)):
+                raise ValueError("拆柜录入行数不一致，请刷新页面后重新提交")
+            if any(len(row_ids) != 1 for row_ids in ids):
+                raise ValueError("拆柜录入包含合并货物，请刷新页面后逐条录入")
+            if any(value < 0 for value in pcs_actual + n_pallet):
+                raise ValueError("入库箱数和打板数不能为负数")
+            id_to_actual = {int(row_ids[0]): actual for row_ids, actual in zip(ids, pcs_actual)}
             cbm = [float(c) for c in request.POST.getlist("cbms")]
             weight = [float(c) for c in request.POST.getlist("weights")]
             product_names = [c for c in request.POST.getlist("product_names")]
@@ -1074,6 +1082,7 @@ class Dropshipping(View):
                             "is_resolved": False,
                             "model": model,
                             "delivery_method": d_m,
+                            "delivery_type": "一件代发",
                             "pcs_reported": p_r,
                             "pcs_actual": p_a,
                         }
@@ -1145,6 +1154,7 @@ class Dropshipping(View):
                             "is_resolved": False,
                             "model": model,
                             "delivery_method": d_m,
+                            "delivery_type": "一件代发",
                             "pcs_reported": 0,
                             "pcs_actual": p_a,
                         }
@@ -1179,18 +1189,20 @@ class Dropshipping(View):
             for cargo in cargo_list:
                 pallet_num = id_to_n.get(cargo.id, 0)
                 cargo.pallets = pallet_num
+                cargo.pcs = id_to_actual[cargo.id]
                 cargo.status = "in_stock"
                 update_list.append(cargo)
                 inventory_create_list.append(DropshipInventory(
                     cargo=cargo,
                     transaction_type="unpack",
                     pcs_change=cargo.pcs,
-                    transaction_date=created_at,
+                    after_pcs=cargo.pcs,
+                    transaction_date=offload_time,
                 ))
 
             # 批量更新&批量创建
             if update_list:
-                await sync_to_async(DropshipCargo.objects.bulk_update)(update_list, ["pallets", "status"])
+                await sync_to_async(DropshipCargo.objects.bulk_update)(update_list, ["pcs", "pallets", "status"])
             if inventory_create_list:
                 await sync_to_async(DropshipInventory.objects.bulk_create)(inventory_create_list)
 
@@ -2024,6 +2036,7 @@ class Dropshipping(View):
                     str_shipping_mark=Cast("shipping_mark", CharField()),
                 )
                 .values(
+                    "id",
                     "container__container_number",
                     "product_name",
                     "model",
@@ -2071,6 +2084,7 @@ class Dropshipping(View):
                     str_shipping_mark=Cast("shipping_mark", CharField()),
                 )
                 .values(
+                    "id",
                     "container__container_number",
                     "product_name",
                     "model",
