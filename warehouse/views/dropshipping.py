@@ -4133,18 +4133,37 @@ class Dropshipping(View):
                 return await self.handle_order_management_container_get(request)
             return await self.handle_order_basic_info_get()
 
-        # 查询已有数据
+        await sync_to_async(self._save_order_cargos, thread_sensitive=True)(
+            request, container_number, selected_ids
+        )
+
+        source = request.POST.get("source")
+        if source == "order_management":
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = container_number
+            mutable_get["step"] = "container_info_supplement"
+            request.GET = mutable_get
+            return await self.handle_order_management_container_get(request)
+
+        return await self.handle_order_basic_info_get()
+
+    @transaction.atomic()
+    def _save_order_cargos(self, request, container_number, selected_ids):
+        # Keep cargo/history writes and container totals in the same transaction.
+        order_lock = Order.objects.select_for_update().get(
+            container_number__container_number=container_number
+        )
         cargo_dict = {
             cargo.id: cargo
-            for cargo in await sync_to_async(list)(
-                DropshipCargo.objects.filter(id__in=selected_ids)
+            for cargo in list(
+                DropshipCargo.objects.filter(order=order_lock, id__in=selected_ids)
             )
         }
 
-        order = await sync_to_async(
-            Order.objects.select_related("container_number", "warehouse").get
-        )(container_number__container_number=container_number)
-        container = await sync_to_async(Container.objects.get)(container_number=container_number)
+        order = Order.objects.select_related("container_number", "warehouse").get(
+            container_number__container_number=container_number
+        )
+        container = Container.objects.get(container_number=container_number)
         warehouse = order.warehouse if order.warehouse_id else None
 
         update_list = []
@@ -4241,7 +4260,7 @@ class Dropshipping(View):
 
         # 批量更新
         if update_list:
-            await sync_to_async(bulk_update_with_history)(
+            bulk_update_with_history(
                 update_list,
                 DropshipCargo,
                 fields=[
@@ -4330,29 +4349,16 @@ class Dropshipping(View):
                 f"{po_id_seg}"
                 "1",
             )
-            await sync_to_async(cargo.save)()
+            cargo.save()
 
         # 汇总柜重
-        total_weight_lbs_sum = await sync_to_async(
-            lambda: DropshipCargo.objects.filter(
-                container__container_number=container_number,
-                delivery_type="一件代发",
-            ).aggregate(total=Sum("total_weight_lbs"))["total"] or 0
-        )()
+        total_weight_lbs_sum = DropshipCargo.objects.filter(
+            container__container_number=container_number,
+            delivery_type="一件代发",
+        ).aggregate(total=Sum("total_weight_lbs"))["total"] or 0
         container.weight_lbs = total_weight_lbs_sum
         container.delivery_type = "一件代发"
-        await sync_to_async(container.save)()
-
-        # 页面跳转
-        source = request.POST.get("source")
-        if source == "order_management":
-            mutable_get = request.GET.copy()
-            mutable_get["container_number"] = container_number
-            mutable_get["step"] = "container_info_supplement"
-            request.GET = mutable_get
-            return await self.handle_order_management_container_get(request)
-
-        return await self.handle_order_basic_info_get()
+        container.save()
 
     async def handle_order_management_list_get(
             self,
