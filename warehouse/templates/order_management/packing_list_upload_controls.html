@@ -1,20 +1,32 @@
-<div class="mb-2">
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/packing_list_upload.css' %}?v=5">
+<section class="pl-import" aria-label="Packing List 文件导入">
+    <div class="pl-import__heading">
+        <span class="pl-import__icon" aria-hidden="true"><i class="bi bi-file-earmark-spreadsheet"></i></span>
+        <div>
+            <h3 class="pl-import__title">导入 Packing List</h3>
+            <p class="pl-import__subtitle">使用 Excel 模板，批量录入货物清单</p>
+        </div>
+    </div>
+    <div class="pl-import__actions">
     {% if can_import_packing_list %}
-    <form method="post" enctype="multipart/form-data" class="d-inline-block">
+    <form method="post" enctype="multipart/form-data" class="pl-import__form">
         {% csrf_token %}
-        <label>导入模板：<input type="file" name="file" accept=".xlsx,.xls" required></label>
+        <input class="pl-import__file" type="file" name="file" accept=".xlsx,.xls" aria-label="选择 Packing List Excel 文件" required>
         <input type="hidden" name="step" value="upload_template">
         <input type="hidden" name="source" value="order_management">
         <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-        <button type="submit" class="btn btn-success">上传清单</button>
+        <button type="submit" class="btn pl-import__upload"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i> 上传清单</button>
     </form>
     {% endif %}
-    <form method="post" class="d-inline-block">
+    <form method="post" class="pl-import__download-form">
         {% csrf_token %}
         <input type="hidden" name="step" value="download_template">
-        <button type="submit" class="btn btn-success">下载模板</button>
+        <button type="submit" class="btn pl-import__download"><i class="bi bi-download" aria-hidden="true"></i> 下载模板</button>
     </form>
-    <small class="text-muted">
+    </div>
+    <p class="pl-import__hint">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
         {% if can_import_packing_list %}
         上传后先预览，点击“更新PackingList信息”后将替换本柜原清单，请上传完整清单。
         {% elif can_import_packing_list == False %}
@@ -22,5 +34,5 @@
         {% else %}
         未获取到导入状态，请刷新页面；若仍未恢复，请重启项目服务。
         {% endif %}
-    </small>
-</div>
+    </p>
+</section>

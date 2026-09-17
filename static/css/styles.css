@@ -110,8 +110,10 @@ textarea {
     color: #2d3748;
     background: #ffffff;
     transition: border-color 0.15s, box-shadow 0.15s;
-    width: 100%;
     box-sizing: border-box;
+}
+.form-control {
+    width: 100%;
 }
 .form-control:focus,
 input:focus,
