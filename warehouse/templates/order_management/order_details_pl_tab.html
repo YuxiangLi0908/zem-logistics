@@ -174,26 +174,7 @@
     
     <div id="order-packing-list-info-sec" style="display: block;">
         <div style="display: flex;">
-            <div style="display: flex; width: 80%;">
-                <div>
-                    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-                        {% csrf_token %}
-                        导入模版:
-                        {{ packing_list_upload_form.file }}
-                        <input type="hidden" name="step" value="upload_template">
-                        <input type="hidden" name="source" value="order_management">
-                        <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
-                    </form>
-                </div>
-                <div>
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="step" value="download_template">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载模版</button>
-                    </form>
-                </div>
-            </div>
+            {% include "order_management/packing_list_upload_controls.html" %}
             <div class="text-right" style="min-width: 400px">
                 <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
                     <i class="bi bi-plus-lg"></i> 添加行

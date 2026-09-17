@@ -1,0 +1,26 @@
+<div class="mb-2">
+    {% if can_import_packing_list %}
+    <form method="post" enctype="multipart/form-data" class="d-inline-block">
+        {% csrf_token %}
+        <label>导入模板：<input type="file" name="file" accept=".xlsx,.xls" required></label>
+        <input type="hidden" name="step" value="upload_template">
+        <input type="hidden" name="source" value="order_management">
+        <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+        <button type="submit" class="btn btn-success">上传清单</button>
+    </form>
+    {% endif %}
+    <form method="post" class="d-inline-block">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="download_template">
+        <button type="submit" class="btn btn-success">下载模板</button>
+    </form>
+    <small class="text-muted">
+        {% if can_import_packing_list %}
+        上传后先预览，点击“更新PackingList信息”后将替换本柜原清单，请上传完整清单。
+        {% elif can_import_packing_list == False %}
+        已拆柜订单请逐行修改 Packing List，不支持文件整体替换。
+        {% else %}
+        未获取到导入状态，请刷新页面；若仍未恢复，请重启项目服务。
+        {% endif %}
+    </small>
+</div>

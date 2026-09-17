@@ -298,6 +298,7 @@
     </div>
 
     <div id="order-packing-list-info-sec" style="display: none; width: 100%;">
+        {% include "order_management/packing_list_upload_controls.html" %}
         <div style="display: flex;">
             {% if not selected_order.offload_id.offload_at and not selected_order.offload_id.offload_other_at %}
                 <div style="display:flex; gap:10px; align-items:center;">
@@ -780,6 +781,7 @@
                         <th class="th">实际提柜时间</th>
                         <th class="th">确认到仓时间</th>
                         <th class="th">还空时间</th>
+                        <th class="th"><label for="planned-release-time">放行时间</label></th>
                         <th class="th">提柜备注</th>
                     </tr>
                 </thead>
@@ -822,6 +824,9 @@
                         </td>
                         <td class="td">
                             <input type="date" name="empty_returned_at" {%if retrieval %} value="{{ retrieval.empty_returned_at|date:'Y-m-d' }}"{% endif %}>
+                        </td>
+                        <td class="td">
+                            <input type="datetime-local" id="planned-release-time" name="planned_release_time" value="{{ retrieval.planned_release_time|date:'Y-m-d\TH:i' }}">
                         </td>
                         <td class="td">
                             <input type="text" name="retrieval_note" {%if retrieval %} value="{{ retrieval.note }}"{% endif %} >

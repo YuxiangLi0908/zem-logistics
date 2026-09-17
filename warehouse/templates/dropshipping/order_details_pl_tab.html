@@ -170,26 +170,7 @@
     
     <div id="order-packing-list-info-sec" style="display: block;">
         <div style="display: flex;">
-            <div style="display: flex; width: 80%;">
-                <div>
-                    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-                        {% csrf_token %}
-                        导入模版:
-                        {{ packing_list_upload_form.file }}
-                        <input type="hidden" name="step" value="upload_template">
-                        <input type="hidden" name="source" value="order_management">
-                        <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
-                    </form>
-                </div>
-                <div>
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="step" value="download_template">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载模版</button>
-                    </form>
-                </div>
-            </div>
+            {% include "order_management/packing_list_upload_controls.html" %}
             <div class="text-right" style="min-width: 400px">
                 <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
                     <i class="bi bi-plus-lg"></i> 添加行
@@ -306,7 +287,7 @@
                                     <td class="td">
                                         <select name="delivery_method" class="delivery-method">
                                             {% for k, v in delivery_options %}
-                                            <option value="{{ v }}" {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
+                                            <option value="{{ v }}" {% if pl.delivery_method == k or pl.delivery_method == v %}selected{% endif %}>{{ k }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>
@@ -354,7 +335,7 @@
                     </div>
                 </div>
                 <!-- 底部原来的按钮已删除 -->
-                <input type="hidden" name="step" value="update_order_packing_list_info">
+                <input type="hidden" name="step" value="update_order_packing_list_info_v1">
                 <input type="hidden" name="source" value="order_management">
                 <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
             </form>

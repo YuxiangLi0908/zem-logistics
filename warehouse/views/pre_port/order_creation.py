@@ -29,6 +29,9 @@ from django.views import View
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.packing_list_import import (
+    can_import_packing_list, replace_packing_list, validate_packing_list_import,
+)
 from warehouse.models.container import Container
 from warehouse.models.container_pickup_carrier import ContainerPickupCarrier
 from warehouse.models.customer import Customer
@@ -845,6 +848,7 @@ class OrderCreation(View):
             "shipping_lines": SHIPPING_LINE_OPTIONS,
             "delivery_options": DELIVERY_METHOD_OPTIONS,
             "packing_list_upload_form": UploadFileForm(),
+            "can_import_packing_list": can_import_packing_list(offload),
             "order_type": self.order_type,
             "container_type": self.container_type,
             "customers": customers,
@@ -1315,6 +1319,16 @@ class OrderCreation(View):
     async def handle_update_order_retrieval_info_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        # 与港前 OCT 页保持相同的时间格式和时区；旧表单未传字段时保留原值。
+        if "planned_release_time" in request.POST:
+            release_time = request.POST.get("planned_release_time", "").strip()
+            try:
+                planned_release_time = (
+                    timezone.make_aware(datetime.strptime(release_time, "%Y-%m-%dT%H:%M"))
+                    if release_time else None
+                )
+            except ValueError:
+                return "error_template.html", {"error": "放行时间格式无效，应为 YYYY-MM-DDTHH:MM"}
         container_number = request.POST.get("container_number")
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             container_number__container_number=container_number
@@ -1354,6 +1368,8 @@ class OrderCreation(View):
         )
         if not empty_returned_at:
             retrieval.empty_returned = False
+        if "planned_release_time" in request.POST:
+            retrieval.planned_release_time = planned_release_time
         retrieval.note = request.POST.get("retrieval_note").strip()
         await sync_to_async(retrieval.save)()
         mutable_get = request.GET.copy()
@@ -2268,6 +2284,8 @@ class OrderCreation(View):
         )(container_number__container_number=container_number)
         container = order.container_number
         offload = order.offload_id
+        if request.POST.get("source") == "order_management" and "pl_id" not in request.POST:
+            validate_packing_list_import(offload)
         if (
             offload.offload_at and "pl_id" in request.POST
         ):  # 原本是offload.offload_at，但是打板后如果是上传的文件，是没有pl_id的
@@ -2340,11 +2358,6 @@ class OrderCreation(View):
             )
         else:
             # 没打板的，才考虑，判断是否有快递，然后修改为P1等级
-            await sync_to_async(
-                PackingList.objects.filter(
-                    container_number__container_number=container_number
-                ).delete
-            )()
             destination_list = request.POST.getlist("destination")
             for idx, destination in enumerate(destination_list):
                 if "WALMART" in destination.upper():
@@ -2480,7 +2493,10 @@ class OrderCreation(View):
                 for d in pl_data
             ]
 
-            await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
+            await sync_to_async(replace_packing_list)(
+                PackingList.objects.filter(container_number__container_number=container_number),
+                pl_to_create,
+            )
             # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
@@ -4020,7 +4036,15 @@ class OrderCreation(View):
     async def handle_upload_template_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        form = UploadFileForm(request.POST, request.FILES)
+        source = request.POST.get("source")
+        context = None
+        if source == "order_management":
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = request.POST.get("container_number")
+            request.GET = mutable_get
+            _, context = await self.handle_order_management_container_get(request)
+            validate_packing_list_import(context["selected_order"].offload_id)
+        form = UploadFileForm(request.POST, request.FILES, required=True)
         if form.is_valid():
             file = request.FILES["file"]
             df = pd.read_excel(file)
@@ -4062,13 +4086,7 @@ class OrderCreation(View):
             packing_list = [PackingList(**data) for data in pl_data]
         else:
             raise ValueError(f"invalid file format!")
-        source = request.POST.get("source")
         if source == "order_management":
-            container_number = request.POST.get("container_number")
-            mutable_get = request.GET.copy()
-            mutable_get["container_number"] = container_number
-            request.GET = mutable_get
-            _, context = await self.handle_order_management_container_get(request)
             context["packing_list"] = packing_list
             return self.template_order_details_pl, context
         else:
