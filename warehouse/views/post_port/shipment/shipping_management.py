@@ -1023,6 +1023,11 @@ class ShippingManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''旧版预约出库的预约管理页面初始化'''
+        delivery_type = request.POST.get(
+            "delivery_type", request.GET.get("delivery_type", "")
+        )
+        if delivery_type not in ("public", "other"):
+            delivery_type = ""
         
         if request.POST.get("area"):
             area = request.POST.get("area")
@@ -1137,6 +1142,8 @@ class ShippingManagement(View):
                 container_number__orders__retrieval_id__retrieval_destination_area=area
             )
             plt_criteria &= models.Q(location__startswith=area)
+        if delivery_type:
+            pl_criteria &= models.Q(delivery_type=delivery_type)
         packing_list_not_scheduled = await self._get_packing_list(
             pl_criteria, plt_criteria
         )
@@ -1173,6 +1180,7 @@ class ShippingManagement(View):
             "shipment_list": shipment,
             "area_options": self.area_options,
             "area": area,
+            "delivery_type": delivery_type,
             "packing_list_not_scheduled": packing_list_not_scheduled,
             "cbm_act": cbm_act,
             "cbm_est": cbm_est,

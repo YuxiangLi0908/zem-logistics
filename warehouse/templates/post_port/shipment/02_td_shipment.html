@@ -20,6 +20,12 @@
         <b style="margin-right: 5px;">ETA:</b>
         <input type="date" name="start_date" value="{{ start_date }}">
         <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <b style="margin-right: 5px;">公私仓:</b>
+        <select name="delivery_type" style="margin-right: 5px;">
+            <option value="public" {% if delivery_type == 'public' %}selected{% endif %}>公仓</option>
+            <option value="other" {% if delivery_type == 'other' %}selected{% endif %}>私仓</option>
+            <option value="" {% if not delivery_type %}selected{% endif %}>全部</option>
+        </select>
         <input type="hidden" name="step" value="">
         <button type="submit" onclick="setStepValue('warehouse')">确认</button>
         {% if user.is_authenticated %}
@@ -68,6 +74,7 @@
                         <input type="hidden" name="step" value="selection">
                         <input type="hidden" name="area" value="{{ area }}">
                         <input type="hidden" name="start_date" value="{{ start_date }}">
+                        <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
                         <input type="hidden" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
                         <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">预约出库批次</button>
                     </div>
@@ -241,7 +248,7 @@
                         {% for s in shipment_list %}
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">
-                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&area={{ area }}&start_date={{ start_date }}&end_date={{ end_date }}">
+                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&area={{ area }}&start_date={{ start_date }}&end_date={{ end_date }}&delivery_type={{ delivery_type|urlencode }}">
                                     {{ s.shipment_batch_number }}
                                 </a>
                             </td>
