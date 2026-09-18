@@ -4461,6 +4461,10 @@ class ReceivableAccounting(View):
         order = Order.objects.select_related("container_number").get(
             container_number=container
         )
+        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+        if self._allows_legacy_manual_delivery(order, quotation, quotation_error):
+            # Historical manual rates must never be replaced with quotation prices.
+            return items_data
         container_type_temp = 0 if "40" in container.container_type else 1
 
         quotations = self._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
@@ -8349,6 +8353,37 @@ class ReceivableAccounting(View):
         
         return result
     
+    @staticmethod
+    def _allows_legacy_manual_delivery(order, quotation, quotation_error):
+        """Only a missing quote for an ETD before 2025 qualifies, not query errors."""
+        etd = order.vessel_id.vessel_etd if order.vessel_id else None
+        return bool(
+            etd and etd.date() < date(2025, 1, 1)
+            and quotation is None
+            and quotation_error == f"找不到生效日期在{etd}之前的receivable报价表"
+        )
+
+    def _legacy_manual_delivery_items(self, groups, existing_items=None, delivery_type="public"):
+        """Keep each destination editable, including saved manually priced combine rows."""
+        items = []
+        for group in groups:
+            key = group.get("PO_ID")
+            if delivery_type == "other":
+                key = f"{key}-{group.get('shipping_marks', '')}"
+            if existing_items is not None:
+                existing = existing_items.get(key)
+                if existing:
+                    normalized = {**group, "delivery_method": group.get("delivery_method") or ""}
+                    items.append(self._create_item_from_existing(existing, normalized))
+                continue
+            items.append({
+                **group, "id": None, "delivery_category": "", "rate": None,
+                "amount": None, "surcharges": 0, "note": "", "description": "派送费",
+                "cbm_ratio": 0, "need_manual_input": True, "is_existing": False,
+                "is_previous_existing": False, "is_hold": False,
+            })
+        return {"normal_items": items, "combina_groups": [], "combina_info": {}}
+
     def handle_container_delivery_post(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
         '''计算柜子的派送账单'''
         if not context:
@@ -8371,7 +8406,9 @@ class ReceivableAccounting(View):
             'vessel_id',
             'retrieval_id'
         ).get(container_number__container_number=container_number)
-         
+
+        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+        manual_delivery = self._allows_legacy_manual_delivery(order, quotation, quotation_error)
         if invoice_id and invoice_id != "None": 
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
@@ -8462,7 +8499,7 @@ class ReceivableAccounting(View):
                 .order_by("PO_ID")
             )
             #activation_table = pallet_groups
-            is_combina = self._determine_is_combina(order)
+            is_combina = False if manual_delivery else self._determine_is_combina(order)
 
         # 获取本次账单已录入的激活费项
         activation_fee_groups = self._get_existing_activation_items(invoice, order.container_number)
@@ -8472,7 +8509,10 @@ class ReceivableAccounting(View):
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
             if delivery_type =="other":
-                result_existing = self._separate_other_existing_items(invoice, pallet_groups)
+                result_existing = (
+                    self._legacy_manual_delivery_items(pallet_groups, existing_items, delivery_type)
+                    if manual_delivery else self._separate_other_existing_items(invoice, pallet_groups)
+                )
                 existing_keys = set(existing_items.keys())
                 # 筛选未计费的分组
                 unbilled_groups = []
@@ -8487,7 +8527,10 @@ class ReceivableAccounting(View):
                     if dict_key not in existing_keys:
                         unbilled_groups.append(g)
             else:
-                result_existing = self._separate_existing_items(existing_items, pallet_groups)     
+                result_existing = (
+                    self._legacy_manual_delivery_items(pallet_groups, existing_items, delivery_type)
+                    if manual_delivery else self._separate_existing_items(existing_items, pallet_groups)
+                )
                 unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
             result_existing = {
@@ -8526,7 +8569,7 @@ class ReceivableAccounting(View):
         if unbilled_groups:
             has_previous_items = bool(previous_item_dict)  # 判断是否有过账单
             # 有未录入的PO，需要进一步处理
-            result_new = self._process_unbilled_items(
+            result_new = self._legacy_manual_delivery_items(unbilled_groups) if manual_delivery else self._process_unbilled_items(
                 pallet_groups=unbilled_groups,
                 container=order.container_number,
                 order=order,
@@ -8556,30 +8599,39 @@ class ReceivableAccounting(View):
             final_result = result_existing
 
         # 报价表相关
-        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
-        if quotation_error:
+        if quotation_error and not manual_delivery:
             context.update({"error_messages": quotation_error})
             return template, context
-        try:
-            COMBINA_STIPULATE = FeeDetail.objects.get(
-                quotation_id=quotation.id,
-                fee_type='COMBINA_STIPULATE'
+        cbm_per_pl = ""
+        rules_text = {}
+        if not manual_delivery:
+            try:
+                COMBINA_STIPULATE = FeeDetail.objects.get(
+                    quotation_id=quotation.id,
+                    fee_type='COMBINA_STIPULATE'
+                )
+            except Exception as e:
+                context.update({"error_messages": f'{quotation.filename}-{quotation.version}-缺少组合柜信息'})
+                return template, context
+            cbm_per_pl = (
+                COMBINA_STIPULATE.details.get("global_rules", {})
+                .get("cbm_per_pl", {})
+                .get("default", "")
             )
-        except Exception as e:
-            context.update({"error_messages": f'{quotation.filename}-{quotation.version}-缺少组合柜信息'})
-            return template, context
-        cbm_per_pl = (
-            COMBINA_STIPULATE.details.get("global_rules", {})
-            .get("cbm_per_pl", {})
-            .get("default", "")
-        )
-        rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
+            rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
 
         total_container_cbm = PackingList.objects.filter(
             container_number__container_number=container_number  
         ).aggregate(
             total_cbm=Sum('cbm')
         )['total_cbm'] or 0.0
+        if manual_delivery:
+            for item in final_result.get("normal_items", []):
+                if not item.get("is_existing"):
+                    item["cbm_ratio"] = (
+                        round(float(item.get("total_cbm") or 0) / float(total_container_cbm), 4)
+                        if total_container_cbm else 0
+                    )
         # 构建上下文
         context.update({
             "container_number": container_number,
@@ -8598,6 +8650,7 @@ class ReceivableAccounting(View):
             "invoice_number": invoice.invoice_number,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "other_pallet_groups": other_pallet_groups,
+            "manual_delivery": manual_delivery,
             "quotation_info": {
                 "quotation_id": quotation.quotation_id,
                 "version": quotation.version,
@@ -8605,7 +8658,7 @@ class ReceivableAccounting(View):
                 "is_user_exclusive": quotation.is_user_exclusive,
                 "exclusive_user": quotation.exclusive_user,
                 "filename": quotation.filename,  # 添加文件名
-            },
+            } if quotation else {},
             "combina_rules_text": rules_text,
             "cbm_per_pl": cbm_per_pl,
             "warehouse_filter": request.GET.get("warehouse_filter"),

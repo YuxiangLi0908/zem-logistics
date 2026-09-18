@@ -4,6 +4,9 @@
 {% block title %}私仓派送账单录入 - {{ container_number }}{% endblock %}
 
 {% block content %}
+{% if manual_delivery %}
+<div class="alert alert-info">历史柜手动录费：开船日期早于2025年1月1日，未找到适用报价表。请逐仓点选择费用类型并输入单价；金额按单价 × 板数 + 附加费计算。</div>
+{% endif %}
 <style>
     :root {
         --primary-color: #1b5e20;
@@ -952,6 +955,11 @@
                                                 form="row-form-{{ forloop.counter0 }}"
                                                 {% if item.delivery_category == "hold" %}disabled{% else %}required{% endif %}>
                                             <option value="">请选择</option>
+                                            {% if manual_delivery %}
+                                            <option value="amazon" {% if item.delivery_category == "amazon" %}selected{% endif %}>亚马逊</option>
+                                            <option value="walmart" {% if item.delivery_category == "walmart" %}selected{% endif %}>沃尔玛</option>
+                                            <option value="upsdelivery" {% if item.delivery_category == "upsdelivery" %}selected{% endif %}>快递</option>
+                                            {% endif %}
                                             <option value="selfpickup" {% if item.delivery_category == "selfpickup" %}selected{% endif %}>客户自提</option>
                                             <option value="selfdelivery" {% if item.delivery_category == "selfdelivery" %}selected{% endif %}>自发派送</option>
                                             <option value="combine" {% if item.delivery_category == "combine" %}selected{% endif %}>组合柜</option>
@@ -1351,6 +1359,18 @@ $(document).ready(function() {
         const $select = $row.find('.delivery-type-select');
         const $saveBtn = $row.find('.btn-save-row');
 
+        {% if manual_delivery %}
+        if (!isHold && deliveryType && deliveryType !== 'hold') {
+            $rateInput.prop('disabled', false);
+            $amountInput.prop('readonly', true).prop('disabled', false);
+            $palletsInput.prop('disabled', false);
+            $surchargeInput.prop('disabled', false);
+            $noteInput.prop('disabled', false);
+            $select.prop('disabled', false);
+            if ($saveBtn.length) $saveBtn.prop('disabled', false);
+            return;
+        }
+        {% endif %}
         if (isHold) {
             $rateInput.prop('disabled', true).val('');
             $amountInput.prop('disabled', true).val('0');
@@ -1409,6 +1429,11 @@ $(document).ready(function() {
         const surcharges = parseFloat($surchargeInput.val()) || 0;
 
         let amount = 0;
+        {% if manual_delivery %}
+        amount = rate * pallets + surcharges;
+        $amountInput.val(amount.toFixed(2));
+        return amount;
+        {% endif %}
         if (deliveryType === 'selfpickup') {
             // amount = (rate * pallets) + surcharges;
             return parseFloat($amountInput.val()) || 0;

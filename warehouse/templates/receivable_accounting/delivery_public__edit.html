@@ -1344,6 +1344,9 @@
                     参考报价表
                 </div>
                 <div class="quotation-details">
+                    {% if manual_delivery %}
+                    <strong>历史柜手动录费：</strong>开船日期早于2025年1月1日，未找到适用报价表。请逐仓点选择费用类型并输入单价；金额按单价 × 板数 + 附加费计算，组合柜类型也由您手动定价。
+                    {% else %}
                     <strong>文件:</strong> <span class="quotation-highlight">{{ quotation_info.filename }}</span> 
                         <span class="divider-line"></span>
                         <strong>版本:</strong> {{ quotation_info.version }}
@@ -1366,10 +1369,12 @@
                         {% else %}未开始
                         {% endif %}
                     </span>
+                    {% endif %}
                 </div>
             </div>
 
             <!-- 组合柜信息卡片 -->
+            {% if not manual_delivery %}
             <div class="info-card">
                 <div class="info-title">
                     <i class="fas fa-boxes"></i>
@@ -1436,6 +1441,7 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
     <!-- 主要内容 -->
@@ -1734,6 +1740,9 @@
                                             <option value="upsdelivery" {% if item.delivery_category == "upsdelivery" %}selected{% endif %}>快递</option>
                                             <option value="walmart" {% if item.delivery_category == "walmart" %}selected{% endif %}>沃尔玛</option>
                                             <option value="amazon" {% if item.delivery_category == "amazon" %}selected{% endif %}>亚马逊</option>
+                                            {% if manual_delivery %}
+                                            <option value="combine" {% if item.delivery_category == "combine" %}selected{% endif %}>组合柜</option>
+                                            {% endif %}
                                             <option value="hold" {% if item.delivery_category == "hold" %}selected{% endif %}>暂扣留仓</option>
                                         </select>
                                     </div>
