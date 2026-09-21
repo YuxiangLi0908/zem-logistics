@@ -5,6 +5,7 @@
     <div class="d-flex justify-content-between align-items-center">
         <h3>自动询价历史</h3>
         <div>
+            <a class="btn btn-outline-primary" href="{% url 'post_nsop' %}?step=auto_quote_analysis">价格分析</a>
             <a class="btn btn-outline-secondary" href="{% url 'post_nsop' %}?step=multi_carrier_quote_history">手动询价历史</a>
             <a class="btn btn-primary" href="{% url 'post_nsop' %}?step=multi_carrier_quote&mode=auto">新建自动询价</a>
         </div>

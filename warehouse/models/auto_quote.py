@@ -29,9 +29,21 @@ class AutoQuoteAddress(models.Model):
                 "distance_miles": str(self.distance_miles) if self.distance_miles is not None else ""}
 
 
+class AutoQuoteProfile(models.Model):
+    fingerprint = models.CharField(max_length=64, unique=True)
+    configuration = models.JSONField(default=dict)
+    origin_label = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def code(self):
+        return f"AQ{self.pk:06d}"
+
+
 class AutoQuoteBatch(models.Model):
     group = models.CharField(max_length=3, choices=GROUPS)
     parameters = models.JSONField(default=dict)
+    profile = models.ForeignKey(AutoQuoteProfile, null=True, blank=True, on_delete=models.PROTECT)
     operator = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     # Stable browser submission ID prevents duplicate batches after a network retry.
     submission_id = models.UUIDField(unique=True)
@@ -58,6 +70,7 @@ class AutoQuoteItem(models.Model):
     started_at = models.DateTimeField(null=True)
     finished_at = models.DateTimeField(null=True)
     attempts = models.PositiveIntegerField(default=0)
+    analysis_version = models.PositiveSmallIntegerField(default=0, db_index=True)
 
     class Meta:
         ordering = ["id"]
@@ -66,3 +79,23 @@ class AutoQuoteItem(models.Model):
 class AutoQuoteWorkerState(models.Model):
     """Singleton lock serializes claims and enforces a global in-flight limit."""
     heartbeat_at = models.DateTimeField(null=True)
+
+
+class AutoQuotePrice(models.Model):
+    item = models.ForeignKey(AutoQuoteItem, related_name="prices", on_delete=models.CASCADE)
+    row_number = models.PositiveIntegerField()
+    platform = models.CharField(max_length=20)
+    carrier = models.CharField(max_length=200)
+    carrier_code = models.CharField(max_length=100, blank=True)
+    service = models.CharField(max_length=200, blank=True)
+    service_code = models.CharField(max_length=100, blank=True)
+    series_key = models.CharField(max_length=64, db_index=True)
+    currency = models.CharField(max_length=3)
+    currency_assumed = models.BooleanField(default=False)
+    price = models.DecimalField(max_digits=16, decimal_places=2)
+    comparable = models.BooleanField(default=True)
+    platform_complete = models.BooleanField(default=False)
+    raw = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["item", "row_number"], name="auto_quote_price_row_unique")]

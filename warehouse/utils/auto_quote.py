@@ -13,6 +13,7 @@ from openpyxl import load_workbook
 
 from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteItem, AutoQuoteWorkerState
 from warehouse.utils.multi_carrier_quote import prepare_quote
+from warehouse.utils.quote_analysis_storage import get_profile, index_item
 
 GROUPS = ("LA", "SAV", "NJ")
 TERMINAL = ("success", "partial", "failed", "no_quote", "cancelled")
@@ -144,7 +145,7 @@ def create_batch(group, parameters, user_id, submission_id, parent=None):
     for active in AutoQuoteBatch.objects.filter(group=group, operator_id=user_id, status__in=("queued", "running")):
         if active.parameters == parameters:
             return active
-    batch = AutoQuoteBatch.objects.create(group=group, parameters=parameters, operator_id=user_id,
+    batch = AutoQuoteBatch.objects.create(group=group, parameters=parameters, profile=get_profile(parameters), operator_id=user_id,
                                          submission_id=token, parent=parent)
     AutoQuoteItem.objects.bulk_create([AutoQuoteItem(batch=batch, address_snapshot=a) for a in snapshots])
     return batch
@@ -237,8 +238,10 @@ def classify_result(result):
 @transaction.atomic
 def complete_item(item, status, error=""):
     queue_lock()
-    AutoQuoteItem.objects.filter(pk=item.pk, lease_token=item.lease_token, status="running").update(
+    updated = AutoQuoteItem.objects.filter(pk=item.pk, lease_token=item.lease_token, status="running").update(
         status=status, error=error, finished_at=timezone.now(), lease_until=None)
+    if updated:
+        index_item(item.pk)
     finish_batch(item.batch_id)
 
 
@@ -247,4 +250,6 @@ def batch_summary(batch):
     return {"id": batch.pk, "group": batch.group, "status": batch.status, "counts": counts,
             "total": sum(counts.values()), "stop_requested": batch.stop_requested,
             "origin": batch.parameters.get("originWarehouse", ""), "created_at": batch.created_at,
+            "profile_code": f"AQ{batch.profile_id:06d}" if batch.profile_id else "待归档",
+            "profile_id": batch.profile_id,
             "finished_at": batch.finished_at, "parent_id": batch.parent_id}

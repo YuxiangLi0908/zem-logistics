@@ -45,6 +45,7 @@
                 <select id="quote-mode" class="form-select" style="width:160px"><option value="manual">手动询价</option><option value="auto">自动询价</option></select>
                 <a href="{% url 'post_nsop' %}?step=multi_carrier_quote_history" class="btn btn-sm btn-outline-secondary">手动历史</a>
                 <a href="{% url 'post_nsop' %}?step=auto_quote_history" class="btn btn-sm btn-outline-secondary">自动历史</a>
+                <a href="{% url 'post_nsop' %}?step=auto_quote_analysis" class="btn btn-sm btn-outline-primary">价格分析</a>
             </div>
             <div id="auto-controls" hidden class="border rounded p-3 mb-3 bg-light">
                 <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -72,6 +73,7 @@
                     </div>
                 </details>
                 <p class="small text-muted mt-2 mb-0">组内地址共用下方货物条件及收货地址类型。提交后后台执行，关闭页面仍会继续；可在自动历史查看进度。</p>
+                <p class="small text-muted mt-1 mb-0">相同发货地址、货物明细、申报价值及服务条件自动复用比较编号（AQ开头）；任务列表中可点击“价格分析”查看历次变化。</p>
             </div>
             <form id="standaloneQuoteForm">
                 {% csrf_token %}

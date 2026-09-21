@@ -372,7 +372,7 @@ class PostNsop(View):
                 )(),
             }
             return render(request, self.template_multi_carrier_quote, context)
-        elif step in ("auto_quote_data", "auto_quote_history", "auto_quote_export"):
+        elif step in ("auto_quote_data", "auto_quote_history", "auto_quote_export", "auto_quote_analysis"):
             return await sync_to_async(auto_quote_get)(request)
         elif step == "multi_carrier_quote_history":
             histories = await sync_to_async(list)(

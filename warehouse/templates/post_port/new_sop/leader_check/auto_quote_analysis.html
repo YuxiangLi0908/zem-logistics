@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<style>
+    .qa-page { padding:24px; background:#f4f7fb; color:#223247; min-height:90vh; }
+    .qa-card { background:white; border:1px solid #dce4ee; border-radius:12px; padding:20px; margin-bottom:18px; }
+    .qa-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
+    .qa-filters label { display:block; font-size:13px; color:#526174; margin-bottom:5px; }
+    .qa-filters select,.qa-filters input:not([type=checkbox]) { width:100%; padding:8px; border:1px solid #cad5e2; border-radius:5px; background:white; }
+    .qa-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+    .qa-kpi { border-left:4px solid #2563eb; padding:14px; background:#f7faff; border-radius:6px; }
+    .qa-kpi strong { display:block; font-size:24px; margin:8px 0; }
+    .qa-note { color:#617286; font-size:13px; line-height:1.7; }
+    .qa-chart { width:100%; min-height:280px; overflow-x:auto; }
+    .qa-chart svg { width:100%; min-width:650px; display:block; }
+    .qa-legend { display:flex; flex-wrap:wrap; gap:10px; font-size:13px; margin:10px 0; }
+    .qa-legend label { cursor:pointer; }
+    .qa-table { font-size:13px; white-space:nowrap; }
+    .qa-table th { background:#edf2f8; }
+    .qa-table td { vertical-align:middle; }
+    .qa-up { color:#c03036; font-weight:600; } .qa-down { color:#12784e; font-weight:600; }
+    .qa-bar { display:inline-block; height:8px; background:#5282cf; border-radius:5px; vertical-align:middle; }
+    #qa-error { white-space:pre-wrap; }
+</style>
+<div class="qa-page">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><h3>自动询价 · 市场价格监测</h3><p class="qa-note mb-0">同一比较编号、同一收货地址、同一平台及承运商服务，查看历次价格变化。</p></div>
+        <div><a class="btn btn-outline-secondary" href="{% url 'post_nsop' %}?step=auto_quote_history">自动询价历史</a>
+            <a class="btn btn-primary" href="{% url 'post_nsop' %}?step=multi_carrier_quote&mode=auto">开始询价</a></div>
+    </div>
+    <div id="qa-error" class="alert alert-danger" role="alert" hidden></div>
+    <section class="qa-card">
+        <form id="qa-form">
+            <div class="qa-filters">
+                <div><label for="qa-profile">比较编号 / 发货仓</label><select id="qa-profile" required><option value="">正在读取编号…</option></select></div>
+                <div><label for="qa-group">地址组</label><select id="qa-group"><option value="">全部组</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
+                <div><label for="qa-start">询价开始日期</label><input type="date" id="qa-start" required></div>
+                <div><label for="qa-end">询价结束日期</label><input type="date" id="qa-end" required></div>
+                <div><label for="qa-address">收货地址（选择后显示各承运商价格曲线）</label><select id="qa-address"><option value="">全部地址 · 综合指数</option></select></div>
+                <div><label for="qa-platform">报价平台</label><select id="qa-platform"><option value="">全部平台</option><option value="maersk">Maersk</option><option value="kakas">卡卡省</option><option value="abf">ABF</option></select></div>
+                <div><label for="qa-carrier">承运商 / 服务</label><select id="qa-carrier"><option value="">全部承运商服务</option></select></div>
+                <div><label for="qa-lead">取件提前天数（日历日）</label><select id="qa-lead"><option value="">自动选择样本最多的提前天数</option><option value="all">全部（混合提前天数）</option></select></div>
+                <div><label for="qa-currency">报价币种</label><select id="qa-currency"><option>USD</option><option>CAD</option><option>UNK</option></select></div>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                <label><input type="checkbox" id="qa-partial"> 包含尚未完整返回的平台报价</label>
+                <button id="qa-submit" type="submit" class="btn btn-primary">分析价格</button>
+                <a id="qa-export" class="btn btn-outline-secondary" hidden>导出当前分析</a>
+                <span id="qa-count" class="qa-note"></span>
+            </div>
+        </form>
+        <details class="mt-3"><summary>查看编号对应的货物、申报价值和服务条件</summary><div id="qa-profile-info" class="qa-note mt-2"></div></details>
+    </section>
+    <div id="qa-content" hidden>
+        <section class="qa-card"><div id="qa-kpis" class="qa-kpis"></div><p id="qa-quality" class="qa-note mt-3 mb-0"></p></section>
+        <section class="qa-card">
+            <h5 id="qa-chart-title">价格走势</h5><p id="qa-chart-note" class="qa-note"></p>
+            <div id="qa-legend" class="qa-legend"></div><div id="qa-chart" class="qa-chart"></div>
+        </section>
+        <section class="qa-card">
+            <h5>承运商 / 服务波动排名</h5><p id="qa-ranking-note" class="qa-note"></p>
+            <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>排名</th><th>平台</th><th>承运商 / 服务</th><th>平均波动系数 CV</th><th>参与线路</th><th>报价覆盖率</th><th>每条线路最少采样日</th></tr></thead><tbody id="qa-ranking"></tbody></table></div>
+        </section>
+        <section class="qa-card">
+            <h5>每条线路的价格对比</h5>
+            <p class="qa-note">“最新”是该地址最后一个采样日的结果；缺失时保留空白。“较上次”对比此前最近一次有效报价，期间涨跌对比区间首末有效报价。波动系数至少需要3个有效报价日。</p>
+            <div class="table-responsive"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th>平台 / 承运商 / 服务</th><th>最新报价</th><th>上次有效报价</th><th>较上次金额</th><th>较上次%</th><th>期间涨跌%</th><th>最低 / 最高</th><th>平均价</th><th>波动CV%</th><th>高低价振幅%</th><th>相邻采样最大涨跌%</th><th>有效日 / 采样日</th><th>覆盖率</th></tr></thead><tbody id="qa-series"></tbody></table></div>
+            <button id="qa-prev" type="button" class="btn btn-sm btn-outline-secondary">上一页</button><span id="qa-page" class="mx-2"></span><button id="qa-next" type="button" class="btn btn-sm btn-outline-secondary">下一页</button>
+        </section>
+        <section id="qa-min-section" class="qa-card" hidden><h5>所选线路每日最低价与承运商变化</h5><p class="qa-note">仅从当前筛选范围内返回的报价取最低，不表示市场上绝对最低；提供最低价的承运商可能变化。</p>
+            <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>采样日期</th><th>最低价</th><th>提供报价的平台 / 承运商 / 服务</th><th>有效服务数量</th><th>最低价提供方变化</th></tr></thead><tbody id="qa-minima"></tbody></table></div></section>
+        <details class="qa-card"><summary>统计口径与数据质量说明</summary>
+            <ul class="qa-note mt-2">
+                <li>比较编号由发货详细地址、货物明细、申报价值、运输类型、车型、地址类型和尾板等条件决定。取件日期不参与编号，分析时单独控制提前天数。</li>
+                <li>按服务器时区每天每个地址取最后一次已结束询价。重试不增加当天权重，最后一次失败则当天是缺失，不回填成旧报价。</li>
+                <li>各平台、承运商代码、服务代码和币种分开比较；没有代码时按完整名称精确匹配，不猜测不同名称是同一承运商。未知承运商不参与分析；“未标注服务”表示接口没有服务标识。</li>
+                <li>同次同平台、承运商、服务的多条报价全部保留，统计时取最低有效价。未返回价格不作为零元。接口未声明币种的美国国内报价按USD记录，并显示数量提示。</li>
+                <li>CV = 价格总体标准差 ÷ 平均价格 × 100%。高低价振幅 = (最高价 − 最低价) ÷ 最低价。零基准的百分比显示为空，不产生无穷大。</li>
+                <li>承运商/服务排名采用共有线路上至少3个共同有效报价日，使用相同线路集合、相同采样日期，每条线路等权计算平均CV；没有足够共同样本时只显示参考值，不判定最大/最小。</li>
+                <li>综合价格指数只纳入每个展示日均有正数报价的固定线路与服务，首日归一为100再等权平均，避免新增承运商或不同线路组合造成虚假涨跌。</li>
+                <li>这里反映已采集的报价变化，不是成交价或未来价格预测；时效、燃油及附加费也可能影响报价。</li>
+            </ul>
+        </details>
+    </div>
+</div>
+<script src="{% static 'js/auto_quote_analysis.js' %}"></script>
+{% endblock %}
