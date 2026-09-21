@@ -72,10 +72,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return [];
     }
     function prices(carrier) {
-        const quotes = rows(carrier).filter(q => q && typeof q === 'object');
-        return quotes.map(q => {
-            const price = q.TotalQuote ?? q.totalPrice ?? q.price;
-            return `<div>${esc(q.DisplayService || q.carrierName || q.serviceName || q.carrierCode || q.Service || '报价')} <strong>${price !== null && price !== undefined && Number.isFinite(Number(price)) ? '$' + Number(price).toFixed(2) : '价格待返回'}</strong></div>`;
+        const quotes = rows(carrier).filter(q => q && typeof q === 'object').map(q => {
+            const value = q.TotalQuote ?? q.totalPrice ?? q.price;
+            const valid = (typeof value === 'number' || typeof value === 'string') &&
+                String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0;
+            return {quote: q, price: valid ? Number(value) : null};
+        }).sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+        const minimum = quotes.length ? quotes[0].price : null;
+        return quotes.map(({quote: q, price}) => {
+            const lowest = price !== null && price === minimum;
+            return `<div>${esc(q.DisplayService || q.carrierName || q.serviceName || q.carrierCode || q.Service || '报价')} <strong${lowest ? ' style="color:#dc3545" title="本平台最低价"' : ''}>${price !== null ? '$' + price.toFixed(2) : '价格待返回'}${lowest ? '（最低）' : ''}</strong></div>`;
         }).join('') || esc(carrier?.error || '暂无报价');
     }
     async function detail() {
