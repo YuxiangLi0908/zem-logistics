@@ -59,7 +59,6 @@ from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.shipment_bindlog import ShipmentBindingLog
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.config import app_config
-from warehouse.utils.kakas_polling import wait_for_kakas_quotes
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger, ShipmentBindingPermission
 import asyncio
 import aiohttp
@@ -96,6 +95,7 @@ from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.models.multi_carrier_quote_history import MultiCarrierQuoteHistory
+from warehouse.views.post_port.auto_quote import auto_quote_get, auto_quote_post
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement, generate_unique_fleet_number
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.warehouse.palletization import Palletization
@@ -372,6 +372,8 @@ class PostNsop(View):
                 )(),
             }
             return render(request, self.template_multi_carrier_quote, context)
+        elif step in ("auto_quote_data", "auto_quote_history", "auto_quote_export"):
+            return await sync_to_async(auto_quote_get)(request)
         elif step == "multi_carrier_quote_history":
             histories = await sync_to_async(list)(
                 MultiCarrierQuoteHistory.objects.select_related("operator").order_by("id")
@@ -585,6 +587,8 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "get_maersk_quote":
             return await self.handle_get_maersk_quote(request)
+        elif step in ("auto_quote_import", "auto_quote_start", "auto_quote_stop", "auto_quote_retry"):
+            return await sync_to_async(auto_quote_post)(request)
         elif step == "get_multi_carrier_quote":
             return await self.handle_get_multi_carrier_quote(request)
         elif step == "get_maersk_tracking":
@@ -3582,199 +3586,32 @@ class PostNsop(View):
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
     async def handle_get_multi_carrier_quote(self, request: HttpRequest) -> JsonResponse:
-        """通过公共网关同时询价，并等待卡卡省异步报价结果。"""
+        from warehouse.utils.multi_carrier_quote import execute_quote
         try:
-            raw_payload = request.POST.get("quote_payload")
-            if not raw_payload:
-                return JsonResponse({"success": False, "message": "缺少询价参数"}, status=400)
-
-            form = json.loads(raw_payload)
-            required = (
-                "originWarehouse", "destinationWarehouse", "pickupDate",
-                "originCity", "originState", "originPostCode",
-                "destinationCity", "destinationState", "destinationPostCode",
-                "declaredValue", "items",
-            )
-            missing = [name for name in required if form.get(name) in (None, "", [])]
-            if missing:
-                return JsonResponse({
-                    "success": False,
-                    "message": "缺少必填项: " + ", ".join(missing),
-                }, status=400)
-
-            items = form["items"]
-            if not isinstance(items, list) or not items:
-                return JsonResponse({"success": False, "message": "至少需要一条货物明细"}, status=400)
-
+            form = json.loads(request.POST.get("quote_payload") or "{}")
+            result, payload = await execute_quote(form)
+            carriers = result.get("results", {})
+            car_types = {1: "53尺厢式货车", 2: "冷链车", 3: "48尺平板车", 10: "26尺小车", 12: "26尺小车带尾板", 13: "快速拖车"}
             quote_type = int(form.get("quoteType") or 1)
-            if quote_type == 2 and not form.get("carType"):
-                return JsonResponse({"success": False, "message": "FTL 询价必须选择车型"}, status=400)
-
-            pickup_date = datetime.strptime(form["pickupDate"], "%Y-%m-%d")
-            maersk_items = []
-            kakas_items = []
-            freight_classes = []
-            commodity_unit = int(form.get("commodityUnit") or 11)
-
-            def calculate_freight_class(length, width, height, weight):
-                density = weight / ((length * width * height) / 1728)
-                density_classes = (
-                    (1, "400"), (2, "300"), (4, "250"), (6, "175"),
-                    (8, "125"), (10, "100"), (12, "92.5"), (15, "85"),
-                    (22.5, "70"), (30, "65"), (35, "60"), (50, "55"),
-                )
-                return next((code for maximum_density, code in density_classes if density <= maximum_density), "50")
-
-            for item in items:
-                pieces = max(1, int(item.get("pieces") or 1))
-                pallet_count = max(1, int(item.get("palletCount") or 1))
-                length = max(1, math.ceil(float(item.get("length") or 0)))
-                width = max(1, math.ceil(float(item.get("width") or 0)))
-                height = max(1, math.ceil(float(item.get("height") or 0)))
-                weight = max(1, math.ceil(float(item.get("weight") or 0)))
-                freight_class = calculate_freight_class(length, width, height, weight)
-                freight_classes.append(freight_class)
-                description = str(item.get("description") or "Pallet")
-                maersk_items.append({
-                    "description": description, "pieces": pallet_count,
-                    "length": length, "width": width, "height": height,
-                    "weight": weight,
-                })
-                kakas_items.append({
-                    "describe": description,
-                    # PALLETS 的货物数量就是板数；其他单位按每板件数累计。
-                    "commodityNum": pallet_count if commodity_unit == 11 else pieces * pallet_count,
-                    "commodityUnit": commodity_unit,
-                    "consignNum": pallet_count,
-                    "palletType": int(form.get("palletType") or 1),
-                    "length": length, "width": width, "height": height,
-                    # 卡卡省的尺寸是单板尺寸，重量是该合并行所有板的总重量。
-                    "weight": weight * pallet_count,
-                    "declaredValue": max(1, math.ceil(float(form["declaredValue"]))),
-                    "freightClass": freight_class,
-                })
-
-            need_liftgate = bool(form.get("needLiftgate"))
-
-            def kakas_address(prefix):
-                return {
-                    "type": int(form.get(prefix + "Type") or 1),
-                    "detailAddress": form.get(prefix + "DetailAddress") or "",
-                    "city": form[prefix + "City"],
-                    "state": form[prefix + "State"],
-                    "postCode": form[prefix + "PostCode"],
-                    "country": "US",
-                    "serveIds": [2] if need_liftgate else [],
-                }
-
-            gateway_base = os.environ.get(
-                "MAERSK_GATEWAY_URL",
-                "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io",
-            ).rstrip("/")
-            api_key = os.environ.get("MAERSK_GATEWAY_API_KEY") or os.environ.get("MAERSK_API_KEY")
-            if not api_key:
-                return JsonResponse({"success": False, "message": "未配置网关 API Key"}, status=500)
-
-            kakas_payload = {
-                "quoteType": quote_type,
-                "pickupDate": form["pickupDate"], "iu": 0,
-                "originalMsg": kakas_address("origin"),
-                "destinationMsg": kakas_address("destination"),
-                "commodityList": kakas_items,
-            }
-            if kakas_payload["quoteType"] == 2:
-                kakas_payload["carType"] = int(form.get("carType") or 1)
-
-            gateway_payload = {
-                "carrier": "all",
-                "carrierPayloads": {
-                    "maersk": {
-                        "shipDate": pickup_date.strftime("%m/%d/%Y"),
-                        "origin_zip": form["originPostCode"],
-                        "dest_zip": form["destinationPostCode"],
-                        "lineItems": maersk_items,
-                        "liftgate": "true" if need_liftgate else "false",
-                    },
-                    "kakas": kakas_payload,
-                },
-            }
-            headers = {"Content-Type": "application/json", "x-api-key": api_key}
-            timeout = aiohttp.ClientTimeout(total=50, connect=10, sock_connect=10)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                result = None
-                for attempt in range(3):
-                    try:
-                        async with session.post(
-                            f"{gateway_base}/rating", json=gateway_payload, headers=headers
-                        ) as response:
-                            response_text = await response.text()
-                            if response.status != 200:
-                                return JsonResponse({
-                                    "success": False,
-                                    "message": f"公共询价失败: {response.status} - {response_text}",
-                                }, status=response.status)
-                            result = json.loads(response_text)
-                            break
-                    except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
-                        if attempt == 2:
-                            return JsonResponse({
-                                "success": False,
-                                "message": (
-                                    "询价网关连接超时，已自动重试 3 次。"
-                                    "请检查 MAERSK_GATEWAY_URL 配置或网关服务状态。"
-                                ),
-                            }, status=503)
-                        await asyncio.sleep(attempt + 1)
-
-                kakas_result = result.get("results", {}).get("kakas", {})
-                kakas_response_payload = kakas_result.get("data", kakas_result)
-                kakas_body = kakas_result.get("data") if kakas_result.get("status") == "success" else None
-
-                def find_uuid(value):
-                    if isinstance(value, dict):
-                        if value.get("uuid"):
-                            return value["uuid"]
-                        return find_uuid(value.get("data"))
-                    if isinstance(value, str) and value.strip():
-                        return value.strip()
-                    return None
-
-                quote_uuid = find_uuid(kakas_body)
-                if quote_uuid:
-                    kakas_response_payload = await wait_for_kakas_quotes(
-                        session, f"{gateway_base}/rating", headers, quote_uuid, kakas_result
-                    )
-
-            result.setdefault("freightClasses", freight_classes)
-            carrier_results = result.get("results", {})
-            car_type_labels = {
-                1: "53尺厢式货车", 2: "冷链车", 3: "48尺平板车",
-                10: "26尺小车", 12: "26尺小车带尾板", 13: "快速拖车",
-            }
-            quote_type = int(form.get("quoteType") or 1)
-            car_type = int(form.get("carType") or 1)
             await sync_to_async(MultiCarrierQuoteHistory.objects.create)(
                 origin_warehouse=str(form.get("originWarehouse") or "").strip(),
                 destination_warehouse=str(form.get("destinationWarehouse") or "").strip(),
-                pickup_date=pickup_date.date(),
+                pickup_date=datetime.strptime(form["pickupDate"], "%Y-%m-%d").date(),
                 quote_type="LTL" if quote_type == 1 else "FTL",
-                ftl_car_type=car_type_labels.get(car_type, str(car_type)) if quote_type == 2 else "",
-                freight_class="/".join(dict.fromkeys(freight_classes))[:20],
-                declared_value=form["declaredValue"],
-                pallet_items=items,
-                maersk_quotes=carrier_results.get("maersk", {}),
-                kakas_quotes=carrier_results.get("kakas", {}),
-                kakas_request_payload=kakas_payload,
-                kakas_response_payload=kakas_response_payload,
-                abf_quotes=carrier_results.get("abf", {}),
-                operator_id=request.user.pk if request.user.is_authenticated else None,
+                ftl_car_type=car_types.get(int(form.get("carType") or 1), "") if quote_type == 2 else "",
+                freight_class="/".join(dict.fromkeys(result["freightClasses"]))[:20],
+                declared_value=form["declaredValue"], pallet_items=form["items"],
+                maersk_quotes=carriers.get("maersk", {}), kakas_quotes=carriers.get("kakas", {}),
+                kakas_request_payload=payload["carrierPayloads"]["kakas"],
+                kakas_response_payload=carriers.get("kakas", {}).get("data", carriers.get("kakas", {})),
+                abf_quotes=carriers.get("abf", {}), operator_id=request.user.pk,
             )
             return JsonResponse({"success": True, "data": result})
-        except (ValueError, TypeError, json.JSONDecodeError) as exc:
-            return JsonResponse({"success": False, "message": f"询价参数错误: {exc}"}, status=400)
-        except Exception as exc:
+        except (ValueError, TypeError, KeyError) as exc:
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+        except Exception:
             traceback.print_exc()
-            return JsonResponse({"success": False, "message": str(exc)}, status=500)
+            return JsonResponse({"success": False, "message": "询价失败，请稍后重试"}, status=502)
 
     @staticmethod
     def _quote_price_rows(payload, carrier):

@@ -8,7 +8,7 @@ from warehouse.utils.kakas_polling import wait_for_kakas_quotes
 
 
 class KakasPollingTests(unittest.IsolatedAsyncioTestCase):
-    async def poll(self, responses, initial=None):
+    async def poll(self, responses, initial=None, **options):
         clock = SimpleNamespace(now=0)
         calls = []
 
@@ -40,7 +40,7 @@ class KakasPollingTests(unittest.IsolatedAsyncioTestCase):
             sleep=sleep, TimeoutError=asyncio.TimeoutError,
         )
         with patch("warehouse.utils.kakas_polling.asyncio", fake_asyncio):
-            raw = await wait_for_kakas_quotes(SimpleNamespace(get=get), "url", {}, "test", carrier)
+            raw = await wait_for_kakas_quotes(SimpleNamespace(get=get), "url", {}, "test", carrier, **options)
         return carrier, raw, calls, clock.now
 
     async def test_partial_rates_wait_until_finish(self):
@@ -79,3 +79,11 @@ class KakasPollingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls, [])
         self.assertEqual(raw, complete)
         self.assertNotIn("warning", carrier)
+
+    async def test_automatic_absolute_deadline_limits_continuous_updates(self):
+        updates = [{"data": {"finish": False, "rates": list(range(i + 1))}} for i in range(100)]
+        carrier, _, calls, elapsed = await self.poll(updates, max_seconds=12, poll_interval=3)
+        self.assertEqual(elapsed, 12)
+        self.assertEqual(len(calls), 4)
+        self.assertIn("warning", carrier)
+        self.assertEqual(carrier["data"]["data"]["rates"], [0, 1, 2, 3])
