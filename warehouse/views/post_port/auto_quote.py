@@ -17,6 +17,7 @@ from warehouse.utils.auto_quote import (
     batch_summary, check_group, create_batch, import_addresses, read_addresses, stop_batch,
 )
 from warehouse.utils.multi_carrier_quote import gateway_config
+from warehouse.utils.quote_analysis import analysis_options, build_analysis
 
 def visible_batches(user):
     queryset = AutoQuoteBatch.objects.all()
@@ -28,8 +29,35 @@ def auto_quote_get(request):
         raise PermissionDenied
     if request.GET.get("step") == "auto_quote_history":
         return render(request, "post_port/new_sop/leader_check/auto_quote_history.html")
+    if request.GET.get("step") == "auto_quote_analysis":
+        return render(request, "post_port/new_sop/leader_check/auto_quote_analysis.html")
     try:
         kind = request.GET.get("kind", "batches")
+        if kind == "analysis_options":
+            return JsonResponse({"success": True, **analysis_options(visible_batches(request.user))})
+        if kind == "analysis":
+            return JsonResponse({"success": True, **build_analysis(visible_batches(request.user), request.GET)})
+        if kind == "analysis_export":
+            report = build_analysis(visible_batches(request.user), request.GET, export=True)
+            response = HttpResponse(content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="price-analysis-{report["profile"]["code"]}.csv"'
+            response.write("\ufeff")
+            writer = csv.writer(response)
+            writer.writerow(["比较编号", "开始日期", "结束日期", "取件提前天数", "币种", "包含部分报价", "地址", "平台", "承运商", "服务", "最新日期", "最新价格",
+                             "上次日期", "上次价格", "涨跌金额", "涨跌%", "期间涨跌%", "最低", "最高", "均价", "CV%", "振幅%", "最大相邻涨跌%", "有效日", "采样日", "覆盖率%"])
+            def safe_cell(value):
+                if value is None:
+                    return ""
+                if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r")):
+                    return "'" + value
+                return value
+            for row in report["rows"]:
+                values = [report["profile"]["code"], report["filters"]["start"], report["filters"]["end"], report["filters"]["lead"],
+                          report["filters"]["currency"], report["filters"]["include_partial"]]
+                values += [row[key] for key in ("address", "platform", "carrier", "service", "latest_date", "latest", "previous_date", "previous", "latest_change", "latest_change_pct",
+                                               "period_change_pct", "minimum", "maximum", "mean", "volatility_pct", "range_pct", "max_adjacent_move_pct", "samples", "expected", "coverage_pct")]
+                writer.writerow([safe_cell(value) for value in values])
+            return response
         if request.GET.get("step") == "auto_quote_export":
             batch = get_object_or_404(visible_batches(request.user), pk=request.GET.get("batch"))
             response = HttpResponse(content_type="text/csv; charset=utf-8")
