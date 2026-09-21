@@ -4,7 +4,9 @@ import json
 import aiohttp
 
 
-async def wait_for_kakas_quotes(session, url, headers, quote_uuid, carrier_result):
+async def wait_for_kakas_quotes(session, url, headers, quote_uuid, carrier_result,
+                               *, max_seconds=None, poll_interval=1,
+                               before_request=None, on_update=None):
     """Wait for completion, allowing 50 seconds without a quote update."""
     loop = asyncio.get_running_loop()
     payload = carrier_result.get("data")
@@ -21,8 +23,11 @@ async def wait_for_kakas_quotes(session, url, headers, quote_uuid, carrier_resul
 
     last_snapshot = snapshot(payload)
     deadline = loop.time() + 50
+    absolute_deadline = loop.time() + max_seconds if max_seconds else float("inf")
     while content(payload).get("finish") is not True:
-        remaining = deadline - loop.time()
+        if before_request:
+            await before_request("poll")
+        remaining = min(deadline, absolute_deadline) - loop.time()
         if remaining <= 0:
             carrier_result["warning"] = "卡卡省未结束全部报价，但已超时"
             break
@@ -46,10 +51,12 @@ async def wait_for_kakas_quotes(session, url, headers, quote_uuid, carrier_resul
                     if current_snapshot != last_snapshot:
                         last_snapshot = current_snapshot
                         deadline = loop.time() + 50
+                    if on_update:
+                        await on_update(raw_payload)
                     if quote_content.get("finish") is True:
                         break
         except (aiohttp.ClientError, asyncio.TimeoutError):
             # Keep the last usable prices when a later poll fails.
             pass
-        await asyncio.sleep(min(1, max(0, deadline - loop.time())))
+        await asyncio.sleep(min(poll_interval, max(0, min(deadline, absolute_deadline) - loop.time())))
     return payload

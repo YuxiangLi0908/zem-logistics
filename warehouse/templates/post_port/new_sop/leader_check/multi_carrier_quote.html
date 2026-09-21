@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <style>
@@ -39,6 +40,39 @@
             <p>自由录入货物明细并同时查询 Maersk、卡卡省和 ABF 报价</p>
         </div>
         <div class="standalone-quote-body">
+            <div class="d-flex gap-2 align-items-center mb-3">
+                <label for="quote-mode">询价方式</label>
+                <select id="quote-mode" class="form-select" style="width:160px"><option value="manual">手动询价</option><option value="auto">自动询价</option></select>
+                <a href="{% url 'post_nsop' %}?step=multi_carrier_quote_history" class="btn btn-sm btn-outline-secondary">手动历史</a>
+                <a href="{% url 'post_nsop' %}?step=auto_quote_history" class="btn btn-sm btn-outline-secondary">自动历史</a>
+            </div>
+            <div id="auto-controls" hidden class="border rounded p-3 mb-3 bg-light">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <label for="auto-group">本次询价地址组</label>
+                    <select id="auto-group" class="form-select" style="width:160px"><option>LA</option><option>SAV</option><option>NJ</option></select>
+                    <span id="auto-group-count" class="text-muted"></span>
+                </div>
+                <details class="mt-2" id="auto-address-manager">
+                    <summary>上传 Excel / 查看地址</summary>
+                    <p class="small text-muted mt-2">A列留空；B～F列表头：城市、州、邮编、详细地址、距仓库距离（miles）。上传到当前所选组，追加并去重。</p>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <input id="auto-address-file" type="file" accept=".xlsx" class="form-control" style="max-width:320px">
+                        <button type="button" id="auto-upload" class="btn btn-sm btn-outline-primary">上传地址</button>
+                        <button type="button" id="auto-show-addresses" class="btn btn-sm btn-outline-secondary">查看地址</button>
+                    </div>
+                    <div id="auto-import-message" class="small mt-2" style="white-space:pre-wrap" role="status"></div>
+                    <div id="auto-address-list" hidden class="mt-2">
+                        <div class="table-responsive"><table class="table table-sm table-bordered">
+                            <thead><tr><th>组</th><th>城市</th><th>州</th><th>邮编</th><th>详细地址</th><th>距仓库距离（miles）</th></tr></thead>
+                            <tbody id="auto-address-rows"></tbody>
+                        </table></div>
+                        <button type="button" id="auto-address-prev" class="btn btn-sm btn-outline-secondary">上一页</button>
+                        <span id="auto-address-page"></span>
+                        <button type="button" id="auto-address-next" class="btn btn-sm btn-outline-secondary">下一页</button>
+                    </div>
+                </details>
+                <p class="small text-muted mt-2 mb-0">组内地址共用下方货物条件及收货地址类型。提交后后台执行，关闭页面仍会继续；可在自动历史查看进度。</p>
+            </div>
             <form id="standaloneQuoteForm">
                 {% csrf_token %}
                 <div class="row g-3 mb-3 quote-basic-fields">
@@ -64,7 +98,7 @@
                     </div>
                     <div class="col-lg-6">
                         <div class="address-panel">
-                            <h5>收货地址（手动填写）</h5>
+                            <h5 id="destination-heading">收货地址（手动填写）</h5>
                             <div class="row g-2">
                                 <div class="col-md-5"><input id="quote_destination_name" class="form-control" placeholder="收货仓点/名称 *" required></div>
                                 <div class="col-md-3"><select id="quote_destination_type" class="form-select"><option value="1">商业地址</option><option value="2">住宅地址</option><option value="3">装卸平台</option></select></div>
@@ -98,6 +132,7 @@
             <div id="quote_error" class="alert alert-danger mt-3" style="display:none"></div>
             <div class="text-center mt-3"><button id="submitQuote" type="button" class="btn btn-primary px-5"><i class="fas fa-search-dollar"></i> 开始询价</button></div>
             <div id="quote_result" class="mt-4"></div>
+            <div id="auto-task-panel" hidden>{% include "post_port/new_sop/leader_check/auto_quote_tasks.html" %}</div>
         </div>
     </div>
 </div>
@@ -109,6 +144,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('standaloneQuoteForm');
     const errorBox = document.getElementById('quote_error');
     const submitButton = document.getElementById('submitQuote');
+    const mode = document.getElementById('quote-mode');
+    function setMode() {
+        const automatic = mode.value === 'auto';
+        document.getElementById('auto-controls').hidden = !automatic;
+        document.getElementById('auto-task-panel').hidden = !automatic;
+        document.getElementById('quote_result').hidden = automatic;
+        document.getElementById('destination-heading').textContent = automatic ? '收货地址（从所选组读取）' : '收货地址（手动填写）';
+        ['name','zip','address','city','state'].forEach(key => {
+            const input = document.getElementById('quote_destination_' + key);
+            input.disabled = automatic;
+            input.parentElement.hidden = automatic;
+        });
+        submitButton.textContent = automatic ? '开始自动询价' : '开始询价';
+        errorBox.style.display = 'none';
+        if (automatic) window.AutoQuoteUI?.refresh();
+    }
+    mode.addEventListener('change', setMode);
+    if (new URLSearchParams(location.search).get('mode') === 'auto') mode.value = 'auto';
+    setMode();
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
@@ -210,9 +264,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const originalHtml = submitButton.innerHTML;
         submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在查询三家报价...';
+        submitButton.textContent = mode.value === 'auto' ? '正在创建询价任务…' : '正在查询三家报价…';
         errorBox.style.display = 'none';
         try {
+            if (mode.value === 'auto') {
+                await window.AutoQuoteUI.start(requestPayload);
+                return;
+            }
             const data = new FormData();
             data.append('step', 'get_multi_carrier_quote');
             data.append('quote_payload', JSON.stringify(requestPayload));
@@ -237,4 +295,5 @@ document.addEventListener('DOMContentLoaded', function () {
     setQuoteType();
 });
 </script>
+<script src="{% static 'js/auto_quote.js' %}"></script>
 {% endblock %}
