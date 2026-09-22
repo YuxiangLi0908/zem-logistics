@@ -46,6 +46,7 @@ from openpyxl.worksheet.page import PageMargins
 from xhtml2pdf import pisa
 
 from warehouse.models.customer import Customer
+from warehouse.utils.unpacking_notes import append_walmart_height, needs_walmart_height
 from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
@@ -224,6 +225,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             .values(
                 "container_number__container_number",
                 "dropshipping_item_model_number",
+                "destination",
                 "address",
                 "zipcode",
                 "contact_name",
@@ -449,6 +451,10 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         df.loc[mask_clear_mark, "shipping_mark"] = ""
 
         df = df.drop("original_note_from_remark", axis=1)
+
+        # Use the original PackingList destination, including the JINYU branch.
+        height_mask = df["destination"].apply(needs_walmart_height)
+        df.loc[height_mask, "拆柜备注"] = df.loc[height_mask, "拆柜备注"].apply(append_walmart_height)
 
         df["pl"] = ""  # 清空打板数字段
 
