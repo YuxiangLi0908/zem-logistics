@@ -83,6 +83,13 @@ def auto_quote_get(request):
             page = Paginator(AutoQuoteAddress.objects.filter(group=group), 50).get_page(request.GET.get("page"))
             return JsonResponse({"success": True, "rows": [a.snapshot() for a in page],
                                  "page": page.number, "pages": page.paginator.num_pages, "total": page.paginator.count})
+        if kind == "batch_copy":
+            batch = get_object_or_404(visible_batches(request.user), pk=request.GET.get("batch"))
+            # One read for the full result table; omit large request payloads not used in the clipboard.
+            records = list(batch.items.values("id", "address_snapshot", "status", "started_at", "finished_at", "error", "result"))
+            for row in records:
+                row["address"] = row.pop("address_snapshot")
+            return JsonResponse({"success": True, "batch_id": batch.pk, "rows": records})
         if kind == "batch":
             batch = get_object_or_404(visible_batches(request.user), pk=request.GET.get("batch"))
             items = batch.items.all()

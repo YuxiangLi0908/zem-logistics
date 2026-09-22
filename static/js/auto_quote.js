@@ -71,18 +71,67 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const child of Object.values(value)) { const found = rows(child); if (found.length) return found; }
         return [];
     }
-    function prices(carrier) {
-        const quotes = rows(carrier).filter(q => q && typeof q === 'object').map(q => {
+    function sortedQuotes(carrier) {
+        return rows(carrier).filter(q => q && typeof q === 'object').map(q => {
             const value = q.TotalQuote ?? q.totalPrice ?? q.price;
             const valid = (typeof value === 'number' || typeof value === 'string') &&
                 String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0;
             return {quote: q, price: valid ? Number(value) : null};
         }).sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    }
+    const quoteName = q => q.DisplayService || q.carrierName || q.serviceName || q.carrierCode || q.Service || '报价';
+    function prices(carrier, {limit = Infinity, key = '', open = false} = {}) {
+        const quotes = sortedQuotes(carrier);
         const minimum = quotes.length ? quotes[0].price : null;
-        return quotes.map(({quote: q, price}) => {
+        const lines = quotes.map(({quote: q, price}) => {
             const lowest = price !== null && price === minimum;
-            return `<div>${esc(q.DisplayService || q.carrierName || q.serviceName || q.carrierCode || q.Service || '报价')} <strong${lowest ? ' style="color:#dc3545" title="本平台最低价"' : ''}>${price !== null ? '$' + price.toFixed(2) : '价格待返回'}${lowest ? '（最低）' : ''}</strong></div>`;
-        }).join('') || esc(carrier?.error || '暂无报价');
+            return `<div>${esc(quoteName(q))} <strong${lowest ? ' style="color:#dc3545" title="本平台最低价"' : ''}>${price !== null ? '$' + price.toFixed(2) : '价格待返回'}${lowest ? '（最低）' : ''}</strong></div>`;
+        });
+        if (lines.length > limit) {
+            return lines.slice(0, limit).join('') + `<details data-id="${esc(key)}" ${open ? 'open' : ''}><summary class="text-primary mt-1">其余 ${lines.length - limit} 条报价（共 ${lines.length} 条，点击展开 / 收起）</summary>${lines.slice(limit).join('')}</details>`;
+        }
+        return lines.join('') || esc(carrier?.error || '暂无报价');
+    }
+    function priceText(carrier) {
+        const quotes = sortedQuotes(carrier);
+        return quotes.map(({quote, price}) => `${quoteName(quote)} ${price === null ? '价格待返回' : '$' + price.toFixed(2)}${price !== null && price === quotes[0].price ? '（最低）' : ''}`).join('\n') || carrier?.error || '暂无报价';
+    }
+    function copyTable(data) {
+        const headers = ['收货地址', '状态 / 实际询价时间', 'Maersk', '卡卡省', 'ABF', '明细 / 错误'];
+        const cells = data.rows.map(item => {
+            const a = item.address, result = item.result.results || {};
+            return [`${a.city}, ${a.state} ${a.zipcode}\n${a.address}\n${a.distance_miles || ''} miles`,
+                `${labels[item.status] || item.status}\n${date(item.started_at)}`, priceText(result.maersk), priceText(result.kakas),
+                rows(result.abf).length ? priceText(result.abf) : '暂未接入',
+                [item.error, item.finished_at ? '完成时间：' + date(item.finished_at) : ''].filter(Boolean).join('\n')];
+        });
+        // Keep pasted text as text, including addresses/names that start with spreadsheet formulas.
+        const safe = value => /^[\s]*[=+\-@]/.test(String(value)) ? "'" + value : String(value ?? '');
+        const grid = [headers, ...cells].map(row => row.map(safe));
+        return {
+            text: grid.map(row => row.map(value => '"' + value.replace(/"/g, '""') + '"').join('\t')).join('\r\n'),
+            html: '<html><body><table border="1" style="border-collapse:collapse">' + grid.map((row, index) => '<tr>' + row.map(value => {
+                const tag = index === 0 ? 'th' : 'td';
+                return `<${tag} style="vertical-align:top;white-space:pre-wrap">${esc(value).replace(/\r?\n/g, '<br style="mso-data-placement:same-cell">')}</${tag}>`;
+            }).join('') + '</tr>').join('') + '</table></body></html>',
+            count: cells.length,
+        };
+    }
+    function legacyCopy(payload) {
+        const area = document.createElement('textarea');
+        area.value = payload.text;
+        area.style.cssText = 'position:fixed;left:-10000px;top:0';
+        document.body.appendChild(area);
+        area.select();
+        const onCopy = event => {
+            if (!event.clipboardData) return;
+            event.clipboardData.setData('text/html', payload.html);
+            event.clipboardData.setData('text/plain', payload.text);
+            event.preventDefault();
+        };
+        document.addEventListener('copy', onCopy);
+        try { return document.execCommand('copy'); }
+        finally { document.removeEventListener('copy', onCopy); area.remove(); }
     }
     async function detail() {
         const requestedId = selectedBatch;
@@ -99,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const a = item.address, result = item.result.results || {};
             return `<tr><td>${esc(a.city)}, ${esc(a.state)} ${esc(a.zipcode)}<div>${esc(a.address)}</div><small>${esc(a.distance_miles)} miles</small></td>
                 <td>${esc(labels[item.status])}<div class="small">${esc(date(item.started_at))}</div></td>
-                <td>${prices(result.maersk)}</td><td>${prices(result.kakas)}</td><td>${rows(result.abf).length ? prices(result.abf) : '暂未接入'}</td>
+                <td>${prices(result.maersk)}</td><td>${prices(result.kakas, {limit:10, key:'kakas-' + item.id, open:opened.has('kakas-' + item.id)})}</td><td>${rows(result.abf).length ? prices(result.abf) : '暂未接入'}</td>
                 <td><div class="text-danger" style="max-width:320px;overflow-wrap:anywhere">${esc(item.error)}</div>
                 <details data-id="${item.id}" ${opened.has(String(item.id)) ? 'open' : ''}><summary>完整结果与请求</summary><pre style="max-width:400px;max-height:300px;white-space:pre-wrap">${esc(JSON.stringify({address:a, request:item.request_payload, result:item.result, finished_at:item.finished_at}, null, 2))}</pre></details></td></tr>`;
         }).join('') || '<tr><td colspan="6">没有符合条件的记录</td></tr>';
@@ -114,6 +163,41 @@ document.addEventListener('DOMContentLoaded', () => {
         addressPage = data.page; paginate('auto-address', data);
     }
     const safely = action => async () => { try { await action(); } catch (error) { message(error.message, true); } };
+    let preparedCopy = null;
+    $('auto-copy-table').addEventListener('click', async () => {
+        if (!selectedBatch) return;
+        const batchId = String(selectedBatch), button = $('auto-copy-table');
+        button.disabled = true;
+        button.textContent = '正在准备完整表格…';
+        const payloadPromise = preparedCopy?.batchId === batchId ? Promise.resolve(preparedCopy.payload) :
+            get({kind:'batch_copy', batch:batchId}).then(copyTable);
+        // Handle a possible request rejection even if ClipboardItem construction fails first.
+        payloadPromise.catch(() => {});
+        try {
+            if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+                // Start the write during the click gesture; the blobs resolve after fetching all rows.
+                const htmlBlob = payloadPromise.then(p => new Blob([p.html], {type:'text/html'}));
+                const textBlob = payloadPromise.then(p => new Blob([p.text], {type:'text/plain'}));
+                htmlBlob.catch(() => {}); textBlob.catch(() => {});
+                const item = new ClipboardItem({'text/html':htmlBlob, 'text/plain':textBlob});
+                try { await navigator.clipboard.write([item]); }
+                catch (_) { if (!legacyCopy(await payloadPromise)) throw new Error('浏览器未允许复制'); }
+            } else if (!legacyCopy(await payloadPromise)) {
+                throw new Error('浏览器未允许复制');
+            }
+            const payload = await payloadPromise;
+            preparedCopy = null;
+            message(`已复制任务 #${batchId} 的全部 ${payload.count} 条地址及完整报价，可以粘贴到 Excel；不受分页或状态筛选影响。`);
+        } catch (error) {
+            try {
+                preparedCopy = {batchId, payload:await payloadPromise};
+                message('完整表格已准备好，但复制被浏览器阻止，请再次点击“复制整个表”。', true);
+            } catch (_) { message(error.message, true); }
+        } finally {
+            button.disabled = false;
+            button.textContent = '复制整个表（完整报价）';
+        }
+    });
     $('auto-refresh').addEventListener('click', refresh);
     $('auto-batches').addEventListener('click', async event => {
         const button = event.target.closest('button[data-action]');

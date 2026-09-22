@@ -26,7 +26,9 @@
                 <option value="failed">失败</option><option value="no_quote">无可用报价</option><option value="cancelled">已停止</option>
             </select>
             <a id="auto-export" class="btn btn-sm btn-outline-primary">导出结果</a>
+            <button id="auto-copy-table" type="button" class="btn btn-sm btn-outline-primary">复制整个表（完整报价）</button>
         </div>
+        <p class="small text-muted">卡卡省默认显示价格最低的前10条，可展开其余报价。复制整个表包含当前任务全部地址和完整报价，不受分页和状态筛选影响。</p>
         <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
             <thead><tr><th>收货地址</th><th>状态 / 实际询价时间</th><th>Maersk</th><th>卡卡省</th><th>ABF</th><th>明细 / 错误</th></tr></thead>
             <tbody id="auto-items"></tbody>
