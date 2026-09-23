@@ -40,14 +40,7 @@
             <p>自由录入货物明细并同时查询 Maersk、卡卡省和 ABF 报价</p>
         </div>
         <div class="standalone-quote-body">
-            <div class="d-flex gap-2 align-items-center mb-3">
-                <input type="hidden" id="quote-mode" value="{% if automatic %}auto{% else %}manual{% endif %}">
-                <a href="{% url 'post_nsop' %}?step=multi_carrier_quote" class="btn btn-sm btn-outline-secondary">手动询价</a>
-                <a href="{% url 'post_nsop' %}?step=multi_carrier_quote_history" class="btn btn-sm btn-outline-secondary">手动历史</a>
-                <a href="{% url 'post_nsop' %}?step=auto_quote" class="btn btn-sm btn-outline-secondary">自动询价</a>
-                <a href="{% url 'post_nsop' %}?step=auto_quote_history" class="btn btn-sm btn-outline-secondary">自动历史</a>
-                <a href="{% url 'post_nsop' %}?step=auto_quote_analysis" class="btn btn-sm btn-outline-primary">价格分析</a>
-            </div>
+            <input type="hidden" id="quote-mode" value="{% if automatic %}auto{% else %}manual{% endif %}">
             <div id="auto-controls" hidden class="border rounded p-3 mb-3 bg-light">
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                     <label for="auto-group">本次询价地址组</label>
@@ -135,8 +128,7 @@
             <div id="quote_error" class="alert alert-danger mt-3" style="display:none"></div>
             <div class="text-center mt-3"><button id="submitQuote" type="button" class="btn btn-primary px-5"><i class="fas fa-search-dollar"></i> 开始询价</button></div>
             <div id="quote_result" class="mt-4"></div>
-            {% if automatic %}<div id="auto-ui-message" class="alert alert-info mt-3" hidden role="status"></div>
-            <a class="btn btn-outline-primary mt-3" href="{% url 'post_nsop' %}?step=auto_quote_history">查看自动询价历史与进度</a>{% endif %}
+            {% if automatic %}<div id="auto-ui-message" class="alert alert-info mt-3" hidden role="status"></div>{% endif %}
         </div>
     </div>
 </div>
