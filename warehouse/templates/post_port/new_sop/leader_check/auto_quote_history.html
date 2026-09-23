@@ -1,7 +1,36 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<div class="container-fluid p-4">
+<style>
+    .aq-history { padding:28px; background:#f3f6fb; min-height:90vh; color:#24344c; }
+    .aq-history h3 { font-weight:750; margin-bottom:10px; }
+    .aq-search { margin:24px 0; border:1px solid #bfd4f4; border-radius:14px; background:#fff; overflow:hidden; box-shadow:0 5px 20px #25395808; }
+    .aq-search-heading { padding:18px 22px; background:linear-gradient(110deg,#e7f0ff,#f0f7ff); border-bottom:1px solid #d3e1f6; }
+    .aq-search-heading h5 { margin:0 0 6px; color:#2057a1; font-weight:700; }
+    .aq-search-heading p { margin:0; color:#526b8d; font-size:13px; }
+    .aq-search-fields { display:grid; grid-template-columns:minmax(250px,2fr) minmax(165px,1fr) minmax(165px,1fr) auto; gap:18px; padding:22px 22px 12px; align-items:end; }
+    .aq-search-fields label { display:block; font-size:13px; font-weight:650; color:#405777; margin-bottom:9px; }
+    .aq-search-fields .form-control { width:100%; height:44px; padding:10px 12px; border:1px solid #cbd8e8; border-radius:8px; background:#fbfdff; box-sizing:border-box; }
+    .aq-search-fields .form-control:focus { outline:none; border-color:#397cde; box-shadow:0 0 0 3px #397cde20; }
+    .aq-search-fields .btn { height:44px; border-radius:8px; padding:0 24px; font-weight:650; }
+    .aq-search-footer { padding:0 22px 16px; font-size:12px; color:#73839a; display:flex; gap:18px; align-items:center; }
+    .aq-search-footer button { background:none; border:0; color:#326abb; padding:4px 0; cursor:pointer; }
+    .aq-history #auto-quote-tasks, .aq-history #destination-history { background:white; border:1px solid #dce4ef; border-radius:14px; padding:22px; margin-top:26px; box-shadow:0 5px 20px #25395808; }
+    .aq-history #auto-quote-tasks { border-top:4px solid #168c82; }
+    .aq-history #destination-history { border-top:4px solid #397cde; }
+    .aq-history #auto-quote-tasks h5 { font-weight:700; color:#146c64; }
+    .aq-history .table { margin-top:16px; background:white; }
+    .aq-history .table thead th { background:#eef4fa; color:#425775; padding:13px 12px; border-color:#dce5ef; white-space:nowrap; }
+    .aq-history .table tbody td { padding:14px 12px; border-color:#e5ebf3; vertical-align:top; }
+    .aq-history .table tbody tr:nth-child(even) { background:#f9fbfd; }
+    .aq-history .table tbody tr:hover { background:#f0f7ff; }
+    .aq-history #auto-worker-state { background:#f0f6f6; color:#547773; padding:10px 12px; border-radius:7px; margin:14px 0; }
+    .aq-status { display:inline-block; padding:4px 10px; border-radius:20px; background:#e9eff7; color:#536782; font-size:12px; font-weight:650; margin-bottom:6px; }
+    .aq-status-completed { background:#dcf5e9; color:#18764d; }.aq-status-running { background:#e1efff; color:#2266bb; }.aq-status-stopped { background:#fff0d7; color:#936318; }
+    @media(max-width:1000px) { .aq-search-fields { grid-template-columns:1fr 1fr; } }
+    @media(max-width:600px) { .aq-history { padding:14px; }.aq-search-fields { grid-template-columns:1fr; gap:14px; }.aq-search-footer { flex-wrap:wrap; } }
+</style>
+<div class="container-fluid aq-history">
     <div class="d-flex justify-content-between align-items-center">
         <h3>自动询价历史</h3>
         <div>
@@ -9,17 +38,19 @@
         </div>
     </div>
     <p class="text-muted">每次执行独立保存地址与询价条件。重试关联原任务，不覆盖原有报价。</p>
-    <form id="destination-search" class="border rounded p-3 bg-light">
-        <div class="d-flex flex-wrap gap-2 align-items-end">
-            <div class="flex-grow-1"><label for="destination-query">收货地址 / 城市 / 邮编</label>
+    <form id="destination-search" class="aq-search">
+        <div class="aq-search-heading"><h5>搜索历史记录</h5><p>按收货地址查历次报价，或只选择日期查历史任务。条件留空时显示全部任务。</p></div>
+        <div class="aq-search-fields">
+            <div><label for="destination-query">收货地址 / 城市 / 邮编</label>
                 <input id="destination-query" class="form-control" maxlength="250" placeholder="输入地址，查找跨任务的自动询价历史"></div>
-            <div><label for="destination-start">任务开始日期</label><input id="destination-start" type="date" class="form-control"></div>
-            <div><label for="destination-end">任务结束日期</label><input id="destination-end" type="date" class="form-control"></div>
-            <button class="btn btn-primary" type="submit">筛选地址</button>
-            <button id="destination-reset" class="btn btn-outline-secondary" type="button">返回任务列表</button>
+            <div><label for="destination-start">开始日期</label><input id="destination-start" type="date" class="form-control"></div>
+            <div><label for="destination-end">结束日期</label><input id="destination-end" type="date" class="form-control"></div>
+            <button class="btn btn-primary" type="submit">搜索记录</button>
         </div>
+        <div class="aq-search-footer"><span>日期范围按任务创建日期筛选，包含开始和结束当天。</span><button id="destination-reset" type="button">清空条件</button></div>
     </form>
     <div id="destination-history" class="mt-3" hidden>
+        <h5 style="color:#2057a1;font-weight:700">地址搜索结果</h5>
         <div id="destination-message" role="status" class="alert alert-info"></div>
         <label for="destination-address">匹配的收货地址</label><select id="destination-address" class="form-select mb-3"></select>
         <section class="border rounded p-3 mb-3" aria-label="收货地址价格走势">

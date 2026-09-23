@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await get({kind:'destination_history', ...filters, page});
             if (token !== generation || !active) return;
-            $('auto-task-list').hidden = true;
+            $('auto-task-list').hidden = false;
             $('destination-message').textContent = `共 ${data.total} 条历史记录，匹配 ${data.addresses.length} 个收货地址。`;
             options('destination-address', data.addresses.map(a => ({value:a.key,label:a.label})), data.address, '全部匹配地址（选择单个地址查看走势）');
             options('destination-profile', data.profiles.map(p => ({value:p.id,label:p.code})), data.profile);
@@ -96,7 +96,16 @@ document.addEventListener('DOMContentLoaded', () => {
     $('destination-search').addEventListener('submit', event => {
         event.preventDefault();
         const q = $('destination-query').value.trim();
-        if (!q) { $('destination-reset').click(); return; }
+        if (!q) {
+            ++generation; active = false; filters = {}; page = 1;
+            $('destination-history').hidden = true;
+            $('auto-task-list').hidden = false; ui.clearSelection();
+            const start = $('destination-start').value, end = $('destination-end').value;
+            $('auto-task-title').textContent = start || end ? '按日期筛选的历史任务' : '全部历史自动询价任务';
+            ui.filterTasks(start, end); return;
+        }
+        $('auto-task-title').textContent = '全部历史自动询价任务';
+        ui.filterTasks('', '');
         active = true; page = 1;
         filters = {q, start:$('destination-start').value, end:$('destination-end').value};
         $('destination-platform').value = '';
@@ -106,7 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('destination-reset').addEventListener('click', () => {
         ++generation; active = false; filters = {}; page = 1;
         $('destination-search').reset(); $('destination-history').hidden = true;
-        $('auto-task-list').hidden = false; ui.clearSelection(); ui.refresh();
+        $('auto-task-list').hidden = false; ui.clearSelection();
+        $('auto-task-title').textContent = '全部历史自动询价任务'; ui.filterTasks('', '');
     });
     $('auto-refresh').addEventListener('click', () => { if (active) load(); });
     for (const key of ['address','profile','lead','platform','currency']) {

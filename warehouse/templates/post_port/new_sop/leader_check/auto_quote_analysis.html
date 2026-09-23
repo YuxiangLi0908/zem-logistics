@@ -18,6 +18,11 @@
     .qa-table { font-size:13px; white-space:nowrap; }
     .qa-table th { background:#edf2f8; }
     .qa-table td { vertical-align:middle; }
+    #qa-series > tr > td { padding:14px 12px; }
+    #qa-series > tr:nth-child(even) { background:#f8fbff; }
+    #qa-series details { min-width:170px; max-width:440px; }
+    #qa-series details > .table-responsive { max-width:440px; }
+    #qa-series summary { cursor:pointer; }
     .qa-up { color:#c03036; font-weight:600; } .qa-down { color:#12784e; font-weight:600; }
     .qa-bar { display:inline-block; height:8px; background:#5282cf; border-radius:5px; vertical-align:middle; }
     #qa-error { white-space:pre-wrap; }
@@ -63,8 +68,8 @@
         </section>
         <section class="qa-card">
             <h5>每条线路的价格对比</h5>
-            <p class="qa-note">“最新”是该地址最后一个采样日的结果；缺失时保留空白。“较上次”对比此前最近一次有效报价，期间涨跌对比区间首末有效报价。波动系数至少需要3个有效报价日。</p>
-            <div class="table-responsive"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th>平台 / 承运商 / 服务</th><th>最新报价</th><th>上次有效报价</th><th>较上次金额</th><th>较上次%</th><th>期间涨跌%</th><th>最低 / 最高</th><th>平均价</th><th>波动CV%</th><th>高低价振幅%</th><th>相邻采样最大涨跌%</th><th>有效日 / 采样日</th><th>覆盖率</th></tr></thead><tbody id="qa-series"></tbody></table></div>
+            <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出仍保留全部承运商明细。</p>
+            <div class="table-responsive"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th>最新最低价 / 提供方</th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th>日最低价CV</th><th>有效日 / 采样日 · 覆盖率</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
             <button id="qa-prev" type="button" class="btn btn-sm btn-outline-secondary">上一页</button><span id="qa-page" class="mx-2"></span><button id="qa-next" type="button" class="btn btn-sm btn-outline-secondary">下一页</button>
         </section>
         <section id="qa-min-section" class="qa-card" hidden><h5>所选线路每日最低价与承运商变化</h5><p class="qa-note">仅从当前筛选范围内返回的报价取最低，不表示市场上绝对最低；提供最低价的承运商可能变化。</p>
