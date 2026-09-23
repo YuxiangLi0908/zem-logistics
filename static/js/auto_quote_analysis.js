@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const movement = value => value === null || value === undefined ? '—' : `<span class="${value > 0 ? 'qa-up' : value < 0 ? 'qa-down' : ''}">${value > 0 ? '+' : ''}${Number(value).toFixed(2)}</span>`;
     const product = row => row ? `${platform(row.platform)} / ${row.carrier} / ${row.service}` : '样本不足或没有可比较线路';
     let page = 1, chartLines = [], generation = 0;
+    let initialAddress = new URLSearchParams(location.search).get('address') || '';
     const colors = ['#2563eb','#c2410c','#059669','#9333ea','#be185d','#0e7490','#a16207','#475569'];
     async function api(args) {
         const query = new URLSearchParams({step:'auto_quote_data', ...args});
@@ -35,10 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
         $('export').hidden = true;
         const args = {kind:'analysis', page};
         for (const key of ['profile','group','start','end','address','platform','carrier','lead','currency']) args[key] = $(key).value;
+        if (initialAddress) args.address = initialAddress;
         args.include_partial = $('partial').checked ? '1' : '0';
         try {
             const data = await api(args);
             if (run !== generation) return;
+            initialAddress = '';
             page = data.page;
             $('export').href = '/post_nsop/?' + new URLSearchParams({step:'auto_quote_data', ...args, kind:'analysis_export', lead:data.filters.lead ?? ''});
             $('export').hidden = false;

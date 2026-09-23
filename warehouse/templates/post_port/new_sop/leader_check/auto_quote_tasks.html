@@ -5,14 +5,16 @@
     </div>
     <div id="auto-worker-state" class="small text-muted mb-2"></div>
     <div id="auto-ui-message" class="alert alert-info" hidden role="status"></div>
+    <div id="auto-task-list">
     <div class="table-responsive"><table class="table table-sm table-bordered">
-        <thead><tr><th>任务</th><th>组 / 发货仓</th><th>创建时间</th><th>状态 / 进度</th><th>操作</th></tr></thead>
+        <thead><tr><th>任务</th><th>组 / 发货仓</th><th>执行人</th><th>创建时间</th><th>状态 / 进度</th><th>操作</th></tr></thead>
         <tbody id="auto-batches"></tbody>
     </table></div>
     <div class="d-flex gap-2 align-items-center">
         <button type="button" id="auto-batches-prev" class="btn btn-sm btn-outline-secondary">上一页</button>
         <span id="auto-batches-page"></span>
         <button type="button" id="auto-batches-next" class="btn btn-sm btn-outline-secondary">下一页</button>
+    </div>
     </div>
     <div id="auto-detail" class="mt-4" hidden>
         <h5 id="auto-detail-title"></h5>

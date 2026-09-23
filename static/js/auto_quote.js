@@ -1,7 +1,8 @@
 /* Durable batch quotes: the browser only creates tasks and reads progress. */
 document.addEventListener('DOMContentLoaded', () => {
     const $ = id => document.getElementById(id);
-    if (!$('auto-quote-tasks')) return;
+    const historyPage = !!$('auto-quote-tasks');
+    if (!historyPage && $('quote-mode')?.value !== 'auto') return;
     const labels = {queued:'等待执行', running:'询价中', completed:'已结束', stopped:'已停止', pending:'等待中', success:'报价完整', partial:'部分报价', failed:'失败', no_quote:'无可用报价', cancelled:'已停止'};
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const date = value => value ? new Date(value).toLocaleString() : '—';
@@ -52,14 +53,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await get({page:batchPage});
             groups = data.groups; groupCount(); batchPage = data.page;
+            if (!historyPage) return;
             $('auto-worker-state').textContent = data.worker_online ? '后台执行服务在线 · 页面每5秒更新进度' : '后台执行服务尚未就绪，已提交任务会保留在队列中。请联系管理员检查执行服务。';
             $('auto-batches').innerHTML = data.batches.map(batch => `<tr>
                 <td>#${batch.id}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
-                <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(date(batch.created_at))}</td>
+                <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}</td>
                 <td>${esc(labels[batch.status])}${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}<div class="small">共${batch.total}条 · ${esc(progress(batch))}</div></td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
-                ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">暂无自动询价任务</td></tr>';
+                ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';
             paginate('auto-batches', data);
             if (selectedBatch) await detail();
         } catch (error) { message(error.message, true); }
@@ -139,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (requestedId !== selectedBatch) return;
         $('auto-detail').hidden = false;
         $('auto-detail-title').textContent = `任务 #${data.batch.id} · ${data.batch.group} · ${data.batch.origin}`;
-        $('auto-detail-summary').textContent = progress(data.batch);
+        $('auto-detail-summary').textContent = `执行人：${data.batch.operator} · ${progress(data.batch)}`;
         $('auto-detail-parameters').textContent = JSON.stringify(data.parameters, null, 2);
         $('auto-export').href = endpoint({step:'auto_quote_export', batch:selectedBatch});
         // Preserve opened details during polling.
@@ -164,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const safely = action => async () => { try { await action(); } catch (error) { message(error.message, true); } };
     let preparedCopy = null;
-    $('auto-copy-table').addEventListener('click', async () => {
+    $('auto-copy-table')?.addEventListener('click', async () => {
         if (!selectedBatch) return;
         const batchId = String(selectedBatch), button = $('auto-copy-table');
         button.disabled = true;
@@ -198,14 +200,14 @@ document.addEventListener('DOMContentLoaded', () => {
             button.textContent = '复制整个表（完整报价）';
         }
     });
-    $('auto-refresh').addEventListener('click', refresh);
-    $('auto-batches').addEventListener('click', async event => {
+    $('auto-refresh')?.addEventListener('click', refresh);
+    $('auto-batches')?.addEventListener('click', async event => {
         const button = event.target.closest('button[data-action]');
         if (!button) return;
         button.disabled = true;
         try {
             if (button.dataset.action === 'detail') {
-                selectedBatch = button.dataset.id; itemPage = 1; await detail();
+                selectedBatch = button.dataset.id; itemPage = 1; $('auto-item-status').value = ''; await detail();
                 $('auto-detail').scrollIntoView({behavior:'smooth', block:'start'});
             } else {
                 button.dataset.token ||= uuid();
@@ -218,11 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
         finally { button.disabled = false; }
     });
     for (const [suffix, delta] of [['prev',-1],['next',1]]) {
-        $('auto-batches-' + suffix).addEventListener('click', () => { batchPage += delta; refresh(); });
-        $('auto-items-' + suffix).addEventListener('click', safely(async () => { itemPage += delta; await detail(); }));
+        $('auto-batches-' + suffix)?.addEventListener('click', () => { batchPage += delta; refresh(); });
+        $('auto-items-' + suffix)?.addEventListener('click', safely(async () => { itemPage += delta; await detail(); }));
         $('auto-address-' + suffix)?.addEventListener('click', safely(async () => { addressPage += delta; await addresses(); }));
     }
-    $('auto-item-status').addEventListener('change', safely(async () => { itemPage = 1; await detail(); }));
+    $('auto-item-status')?.addEventListener('change', safely(async () => { itemPage = 1; await detail(); }));
     $('auto-show-addresses')?.addEventListener('click', safely(addresses));
     $('auto-group')?.addEventListener('change', () => {
         groupCount(); addressPage = 1; $('auto-address-list').hidden = true;
@@ -244,7 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
         finally { $('auto-upload').disabled = false; }
     });
     window.AutoQuoteUI = {
-        refresh,
+        refresh, prices, rows, esc, date, labels, get,
+        clearSelection() { selectedBatch = null; $('auto-detail').hidden = true; },
+        async showBatch(id) { selectedBatch = String(id); itemPage = 1; $('auto-item-status').value = ''; await detail(); $('auto-detail').scrollIntoView({behavior:'smooth', block:'start'}); },
         async start(payload) {
             const group = $('auto-group').value;
             const signature = JSON.stringify({group, payload});
@@ -257,6 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     if (!$('quote-mode') || $('quote-mode').value === 'auto') refresh();
     setInterval(() => {
-        if (!document.hidden && (!$('quote-mode') || $('quote-mode').value === 'auto')) refresh();
+        if (historyPage && !document.hidden && (!$('quote-mode') || $('quote-mode').value === 'auto')) refresh();
     }, 5000);
 });

@@ -18,9 +18,10 @@ from warehouse.utils.auto_quote import (
 )
 from warehouse.utils.multi_carrier_quote import gateway_config
 from warehouse.utils.quote_analysis import analysis_options, build_analysis
+from warehouse.utils.quote_destination_history import destination_history
 
 def visible_batches(user):
-    queryset = AutoQuoteBatch.objects.all()
+    queryset = AutoQuoteBatch.objects.select_related("operator")
     return queryset if user.is_staff else queryset.filter(operator=user)
 
 
@@ -33,6 +34,8 @@ def auto_quote_get(request):
         return render(request, "post_port/new_sop/leader_check/auto_quote_analysis.html")
     try:
         kind = request.GET.get("kind", "batches")
+        if kind == "destination_history":
+            return JsonResponse({"success": True, **destination_history(visible_batches(request.user), request.GET)})
         if kind == "analysis_options":
             return JsonResponse({"success": True, **analysis_options(visible_batches(request.user))})
         if kind == "analysis":
