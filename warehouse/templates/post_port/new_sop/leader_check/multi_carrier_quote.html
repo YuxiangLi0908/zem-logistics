@@ -36,14 +36,15 @@
 <div class="standalone-quote-page">
     <div class="standalone-quote-card">
         <div class="standalone-quote-header">
-            <h2><i class="fas fa-tags me-2"></i>三方询价</h2>
+            <h2><i class="fas fa-tags me-2"></i>{% if automatic %}自动询价{% else %}手动询价{% endif %}</h2>
             <p>自由录入货物明细并同时查询 Maersk、卡卡省和 ABF 报价</p>
         </div>
         <div class="standalone-quote-body">
             <div class="d-flex gap-2 align-items-center mb-3">
-                <label for="quote-mode">询价方式</label>
-                <select id="quote-mode" class="form-select" style="width:160px"><option value="manual">手动询价</option><option value="auto">自动询价</option></select>
+                <input type="hidden" id="quote-mode" value="{% if automatic %}auto{% else %}manual{% endif %}">
+                <a href="{% url 'post_nsop' %}?step=multi_carrier_quote" class="btn btn-sm btn-outline-secondary">手动询价</a>
                 <a href="{% url 'post_nsop' %}?step=multi_carrier_quote_history" class="btn btn-sm btn-outline-secondary">手动历史</a>
+                <a href="{% url 'post_nsop' %}?step=auto_quote" class="btn btn-sm btn-outline-secondary">自动询价</a>
                 <a href="{% url 'post_nsop' %}?step=auto_quote_history" class="btn btn-sm btn-outline-secondary">自动历史</a>
                 <a href="{% url 'post_nsop' %}?step=auto_quote_analysis" class="btn btn-sm btn-outline-primary">价格分析</a>
             </div>
@@ -134,7 +135,8 @@
             <div id="quote_error" class="alert alert-danger mt-3" style="display:none"></div>
             <div class="text-center mt-3"><button id="submitQuote" type="button" class="btn btn-primary px-5"><i class="fas fa-search-dollar"></i> 开始询价</button></div>
             <div id="quote_result" class="mt-4"></div>
-            <div id="auto-task-panel" hidden>{% include "post_port/new_sop/leader_check/auto_quote_tasks.html" %}</div>
+            {% if automatic %}<div id="auto-ui-message" class="alert alert-info mt-3" hidden role="status"></div>
+            <a class="btn btn-outline-primary mt-3" href="{% url 'post_nsop' %}?step=auto_quote_history">查看自动询价历史与进度</a>{% endif %}
         </div>
     </div>
 </div>
@@ -150,7 +152,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function setMode() {
         const automatic = mode.value === 'auto';
         document.getElementById('auto-controls').hidden = !automatic;
-        document.getElementById('auto-task-panel').hidden = !automatic;
         document.getElementById('quote_result').hidden = automatic;
         document.getElementById('destination-heading').textContent = automatic ? '收货地址（从所选组读取）' : '收货地址（手动填写）';
         ['name','zip','address','city','state'].forEach(key => {
@@ -162,8 +163,6 @@ document.addEventListener('DOMContentLoaded', function () {
         errorBox.style.display = 'none';
         if (automatic) window.AutoQuoteUI?.refresh();
     }
-    mode.addEventListener('change', setMode);
-    if (new URLSearchParams(location.search).get('mode') === 'auto') mode.value = 'auto';
     setMode();
 
     function escapeHtml(value) {

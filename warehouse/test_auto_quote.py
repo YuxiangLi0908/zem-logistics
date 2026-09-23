@@ -59,8 +59,18 @@ class AddressParsingTests(SimpleTestCase):
                                  "django.template.loaders.filesystem.Loader"])
         for name in ("multi_carrier_quote.html", "auto_quote_history.html"):
             rendered = engine.get_template("post_port/new_sop/leader_check/" + name).render(Context({"zem_warehouse_addresses": [], "csrf_token": "test-token"}))
-            self.assertIn('id="auto-quote-tasks"', rendered)
+            if name == "auto_quote_history.html":
+                self.assertIn('id="auto-quote-tasks"', rendered)
+                self.assertIn('id="destination-search"', rendered)
+            else:
+                self.assertNotIn('id="auto-quote-tasks"', rendered)
+                self.assertIn('id="quote-mode" value="manual"', rendered)
             self.assertIn("auto_quote.js", rendered)
+        rendered = engine.get_template("post_port/new_sop/leader_check/multi_carrier_quote.html").render(
+            Context({"automatic": True, "zem_warehouse_addresses": [], "csrf_token": "test-token"}))
+        self.assertIn('id="quote-mode" value="auto"', rendered)
+        self.assertIn('id="auto-ui-message"', rendered)
+        self.assertNotIn('id="auto-quote-tasks"', rendered)
 
     def test_b_to_f_and_numeric_zip_preserve_leading_zero(self):
         rows, errors = read_addresses(workbook([["ignored", " Newark ", "nj", 7101, "1 Test Street", 12.5],

@@ -252,4 +252,5 @@ def batch_summary(batch):
             "origin": batch.parameters.get("originWarehouse", ""), "created_at": batch.created_at,
             "profile_code": f"AQ{batch.profile_id:06d}" if batch.profile_id else "待归档",
             "profile_id": batch.profile_id,
+            "operator": (batch.operator.get_full_name() or batch.operator.get_username()) if batch.operator else "原用户已删除 / 未记录",
             "finished_at": batch.finished_at, "parent_id": batch.parent_id}

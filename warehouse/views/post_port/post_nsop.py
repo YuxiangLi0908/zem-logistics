@@ -365,8 +365,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "easy_action":
             return render(request, self.template_easy_action_table, {})
-        elif step == "multi_carrier_quote":
+        elif step in ("multi_carrier_quote", "auto_quote"):
             context = {
+                "automatic": step == "auto_quote" or request.GET.get("mode") == "auto",
                 "zem_warehouse_addresses": await sync_to_async(
                     SystemParameter.get_zem_warehouse_addresses
                 )(),
