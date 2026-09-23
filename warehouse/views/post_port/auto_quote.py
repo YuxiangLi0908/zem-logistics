@@ -19,6 +19,7 @@ from warehouse.utils.auto_quote import (
 from warehouse.utils.multi_carrier_quote import gateway_config
 from warehouse.utils.quote_analysis import analysis_options, build_analysis
 from warehouse.utils.quote_destination_history import destination_history
+from warehouse.utils.auto_quote_lifecycle import schedule_worker
 
 def visible_batches(user):
     queryset = AutoQuoteBatch.objects.select_related("operator")
@@ -114,8 +115,12 @@ def auto_quote_get(request):
         page = Paginator(batches, 20).get_page(request.GET.get("page"))
         state = AutoQuoteWorkerState.objects.filter(pk=1).first()
         online = bool(state and state.heartbeat_at and state.heartbeat_at > timezone.now() - timedelta(seconds=30))
+        starting = bool(state and state.run_token and state.lease_until and state.lease_until > timezone.now() and not online)
+        pending = visible_batches(request.user).filter(items__status__in=("pending", "running")).exists()
         return JsonResponse({"success": True, "batches": [batch_summary(batch) for batch in page],
                              "page": page.number, "pages": page.paginator.num_pages, "worker_online": online,
+                             "worker_starting": starting, "worker_error": state.last_error if state else "",
+                             "worker_needed": pending,
                              "groups": {group: AutoQuoteAddress.objects.filter(group=group).count() for group in ("LA", "SAV", "NJ")}})
     except (ValueError, TypeError) as exc:
         return JsonResponse({"success": False, "message": str(exc)}, status=400)
@@ -126,6 +131,10 @@ def auto_quote_post(request):
         raise PermissionDenied
     try:
         step = request.POST.get("step")
+        if step == "auto_quote_wake":
+            if visible_batches(request.user).filter(items__status__in=("pending", "running")).exists():
+                schedule_worker()
+            return JsonResponse({"success": True})
         if step == "auto_quote_import":
             group = check_group(request.POST.get("group"))
             upload = request.FILES.get("file")
@@ -154,6 +163,7 @@ def auto_quote_post(request):
                 parameters.pop(key, None)
             gateway_config()
             batch = create_batch(request.POST.get("group"), parameters, request.user.pk, request.POST.get("submission_id"))
+            schedule_worker()
             return JsonResponse({"success": True, "batch": batch_summary(batch)})
         batch = get_object_or_404(visible_batches(request.user), pk=request.POST.get("batch"))
         if step == "auto_quote_stop":
@@ -162,6 +172,7 @@ def auto_quote_post(request):
         elif step == "auto_quote_retry":
             gateway_config()
             batch = create_batch(batch.group, batch.parameters, request.user.pk, request.POST.get("submission_id"), parent=batch)
+            schedule_worker()
         else:
             raise ValueError("未知操作")
         return JsonResponse({"success": True, "batch": batch_summary(batch)})

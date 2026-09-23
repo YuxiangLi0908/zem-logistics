@@ -251,8 +251,9 @@ class QueueTests(TransactionTestCase):
     def test_start_resolves_origin_from_server_and_exports(self):
         origin = {"warehouse": "NJ test", "city": "Newark", "state": "NJ", "postCode": "07101", "detailAddress": "1 Test"}
         request = self.request("post", {"step": "auto_quote_start", "group": "NJ", "submission_id": str(uuid.uuid4()), "quote_payload": json.dumps(parameters())})
-        with patch("warehouse.views.post_port.auto_quote.SystemParameter.get_zem_warehouse_addresses", return_value=[origin]), patch("warehouse.views.post_port.auto_quote.gateway_config"):
+        with patch("warehouse.views.post_port.auto_quote.SystemParameter.get_zem_warehouse_addresses", return_value=[origin]), patch("warehouse.views.post_port.auto_quote.gateway_config"), patch("warehouse.views.post_port.auto_quote.schedule_worker") as schedule:
             response = auto_quote_post(request)
+        schedule.assert_called_once()
         self.assertEqual(response.status_code, 200, response.content)
         batch_id = json.loads(response.content)["batch"]["id"]
         response = auto_quote_get(self.request("get", {"step": "auto_quote_export", "batch": batch_id}))

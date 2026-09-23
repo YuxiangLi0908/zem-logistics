@@ -8,20 +8,28 @@ Excel 使用 `.xlsx`，首行为表头，A列忽略，B～F列依次为：城市
 
 ## 部署
 
-新增迁移 `0396_auto_quote_queue`（依赖已合并的 `0395`），创建地址、任务、明细及执行状态四张表。代码提交后，在部署环境执行：
+迁移 `0396` 创建任务队列，`0397`～`0398` 增加价格分析；`0399_auto_quote_worker_lifecycle` 为执行状态增加启动令牌、租约、最后活动时间及启动错误。代码提交后，在部署环境执行：
 
 ```shell
 python manage.py migrate
 python manage.py collectstatic --noinput
 ```
 
-Web 进程之外，启动一个常驻 worker，使用与 Web 相同的数据库和网关环境变量：
+现在默认按需启动：点击“开始自动询价”或“重试未完成项”，任务提交成功后，Web 使用当前 Python 环境和环境变量启动独立后台进程。不在请求线程中执行报价，关闭页面不影响已启动的后台进程。多个用户同时提交时通过数据库行锁和启动令牌复用一个执行程序。
+
+队列中的等待和运行任务全部结束后，连续空闲1800秒（30分钟）自动退出；期间有新任务继续处理并重新计时。空队列检查与退出共用提交锁，避免退出瞬间丢失新任务。正常休眠显示“下次提交询价自动启动”，不再提示服务故障。
+
+首次升级须停止之前手动运行的旧 worker，并取消旧的常驻自动重启配置（若有），执行迁移、静态文件发布并重启 Web。此后不需要手动启动。已有排队任务可打开自动历史页，页面会向服务器发送有权限校验和CSRF保护的唤醒请求；故障重试最多每分钟一次且有数据库冷却时间，没有任务不会唤醒。
+
+手动排查仍可运行以下命令，也默认空闲30分钟后退出：
 
 ```shell
 python manage.py run_auto_quote_worker --concurrency 3
 ```
 
-使用部署平台的进程管理器保持运行并在退出时自动重启。不要把 worker 放入 Web 请求、浏览器定时器、Django `AppConfig.ready()` 或随请求启动的线程中。页面提示“后台执行服务尚未就绪”时，任务仍保存在数据库，检查 worker 的进程和日志即可。
+服务器必须允许 Web 进程创建独立子进程。Linux 使用独立会话，Windows 不弹出控制台；运行环境、数据库及网关配置与 Web 一致。日志默认位于系统临时目录 `auto_quote_worker.log`（Linux 通常为 `/tmp/auto_quote_worker.log`），可通过 Django 设置 `AUTO_QUOTE_WORKER_LOG` 指定已有可写目录中的文件。启动失败保留任务并在页面提示，查看日志排查。
+
+应用重启、容器停止或进程被系统杀死仍会中断执行。重新提交任务或打开自动历史页可唤醒并恢复；无人访问且没有新提交时，不提供独立于 Web 的崩溃守护。不要为按需进程设置无条件自动重启，否则空闲退出后会被重新启动。`--idle-seconds 0` 仅供明确需要常驻的运维场景；内部 `--run-token` 不应手动指定。
 
 已有网关配置 `MAERSK_GATEWAY_URL`、`MAERSK_GATEWAY_API_KEY`（或 `MAERSK_API_KEY`）继续复用。上线前先用小组验证网关限流；本地自动化测试不会调用真实网关。
 
@@ -45,7 +53,7 @@ python manage.py run_auto_quote_worker --concurrency 3
 使用内存 SQLite，不连接业务数据库：
 
 ```shell
-python manage.py test warehouse.test_auto_quote warehouse.test_kakas_polling --settings=warehouse.auto_quote_test_settings
+python manage.py test warehouse.test_auto_quote_lifecycle warehouse.test_auto_quote warehouse.test_kakas_polling --settings=warehouse.auto_quote_test_settings
 node --check static/js/auto_quote.js
 ```
 
@@ -72,13 +80,13 @@ python manage.py migrate --plan
 
 历史每页30条，卡卡省默认最低10条，可展开完整列表；进入任务详情复制仍包含该任务全部地址及完整报价。图表最多处理所选编号最近1000次记录，超过会明确提示，可用日期缩小范围；表格仍可翻页查全部匹配历史。搜索匹配超过500个不同地址时需缩小关键词。地址视图点击“刷新任务”更新搜索结果，任务列表仍每5秒刷新。
 
-本次页面拆分不新增模型或迁移。部署后运行 `python manage.py collectstatic --noinput` 并重启 Web 服务；已有自动询价 worker 继续按原方式运行。
+页面拆分本身不新增模型；按需启动功能需要 `0399`，部署步骤以本文“部署”段为准。
 
 新增验证：`python manage.py test warehouse.test_quote_destination_history --settings=warehouse.auto_quote_test_settings` 和 `node warehouse/tests_js/auto_quote_destination_ui.cjs`。
 
 自动询价页面、自动历史以及每个任务的“价格分析”链接均可进入。新任务自动分配 `AQ000001` 形式的比较编号。相同物理发货地址、货物明细（描述、件数、尺寸、重量、板数）、申报价值、运输类型、车型、货物单位、托盘类型、地址类型和尾板条件复用编号；数值格式和货物行顺序不影响编号。条件变化会建立新编号。取件日期不放入编号，分析页面默认选择样本最多的取件提前天数（日历日），可手动调整。
 
-迁移 `0397` 增加比较配置表 `AutoQuoteProfile`、独立报价明细表 `AutoQuotePrice` 及任务关联字段；`0398` 自动归档已有结果。每个接口报价保存一行，原始 JSON 继续保留。worker 完成每条询价时同时归档。升级时停止旧 worker，执行迁移和静态文件发布，重启 Web 和 worker。旧 worker 若继续运行可能留下未归档明细，页面会提示数量，可补跑：
+迁移 `0397` 增加比较配置表 `AutoQuoteProfile`、独立报价明细表 `AutoQuotePrice` 及任务关联字段；`0398` 自动归档已有结果。每个接口报价保存一行，原始 JSON 继续保留。worker 完成每条询价时同时归档。升级时停止旧 worker，执行迁移和静态文件发布，重启 Web；新 worker 按需自动启动。旧 worker 若继续运行可能留下未归档明细，页面会提示数量，可补跑：
 
 ```shell
 python manage.py backfill_auto_quote_analysis

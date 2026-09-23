@@ -1,12 +1,14 @@
 import asyncio
 import logging
+import uuid
 
 from asgiref.sync import sync_to_async
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 from django.utils import timezone
 
-from warehouse.models.auto_quote import AutoQuoteItem, AutoQuoteWorkerState
+from warehouse.models.auto_quote import AutoQuoteItem
+from warehouse.utils.auto_quote_lifecycle import IDLE_SECONDS, reserve_worker, release_worker, worker_pulse
 from warehouse.utils.auto_quote import (
     address_payload, claim_item, classify_result, complete_item, save_checkpoint,
 )
@@ -55,37 +57,49 @@ async def process_item(item, pacer):
 
 
 class Command(BaseCommand):
-    help = "Run durable automatic quotes (default: three concurrent addresses). Run as a supervised process."
+    help = "Run automatic quotes; exit after 30 idle minutes by default."
 
     def add_arguments(self, parser):
         parser.add_argument("--concurrency", type=int, default=3, choices=range(1, 11))
         parser.add_argument("--once", action="store_true", help="Drain currently queued jobs and exit")
+        parser.add_argument("--idle-seconds", type=int, default=IDLE_SECONDS, help="Exit after idle seconds (0 keeps running)")
+        parser.add_argument("--run-token", type=uuid.UUID, help="Internal on-demand launch ownership token")
 
     def handle(self, *args, **options):
+        if options["idle_seconds"] < 0:
+            raise CommandError("idle-seconds must be nonnegative")
+        token = options["run_token"] or reserve_worker(require_work=False)
+        if token is None:
+            self.stdout.write("An automatic quote worker is already running or starting.")
+            return
+        error = ""
         try:
             gateway_config()
-        except ValueError as exc:
-            raise CommandError(str(exc)) from exc
-        self.stdout.write(f'Auto quote worker started, concurrency={options["concurrency"]}')
-        try:
-            asyncio.run(self.run(options["concurrency"], options["once"]))
+            self.stdout.write(f'Auto quote worker started, concurrency={options["concurrency"]}, idle_seconds={options["idle_seconds"]}')
+            asyncio.run(self.run(options["concurrency"], options["once"], token, options["idle_seconds"]))
         except KeyboardInterrupt:
             self.stdout.write("Stopped; unfinished items will resume after their leases expire.")
+        except Exception:
+            error = "执行程序异常退出，任务已保留；请检查 auto_quote_worker.log"
+            raise
+        finally:
+            release_worker(token, error)
 
-    async def run(self, concurrency, once):
+    async def run(self, concurrency, once, token, idle_seconds):
         pacer = RequestPacer()
         running = set()
         try:
             while True:
                 await sync_to_async(close_old_connections)()
-                await sync_to_async(AutoQuoteWorkerState.objects.update_or_create)(
-                    pk=1, defaults={"heartbeat_at": timezone.now()})
+                if not await sync_to_async(worker_pulse)(token, idle_seconds):
+                    self.stdout.write("Worker stopped: idle timeout or ownership transferred.")
+                    break
                 done = {task for task in running if task.done()}
                 for task in done:
                     task.result()
                 running -= done
                 while len(running) < concurrency:
-                    item = await sync_to_async(claim_item)(concurrency)
+                    item = await sync_to_async(claim_item)(concurrency, worker_token=token)
                     if not item:
                         break
                     running.add(asyncio.create_task(process_item(item, pacer)))

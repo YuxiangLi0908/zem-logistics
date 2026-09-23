@@ -79,6 +79,10 @@ class AutoQuoteItem(models.Model):
 class AutoQuoteWorkerState(models.Model):
     """Singleton lock serializes claims and enforces a global in-flight limit."""
     heartbeat_at = models.DateTimeField(null=True)
+    run_token = models.UUIDField(null=True)
+    lease_until = models.DateTimeField(null=True)
+    last_activity_at = models.DateTimeField(null=True)
+    last_error = models.CharField(max_length=300, blank=True, default="")
 
 
 class AutoQuotePrice(models.Model):

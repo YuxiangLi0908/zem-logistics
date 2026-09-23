@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = value => value ? new Date(value).toLocaleString() : '—';
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let batchPage = 1, itemPage = 1, addressPage = 1, selectedBatch = new URLSearchParams(location.search).get('batch');
-    let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null;
+    let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null, lastWake = 0;
     const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const n = Math.floor(Math.random() * 16); return (c === 'x' ? n : (n & 3) | 8).toString(16);
     });
@@ -44,6 +44,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function progress(batch) {
         return Object.entries(batch.counts).map(([key, value]) => `${labels[key] || key} ${value}`).join(' / ');
     }
+    function progressBar(batch) {
+        const counts = batch.counts || {};
+        const count = key => Math.max(0, Number(counts[key]) || 0);
+        const total = Math.max(0, Number(batch.total) || 0);
+        const finished = Math.min(total, ['success', 'partial', 'failed', 'no_quote'].reduce((sum, key) => sum + count(key), 0));
+        const running = Math.min(total - finished, count('running'));
+        const waiting = total - finished - running;
+        const parts = [
+            {kind:'finished', name:'已执行', count:finished, note:'已执行结束，包含报价完整、部分报价、失败及无报价'},
+            {kind:'running', name:'查询中', count:running, note:'正在向报价平台查询'},
+            {kind:'waiting', name:'未查询', count:waiting, note:'尚未查询，包含等待中及已停止的未执行地址'},
+        ].map(part => ({...part, percent:total ? part.count / total * 100 : 0}));
+        const summary = parts.map(part => `${part.name} ${part.count}条（${part.percent.toFixed(2)}%）`).join('，');
+        return `<div class="aq-progress" role="progressbar" aria-label="任务执行进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${parts[0].percent.toFixed(2)}" aria-valuetext="${esc(total ? summary : '暂无地址')}">
+            ${parts.filter(part => part.count > 0).map(part => `<span class="aq-progress-${part.kind}" style="width:${part.percent}%" title="${esc(part.note + '：' + part.count + '条（' + part.percent.toFixed(2) + '%）')}"></span>`).join('')}
+            </div><div class="aq-progress-legend">${parts.map(part => `<span title="${esc(part.note)}"><i class="aq-progress-${part.kind}" aria-hidden="true"></i>${part.name} <strong>${part.percent.toFixed(2)}%</strong> <small>(${part.count})</small></span>`).join('')}</div>`;
+    }
     function groupCount() {
         if ($('auto-group-count')) $('auto-group-count').textContent = `共 ${groups[$('auto-group').value] || 0} 条地址`;
     }
@@ -56,11 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (filterSnapshot !== JSON.stringify(taskDates)) return;
             groups = data.groups; groupCount(); batchPage = data.page;
             if (!historyPage) return;
-            $('auto-worker-state').textContent = data.worker_online ? '后台执行服务在线 · 页面每5秒更新进度' : '后台执行服务尚未就绪，已提交任务会保留在队列中。请联系管理员检查执行服务。';
+            $('auto-worker-state').textContent = data.worker_online ? '后台执行服务在线 · 任务完成后空闲30分钟自动休眠' :
+                data.worker_starting ? '后台执行服务正在启动，任务已排队，请稍候…' :
+                data.worker_needed ? (data.worker_error || '任务已排队，正在自动唤醒后台执行服务…') :
+                '后台执行服务已休眠 · 下次提交询价自动启动';
+            if (data.worker_needed && !data.worker_online && !data.worker_starting && Date.now() - lastWake > 60000) {
+                lastWake = Date.now();
+                await post('auto_quote_wake', {});
+            }
             $('auto-batches').innerHTML = data.batches.map(batch => `<tr>
                 <td>#${batch.id}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
                 <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}</td>
-                <td><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}<div class="small">共${batch.total}条 · ${esc(progress(batch))}</div></td>
+                <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div></td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
                 ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';
