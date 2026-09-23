@@ -222,6 +222,22 @@ class QueueTests(TransactionTestCase):
         with self.assertRaises(PermissionDenied):
             auto_quote_get(request)
 
+    def test_copy_returns_full_batch_with_all_quotes_despite_page_and_status(self):
+        batch = self.batch()
+        rates = [{"carrierName": f"Carrier {i}", "totalPrice": i + 1} for i in range(200)]
+        batch.items.update(result={"results": {"kakas": {"data": {"rates": rates}}}})
+        AutoQuoteItem.objects.bulk_create([AutoQuoteItem(batch=batch, address_snapshot={"city": "Extra"}) for _ in range(31)])
+        response = auto_quote_get(self.request("get", {"kind": "batch_copy", "batch": batch.pk, "page": 2, "status": "success"}))
+        body = json.loads(response.content)
+        self.assertEqual(len(body["rows"]), 36)
+        self.assertEqual(len(body["rows"][0]["result"]["results"]["kakas"]["data"]["rates"]), 200)
+        self.assertIn("address", body["rows"][0])
+        self.assertNotIn("request_payload", body["rows"][0])
+        request = self.request("get", {"kind": "batch_copy", "batch": batch.pk})
+        request.user = User.objects.create_user("copy-other-user")
+        with self.assertRaises(Http404):
+            auto_quote_get(request)
+
     def test_start_resolves_origin_from_server_and_exports(self):
         origin = {"warehouse": "NJ test", "city": "Newark", "state": "NJ", "postCode": "07101", "detailAddress": "1 Test"}
         request = self.request("post", {"step": "auto_quote_start", "group": "NJ", "submission_id": str(uuid.uuid4()), "quote_payload": json.dumps(parameters())})
