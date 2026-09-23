@@ -1,6 +1,6 @@
 import csv
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 from zipfile import BadZipFile
 
 from django.core.exceptions import PermissionDenied
@@ -105,7 +105,13 @@ def auto_quote_get(request):
                                            "started_at": item.started_at, "finished_at": item.finished_at,
                                            "error": item.error, "result": item.result, "request_payload": item.request_payload,
                                            "attempts": item.attempts} for item in page]})
-        page = Paginator(visible_batches(request.user), 20).get_page(request.GET.get("page"))
+        batches = visible_batches(request.user)
+        for key, lookup in (("start", "gte"), ("end", "lte")):
+            if request.GET.get(key):
+                batches = batches.filter(**{f"created_at__date__{lookup}": date.fromisoformat(request.GET[key])})
+        if request.GET.get("start") and request.GET.get("end") and request.GET["start"] > request.GET["end"]:
+            raise ValueError("开始日期不能晚于结束日期")
+        page = Paginator(batches, 20).get_page(request.GET.get("page"))
         state = AutoQuoteWorkerState.objects.filter(pk=1).first()
         online = bool(state and state.heartbeat_at and state.heartbeat_at > timezone.now() - timedelta(seconds=30))
         return JsonResponse({"success": True, "batches": [batch_summary(batch) for batch in page],

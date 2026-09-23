@@ -122,6 +122,30 @@ class AnalysisDataTests(TransactionTestCase):
         self.assertEqual(item.prices.count(), 2)
         self.assertEqual(AutoQuoteProfile.objects.count(), 1)
 
+    def test_address_rows_group_all_services_before_pagination(self):
+        for i in range(21):
+            self.item(0, [self.rate("A", 100), self.rate("B", 200)],
+                      address={**self.address, "address": f"{i:02d} Street"})
+        data = self.analyze(group_by="address")
+        self.assertEqual(data["total"], 21)
+        self.assertEqual(data["pages"], 2)
+        self.assertEqual(len(data["route_rows"]), 20)
+        self.assertTrue(all(len(row["services"]) == 2 for row in data["route_rows"]))
+        self.assertEqual(len(self.analyze(group_by="address", page="2")["route_rows"]), 1)
+
+    def test_address_statistics_use_daily_minima_and_preserve_missing_latest(self):
+        self.item(0, [self.rate("A", 100), self.rate("B", 200)])
+        self.item(1, [self.rate("A", 150), self.rate("B", 80)])
+        row = self.analyze(group_by="address")["route_rows"][0]
+        self.assertEqual(row["latest"], 80)
+        self.assertEqual(row["latest_change"], -20)
+        self.assertEqual(row["mean"], 90)
+        self.assertEqual(len(row["services"]), 2)
+        self.item(2, [])
+        row = self.analyze(group_by="address")["route_rows"][0]
+        self.assertIsNone(row["latest"])
+        self.assertEqual(row["winners"], [])
+
     def test_rankings_and_fixed_panel_index(self):
         for day, price in enumerate([100, 200, 100]):
             self.item(day, [self.rate("A", price), self.rate("B", 100)])

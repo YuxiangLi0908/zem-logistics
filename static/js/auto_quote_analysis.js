@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('submit').disabled = true;
         $('error').hidden = true;
         $('export').hidden = true;
-        const args = {kind:'analysis', page};
+        const args = {kind:'analysis', page, group_by:'address'};
         for (const key of ['profile','group','start','end','address','platform','carrier','lead','currency']) args[key] = $(key).value;
         if (initialAddress) args.address = initialAddress;
         args.include_partial = $('partial').checked ? '1' : '0';
@@ -78,8 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('ranking-note').textContent = s.common_routes ? `使用各承运商/服务共有的 ${s.common_routes} 条线路，每条线路至少3个共同报价日，线路等权平均CV；数值越大波动越大。请结合样本量和覆盖率判断，不能把缺报价当作稳定。` : '当前没有足够的共同线路和共同报价日。下表仅显示各自样本的参考值，不判定哪个承运商最稳定。';
         const max = Math.max(1, ...data.rankings.map(r => r.volatility_pct));
         $('ranking').innerHTML = data.rankings.map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">至少需要同一线路、同一服务3个有效报价日才能计算波动排名。</td></tr>';
-        $('series').innerHTML = data.rows.map(r => `<tr><td><button type="button" class="btn btn-link btn-sm" data-route="${esc(r.route)}">${esc(r.address)}</button></td><td>${esc(product(r))}</td><td>${num(r.latest)}<div class="qa-note">${esc(r.latest_date || '')}</div></td><td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td><td>${movement(r.latest_change)}</td><td>${movement(r.latest_change_pct)}</td><td>${movement(r.period_change_pct)}</td><td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td><td>${percent(r.range_pct)}</td><td>${percent(r.max_adjacent_move_pct)}</td><td>${r.samples} / ${r.expected}</td><td>${percent(r.coverage_pct)}</td></tr>`).join('') || '<tr><td colspan="14">当前筛选范围内没有可分析报价。请检查日期、提前天数、币种及是否已有完成的询价任务。</td></tr>';
-        $('page').textContent = `${data.page} / ${data.pages} 页，共${data.total}条序列`;
+        renderRoutes(data);
         $('prev').disabled = data.page <= 1; $('next').disabled = data.page >= data.pages;
         const addressSelected = Boolean($('address').value);
         $('min-section').hidden = !addressSelected;
@@ -89,6 +88,18 @@ document.addEventListener('DOMContentLoaded', () => {
         chartLines = addressSelected ? data.chart.map((row, index) => ({name:product(row), color:colors[index % colors.length], points:row.points})) : data.market_index.length ? [{name:'固定样本价格指数', color:colors[0], points:data.market_index.map(p => ({date:p.date, price:p.value}))}] : [];
         $('legend').innerHTML = chartLines.map((line, index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
         drawChart();
+    }
+    function renderRoutes(data) {
+        const servicesTable = services => `<details><summary class="text-primary">查看 ${services.length} 个承运商服务</summary><div class="table-responsive mt-2"><table class="table table-sm qa-table"><thead><tr><th>平台 / 承运商 / 服务</th><th>最新价</th><th>上次有效价</th><th>涨跌金额 / %</th><th>期间涨跌%</th><th>最低 / 最高</th><th>均价</th><th>CV%</th><th>振幅%</th><th>最大相邻涨跌%</th><th>有效日 / 采样日</th><th>覆盖率</th></tr></thead><tbody>${services.map(r => `<tr><td>${esc(product(r))}</td><td>${num(r.latest)}<div class="qa-note">${esc(r.latest_date || '')}</div></td><td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td><td>${movement(r.latest_change)} / ${movement(r.latest_change_pct)}%</td><td>${movement(r.period_change_pct)}</td><td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td><td>${percent(r.range_pct)}</td><td>${percent(r.max_adjacent_move_pct)}</td><td>${r.samples} / ${r.expected}</td><td>${percent(r.coverage_pct)}</td></tr>`).join('')}</tbody></table></div></details>`;
+        $('series').innerHTML = (data.route_rows || []).map(r => `<tr>
+            <td style="min-width:200px;white-space:normal"><button type="button" class="btn btn-link btn-sm" data-route="${esc(r.route)}">${esc(r.address)}</button></td>
+            <td><strong>${num(r.latest)}</strong><div class="qa-note">${esc(r.latest_date || '')}</div><div class="qa-note" style="max-width:260px;white-space:normal">${esc(r.winners.join('；') || '本次无有效报价')}</div></td>
+            <td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td>
+            <td>${movement(r.latest_change)}<div>${movement(r.latest_change_pct)}%</div></td>
+            <td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td>
+            <td>${r.samples} / ${r.expected}<div class="qa-note">${percent(r.coverage_pct)}</div></td>
+            <td>${servicesTable(r.services)}</td></tr>`).join('') || '<tr><td colspan="9">当前筛选范围没有线路记录。</td></tr>';
+        $('page').textContent = `${data.page} / ${data.pages} 页，共 ${data.total} 个收货地址`;
     }
     function drawChart() {
         const lines = chartLines.filter((_, index) => $('legend').querySelector(`[data-line="${index}"]`)?.checked);

@@ -222,6 +222,7 @@ def build_analysis(batches, params, *, export=False):
     market_index = [{"date": day, "value": rounded(statistics.mean(entry["points"][i]["price"] / entry["points"][0]["price"] * 100 for entry in balanced))}
                     for i, day in enumerate(dates)] if balanced else []
     chart_entries = sorted(entries, key=lambda entry: (-entry["samples"], entry["key"], entry["route"]))[:8] if route_filter else []
+    requested_page = page
     pages = max(1, math.ceil(len(entries) / 50))
     page = min(page, pages)
     latest_moves = [e for e in entries if e["latest_change_pct"] is not None]
@@ -248,4 +249,21 @@ def build_analysis(batches, params, *, export=False):
             "methodology": "按服务器时区、地址、日期取最后一次已结束询价；同平台承运商服务的多条有效报价取最低。CV=总体标准差/均价×100%，至少3个报价日。排名采用共有线路的至少3个共同报价日，线路等权；缺失不补零。"}
     if export:
         report["rows"] = [brief(entry) for entry in entries]
+    elif params.get("group_by") == "address":
+        # Group before pagination so an address and all its services stay together.
+        grouped = defaultdict(list)
+        minima_by_route = defaultdict(list)
+        for entry in entries:
+            grouped[entry["route"]].append(brief(entry))
+        for minimum in daily_minima:
+            minima_by_route[minimum["route"]].append(minimum)
+        routes = []
+        for route, minima in minima_by_route.items():
+            services = sorted(grouped[route], key=lambda r: (r["latest"] is None, r["latest"] or 0, r["key"]))
+            routes.append({"route": route, "address": addresses[route]["label"],
+                           **series_statistics(minima), "winners": minima[-1]["winners"], "services": services})
+        routes.sort(key=lambda r: (r["address"], r["route"]))
+        pages = max(1, math.ceil(len(routes) / 20))
+        page = min(requested_page, pages)
+        report.update(route_rows=routes[(page-1)*20:page*20], rows=[], page=page, pages=pages, total=len(routes))
     return report

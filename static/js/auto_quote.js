@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = value => value ? new Date(value).toLocaleString() : '—';
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let batchPage = 1, itemPage = 1, addressPage = 1, selectedBatch = new URLSearchParams(location.search).get('batch');
-    let groups = {}, refreshing = false, startToken = null, startSignature = null;
+    let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null;
     const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const n = Math.floor(Math.random() * 16); return (c === 'x' ? n : (n & 3) | 8).toString(16);
     });
@@ -50,22 +50,24 @@ document.addEventListener('DOMContentLoaded', () => {
     async function refresh() {
         if (refreshing) return;
         refreshing = true;
+        const filterSnapshot = JSON.stringify(taskDates);
         try {
-            const data = await get({page:batchPage});
+            const data = await get({page:batchPage, ...taskDates});
+            if (filterSnapshot !== JSON.stringify(taskDates)) return;
             groups = data.groups; groupCount(); batchPage = data.page;
             if (!historyPage) return;
             $('auto-worker-state').textContent = data.worker_online ? '后台执行服务在线 · 页面每5秒更新进度' : '后台执行服务尚未就绪，已提交任务会保留在队列中。请联系管理员检查执行服务。';
             $('auto-batches').innerHTML = data.batches.map(batch => `<tr>
                 <td>#${batch.id}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
                 <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}</td>
-                <td>${esc(labels[batch.status])}${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}<div class="small">共${batch.total}条 · ${esc(progress(batch))}</div></td>
+                <td><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}<div class="small">共${batch.total}条 · ${esc(progress(batch))}</div></td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
                 ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';
             paginate('auto-batches', data);
             if (selectedBatch) await detail();
         } catch (error) { message(error.message, true); }
-        finally { refreshing = false; }
+        finally { refreshing = false; if (filterSnapshot !== JSON.stringify(taskDates)) refresh(); }
     }
     function rows(value) {
         if (!value || typeof value !== 'object') return [];
@@ -247,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.AutoQuoteUI = {
         refresh, prices, rows, esc, date, labels, get,
+        async filterTasks(start, end) { taskDates = {start, end}; batchPage = 1; $('auto-batches').innerHTML = ''; $('auto-ui-message').hidden = true; await refresh(); },
         clearSelection() { selectedBatch = null; $('auto-detail').hidden = true; },
         async showBatch(id) { selectedBatch = String(id); itemPage = 1; $('auto-item-status').value = ''; await detail(); $('auto-detail').scrollIntoView({behavior:'smooth', block:'start'}); },
         async start(payload) {

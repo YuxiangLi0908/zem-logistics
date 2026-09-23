@@ -99,3 +99,17 @@ class DestinationHistoryTests(TransactionTestCase):
         request = factory.get("/post_nsop/")
         request.user = self.user
         self.assertEqual(json.loads(auto_quote_get(request).content)["batches"][0]["operator"], "Test User")
+
+    def test_task_date_filter_without_address_includes_both_endpoints(self):
+        a = self.item()
+        old = self.item()
+        AutoQuoteBatch.objects.filter(pk=old.batch_id).update(created_at=self.now - timedelta(days=5))
+        factory = RequestFactory()
+        day = timezone.localdate(self.now).isoformat()
+        request = factory.get("/post_nsop/", {"start": day, "end": day})
+        request.user = self.user
+        result = json.loads(auto_quote_get(request).content)
+        self.assertEqual([batch["id"] for batch in result["batches"]], [a.batch_id])
+        request = factory.get("/post_nsop/", {"start": "2026-10-01", "end": "2026-09-01"})
+        request.user = self.user
+        self.assertEqual(auto_quote_get(request).status_code, 400)

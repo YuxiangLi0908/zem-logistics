@@ -1,7 +1,7 @@
 <section id="auto-quote-tasks" class="mt-4" aria-label="自动询价任务">
     {% csrf_token %}
     <div class="d-flex justify-content-between align-items-center mb-2">
-        <h5>自动询价任务</h5><button type="button" id="auto-refresh" class="btn btn-sm btn-outline-primary">刷新任务</button>
+        <div><h5 id="auto-task-title">全部历史自动询价任务</h5><p class="small text-muted mb-0">每次自动询价为一个任务，点击“查看”展开该次完整结果。</p></div><button type="button" id="auto-refresh" class="btn btn-sm btn-outline-primary">刷新任务</button>
     </div>
     <div id="auto-worker-state" class="small text-muted mb-2"></div>
     <div id="auto-ui-message" class="alert alert-info" hidden role="status"></div>

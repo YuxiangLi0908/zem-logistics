@@ -39,11 +39,18 @@ const context = {console, URLSearchParams, Date, Intl, location:{search:'?profil
     },
 };
 const tick = () => new Promise(setImmediate);
+report.route_rows = [{route:'route1',address:'Newark',latest:100,previous:90,latest_change:10,latest_change_pct:11.11,
+    minimum:90,maximum:100,mean:95,volatility_pct:null,samples:2,expected:3,coverage_pct:66.67,
+    winners:['Carrier A'],services:[report.rows[0], {...report.rows[0],carrier:'Carrier B'}]}];
 async function main() {
     vm.createContext(context);
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../static/js/auto_quote_analysis.js'), 'utf8'), context);
     ready(); await tick();
     assert.equal(el('content').hidden, false);
+    assert.equal((el('series').innerHTML.match(/data-route=/g) || []).length, 1);
+    assert(el('series').innerHTML.includes('Carrier B'));
+    assert(el('series').innerHTML.includes('<details>'));
+    assert.equal(calls.find(p => p.get('kind') === 'analysis').get('group_by'), 'address');
     assert(el('chart').innerHTML.includes('<svg'));
     assert(!el('chart').innerHTML.includes('NaN'));
     assert(el('ranking').innerHTML.includes('Carrier &lt;unsafe&gt;'));
