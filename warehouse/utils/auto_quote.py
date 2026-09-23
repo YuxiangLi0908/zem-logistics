@@ -167,8 +167,10 @@ def stop_batch(batch):
 
 
 @transaction.atomic
-def claim_item(concurrency=3):
+def claim_item(concurrency=3, worker_token=None):
     state = queue_lock()
+    if worker_token is not None and state.run_token != worker_token:
+        return None
     now = timezone.now()
     state.heartbeat_at = now
     state.save(update_fields=["heartbeat_at"])
@@ -237,10 +239,12 @@ def classify_result(result):
 
 @transaction.atomic
 def complete_item(item, status, error=""):
-    queue_lock()
+    state = queue_lock()
     updated = AutoQuoteItem.objects.filter(pk=item.pk, lease_token=item.lease_token, status="running").update(
         status=status, error=error, finished_at=timezone.now(), lease_until=None)
     if updated:
+        state.last_activity_at = timezone.now()
+        state.save(update_fields=["last_activity_at"])
         index_item(item.pk)
     finish_batch(item.batch_id)
 

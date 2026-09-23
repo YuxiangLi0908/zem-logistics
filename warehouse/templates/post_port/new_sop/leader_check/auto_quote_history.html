@@ -27,6 +27,16 @@
     .aq-history #auto-worker-state { background:#f0f6f6; color:#547773; padding:10px 12px; border-radius:7px; margin:14px 0; }
     .aq-status { display:inline-block; padding:4px 10px; border-radius:20px; background:#e9eff7; color:#536782; font-size:12px; font-weight:650; margin-bottom:6px; }
     .aq-status-completed { background:#dcf5e9; color:#18764d; }.aq-status-running { background:#e1efff; color:#2266bb; }.aq-status-stopped { background:#fff0d7; color:#936318; }
+    .aq-progress-cell { min-width:300px; }
+    .aq-progress { display:flex; width:100%; height:18px; margin:5px 0 9px; overflow:hidden; border-radius:9px; background:#dce2ea; }
+    .aq-progress > span { display:block; height:100%; flex-shrink:0; }
+    .aq-progress-finished { background:#22a775; }
+    .aq-progress-running { background:#f4c145; }
+    .aq-progress-waiting { background:#cbd3de; }
+    .aq-progress-legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:9px; color:#4b5e77; font-size:12px; }
+    .aq-progress-legend > span { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+    .aq-progress-legend i { width:9px; height:9px; border-radius:3px; display:inline-block; }
+    .aq-progress-legend small { color:#73839a; }
     @media(max-width:1000px) { .aq-search-fields { grid-template-columns:1fr 1fr; } }
     @media(max-width:600px) { .aq-history { padding:14px; }.aq-search-fields { grid-template-columns:1fr; gap:14px; }.aq-search-footer { flex-wrap:wrap; } }
 </style>
