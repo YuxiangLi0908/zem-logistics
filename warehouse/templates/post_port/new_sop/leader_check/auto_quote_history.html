@@ -6,8 +6,6 @@
         <h3>自动询价历史</h3>
         <div>
             <a class="btn btn-outline-primary" href="{% url 'post_nsop' %}?step=auto_quote_analysis">价格分析</a>
-            <a class="btn btn-outline-secondary" href="{% url 'post_nsop' %}?step=multi_carrier_quote_history">手动询价历史</a>
-            <a class="btn btn-primary" href="{% url 'post_nsop' %}?step=auto_quote">新建自动询价</a>
         </div>
     </div>
     <p class="text-muted">每次执行独立保存地址与询价条件。重试关联原任务，不覆盖原有报价。</p>
