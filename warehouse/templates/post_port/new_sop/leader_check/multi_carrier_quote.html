@@ -115,19 +115,17 @@
 
                 {% if automatic %}
                 <div class="border rounded p-3 mb-3" style="background:#eef5ff;border-color:#c9dcf7!important">
-                    <label for="quote-cargo-source" class="form-label fw-bold">货物明细填写方式</label>
-                    <select id="quote-cargo-source" class="form-select mb-2" style="max-width:240px">
-                        <option value="manual">手动输入</option><option value="saved">选择已有组（AQ编号）</option>
-                    </select>
-                    <div id="quote-preset-controls" hidden>
-                        <label for="quote-cargo-profile" class="form-label">已有货物组</label>
-                        <div class="d-flex flex-wrap gap-2">
-                            <select id="quote-cargo-profile" class="form-select" style="max-width:680px"><option value="">请选择已有组</option></select>
-                            <button type="button" id="quote-apply-profile" class="btn btn-outline-primary" disabled>填入这组配置</button>
-                            <button type="button" id="quote-reload-profiles" class="btn btn-outline-secondary">刷新可选组</button>
+                    <div id="quote-cargo-source" role="group" aria-label="货物明细填写方式">
+                        <div class="form-label fw-bold">货物明细填写方式</div>
+                        <div class="d-flex gap-4 mb-2">
+                            <label><input type="radio" name="quote-cargo-source" id="quote-cargo-auto" value="saved"> 自动输入</label>
+                            <label><input type="radio" name="quote-cargo-source" id="quote-cargo-manual" value="manual" checked> 手动输入</label>
                         </div>
-                        <p class="small text-muted mt-2 mb-0">按已有AQ编号回填货物、申报价值、发货仓及运输/尾板等条件，便于保持相同比较条件；本次取件日期和LA/SAV/NJ收货地址组仍由你选择。填入后可以继续修改。</p>
-                        <div id="quote-profile-preview" class="small mt-2" style="white-space:pre-wrap"></div>
+                    </div>
+                    <div id="quote-preset-controls" hidden>
+                        <label for="quote-cargo-profile" class="form-label">选择已有货物明细</label>
+                        <select id="quote-cargo-profile" class="form-select" style="width:100%;max-width:100%"><option value="">请选择货物明细，选中后自动填入</option></select>
+                        <p class="small text-muted mt-2 mb-0">选择后自动填入货物、申报价值及原组的发货仓、运输和尾板条件。</p>
                     </div>
                     <div id="quote-profile-message" class="small mt-2" role="status" aria-live="polite"></div>
                 </div>
