@@ -113,7 +113,7 @@ def build_analysis(batches, params, *, export=False):
             continue
         lead = (day - timezone.localdate(row["started_at"])).days if row["started_at"] else None
         leads[lead] += 1
-        records.append({"id": row["id"], "batch_id": row["batch_id"], "route": key, "day": day.isoformat(),
+        records.append({"id": row["id"], "batch_id": row["batch_id"], "route": key, "distance_miles": address.get("distance_miles"), "day": day.isoformat(),
                         "started_at": row["started_at"] or row["finished_at"], "lead": lead, "indexed": row["analysis_version"] == 1})
         unindexed += int(row["analysis_version"] != 1)
     available_leads = sorted(value for value in leads if value is not None)
@@ -285,6 +285,25 @@ def build_analysis(batches, params, *, export=False):
     market_index = [{"date": day, "value": rounded(statistics.mean(entry["points"][i]["price"] / entry["points"][0]["price"] * 100 for entry in fixed_routes))}
                     for i, day in enumerate(dates)] if fixed_routes else []
     chart_entries = sorted(entries, key=lambda entry: (-entry["samples"], entry["key"], entry["route"]))[:8] if route_filter else []
+    distance_groups = []
+    distance_labels = ("0–50 miles", "50–100 miles", "100–200 miles", "200–500 miles", "500 miles及以上", "未填写距离")
+    grouped_routes = defaultdict(list)
+    for entry in aggregate_chart:
+        latest_row = max((row for day, row in route_days[entry["route"]]), key=lambda row: (row["day"], row["started_at"], row["id"]))
+        try:
+            miles = float(latest_row["distance_miles"])
+        except (ValueError, TypeError):
+            miles = -1
+        bucket = next((i for i, upper in enumerate((50, 100, 200, 500)) if miles < upper), 4) if math.isfinite(miles) and miles >= 0 else 5
+        grouped_routes[bucket].append(entry)
+    for bucket, label in enumerate(distance_labels):
+        members = grouped_routes[bucket]
+        fixed = [entry for entry in members if len(entry["points"]) == len(dates) and
+                 all(point["price"] is not None for point in entry["points"])]
+        points = [{"date": day, "price": rounded(statistics.mean(entry["points"][i]["price"] for entry in fixed)) if fixed else None}
+                  for i, day in enumerate(dates)]
+        distance_groups.append({"id": str(bucket), "label": label, "addresses": len(members), "sample_addresses": len(fixed),
+                                "routes": [entry["route"] for entry in members], "points": points, **series_statistics(points)})
     requested_page = page
     pages = max(1, math.ceil(len(entries) / 50))
     page = min(page, pages)
@@ -293,7 +312,7 @@ def build_analysis(batches, params, *, export=False):
     def brief(entry):
         return {key: value for key, value in entry.items() if key != "points"}
     report = {"profile": {"id": profile.pk, "code": profile.code, "origin": profile.origin_label, "configuration": profile.configuration},
-            "address_summary": address_summary,
+            "distance_groups": distance_groups, "address_summary": address_summary,
             "aggregate_chart": aggregate_chart if route_filter else [],
             "selected_address": route_filter, "filters": {"price_basis": price_basis, "start": start.isoformat(), "end": end.isoformat(), "lead": lead, "currency": currency,
                         "timezone": timezone.get_current_timezone_name(), "include_partial": include_partial},

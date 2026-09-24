@@ -115,6 +115,24 @@ class AnalysisDataTests(TransactionTestCase):
                   "end": timezone.localdate(self.base + timedelta(days=7)).isoformat(), "lead": "2", **kwargs}
         return build_analysis(visible_batches(self.user), params)
 
+    def test_distance_analysis_boundaries_fixed_samples_and_basis(self):
+        for index, miles in enumerate((0, 50, 100, 200, 500, None)):
+            address = {**self.address, "address": f"Distance {index}", "distance_miles": miles}
+            for day in (0, 1):
+                self.item(day, [self.rate("A", 100 + day * 20), self.rate("B", 200)], address=address)
+        self.item(0, [self.rate("A", 900)], address={**self.address, "address": "Incomplete", "distance_miles": 10})
+        report = self.analyze()
+        groups = report["distance_groups"]
+        self.assertEqual([g["addresses"] for g in groups], [2, 1, 1, 1, 1, 1])
+        self.assertEqual([g["sample_addresses"] for g in groups], [1] * 6)
+        self.assertEqual(groups[0]["latest"], 120)
+        self.assertEqual(groups[0]["latest_change_pct"], 20)
+        averaged = self.analyze(price_basis="mean")["distance_groups"][0]
+        self.assertEqual(averaged["previous"], 150)
+        self.assertEqual(averaged["latest"], 160)
+        filtered = self.analyze(distance_min="500")["distance_groups"]
+        self.assertEqual([g["addresses"] for g in filtered], [0, 0, 0, 0, 1, 0])
+
     def test_distance_range_uses_snapshot_and_includes_boundaries(self):
         for index, miles in enumerate((0, "10.5", 20, None)):
             self.item(0, [self.rate("A", 100 + index)], address={
