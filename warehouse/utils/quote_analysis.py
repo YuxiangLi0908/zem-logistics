@@ -82,7 +82,7 @@ def build_analysis(batches, params, *, export=False):
     for row in items.values("id", "batch_id", "address_snapshot", "started_at", "finished_at", "analysis_version", "batch__parameters__pickupDate").iterator():
         address = row["address_snapshot"]
         key = address_key(address)
-        addresses[key] = {"id": key, "label": f'{address.get("city", "")}, {address.get("state", "")} {address.get("zipcode", "")} · {address.get("address", "")}'}
+        addresses[key] = {"id": key, "zipcode": str(address.get("zipcode", "")), "label": f'{address.get("city", "")}, {address.get("state", "")} {address.get("zipcode", "")} · {address.get("address", "")}'}
         try:
             day = date.fromisoformat(row["batch__parameters__pickupDate"])
         except (KeyError, ValueError, TypeError):
@@ -95,6 +95,10 @@ def build_analysis(batches, params, *, export=False):
     available_leads = sorted(value for value in leads if value is not None)
     lead = "all"  # Compare by pickup date regardless of when the quote was requested.
     route_filter = params.get("address", "")
+    zipcode = str(params.get("zipcode", "")).strip().casefold()
+    matching_routes = {key for key, address in addresses.items() if not zipcode or zipcode in address["zipcode"].casefold()}
+    if not route_filter and zipcode and len(matching_routes) == 1:
+        route_filter = next(iter(matching_routes))
     platform_filter = params.get("platform", "")
     if platform_filter not in ("", "maersk", "kakas", "abf"):
         raise ValueError("报价平台不正确")
@@ -105,6 +109,8 @@ def build_analysis(batches, params, *, export=False):
     # Thus a retry does not give that day more weight, and a failure never becomes a zero price.
     daily = {}
     for row in records:
+        if row["route"] not in matching_routes:
+            continue
         if route_filter and row["route"] != route_filter:
             continue
         key = (row["route"], row["day"])
@@ -149,6 +155,9 @@ def build_analysis(batches, params, *, export=False):
         choices[entry["key"]] = {"id": entry["key"], "label": f'{entry["platform"]} / {entry["carrier"]} / {entry["service"]}'}
     if selected_series:
         series = {key: value for key, value in series.items() if value["key"] == selected_series}
+    carrier_query = str(params.get("carrier_query", "")).strip().casefold()
+    if carrier_query:
+        series = {key: value for key, value in series.items() if carrier_query in (value["carrier"] + " " + value["carrier_code"] + " " + value["service"] + " " + value["service_code"]).casefold()}
     entries = []
     for entry in series.values():
         points = [{"date": day, "price": entry["observations"].get(day, {}).get("price"),
@@ -221,7 +230,7 @@ def build_analysis(batches, params, *, export=False):
     def brief(entry):
         return {key: value for key, value in entry.items() if key != "points"}
     report = {"profile": {"id": profile.pk, "code": profile.code, "origin": profile.origin_label, "configuration": profile.configuration},
-            "filters": {"start": start.isoformat(), "end": end.isoformat(), "lead": lead, "currency": currency,
+            "selected_address": route_filter, "filters": {"start": start.isoformat(), "end": end.isoformat(), "lead": lead, "currency": currency,
                         "timezone": timezone.get_current_timezone_name(), "include_partial": include_partial},
             "addresses": sorted(addresses.values(), key=lambda row: row["label"]), "lead_days": available_leads,
             "carriers": sorted(choices.values(), key=lambda row: row["label"]), "diagnostics": diagnostics,

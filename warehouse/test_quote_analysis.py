@@ -115,6 +115,17 @@ class AnalysisDataTests(TransactionTestCase):
                   "end": timezone.localdate(self.base + timedelta(days=7)).isoformat(), "lead": "2", **kwargs}
         return build_analysis(visible_batches(self.user), params)
 
+    def test_zipcode_and_carrier_keyword_filters(self):
+        self.item(0, [self.rate("Alpha", 100), self.rate("Beta", 200)])
+        self.item(0, [self.rate("Alpha", 300)], address={**self.address, "zipcode": "07001", "address": "071 Road"})
+        report = self.analyze(zipcode="071", carrier_query="aLPH")
+        self.assertEqual(len(report["rows"]), 1)
+        self.assertEqual(report["rows"][0]["latest"], 100)
+        self.assertEqual(report["selected_address"], address_key(self.address))
+        self.assertEqual(self.analyze(zipcode="Newark")["rows"], [])
+        self.assertEqual(len(self.analyze(zipcode="07", carrier_query="std")["rows"]), 3)
+        self.assertEqual(self.analyze(carrier_query="not found")["rows"], [])
+
     def test_profile_reused_and_indexing_is_idempotent(self):
         self.assertEqual(get_profile(parameters()).pk, self.profile.pk)
         item = self.item(0, [self.rate("A", 100), self.rate("B", 200)])
