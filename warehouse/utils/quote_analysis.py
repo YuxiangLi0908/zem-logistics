@@ -65,6 +65,19 @@ def build_analysis(batches, params, *, export=False):
         raise ValueError("请选择比较编号并填写有效的日期范围")
     if start > end or (end - start).days > 365:
         raise ValueError("日期范围须在366天以内，开始日期不能晚于结束日期")
+    distance_bounds = []
+    for name in ("distance_min", "distance_max"):
+        raw = params.get(name)
+        try:
+            value = None if raw is None or str(raw).strip() == "" else float(raw)
+            if value is not None and (not math.isfinite(value) or value < 0):
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError("距离须填写大于或等于0的有效英里数")
+        distance_bounds.append(value)
+    distance_min, distance_max = distance_bounds
+    if distance_min is not None and distance_max is not None and distance_min > distance_max:
+        raise ValueError("最小距离不能大于最大距离")
     batches = batches.filter(profile_id=profile_id)
     profile = AutoQuoteProfile.objects.filter(pk=profile_id, pk__in=batches.values("profile_id")).first()
     if not profile:
@@ -81,6 +94,17 @@ def build_analysis(batches, params, *, export=False):
     unindexed = 0
     for row in items.values("id", "batch_id", "address_snapshot", "started_at", "finished_at", "analysis_version", "batch__parameters__pickupDate").iterator():
         address = row["address_snapshot"]
+        if distance_min is not None or distance_max is not None:
+            try:
+                miles = float(address.get("distance_miles"))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(miles) or miles < 0:
+                continue
+            if distance_min is not None and miles < distance_min:
+                continue
+            if distance_max is not None and miles > distance_max:
+                continue
         key = address_key(address)
         addresses[key] = {"id": key, "zipcode": str(address.get("zipcode", "")), "label": f'{address.get("city", "")}, {address.get("state", "")} {address.get("zipcode", "")} · {address.get("address", "")}'}
         try:
