@@ -214,18 +214,38 @@ def price_rows(payload):
     return []
 
 
+def has_price(carrier):
+    for row in price_rows(carrier):
+        value = row.get("TotalQuote", row.get("totalPrice", row.get("price")))
+        try:
+            if value is not None and value != "" and math.isfinite(float(value)) and float(value) >= 0:
+                return True
+        except (ValueError, TypeError):
+            pass
+    return False
+
+
+def retry_description(result, status):
+    if status == "cancelled":
+        return "已停止，未完成询价"
+    carriers = result.get("results", {}) if isinstance(result, dict) else {}
+    if not isinstance(carriers, dict) or not carriers:
+        return "询价未完成，尚无法确认具体平台，请查看错误详情"
+    descriptions = []
+    for key, name in (("maersk", "Maersk"), ("kakas", "卡卡省")):
+        carrier = carriers.get(key)
+        if not isinstance(carrier, dict):
+            descriptions.append(f"{name}价格未查询成功（未返回结果）")
+        elif not has_price(carrier):
+            descriptions.append(f"{name}价格未查询成功（未返回可用报价）")
+        elif carrier.get("warning") or carrier.get("error") or carrier.get("status") != "success":
+            descriptions.append(f"{name}价格未完全查询成功（已有部分报价）")
+    return "；".join(descriptions) or "询价未完整结束，具体原因请查看详情"
+
+
 def classify_result(result):
     carriers = result.get("results", {})
     active = [carriers.get(name, {}) for name in ("maersk", "kakas")]
-    def has_price(carrier):
-        for row in price_rows(carrier):
-            value = row.get("TotalQuote", row.get("totalPrice", row.get("price")))
-            try:
-                if value is not None and value != "" and math.isfinite(float(value)) and float(value) >= 0:
-                    return True
-            except (ValueError, TypeError):
-                pass
-        return False
 
     has_quotes = [has_price(carrier) for carrier in active]
     issues = [carrier.get("warning") or carrier.get("error") or
@@ -253,7 +273,9 @@ def batch_summary(batch):
     counts = dict(batch.items.values("status").annotate(n=Count("id")).values_list("status", "n"))
     retry_count = sum(counts.get(status, 0) for status in RETRYABLE)
     retry_addresses = list(batch.items.filter(status__in=RETRYABLE).order_by("id").values(
-        "address_snapshot", "status")[:5]) if retry_count else []
+        "address_snapshot", "status", "result")[:5]) if retry_count else []
+    for item in retry_addresses:
+        item["description"] = retry_description(item.pop("result"), item["status"])
     return {"id": batch.pk, "group": batch.group, "status": batch.status, "counts": counts,
             "retry_count": retry_count, "retry_addresses": retry_addresses,
             "total": sum(counts.values()), "stop_requested": batch.stop_requested,
