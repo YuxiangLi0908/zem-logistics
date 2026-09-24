@@ -152,6 +152,10 @@ def build_analysis(batches, params, *, export=False):
         prices = prices.filter(platform=platform_filter)
     selected_series = params.get("carrier", "")
     include_partial = params.get("include_partial") == "1"
+    price_basis = params.get("price_basis") or "min"
+    if price_basis not in ("min", "mean"):
+        raise ValueError("请选择最低价或平均价")
+    raw_offers = defaultdict(list)
     for price in prices.values("item_id", "platform", "carrier", "carrier_code", "service", "service_code", "series_key",
                                "price", "comparable", "platform_complete", "currency_assumed").iterator():
         if not price["comparable"]:
@@ -172,6 +176,7 @@ def build_analysis(batches, params, *, export=False):
         if row["day"] in target:
             diagnostics["duplicates_collapsed"] += 1
         amount = float(price["price"])
+        raw_offers[(key, row["day"])].append(amount)
         if row["day"] not in target or amount < target[row["day"]]["price"]:
             target[row["day"]] = {"price": amount, "partial": not price["platform_complete"]}
     choices = {}
@@ -243,8 +248,42 @@ def build_analysis(batches, params, *, export=False):
     # Fixed panel: each included route+carrier+service must have a positive price on EVERY displayed day.
     balanced = [entry for entry in entries if len(entry["points"]) == len(dates) and
                 all(p["price"] is not None and p["price"] > 0 for p in entry["points"])] if len(dates) >= 2 else []
-    market_index = [{"date": day, "value": rounded(statistics.mean(entry["points"][i]["price"] / entry["points"][0]["price"] * 100 for entry in balanced))}
-                    for i, day in enumerate(dates)] if balanced else []
+    # Aggregate within each destination first, then give each fixed destination equal weight.
+    route_prices = defaultdict(list)
+    for (key, day), amounts in raw_offers.items():
+        if key in series:
+            route_prices[(key[0], day)].extend(amounts)
+    aggregate_chart = []
+    for route, days in route_days.items():
+        points = []
+        for day, row in days:
+            amounts = route_prices[(route, day)]
+            value = (min(amounts) if price_basis == "min" else statistics.mean(amounts)) if amounts else None
+            points.append({"date": day, "price": rounded(value), "batch_id": row["batch_id"]})
+        aggregate_chart.append({"route": route, "address": addresses[route]["label"], "points": points})
+    address_statistics = [{"route": entry["route"], "address": entry["address"],
+                           **series_statistics(entry["points"])} for entry in aggregate_chart]
+    address_volatility = [entry for entry in address_statistics if entry["volatility_pct"] is not None]
+    address_increases = [entry for entry in address_statistics if entry["latest_change_pct"] is not None and entry["latest_change_pct"] > 0]
+    address_decreases = [entry for entry in address_statistics if entry["latest_change_pct"] is not None and entry["latest_change_pct"] < 0]
+
+    def address_extreme(values, field, maximum):
+        if not values:
+            return None
+        value = (max if maximum else min)(entry[field] for entry in values)
+        ties = sorted((entry for entry in values if entry[field] == value), key=lambda entry: entry["address"])
+        return {**ties[0], "ties": len(ties), "tied_addresses": [entry["address"] for entry in ties[:5]]}
+
+    address_summary = {
+        "most_volatile": address_extreme(address_volatility, "volatility_pct", True),
+        "most_stable": address_extreme(address_volatility, "volatility_pct", False),
+        "largest_increase": address_extreme(address_increases, "latest_change_pct", True),
+        "largest_decrease": address_extreme(address_decreases, "latest_change_pct", False),
+    }
+    fixed_routes = [entry for entry in aggregate_chart if len(entry["points"]) == len(dates) and
+                    all(p["price"] is not None and p["price"] > 0 for p in entry["points"])] if len(dates) >= 2 else []
+    market_index = [{"date": day, "value": rounded(statistics.mean(entry["points"][i]["price"] / entry["points"][0]["price"] * 100 for entry in fixed_routes))}
+                    for i, day in enumerate(dates)] if fixed_routes else []
     chart_entries = sorted(entries, key=lambda entry: (-entry["samples"], entry["key"], entry["route"]))[:8] if route_filter else []
     requested_page = page
     pages = max(1, math.ceil(len(entries) / 50))
@@ -254,7 +293,9 @@ def build_analysis(batches, params, *, export=False):
     def brief(entry):
         return {key: value for key, value in entry.items() if key != "points"}
     report = {"profile": {"id": profile.pk, "code": profile.code, "origin": profile.origin_label, "configuration": profile.configuration},
-            "selected_address": route_filter, "filters": {"start": start.isoformat(), "end": end.isoformat(), "lead": lead, "currency": currency,
+            "address_summary": address_summary,
+            "aggregate_chart": aggregate_chart if route_filter else [],
+            "selected_address": route_filter, "filters": {"price_basis": price_basis, "start": start.isoformat(), "end": end.isoformat(), "lead": lead, "currency": currency,
                         "timezone": timezone.get_current_timezone_name(), "include_partial": include_partial},
             "addresses": sorted(addresses.values(), key=lambda row: row["label"]), "lead_days": available_leads,
             "carriers": sorted(choices.values(), key=lambda row: row["label"]), "diagnostics": diagnostics,
@@ -265,7 +306,7 @@ def build_analysis(batches, params, *, export=False):
                         "most_stable_ties": sum(r["volatility_pct"] == rankings[-1]["volatility_pct"] for r in rankings) if enough else 0,
                         "largest_increase": brief(max(latest_moves, key=lambda e: e["latest_change_pct"])) if any(e["latest_change_pct"] > 0 for e in latest_moves) else None,
                         "largest_decrease": brief(min(latest_moves, key=lambda e: e["latest_change_pct"])) if any(e["latest_change_pct"] < 0 for e in latest_moves) else None,
-                        "balanced_series": len(balanced), "winner_changes": sum(row["winner_changed"] for row in daily_minima)},
+                        "balanced_routes": len(fixed_routes), "balanced_series": len(balanced), "winner_changes": sum(row["winner_changed"] for row in daily_minima)},
             "rankings": rankings, "rows": [brief(entry) for entry in entries[(page-1)*50:page*50]],
             "page": page, "pages": pages, "total": len(entries), "chart": chart_entries,
             "chart_truncated": bool(route_filter and len(entries) > 8), "market_index": market_index,

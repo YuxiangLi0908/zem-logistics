@@ -28,6 +28,7 @@ const report = {
     page:1,pages:1,total:1,minimum_history:[],market_index:[{date:'2026-09-18',value:100},{date:'2026-09-19',value:110}],
     chart:[{...product,points:[{date:'2026-09-18',price:100,batch_id:1},{date:'2026-09-19',price:null,batch_id:2},{date:'2026-09-20',price:110,batch_id:3}]}],
 };
+report.aggregate_chart = [{address:'Newark', points:report.chart[0].points}];
 const context = {console, URLSearchParams, Date, Intl, location:{search:'?profile=1'},
     document:{getElementById:id => nodes[id] ||= new Element(), addEventListener:(_, fn) => {ready = fn;}},
     fetch:async url => {

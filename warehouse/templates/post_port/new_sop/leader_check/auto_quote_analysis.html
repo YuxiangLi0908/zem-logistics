@@ -5,16 +5,16 @@
     .qa-page { padding:24px; background:#f4f7fb; color:#223247; min-height:90vh; }
     .qa-card { background:white; border:1px solid #dce4ee; border-radius:12px; padding:20px; margin-bottom:18px; }
     .qa-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
-    .qa-config-row { grid-template-columns:minmax(180px,1fr) minmax(0,5fr); margin-bottom:14px; }
+    .qa-config-row { grid-template-columns:minmax(180px,1fr) minmax(0,5fr) minmax(150px,1fr); margin-bottom:14px; }
     .qa-filters > div { min-width:0; }
     .qa-distance { display:flex; align-items:center; gap:6px; }
     .qa-distance input { min-width:0; }
     @media(max-width:600px) { .qa-config-row { grid-template-columns:1fr; } }
     .qa-filters label { display:block; font-size:13px; color:#526174; margin-bottom:5px; }
     .qa-filters select,.qa-filters input:not([type=checkbox]) { width:100%; padding:8px; border:1px solid #cad5e2; border-radius:5px; background:white; }
-    .qa-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+    .qa-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; }
     .qa-kpi { border-left:4px solid #2563eb; padding:14px; background:#f7faff; border-radius:6px; }
-    .qa-kpi strong { display:block; font-size:24px; margin:8px 0; }
+    .qa-kpi strong { display:block; font-size:17px; margin:8px 0; } .qa-kpi small { display:block; color:#617286; } .qa-kpi-value { font-weight:600; margin:8px 0; }
     .qa-note { color:#617286; font-size:13px; line-height:1.7; }
     .qa-chart { width:100%; min-height:280px; overflow-x:auto; }
     .qa-chart svg { width:100%; min-width:650px; display:block; }
@@ -43,6 +43,7 @@
         <form id="qa-form">
             <div class="qa-filters qa-config-row">
                 <div><label for="qa-origin">发货仓</label><select id="qa-origin" required></select></div><div><label for="qa-profile">货物明细 / 申报价值</label><select id="qa-profile" required><option value="">正在读取货物配置…</option></select></div>
+                <div><label for="qa-price_basis">地址分析 / 折线图价格口径</label><select id="qa-price_basis"><option value="min">最低价</option><option value="mean">平均价</option></select></div>
             </div>
             <div class="qa-filters">
                 <div><label for="qa-group">地址组</label><select id="qa-group"><option value="">全部组</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
@@ -63,7 +64,8 @@
         <details class="mt-3"><summary>查看所选货物、申报价值和服务条件</summary><div id="qa-profile-info" class="qa-note mt-2"></div></details>
     </section>
     <div id="qa-content" hidden>
-        <section class="qa-card"><div id="qa-kpis" class="qa-kpis"></div><p id="qa-quality" class="qa-note mt-3 mb-0"></p></section>
+        <section class="qa-card"><h5>地址价格表现</h5><p id="qa-address-basis" class="qa-note"></p><div id="qa-address-kpis" class="qa-kpis"></div></section>
+        <section class="qa-card"><h5>承运商价格表现</h5><p class="qa-note">以下为筛选范围内的承运商及线路排名，不代表整体市场涨跌；波动按共同线路、共同取件日期的平均CV排名；涨跌为该承运商在具体地址的最大涨跌。不随地址最低价/平均价口径切换。</p><div id="qa-kpis" class="qa-kpis"></div><p id="qa-quality" class="qa-note mt-3 mb-0"></p></section>
         <section class="qa-card">
             <h5 id="qa-chart-title">价格走势</h5><p id="qa-chart-note" class="qa-note"></p>
             <div id="qa-legend" class="qa-legend"></div><div id="qa-chart" class="qa-chart"></div>
