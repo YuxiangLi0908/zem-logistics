@@ -37,14 +37,13 @@
     <section class="qa-card">
         <form id="qa-form">
             <div class="qa-filters">
-                <div><label for="qa-profile">比较编号 / 发货仓</label><select id="qa-profile" required><option value="">正在读取编号…</option></select></div>
+                <div><label for="qa-origin">发货仓</label><select id="qa-origin" required></select></div><div style="grid-column:1 / -1"><label for="qa-profile">货物明细 / 申报价值</label><select id="qa-profile" required><option value="">正在读取货物配置…</option></select></div>
                 <div><label for="qa-group">地址组</label><select id="qa-group"><option value="">全部组</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
                 <div><label for="qa-start">取件开始日期</label><input type="date" id="qa-start" required></div>
                 <div><label for="qa-end">取件结束日期</label><input type="date" id="qa-end" required></div>
-                <div><label for="qa-address">收货地址（选择后显示各承运商价格曲线）</label><select id="qa-address"><option value="">全部地址 · 综合指数</option></select></div>
+                <div><label for="qa-address">收货邮编</label><input id="qa-address" type="search" placeholder="输入全部或部分邮编，如070；留空查全部"></div>
                 <div><label for="qa-platform">报价平台</label><select id="qa-platform"><option value="">全部平台</option><option value="maersk">Maersk</option><option value="kakas">卡卡省</option><option value="abf">ABF</option></select></div>
-                <div><label for="qa-carrier">承运商 / 服务</label><select id="qa-carrier"><option value="">全部承运商服务</option></select></div>
-                <div><label for="qa-currency">报价币种</label><select id="qa-currency"><option>USD</option><option>CAD</option><option>UNK</option></select></div>
+                <div><label for="qa-carrier">承运商 / 服务</label><input id="qa-carrier" type="search" placeholder="输入承运商名称或服务关键词"></div>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
                 <label><input type="checkbox" id="qa-partial"> 包含尚未完整返回的平台报价</label>
@@ -53,7 +52,7 @@
                 <span id="qa-count" class="qa-note"></span>
             </div>
         </form>
-        <details class="mt-3"><summary>查看编号对应的货物、申报价值和服务条件</summary><div id="qa-profile-info" class="qa-note mt-2"></div></details>
+        <details class="mt-3"><summary>查看所选货物、申报价值和服务条件</summary><div id="qa-profile-info" class="qa-note mt-2"></div></details>
     </section>
     <div id="qa-content" hidden>
         <section class="qa-card"><div id="qa-kpis" class="qa-kpis"></div><p id="qa-quality" class="qa-note mt-3 mb-0"></p></section>

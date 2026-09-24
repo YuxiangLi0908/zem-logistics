@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const num = value => value === null || value === undefined ? '—' : Number(value).toFixed(2);
     const movement = value => value === null || value === undefined ? '—' : `<span class="${value > 0 ? 'qa-up' : value < 0 ? 'qa-down' : ''}">${value > 0 ? '+' : ''}${Number(value).toFixed(2)}</span>`;
     const product = row => row ? `${platform(row.platform)} / ${row.carrier} / ${row.service}` : '样本不足或没有可比较线路';
+    let profiles = [];
     let page = 1, chartLines = [], generation = 0;
     let initialAddress = new URLSearchParams(location.search).get('address') || '';
     const colors = ['#2563eb','#c2410c','#059669','#9333ea','#be185d','#0e7490','#a16207','#475569'];
@@ -35,18 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
         $('error').hidden = true;
         $('export').hidden = true;
         const args = {kind:'analysis', page, group_by:'address'};
-        for (const key of ['profile','group','start','end','address','platform','carrier','currency']) args[key] = $(key).value;
+        for (const key of ['profile','group','start','end','platform']) args[key] = $(key).value;
+        args.currency = 'USD';
+        args.zipcode = $('address').value.trim();
+        args.carrier_query = $('carrier').value.trim();
         if (initialAddress) args.address = initialAddress;
         args.include_partial = $('partial').checked ? '1' : '0';
         try {
             const data = await api(args);
             if (run !== generation) return;
-            initialAddress = '';
             page = data.page;
             $('export').href = '/post_nsop/?' + new URLSearchParams({step:'auto_quote_data', ...args, kind:'analysis_export'});
             $('export').hidden = false;
-            options('address', data.addresses, '全部地址 · 综合指数', args.address);
-            options('carrier', data.carriers, '全部承运商服务', args.carrier);
+            if (args.address) $('address').value = data.addresses.find(a => a.id === args.address)?.zipcode || '';
             showConfiguration(data.profile.configuration);
             $('count').textContent = `${data.profile.code} · ${data.summary.routes}条线路 · ${data.summary.daily_samples}个地址采样日 · ${data.summary.series}条价格序列 · ${data.filters.currency}`;
             render(data);
@@ -76,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('ranking').innerHTML = data.rankings.map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">至少需要同一线路、同一服务3个有效报价日才能计算波动排名。</td></tr>';
         renderRoutes(data);
         $('prev').disabled = data.page <= 1; $('next').disabled = data.page >= data.pages;
-        const addressSelected = Boolean($('address').value);
+        const addressSelected = Boolean(data.selected_address);
         $('min-section').hidden = !addressSelected;
         $('minima').innerHTML = data.minimum_history.map(r => `<tr><td>${esc(r.date)}</td><td>${num(r.price)} ${esc(data.filters.currency)}</td><td>${esc(r.winners.join('；') || '无报价')}</td><td>${r.offers}</td><td>${r.winner_changed ? '已变化' : '—'}</td></tr>`).join('');
         $('chart-title').textContent = addressSelected ? '所选地址 · 各承运商服务价格走势' : '固定线路与服务 · 综合价格指数';
@@ -132,12 +134,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     $('legend').addEventListener('change', drawChart);
     $('form').addEventListener('submit', event => { event.preventDefault(); page = 1; analyze(); });
-    for (const id of ['profile','group','start','end']) $(id).addEventListener('change', () => { $('address').value = ''; $('carrier').value = ''; });
+    for (const id of ['profile','group','start','end']) $(id).addEventListener('change', () => { initialAddress = ''; $('address').value = ''; $('carrier').value = ''; });
     $('platform').addEventListener('change', () => { $('carrier').value = ''; });
     $('address').addEventListener('change', () => { page = 1; analyze(); });
-    $('series').addEventListener('click', event => { const button = event.target.closest('[data-route]'); if (button) { $('address').value = button.dataset.route; page = 1; analyze(); } });
+    $('series').addEventListener('click', event => { const button = event.target.closest('[data-route]'); if (button) { initialAddress = button.dataset.route; $('address').value = ''; page = 1; analyze(); } });
     $('prev').addEventListener('click', () => { page--; analyze(); });
     $('next').addEventListener('click', () => { page++; analyze(); });
+    function fillProfiles(selected) {
+        const available = profiles.filter(p => p.origin === $('origin').value);
+        options('profile', available.map(p => ({id:p.id,label:p.configuration.items.map(i => `长宽高 ${i.length}×${i.width}×${i.height} in · 单板 ${i.weight} lb · ${i.palletCount}板`).join('；') + ` · 申报价值 $${p.configuration.declaredValue} · ${Number(p.configuration.quoteType) === 2 ? 'FTL' : 'LTL'} · ${p.configuration.needLiftgate ? '需要尾板' : '无需尾板'} · ${{1:'商业地址',2:'住宅地址',3:'装卸平台'}[p.configuration.destinationType] || '未指定地址类型'}`})), '请选择货物配置', selected);
+        if (!$('profile').value && available.length) $('profile').value = available[0].id;
+    }
+    $('origin').addEventListener('change', () => { $('profile').value = ''; fillProfiles(); $('content').hidden = true; $('export').hidden = true; initialAddress = ''; });
+    $('address').addEventListener('input', () => { initialAddress = ''; });
     async function init() {
         try {
             const data = await api({kind:'analysis_options'});
@@ -147,8 +156,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const end = /^\d{4}-\d{2}-\d{2}$/.test(data.latest_pickup_date || '') && data.latest_pickup_date > today ? data.latest_pickup_date : today;
             const start = new Date(end + 'T00:00:00Z'); start.setUTCDate(start.getUTCDate() - 29);
             $('end').value = end; $('start').value = start.toISOString().slice(0,10);
-            options('profile', data.profiles.map(p => ({id:p.id,label:`${p.code} · ${p.origin} · 申报$${p.configuration.declaredValue}`})), '请选择比较编号', new URLSearchParams(location.search).get('profile'));
-            if (!$('profile').value && data.profiles.length) $('profile').value = data.profiles[0].id;
+            profiles = data.profiles;
+            const requested = new URLSearchParams(location.search).get('profile');
+            const chosen = profiles.find(p => String(p.id) === requested) || profiles[0];
+            options('origin', [...new Set(profiles.map(p => p.origin))].map(origin => ({id:origin,label:origin})), '请选择发货仓', chosen?.origin);
+            fillProfiles(chosen?.id);
             if (!data.profiles.length) { $('count').textContent = '暂无比较编号。请先完成自动询价，或完成历史数据归档。'; return; }
             await analyze();
         } catch (error) { $('error').hidden = false; $('error').textContent = error.message; }

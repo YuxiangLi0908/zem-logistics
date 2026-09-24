@@ -58,7 +58,7 @@ async function main() {
     assert(el('export').href.includes('kind=analysis_export'));
     assert(!el('export').href.includes('lead='));
     assert(!calls.find(p => p.get('kind') === 'analysis').has('lead'));
-    el('address').value = 'route1'; el('address').events.change(); await tick();
+    report.selected_address = 'route1'; el('address').value = '071'; el('address').events.change(); await tick();
     const svg = el('chart').innerHTML;
     assert(svg.includes('batch=1'));
     assert(svg.includes('batch=3'));
@@ -74,7 +74,7 @@ async function main() {
     assert.equal(el('content').hidden, true);
     assert.equal(el('export').hidden, true);
     assert.equal(el('submit').disabled, false);
-    assert(calls.some(p => p.get('address') === 'route1'));
+    assert(calls.some(p => p.get('zipcode') === '071' && p.get('currency') === 'USD'));
     console.log('Analysis UI smoke checks passed: initialization, SVG index/trend, gaps, legend, escaping, filters, export context, error state.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});
