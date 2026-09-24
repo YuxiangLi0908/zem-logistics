@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const num = value => value === null || value === undefined ? '—' : Number(value).toFixed(2);
     const movement = value => value === null || value === undefined ? '—' : `<span class="${value > 0 ? 'qa-up' : value < 0 ? 'qa-down' : ''}">${value > 0 ? '+' : ''}${Number(value).toFixed(2)}</span>`;
     const product = row => row ? `${platform(row.platform)} / ${row.carrier} / ${row.service}` : '样本不足或没有可比较线路';
-    let profiles = [];
+    let profiles = [], distanceLines = [], distanceRoutes = null;
     let routeReport = null, routeSort = '', routeAscending = true;
     let page = 1, chartLines = [], generation = 0;
     let initialAddress = new URLSearchParams(location.search).get('address') || '';
@@ -70,6 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
         $('quality').textContent = notes.join(' ');
         $('ranking-note').textContent = s.common_routes ? `使用各承运商/服务共有的 ${s.common_routes} 条线路，每条线路至少3个共同报价日，线路等权平均CV；数值越大波动越大。请结合样本量和覆盖率判断，不能把缺报价当作稳定。` : '当前没有足够的共同线路和共同报价日。下表仅显示各自样本的参考值，不判定哪个承运商最稳定。';
         renderRankings(data);
+        distanceRoutes = null;
+        $('distance-reset').hidden = true;
+        renderDistance(data);
         renderRoutes(data);
         const addressSelected = Boolean(data.selected_address);
         $('min-section').hidden = !addressSelected;
@@ -103,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRoutes(data) {
         routeReport = data;
         const query = searchText($('route-search').value);
-        const sorted = (data.route_rows || []).filter(row => searchText(row.address).includes(query));
+        const sorted = (data.route_rows || []).filter(row => searchText(row.address).includes(query) && (!distanceRoutes || distanceRoutes.has(row.route)));
         if (routeSort) sorted.sort((a,b) => {
             const av = a[routeSort], bv = b[routeSort];
             if (av == null) return bv == null ? 0 : 1;
@@ -120,10 +123,35 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${r.expected}</td>
             <td>${servicesTable(r.services)}</td></tr>`).join('') || '<tr><td colspan="9">当前筛选范围没有线路记录。</td></tr>';
     }
+    function drawDistance() {
+        drawLines(distanceLines.filter((_, index) => $('distance-legend').querySelector(`[data-line="${index}"]`)?.checked), 'distance-chart');
+    }
+    function renderDistance(data) {
+        const groups = data.distance_groups || [];
+        $('distance-table').innerHTML = groups.map(row => `<tr><td><button type="button" class="btn btn-link btn-sm" data-distance="${esc(row.id)}">${esc(row.label)}</button></td><td>${row.addresses} / ${row.sample_addresses}</td><td>${num(row.latest)}<div class="qa-note">${esc(row.latest_date || '')}</div></td><td>${num(row.previous)}<div class="qa-note">${esc(row.previous_date || '')}</div></td><td>${movement(row.latest_change)}</td><td>${movement(row.latest_change_pct)}${row.latest_change_pct == null ? '' : '%'}</td></tr>`).join('');
+        distanceLines = groups.filter(row => row.sample_addresses).map((row,index) => ({name:row.label,color:colors[index % colors.length],points:row.points}));
+        $('distance-legend').innerHTML = distanceLines.map((line,index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
+        drawDistance();
+    }
+    $('distance-legend').addEventListener('change', drawDistance);
+    $('distance-table').addEventListener('click', event => {
+        const button = event.target.closest('[data-distance]');
+        const group = button && routeReport?.distance_groups?.find(row => row.id === button.dataset.distance);
+        if (!group) return;
+        distanceRoutes = new Set(group.routes);
+        $('distance-reset').hidden = false;
+        $('distance-reset').textContent = group.label + ' × 清除';
+        renderRoutes(routeReport);
+        $('routes-scroll').scrollTop = 0;
+        $('routes-scroll').scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    $('distance-reset').addEventListener('click', () => { distanceRoutes = null; $('distance-reset').hidden = true; if (routeReport) renderRoutes(routeReport); });
     function drawChart() {
-        const lines = chartLines.filter((_, index) => $('legend').querySelector(`[data-line="${index}"]`)?.checked);
+        drawLines(chartLines.filter((_, index) => $('legend').querySelector(`[data-line="${index}"]`)?.checked), 'chart');
+    }
+    function drawLines(lines, target) {
         const points = lines.flatMap(line => line.points).filter(p => p.price !== null);
-        if (!points.length) { $('chart').innerHTML = '<p class="qa-note p-4">暂无可绘制的数据。综合指数至少需要2个采样日，且固定样本在每个展示日都有正数报价。</p>'; return; }
+        if (!points.length) { $(target).innerHTML = '<p class="qa-note p-4">暂无可绘制的数据。综合指数至少需要2个采样日，且固定样本在每个展示日都有正数报价。</p>'; return; }
         const allDates = [...new Set(lines.flatMap(line => line.points.map(p => p.date)))].sort();
         const times = allDates.map(day => Date.parse(day + 'T00:00:00Z'));
         const t0 = Math.min(...times), t1 = Math.max(...times);
@@ -151,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 svg += point.batch_id ? `<a href="/post_nsop/?step=auto_quote_history&amp;batch=${point.batch_id}">${dot}</a>` : dot;
             }
         }
-        $('chart').innerHTML = svg + '</svg>';
+        $(target).innerHTML = svg + '</svg>';
     }
     document.querySelectorAll('[data-sort]').forEach(button => button.addEventListener('click', () => {
         const key = button.dataset.sort;
