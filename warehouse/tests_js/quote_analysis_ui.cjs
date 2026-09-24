@@ -48,6 +48,7 @@ async function main() {
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../static/js/auto_quote_analysis.js'), 'utf8'), context);
     ready(); await tick();
     assert.equal(el('content').hidden, false);
+    assert.equal(calls.find(p => p.get('kind') === 'analysis').get('include_partial'), '1');
     assert.equal((el('series').innerHTML.match(/data-route=/g) || []).length, 1);
     assert(el('series').innerHTML.includes('Carrier B'));
     assert(el('series').innerHTML.includes('<details>'));
@@ -56,8 +57,6 @@ async function main() {
     assert(!el('chart').innerHTML.includes('NaN'));
     assert(el('ranking').innerHTML.includes('Carrier &lt;unsafe&gt;'));
     assert(!el('ranking').innerHTML.includes('Carrier <unsafe>'));
-    assert(el('export').href.includes('kind=analysis_export'));
-    assert(!el('export').href.includes('lead='));
     assert(!calls.find(p => p.get('kind') === 'analysis').has('lead'));
     report.selected_address = 'route1'; el('address').value = '071'; el('address').events.change(); await tick();
     const svg = el('chart').innerHTML;
@@ -73,7 +72,6 @@ async function main() {
     assert.equal(el('error').hidden, false);
     assert.equal(el('error').textContent, 'Test failure');
     assert.equal(el('content').hidden, true);
-    assert.equal(el('export').hidden, true);
     assert.equal(el('submit').disabled, false);
     assert(calls.some(p => p.get('zipcode') === '071' && p.get('currency') === 'USD'));
     console.log('Analysis UI smoke checks passed: initialization, SVG index/trend, gaps, legend, escaping, filters, export context, error state.');

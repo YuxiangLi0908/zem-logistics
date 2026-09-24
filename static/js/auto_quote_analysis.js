@@ -34,20 +34,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const run = ++generation;
         $('submit').disabled = true;
         $('error').hidden = true;
-        $('export').hidden = true;
+
         const args = {kind:'analysis', page, group_by:'address'};
         for (const key of ['profile','group','start','end','platform','distance_min','distance_max','price_basis']) args[key] = $(key).value;
         args.currency = 'USD';
         args.zipcode = $('address').value.trim();
         args.carrier_query = $('carrier').value.trim();
         if (initialAddress) args.address = initialAddress;
-        args.include_partial = $('partial').checked ? '1' : '0';
+        args.include_partial = '1';
         try {
             const data = await api(args);
             if (run !== generation) return;
             page = data.page;
-            $('export').href = '/post_nsop/?' + new URLSearchParams({step:'auto_quote_data', ...args, kind:'analysis_export'});
-            $('export').hidden = false;
             if (args.address) $('address').value = data.addresses.find(a => a.id === args.address)?.zipcode || '';
             showConfiguration(data.profile.configuration);
             $('count').textContent = `${data.profile.code} · ${data.summary.routes}条线路 · ${data.summary.daily_samples}个地址采样日 · ${data.summary.series}条价格序列 · ${data.filters.currency}`;
@@ -164,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         options('profile', available.map(p => ({id:p.id,label:p.configuration.items.map(i => `长宽高 ${i.length}×${i.width}×${i.height} in · 单板 ${i.weight} lb · ${i.palletCount}板`).join('；') + ` · 申报价值 $${p.configuration.declaredValue} · ${Number(p.configuration.quoteType) === 2 ? 'FTL' : 'LTL'} · ${p.configuration.needLiftgate ? '需要尾板' : '无需尾板'} · ${{1:'商业地址',2:'住宅地址',3:'装卸平台'}[p.configuration.destinationType] || '未指定地址类型'}`})), '请选择货物配置', selected);
         if (!$('profile').value && available.length) $('profile').value = available[0].id;
     }
-    $('origin').addEventListener('change', () => { $('profile').value = ''; fillProfiles(); $('content').hidden = true; $('export').hidden = true; initialAddress = ''; });
+    $('origin').addEventListener('change', () => { $('profile').value = ''; fillProfiles(); $('content').hidden = true; initialAddress = ''; });
     $('address').addEventListener('input', () => { initialAddress = ''; });
     async function init() {
         try {
