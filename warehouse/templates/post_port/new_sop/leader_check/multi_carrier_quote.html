@@ -113,6 +113,25 @@
                     <div class="col-md-3 d-flex align-items-end"><div class="form-check mb-2"><input id="quote_liftgate" type="checkbox" class="form-check-input"><label class="form-check-label" for="quote_liftgate">需要 Liftgate</label></div></div>
                 </div>
 
+                {% if automatic %}
+                <div class="border rounded p-3 mb-3" style="background:#eef5ff;border-color:#c9dcf7!important">
+                    <label for="quote-cargo-source" class="form-label fw-bold">货物明细填写方式</label>
+                    <select id="quote-cargo-source" class="form-select mb-2" style="max-width:240px">
+                        <option value="manual">手动输入</option><option value="saved">选择已有组（AQ编号）</option>
+                    </select>
+                    <div id="quote-preset-controls" hidden>
+                        <label for="quote-cargo-profile" class="form-label">已有货物组</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <select id="quote-cargo-profile" class="form-select" style="max-width:680px"><option value="">请选择已有组</option></select>
+                            <button type="button" id="quote-apply-profile" class="btn btn-outline-primary" disabled>填入这组配置</button>
+                            <button type="button" id="quote-reload-profiles" class="btn btn-outline-secondary">刷新可选组</button>
+                        </div>
+                        <p class="small text-muted mt-2 mb-0">按已有AQ编号回填货物、申报价值、发货仓及运输/尾板等条件，便于保持相同比较条件；本次取件日期和LA/SAV/NJ收货地址组仍由你选择。填入后可以继续修改。</p>
+                        <div id="quote-profile-preview" class="small mt-2" style="white-space:pre-wrap"></div>
+                    </div>
+                    <div id="quote-profile-message" class="small mt-2" role="status" aria-live="polite"></div>
+                </div>
+                {% endif %}
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <h5 class="mb-0">货物明细</h5>
                     <button type="button" id="addQuoteItem" class="btn btn-outline-primary btn-sm"><i class="fas fa-plus"></i> 添加货物</button>
@@ -177,12 +196,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input class="form-control form-control-sm description-input item-description" value="${escapeHtml(values.description || 'Pallet')}"></td>
-            <td><input type="number" min="1" value="${values.pieces || 1}" class="form-control form-control-sm item-pieces" required></td>
-            <td><input type="number" min="1" value="${values.length || ''}" class="form-control form-control-sm item-length" required></td>
-            <td><input type="number" min="1" value="${values.width || ''}" class="form-control form-control-sm item-width" required></td>
-            <td><input type="number" min="1" value="${values.height || ''}" class="form-control form-control-sm item-height" required></td>
-            <td><input type="number" min="1" value="${values.weight || ''}" class="form-control form-control-sm item-weight" required></td>
-            <td><input type="number" min="1" value="${values.palletCount || 1}" class="form-control form-control-sm item-pallet-count" required></td>
+            <td><input type="number" min="1" value="${escapeHtml(values.pieces || 1)}" class="form-control form-control-sm item-pieces" required></td>
+            <td><input type="number" min="1" value="${escapeHtml(values.length || '')}" class="form-control form-control-sm item-length" required></td>
+            <td><input type="number" min="1" value="${escapeHtml(values.width || '')}" class="form-control form-control-sm item-width" required></td>
+            <td><input type="number" min="1" value="${escapeHtml(values.height || '')}" class="form-control form-control-sm item-height" required></td>
+            <td><input type="number" min="1" value="${escapeHtml(values.weight || '')}" class="form-control form-control-sm item-weight" required></td>
+            <td><input type="number" min="1" value="${escapeHtml(values.palletCount || 1)}" class="form-control form-control-sm item-pallet-count" required></td>
             <td><input class="form-control form-control-sm item-class" readonly></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-item"><i class="fas fa-trash"></i></button></td>`;
         row.querySelectorAll('.item-length,.item-width,.item-height,.item-weight').forEach(input => input.addEventListener('input', () => updateClass(row)));
@@ -210,6 +229,36 @@ document.addEventListener('DOMContentLoaded', function () {
         carType.required = isFtl;
         carType.value = isFtl ? (carType.value || '1') : '';
     }
+
+    window.AutoQuoteForm = {
+        applyProfile(configuration) {
+            const normalize = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+            const origin = configuration.origin || {};
+            const warehouse = warehouses.find(w => ['city','state','postCode','detailAddress'].every(key =>
+                normalize(w[key]) === normalize(origin[key[0].toUpperCase() + key.slice(1)])));
+            if (!warehouse) throw new Error('这组配置的发货地址已不在当前仓库列表，请选择其他组或手动填写。');
+            if (!Array.isArray(configuration.items) || !configuration.items.length) throw new Error('该组没有可用货物明细，请手动填写。');
+            const fields = {
+                quote_type:configuration.quoteType, quote_car_type:configuration.carType || '',
+                quote_declared_value:configuration.declaredValue, quote_commodity_unit:configuration.commodityUnit,
+                quote_pallet_type:configuration.palletType, quote_destination_type:configuration.destinationType,
+            };
+            // Validate dropdown compatibility before replacing any current user input.
+            for (const [id, value] of Object.entries(fields)) {
+                const input = document.getElementById(id);
+                if (input.options && !Array.from(input.options).some(option => option.value === String(value))) {
+                    throw new Error('该组包含当前页面不支持的选项，请手动填写。');
+                }
+            }
+            document.getElementById('quote_origin_warehouse').value = warehouse.warehouse;
+            setOrigin(warehouse.warehouse);
+            Object.entries(fields).forEach(([id, value]) => { document.getElementById(id).value = String(value); });
+            document.getElementById('quote_liftgate').checked = Boolean(configuration.needLiftgate);
+            setQuoteType();
+            itemsBody.innerHTML = '';
+            configuration.items.forEach(item => addItem(item));
+        }
+    };
 
     function payload() {
         const value = id => document.getElementById(id).value.trim();
@@ -289,4 +338,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script src="{% static 'js/auto_quote.js' %}"></script>
+{% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}"></script>{% endif %}
 {% endblock %}

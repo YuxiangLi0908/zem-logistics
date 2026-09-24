@@ -39,8 +39,8 @@ class DestinationHistoryTests(TransactionTestCase):
     def test_cross_batch_history_keeps_each_inquiry_and_caps_only_chart_prices(self):
         rates = [{"carrierName": f"Carrier {i}", "totalPrice": i, "currency": "USD"} for i in range(200, 0, -1)]
         a = self.item(rates=rates)
-        b = self.item(rates=[{"carrierName": "Other", "totalPrice": 12}], minute=1)
-        missing = self.item(minute=2)
+        b = self.item(rates=[{"carrierName": "Other", "totalPrice": 12}], minute=1440)
+        missing = self.item(minute=2880)
         data = self.history()
         self.assertEqual(data["total"], 3)
         self.assertEqual([p["id"] for p in data["chart"]], [a.pk, b.pk, missing.pk])
@@ -61,6 +61,17 @@ class DestinationHistoryTests(TransactionTestCase):
         self.assertEqual(data["total"], 2)
         with self.assertRaises(ValueError):
             self.history(address="wrong")
+
+    def test_pickup_chart_deduplicates_same_date_but_keeps_all_history(self):
+        a = self.item(rates=[{"carrierName": "A", "totalPrice": 100}])
+        b = self.item(rates=[{"carrierName": "B", "totalPrice": 150}], minute=1)
+        pickup = a.batch.parameters["pickupDate"]
+        data = self.history(start=pickup, end=pickup)
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(len(data["chart"]), 1)
+        self.assertEqual(data["chart"][0]["id"], b.pk)
+        self.assertEqual(data["chart"][0]["time"], pickup)
+        self.assertEqual(data["chart"][0]["prices"][0]["price"], 150)
 
     def test_chart_never_mixes_profile_currency_or_lead_but_table_keeps_all(self):
         a = self.item(rates=[{"carrierName": "A", "totalPrice": 99, "currency": "USD"},
@@ -102,10 +113,10 @@ class DestinationHistoryTests(TransactionTestCase):
 
     def test_task_date_filter_without_address_includes_both_endpoints(self):
         a = self.item()
-        old = self.item()
+        old = self.item(lead=5)
         AutoQuoteBatch.objects.filter(pk=old.batch_id).update(created_at=self.now - timedelta(days=5))
         factory = RequestFactory()
-        day = timezone.localdate(self.now).isoformat()
+        day = a.batch.parameters["pickupDate"]
         request = factory.get("/post_nsop/", {"start": day, "end": day})
         request.user = self.user
         result = json.loads(auto_quote_get(request).content)

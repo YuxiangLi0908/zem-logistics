@@ -40,7 +40,7 @@ def destination_history(batches, params):
                 value = date.fromisoformat(params[key])
             except ValueError:
                 raise ValueError("日期格式应为 YYYY-MM-DD")
-            items = items.filter(**{f"batch__created_at__date__{lookup}": value})
+            items = items.filter(**{f"batch__parameters__pickupDate__{lookup}": value.isoformat()})
     if params.get("start") and params.get("end") and params["start"] > params["end"]:
         raise ValueError("开始日期不能晚于结束日期")
 
@@ -70,7 +70,7 @@ def destination_history(batches, params):
                 "origin": item.batch.parameters.get("originWarehouse", ""),
                 "profile_code": f"AQ{item.batch.profile_id:06d}" if item.batch.profile_id else "待归档",
                 "address": item.address_snapshot, "status": item.status, "started_at": item.started_at,
-                "created_at": item.batch.created_at, "finished_at": item.finished_at,
+                "pickup_date": item.batch.parameters.get("pickupDate"), "created_at": item.batch.created_at, "finished_at": item.finished_at,
                 "result": item.result, "error": item.error} for item in page]
     response = {"rows": records, "total": page.paginator.count, "page": page.number, "pages": page.paginator.num_pages,
                 "addresses": sorted(choices.values(), key=lambda v: v["label"]), "address": selected,
@@ -96,6 +96,18 @@ def destination_history(batches, params):
     lead = str(params.get("lead") or (lead_days(samples[0]) if samples else "unknown"))
     response.update(leads=leads, lead=lead)
     samples = [item for item in samples if lead_days(item) == lead]
+    daily = {}
+    for item in samples:
+        if not item.finished_at or item.status in ("pending", "running", "cancelled"):
+            continue
+        try:
+            pickup = date.fromisoformat(item.batch.parameters.get("pickupDate", ""))
+        except (ValueError, TypeError):
+            continue
+        previous = daily.get(pickup)
+        if previous is None or (item.started_at or item.finished_at, item.pk) > (previous.started_at or previous.finished_at, previous.pk):
+            daily[pickup] = item
+    samples = [daily[day] for day in sorted(daily)]
     prices = AutoQuotePrice.objects.filter(item_id__in=[item.pk for item in samples])
     platform = params.get("platform", "")
     if platform:
@@ -113,8 +125,8 @@ def destination_history(batches, params):
     for price in ranked:
         by_item.setdefault(price.pop("item_id"), []).append(price)
     response["chart"] = [{"id": item.pk, "batch_id": item.batch_id,
-                          "time": item.started_at or item.batch.created_at, "status": item.status,
+                          "time": item.batch.parameters["pickupDate"], "queried_at": item.started_at, "status": item.status,
                           "prices": by_item.get(item.pk, [])}
-                         for item in sorted(samples, key=lambda i: (i.started_at or i.batch.created_at, i.pk))]
-    response["chart_message"] = "按每次报价价格排名连线；同一条线的承运商可能变化。未返回价格留空，部分报价仅代表已返回结果。"
+                         for item in samples]
+    response["chart_message"] = "按取件日期排列，每个取件日期采用最后发起且已结束的一次询价。按最低价名次连线，承运商可能变化；缺价留空，部分报价仅代表已返回结果。"
     return response

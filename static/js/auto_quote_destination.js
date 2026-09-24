@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tickIndexes = [...new Set([0, Math.floor((points.length-1)/2), points.length-1])];
         for (const index of tickIndexes) {
             const p = points[index];
-            svg += `<text x="${x(p)}" y="${height-35}" text-anchor="${index === 0 ? 'start' : index === points.length-1 ? 'end' : 'middle'}" font-size="11">${esc(date(p.time))}</text>`;
+            svg += `<text x="${x(p)}" y="${height-35}" text-anchor="${index === 0 ? 'start' : index === points.length-1 ? 'end' : 'middle'}" font-size="11">${esc(String(p.time).slice(0,10))}</text>`;
         }
         for (let rank = 0; rank < 10; rank++) {
             let path = '', connected = false, circles = '';
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!q) { connected = false; continue; }
                 const px = x(p), py = y(q.price);
                 path += `${connected ? 'L' : 'M'}${px},${py} `; connected = true;
-                const tooltip = `${date(p.time)} · 任务 #${p.batch_id}\n第${rank+1}低：${q.price} ${data.currency}\n${q.platform} / ${q.carrier} / ${q.service || '未标注服务'}${q.platform_complete ? '' : '\n部分返回报价'}${q.currency_assumed ? '\n接口未标币种，按USD记录' : ''}`;
+                const tooltip = `取件日期 ${String(p.time).slice(0,10)} · 任务 #${p.batch_id}\n实际询价：${date(p.queried_at)}\n第${rank+1}低：${q.price} ${data.currency}\n${q.platform} / ${q.carrier} / ${q.service || '未标注服务'}${q.platform_complete ? '' : '\n部分返回报价'}${q.currency_assumed ? '\n接口未标币种，按USD记录' : ''}`;
                 circles += `<circle cx="${px}" cy="${py}" r="4" tabindex="0" aria-label="${esc(tooltip)}"><title>${esc(tooltip)}</title></circle>`;
             }
             if (!circles) continue;
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const a = item.address, result = item.result?.results || {};
                 return `<tr><td>#${item.batch_id}<div>${esc(item.operator)}</div><div>${esc(item.origin)}</div><small>${esc(item.profile_code)}</small></td>
                     <td>${esc(a.address)}<div>${esc(a.city)}, ${esc(a.state)} ${esc(a.zipcode)}</div></td>
-                    <td>${esc(labels[item.status] || item.status)}<div>${esc(date(item.started_at))}</div><small>创建：${esc(date(item.created_at))}</small></td>
+                    <td>${esc(labels[item.status] || item.status)}<div>${esc(date(item.started_at))}</div><div>取件：${esc(item.pickup_date || "—")}</div><small>创建：${esc(date(item.created_at))}</small></td>
                     <td>${prices(result.maersk)}</td><td>${prices(result.kakas,{limit:10,key:'destination-kakas-'+item.id})}</td><td>${rows(result.abf).length ? prices(result.abf) : '暂无报价'}</td>
                     <td><button type="button" class="btn btn-sm btn-outline-primary" data-batch="${item.batch_id}">查看任务</button><div class="text-danger">${esc(item.error)}</div></td></tr>`;
             }).join('') || '<tr><td colspan="7">没有符合条件的记录</td></tr>';

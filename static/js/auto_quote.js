@@ -61,6 +61,19 @@ document.addEventListener('DOMContentLoaded', () => {
             ${parts.filter(part => part.count > 0).map(part => `<span class="aq-progress-${part.kind}" style="width:${part.percent}%" title="${esc(part.note + '：' + part.count + '条（' + part.percent.toFixed(2) + '%）')}"></span>`).join('')}
             </div><div class="aq-progress-legend">${parts.map(part => `<span title="${esc(part.note)}"><i class="aq-progress-${part.kind}" aria-hidden="true"></i>${part.name} <strong>${part.percent.toFixed(2)}%</strong> <small>(${part.count})</small></span>`).join('')}</div>`;
     }
+    function incompleteAddresses(batch) {
+        if (!batch.retry_count) return '';
+        const addresses = (batch.retry_addresses || []).map(item => {
+            const a = item.address_snapshot || {};
+            const location = [a.city, a.state, a.zipcode].filter(Boolean).join(' ');
+            const address = a.address || '';
+            const text = address && location && address !== location ? `${address} · ${location}` : address || location || '地址未记录';
+            return `<li>${esc(text)} <span class="text-muted">（${esc(labels[item.status] || item.status)}）</span></li>`;
+        });
+        return `<div class="mt-2 small" style="padding:8px 10px;background:#fff8e8;border-radius:6px;white-space:normal;overflow-wrap:anywhere;color:#80591b">
+            <strong>待重试地址（${batch.retry_count}条）</strong><ul style="margin:4px 0 0;padding-left:18px">${addresses.join('')}</ul>
+            ${batch.retry_count > addresses.length ? `<div>等，共 ${batch.retry_count} 条，可点击“查看”筛选完整列表。</div>` : ''}</div>`;
+    }
     function groupCount() {
         if ($('auto-group-count')) $('auto-group-count').textContent = `共 ${groups[$('auto-group').value] || 0} 条地址`;
     }
@@ -84,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
             $('auto-batches').innerHTML = data.batches.map(batch => `<tr>
                 <td>#${batch.id}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
                 <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}</td>
-                <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div></td>
+                <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div>${incompleteAddresses(batch)}</td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
                 ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';

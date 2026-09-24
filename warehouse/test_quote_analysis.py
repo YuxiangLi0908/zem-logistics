@@ -112,7 +112,7 @@ class AnalysisDataTests(TransactionTestCase):
 
     def analyze(self, **kwargs):
         params = {"profile": str(self.profile.pk), "start": timezone.localdate(self.base).isoformat(),
-                  "end": timezone.localdate(self.base + timedelta(days=5)).isoformat(), "lead": "2", **kwargs}
+                  "end": timezone.localdate(self.base + timedelta(days=7)).isoformat(), "lead": "2", **kwargs}
         return build_analysis(visible_batches(self.user), params)
 
     def test_profile_reused_and_indexing_is_idempotent(self):
@@ -121,6 +121,20 @@ class AnalysisDataTests(TransactionTestCase):
         index_item(item.pk)
         self.assertEqual(item.prices.count(), 2)
         self.assertEqual(AutoQuoteProfile.objects.count(), 1)
+
+    def test_analysis_filters_and_groups_by_pickup_instead_of_query_day(self):
+        first = self.item(0, [self.rate("A", 100)])
+        last = self.item(1, [self.rate("A", 130)])
+        pickup = first.batch.parameters["pickupDate"]
+        last.batch.parameters["pickupDate"] = pickup
+        last.batch.save(update_fields=["parameters"])
+        data = self.analyze(start=pickup, end=pickup, lead="all", address=address_key(self.address))
+        self.assertEqual(data["summary"]["daily_samples"], 1)
+        self.assertEqual(data["rows"][0]["latest_date"], pickup)
+        self.assertEqual(data["rows"][0]["latest"], 130)
+        self.assertEqual(data["chart"][0]["points"][0]["batch_id"], last.batch_id)
+        query_day = timezone.localdate(first.started_at).isoformat()
+        self.assertEqual(self.analyze(start=query_day, end=query_day, lead="all")["rows"], [])
 
     def test_address_rows_group_all_services_before_pagination(self):
         for i in range(21):
@@ -227,7 +241,7 @@ class AnalysisDataTests(TransactionTestCase):
         self.item(0, [self.rate(f"Carrier{i}", 100+i) for i in range(55)])
         self.assertEqual(len(self.analyze()["rows"]), 50)
         request = RequestFactory().get("/post_nsop/", {"kind": "analysis_export", "profile": self.profile.pk,
-            "start": timezone.localdate(self.base).isoformat(), "end": timezone.localdate(self.base + timedelta(days=5)).isoformat(), "lead": "2"})
+            "start": timezone.localdate(self.base).isoformat(), "end": timezone.localdate(self.base + timedelta(days=7)).isoformat(), "lead": "2"})
         request.user = self.user
         response = auto_quote_get(request)
         self.assertEqual(response.status_code, 200)

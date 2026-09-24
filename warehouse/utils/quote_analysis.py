@@ -44,12 +44,14 @@ def series_statistics(points):
 
 
 def analysis_options(batches):
+    latest_pickup = batches.exclude(parameters__pickupDate=None).order_by("-parameters__pickupDate").values_list("parameters__pickupDate", flat=True).first()
     ids = batches.exclude(profile=None).values_list("profile_id", flat=True).distinct()
     profiles = list(AutoQuoteProfile.objects.filter(pk__in=ids).order_by("-id"))
     return {"profiles": [{"id": p.pk, "code": p.code, "origin": p.origin_label,
                            "configuration": p.configuration} for p in profiles],
             "unindexed": AutoQuoteItem.objects.filter(batch__in=batches, finished_at__isnull=False,
                                                        analysis_version=0).exclude(status="cancelled").count(),
+            "latest_pickup_date": latest_pickup,
             "timezone": timezone.get_current_timezone_name()}
 
 
@@ -71,24 +73,24 @@ def build_analysis(batches, params, *, export=False):
         if params["group"] not in ("LA", "SAV", "NJ"):
             raise ValueError("地址组不正确")
         batches = batches.filter(group=params["group"])
-    items = AutoQuoteItem.objects.filter(batch__in=batches, finished_at__isnull=False, started_at__date__gte=start,
-                                         started_at__date__lte=end).exclude(status__in=("cancelled", "pending", "running"))
+    items = AutoQuoteItem.objects.filter(batch__in=batches, finished_at__isnull=False, batch__parameters__pickupDate__gte=start.isoformat(),
+                                         batch__parameters__pickupDate__lte=end.isoformat()).exclude(status__in=("cancelled", "pending", "running"))
     if items.count() > 20000:
         raise ValueError("范围内超过20000条地址询价记录，请缩小日期范围或选择地址组")
     records, addresses, leads = [], {}, defaultdict(int)
     unindexed = 0
-    for row in items.values("id", "batch_id", "address_snapshot", "started_at", "analysis_version", "batch__parameters__pickupDate").iterator():
+    for row in items.values("id", "batch_id", "address_snapshot", "started_at", "finished_at", "analysis_version", "batch__parameters__pickupDate").iterator():
         address = row["address_snapshot"]
         key = address_key(address)
         addresses[key] = {"id": key, "label": f'{address.get("city", "")}, {address.get("state", "")} {address.get("zipcode", "")} · {address.get("address", "")}'}
-        day = timezone.localdate(row["started_at"])
         try:
-            lead = (date.fromisoformat(row["batch__parameters__pickupDate"]) - day).days
+            day = date.fromisoformat(row["batch__parameters__pickupDate"])
         except (KeyError, ValueError, TypeError):
-            lead = None
+            continue
+        lead = (day - timezone.localdate(row["started_at"])).days if row["started_at"] else None
         leads[lead] += 1
         records.append({"id": row["id"], "batch_id": row["batch_id"], "route": key, "day": day.isoformat(),
-                        "started_at": row["started_at"], "lead": lead, "indexed": row["analysis_version"] == 1})
+                        "started_at": row["started_at"] or row["finished_at"], "lead": lead, "indexed": row["analysis_version"] == 1})
         unindexed += int(row["analysis_version"] != 1)
     available_leads = sorted(value for value in leads if value is not None)
     requested_lead = params.get("lead", "")
@@ -108,7 +110,7 @@ def build_analysis(batches, params, *, export=False):
     currency = (params.get("currency") or "USD").upper()
     if len(currency) != 3 or not currency.isalpha():
         raise ValueError("币种须为三位字母")
-    # One address is sampled once per day: last completed attempt wins, including failures.
+    # One address is sampled once per pickup date: last completed attempt wins, including failures.
     # Thus a retry does not give that day more weight, and a failure never becomes a zero price.
     daily = {}
     for row in records:
@@ -246,7 +248,7 @@ def build_analysis(batches, params, *, export=False):
             "page": page, "pages": pages, "total": len(entries), "chart": chart_entries,
             "chart_truncated": bool(route_filter and len(entries) > 8), "market_index": market_index,
             "minimum_history": daily_minima if route_filter else [],
-            "methodology": "按服务器时区、地址、日期取最后一次已结束询价；同平台承运商服务的多条有效报价取最低。CV=总体标准差/均价×100%，至少3个报价日。排名采用共有线路的至少3个共同报价日，线路等权；缺失不补零。"}
+            "methodology": "按取件日期、地址取最后发起且已结束的询价；同平台承运商服务的多条有效报价取最低。CV=总体标准差/均价×100%，至少3个报价日。排名采用共有线路的至少3个共同报价日，线路等权；缺失不补零。"}
     if export:
         report["rows"] = [brief(entry) for entry in entries]
     elif params.get("group_by") == "address":

@@ -47,8 +47,8 @@ def auto_quote_get(request):
             response["Content-Disposition"] = f'attachment; filename="price-analysis-{report["profile"]["code"]}.csv"'
             response.write("\ufeff")
             writer = csv.writer(response)
-            writer.writerow(["比较编号", "开始日期", "结束日期", "取件提前天数", "币种", "包含部分报价", "地址", "平台", "承运商", "服务", "最新日期", "最新价格",
-                             "上次日期", "上次价格", "涨跌金额", "涨跌%", "期间涨跌%", "最低", "最高", "均价", "CV%", "振幅%", "最大相邻涨跌%", "有效日", "采样日", "覆盖率%"])
+            writer.writerow(["比较编号", "取件开始日期", "取件结束日期", "取件提前天数", "币种", "包含部分报价", "地址", "平台", "承运商", "服务", "最新取件日期", "最新价格",
+                             "上次取件日期", "上次价格", "涨跌金额", "涨跌%", "期间涨跌%", "最低", "最高", "均价", "CV%", "振幅%", "最大相邻涨跌%", "有效日", "采样日", "覆盖率%"])
             def safe_cell(value):
                 if value is None:
                     return ""
@@ -109,7 +109,7 @@ def auto_quote_get(request):
         batches = visible_batches(request.user)
         for key, lookup in (("start", "gte"), ("end", "lte")):
             if request.GET.get(key):
-                batches = batches.filter(**{f"created_at__date__{lookup}": date.fromisoformat(request.GET[key])})
+                batches = batches.filter(**{f"parameters__pickupDate__{lookup}": date.fromisoformat(request.GET[key]).isoformat()})
         if request.GET.get("start") and request.GET.get("end") and request.GET["start"] > request.GET["end"]:
             raise ValueError("开始日期不能晚于结束日期")
         page = Paginator(batches, 20).get_page(request.GET.get("page"))
