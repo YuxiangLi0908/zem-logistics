@@ -93,16 +93,7 @@ def build_analysis(batches, params, *, export=False):
                         "started_at": row["started_at"] or row["finished_at"], "lead": lead, "indexed": row["analysis_version"] == 1})
         unindexed += int(row["analysis_version"] != 1)
     available_leads = sorted(value for value in leads if value is not None)
-    requested_lead = params.get("lead", "")
-    if requested_lead == "all":
-        lead = "all"
-    elif requested_lead:
-        try:
-            lead = int(requested_lead)
-        except ValueError:
-            raise ValueError("取件提前天数不正确")
-    else:
-        lead = max(available_leads, key=lambda value: (leads[value], -value)) if available_leads else None
+    lead = "all"  # Compare by pickup date regardless of when the quote was requested.
     route_filter = params.get("address", "")
     platform_filter = params.get("platform", "")
     if platform_filter not in ("", "maersk", "kakas", "abf"):
@@ -114,8 +105,6 @@ def build_analysis(batches, params, *, export=False):
     # Thus a retry does not give that day more weight, and a failure never becomes a zero price.
     daily = {}
     for row in records:
-        if lead != "all" and row["lead"] != lead:
-            continue
         if route_filter and row["route"] != route_filter:
             continue
         key = (row["route"], row["day"])

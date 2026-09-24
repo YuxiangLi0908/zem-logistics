@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('error').hidden = true;
         $('export').hidden = true;
         const args = {kind:'analysis', page, group_by:'address'};
-        for (const key of ['profile','group','start','end','address','platform','carrier','lead','currency']) args[key] = $(key).value;
+        for (const key of ['profile','group','start','end','address','platform','carrier','currency']) args[key] = $(key).value;
         if (initialAddress) args.address = initialAddress;
         args.include_partial = $('partial').checked ? '1' : '0';
         try {
@@ -43,12 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (run !== generation) return;
             initialAddress = '';
             page = data.page;
-            $('export').href = '/post_nsop/?' + new URLSearchParams({step:'auto_quote_data', ...args, kind:'analysis_export', lead:data.filters.lead ?? ''});
+            $('export').href = '/post_nsop/?' + new URLSearchParams({step:'auto_quote_data', ...args, kind:'analysis_export'});
             $('export').hidden = false;
             options('address', data.addresses, '全部地址 · 综合指数', args.address);
             options('carrier', data.carriers, '全部承运商服务', args.carrier);
-            $('lead').innerHTML = '<option value="">自动选择样本最多的提前天数</option><option value="all">全部（混合提前天数）</option>' + data.lead_days.map(day => `<option value="${day}">${day}天后取件</option>`).join('');
-            $('lead').value = data.filters.lead === null ? '' : String(data.filters.lead);
             showConfiguration(data.profile.configuration);
             $('count').textContent = `${data.profile.code} · ${data.summary.routes}条线路 · ${data.summary.daily_samples}个地址采样日 · ${data.summary.series}条价格序列 · ${data.filters.currency}`;
             render(data);
@@ -67,8 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ['较上次跌幅最大', percent(s.largest_decrease?.latest_change_pct), s.largest_decrease ? product(s.largest_decrease) + ' · ' + s.largest_decrease.address : '暂无下跌的可比较报价'],
         ].map(([title, value, note]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>`).join('');
         const notes = [`按取件日期分析；同一取件日期采用最后发起且已结束的询价。`, `最低价提供方在相邻有效采样日变化 ${s.winner_changes} 次。`];
-        if (data.filters.lead === 'all') notes.push('当前混合了不同取件提前天数，变化可能受取件时间影响。');
-        else if (data.filters.lead !== null) notes.push(`当前仅比较提前 ${data.filters.lead} 个日历日的报价。`);
         if (d.partial_excluded) notes.push(`已排除 ${d.partial_excluded} 条未完整平台报价。`);
         if (d.assumed_currency) notes.push(`${d.assumed_currency} 条报价未声明币种，按美国国内报价USD处理。`);
         if (d.invalid_identity) notes.push(`${d.invalid_identity} 条报价因承运商标识不完整未参与。`);
@@ -136,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     $('legend').addEventListener('change', drawChart);
     $('form').addEventListener('submit', event => { event.preventDefault(); page = 1; analyze(); });
-    for (const id of ['profile','group','start','end']) $(id).addEventListener('change', () => { $('address').value = ''; $('carrier').value = ''; $('lead').value = ''; });
+    for (const id of ['profile','group','start','end']) $(id).addEventListener('change', () => { $('address').value = ''; $('carrier').value = ''; });
     $('platform').addEventListener('change', () => { $('carrier').value = ''; });
     $('address').addEventListener('change', () => { page = 1; analyze(); });
     $('series').addEventListener('click', event => { const button = event.target.closest('[data-route]'); if (button) { $('address').value = button.dataset.route; page = 1; analyze(); } });

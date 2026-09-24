@@ -56,8 +56,8 @@ async function main() {
     assert(el('ranking').innerHTML.includes('Carrier &lt;unsafe&gt;'));
     assert(!el('ranking').innerHTML.includes('Carrier <unsafe>'));
     assert(el('export').href.includes('kind=analysis_export'));
-    assert(el('export').href.includes('lead=2'));
-    assert.equal(el('lead').value, '2');
+    assert(!el('export').href.includes('lead='));
+    assert(!calls.find(p => p.get('kind') === 'analysis').has('lead'));
     el('address').value = 'route1'; el('address').events.change(); await tick();
     const svg = el('chart').innerHTML;
     assert(svg.includes('batch=1'));
@@ -78,3 +78,4 @@ async function main() {
     console.log('Analysis UI smoke checks passed: initialization, SVG index/trend, gaps, legend, escaping, filters, export context, error state.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});
+
