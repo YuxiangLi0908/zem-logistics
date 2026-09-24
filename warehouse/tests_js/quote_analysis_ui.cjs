@@ -85,8 +85,10 @@ async function main() {
     const curve = svg.match(/<path d="([^"]*)"/)[1];
     assert.equal((curve.match(/M/g) || []).length, 2, 'missing price must break the line');
     assert(!curve.includes('L'), 'must not join points across a missing quote');
-    el('legend').children['0'].checked = false; el('legend').events.change();
-    assert(!el('chart').innerHTML.includes('<svg'));
+    assert(!el('legend').innerHTML.includes('type="checkbox"'));
+    const historyChart = el('chart').innerHTML;
+    el('distance-legend').events.change();
+    assert.equal(el('chart').innerHTML, historyChart, 'distance legend must not change history chart');
     failNext = true; el('form').events.submit({preventDefault(){}});
     assert.equal(el('loading').hidden, false);
     await tick();

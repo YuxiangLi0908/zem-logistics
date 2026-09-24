@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('chart-title').textContent = addressSelected ? `历史${basis}走势（美元）` : `历史${basis}走势（综合指数）`;
         $('chart-note').textContent = addressSelected ? `单位：USD。按每个取件日期该地址符合筛选条件的全部有效报价计算${basis}；无报价处断开。` : `先计算每个地址的${basis}，再以各地址首日价格=100归一化，对全期间均有有效正数报价的 ${s.balanced_routes} 个固定地址等权平均。平均价使用全部有效报价；报价组合变化也可能影响走势。`;
         chartLines = addressSelected ? (data.aggregate_chart || []).map(row => ({name:row.address + ' · ' + basis, color:colors[0], points:row.points})) : data.market_index.length ? [{name:basis + '价格指数', color:colors[0], points:data.market_index.map(p => ({date:p.date, price:p.value}))}] : [];
-        $('legend').innerHTML = chartLines.map((line, index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
+        $('legend').innerHTML = chartLines.map(line => `<span style="color:${line.color}">━ ${esc(line.name)}</span>`).join('');
         drawChart();
     }
     const searchText = value => String(value ?? '').normalize('NFKC').trim().toLowerCase();
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $('distance-reset').addEventListener('click', () => { distanceRoutes = null; $('distance-reset').hidden = true; if (routeReport) renderRoutes(routeReport); });
     function drawChart() {
-        drawLines(chartLines.filter((_, index) => $('legend').querySelector(`[data-line="${index}"]`)?.checked), 'chart');
+        drawLines(chartLines, 'chart');
     }
     function drawLines(lines, target) {
         const points = lines.flatMap(line => line.points).filter(p => p.price !== null);
@@ -193,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (routeReport) renderRoutes(routeReport);
         $('routes-scroll').scrollTop = 0;
     }));
-    $('legend').addEventListener('change', drawChart);
     $('form').addEventListener('submit', event => { event.preventDefault(); page = 1; analyze(); });
     for (const id of ['profile','group','start','end']) $(id).addEventListener('change', () => { initialAddress = ''; $('address').value = ''; $('carrier').value = ''; });
     $('platform').addEventListener('change', () => { $('carrier').value = ''; });
