@@ -226,6 +226,7 @@ def build_analysis(batches, params, *, export=False):
         example = values[0]
         rankings.append({"key": key, "platform": example["platform"], "carrier": example["carrier"], "service": example["service"],
                          "routes": len(chosen), "available_routes": len(values),
+                         "quote_count": sum(entry["samples"] for entry in chosen),
                          "volatility_pct": rounded(statistics.mean(entry["volatility_pct"] for entry in chosen)),
                          "coverage_pct": rounded(statistics.mean(entry["coverage_pct"] for entry in chosen)),
                          "min_samples": min(entry["samples"] for entry in chosen), "comparable_routes": bool(common_routes)})
