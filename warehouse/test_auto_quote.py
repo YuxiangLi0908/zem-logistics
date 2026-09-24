@@ -20,7 +20,7 @@ from openpyxl import Workbook
 from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteItem
 from warehouse.utils.auto_quote import (
     address_payload, claim_item, classify_result, complete_item, create_batch,
-    import_addresses, read_addresses, save_checkpoint, stop_batch,
+    import_addresses, read_addresses, save_checkpoint, stop_batch, retry_description, batch_summary,
 )
 from warehouse.utils.multi_carrier_quote import execute_quote, prepare_quote
 from warehouse.views.post_port.auto_quote import auto_quote_get, auto_quote_post
@@ -100,6 +100,20 @@ class AddressParsingTests(SimpleTestCase):
         self.assertEqual(payload["carrierPayloads"]["maersk"]["lineItems"][0]["weight"], 500)
         self.assertEqual(len(classes), 1)
 
+    def test_retry_description_identifies_platform_and_available_prices(self):
+        result = successful_result()
+        result["results"]["kakas"]["warning"] = "timeout"
+        self.assertEqual(retry_description(result, "partial"), "卡卡省价格未完全查询成功（已有部分报价）")
+        result["results"]["kakas"]["data"]["rates"] = [{"totalPrice": "NaN"}]
+        self.assertEqual(retry_description(result, "partial"), "卡卡省价格未查询成功（未返回可用报价）")
+        result["results"]["maersk"] = {"status": "error"}
+        self.assertIn("Maersk价格未查询成功", retry_description(result, "failed"))
+        self.assertNotIn("ABF", retry_description(result, "failed"))
+        result["results"]["kakas"]["data"]["rates"] = [{"totalPrice": 0}]
+        self.assertIn("卡卡省价格未完全查询成功", retry_description(result, "partial"))
+        self.assertEqual(retry_description(result, "cancelled"), "已停止，未完成询价")
+        self.assertIn("尚无法确认具体平台", retry_description({}, "failed"))
+
     def test_result_classification_separates_partial_failure_and_no_quote(self):
         result = successful_result()
         self.assertEqual(classify_result(result)[0], "success")
@@ -132,6 +146,19 @@ class QueueTests(TransactionTestCase):
         self.assertEqual(result["added"], 0)
         self.assertEqual(result["duplicates"], 10)
         self.assertEqual(import_addresses("LA", self.rows, self.user.pk)["added"], 5)
+
+    def test_retry_preview_describes_saved_results_without_returning_full_quotes(self):
+        batch = self.batch()
+        result = successful_result()
+        result["results"]["kakas"]["warning"] = "timeout"
+        batch.items.update(status="partial", result=result)
+        AutoQuoteItem.objects.create(batch=batch, address_snapshot=batch.items.first().address_snapshot, status="failed")
+        summary = batch_summary(batch)
+        self.assertEqual(summary["retry_count"], 6)
+        self.assertEqual(len(summary["retry_addresses"]), 5)
+        for item in summary["retry_addresses"]:
+            self.assertEqual(item["description"], "卡卡省价格未完全查询成功（已有部分报价）")
+            self.assertNotIn("result", item)
 
     def test_batch_snapshot_and_duplicate_submission(self):
         token = uuid.uuid4()

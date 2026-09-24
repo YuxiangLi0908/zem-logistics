@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const location = [a.city, a.state, a.zipcode].filter(Boolean).join(' ');
             const address = a.address || '';
             const text = address && location && address !== location ? `${address} · ${location}` : address || location || '地址未记录';
-            return `<li>${esc(text)} <span class="text-muted">（${esc(labels[item.status] || item.status)}）</span></li>`;
+            return `<li>${esc(text)} <span class="text-muted">（${esc(item.description || labels[item.status] || item.status)}）</span></li>`;
         });
         return `<div class="mt-2 small" style="padding:8px 10px;background:#fff8e8;border-radius:6px;white-space:normal;overflow-wrap:anywhere;color:#80591b">
             <strong>待重试地址（${batch.retry_count}条）</strong><ul style="margin:4px 0 0;padding-left:18px">${addresses.join('')}</ul>
