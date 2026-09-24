@@ -106,7 +106,7 @@ def build_analysis(batches, params, *, export=False):
             if distance_max is not None and miles > distance_max:
                 continue
         key = address_key(address)
-        addresses[key] = {"id": key, "zipcode": str(address.get("zipcode", "")), "label": f'{address.get("city", "")}, {address.get("state", "")} {address.get("zipcode", "")} · {address.get("address", "")}'}
+        addresses[key] = {"id": key, "zipcode": str(address.get("zipcode", "")), "label": " ".join(str(address.get(field) or "").strip() for field in ("city", "zipcode")).strip()}
         try:
             day = date.fromisoformat(row["batch__parameters__pickupDate"])
         except (KeyError, ValueError, TypeError):
@@ -151,7 +151,7 @@ def build_analysis(batches, params, *, export=False):
     if platform_filter:
         prices = prices.filter(platform=platform_filter)
     selected_series = params.get("carrier", "")
-    include_partial = params.get("include_partial") == "1"
+    include_partial = params.get("include_partial", "1") == "1"
     price_basis = params.get("price_basis") or "min"
     if price_basis not in ("min", "mean"):
         raise ValueError("请选择最低价或平均价")
