@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const movement = value => value === null || value === undefined ? '—' : `<span class="${value > 0 ? 'qa-up' : value < 0 ? 'qa-down' : ''}">${value > 0 ? '+' : ''}${Number(value).toFixed(2)}</span>`;
     const product = row => row ? `${platform(row.platform)} / ${row.carrier} / ${row.service}` : '样本不足或没有可比较线路';
     let profiles = [];
+    let routeReport = null, routeSort = '', routeAscending = true;
     let page = 1, chartLines = [], generation = 0;
     let initialAddress = new URLSearchParams(location.search).get('address') || '';
     const colors = ['#2563eb','#c2410c','#059669','#9333ea','#be185d','#0e7490','#a16207','#475569'];
@@ -35,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('submit').disabled = true;
         $('error').hidden = true;
 
-        const args = {kind:'analysis', page, group_by:'address'};
+        const args = {kind:'analysis', page, group_by:'address', all_routes:'1'};
         for (const key of ['profile','group','start','end','platform','distance_min','distance_max','price_basis']) args[key] = $(key).value;
         args.currency = 'USD';
         args.zipcode = $('address').value.trim();
@@ -93,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const max = Math.max(1, ...data.rankings.map(r => r.volatility_pct));
         $('ranking').innerHTML = data.rankings.map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">至少需要同一线路、同一服务3个有效报价日才能计算波动排名。</td></tr>';
         renderRoutes(data);
-        $('prev').disabled = data.page <= 1; $('next').disabled = data.page >= data.pages;
         const addressSelected = Boolean(data.selected_address);
         $('min-section').hidden = !addressSelected;
         $('minima').innerHTML = data.minimum_history.map(r => `<tr><td>${esc(r.date)}</td><td>${num(r.price)} ${esc(data.filters.currency)}</td><td>${esc(r.winners.join('；') || '无报价')}</td><td>${r.offers}</td><td>${r.winner_changed ? '已变化' : '—'}</td></tr>`).join('');
@@ -105,16 +105,23 @@ document.addEventListener('DOMContentLoaded', () => {
         drawChart();
     }
     function renderRoutes(data) {
+        routeReport = data;
+        const sorted = [...(data.route_rows || [])];
+        if (routeSort) sorted.sort((a,b) => {
+            const av = a[routeSort], bv = b[routeSort];
+            if (av == null) return bv == null ? 0 : 1;
+            if (bv == null) return -1;
+            return (av - bv) * (routeAscending ? 1 : -1);
+        });
         const servicesTable = services => `<details><summary class="text-primary">查看 ${services.length} 个承运商服务</summary><div class="table-responsive mt-2"><table class="table table-sm qa-table"><thead><tr><th>平台 / 承运商 / 服务</th><th>最新价</th><th>上次有效价</th><th>涨跌金额 / %</th><th>期间涨跌%</th><th>最低 / 最高</th><th>均价</th><th>CV%</th><th>振幅%</th><th>最大相邻涨跌%</th><th>有效日 / 采样日</th><th>覆盖率</th></tr></thead><tbody>${services.map(r => `<tr><td>${esc(product(r))}</td><td>${num(r.latest)}<div class="qa-note">${esc(r.latest_date || '')}</div></td><td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td><td>${movement(r.latest_change)} / ${movement(r.latest_change_pct)}%</td><td>${movement(r.period_change_pct)}</td><td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td><td>${percent(r.range_pct)}</td><td>${percent(r.max_adjacent_move_pct)}</td><td>${r.samples} / ${r.expected}</td><td>${percent(r.coverage_pct)}</td></tr>`).join('')}</tbody></table></div></details>`;
-        $('series').innerHTML = (data.route_rows || []).map(r => `<tr>
+        $('series').innerHTML = sorted.map(r => `<tr>
             <td style="min-width:200px;white-space:normal"><button type="button" class="btn btn-link btn-sm" data-route="${esc(r.route)}">${esc(r.address)}</button></td>
             <td><strong>${num(r.latest)}</strong><div class="qa-note">${esc(r.latest_date || '')}</div><div class="qa-note" style="max-width:260px;white-space:normal">${esc(r.winners.join('；') || '本次无有效报价')}</div></td>
             <td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td>
             <td>${movement(r.latest_change)}<div>${movement(r.latest_change_pct)}%</div></td>
             <td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td>
-            <td>${r.samples} / ${r.expected}<div class="qa-note">${percent(r.coverage_pct)}</div></td>
+            <td>${r.expected}</td>
             <td>${servicesTable(r.services)}</td></tr>`).join('') || '<tr><td colspan="9">当前筛选范围没有线路记录。</td></tr>';
-        $('page').textContent = `${data.page} / ${data.pages} 页，共 ${data.total} 个收货地址`;
     }
     function drawChart() {
         const lines = chartLines.filter((_, index) => $('legend').querySelector(`[data-line="${index}"]`)?.checked);
@@ -149,14 +156,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         $('chart').innerHTML = svg + '</svg>';
     }
+    document.querySelectorAll('[data-sort]').forEach(button => button.addEventListener('click', () => {
+        const key = button.dataset.sort;
+        routeAscending = routeSort === key ? !routeAscending : true;
+        routeSort = key;
+        document.querySelectorAll('[data-sort]').forEach(other => {
+            const active = other.dataset.sort === routeSort;
+            other.querySelector('span').textContent = active ? (routeAscending ? '↑' : '↓') : '↕';
+            other.closest('th').setAttribute('aria-sort', active ? (routeAscending ? 'ascending' : 'descending') : 'none');
+        });
+        if (routeReport) renderRoutes(routeReport);
+        $('routes-scroll').scrollTop = 0;
+    }));
     $('legend').addEventListener('change', drawChart);
     $('form').addEventListener('submit', event => { event.preventDefault(); page = 1; analyze(); });
     for (const id of ['profile','group','start','end']) $(id).addEventListener('change', () => { initialAddress = ''; $('address').value = ''; $('carrier').value = ''; });
     $('platform').addEventListener('change', () => { $('carrier').value = ''; });
     $('address').addEventListener('change', () => { page = 1; analyze(); });
     $('series').addEventListener('click', event => { const button = event.target.closest('[data-route]'); if (button) { initialAddress = button.dataset.route; $('address').value = ''; page = 1; analyze(); } });
-    $('prev').addEventListener('click', () => { page--; analyze(); });
-    $('next').addEventListener('click', () => { page++; analyze(); });
     function fillProfiles(selected) {
         const available = profiles.filter(p => p.origin === $('origin').value);
         options('profile', available.map(p => ({id:p.id,label:p.configuration.items.map(i => `长宽高 ${i.length}×${i.width}×${i.height} in · 单板 ${i.weight} lb · ${i.palletCount}板`).join('；') + ` · 申报价值 $${p.configuration.declaredValue} · ${Number(p.configuration.quoteType) === 2 ? 'FTL' : 'LTL'} · ${p.configuration.needLiftgate ? '需要尾板' : '无需尾板'} · ${{1:'商业地址',2:'住宅地址',3:'装卸平台'}[p.configuration.destinationType] || '未指定地址类型'}`})), '请选择货物配置', selected);

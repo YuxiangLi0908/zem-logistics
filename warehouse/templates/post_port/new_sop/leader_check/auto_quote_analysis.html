@@ -23,6 +23,9 @@
     .qa-table { font-size:13px; white-space:nowrap; }
     .qa-table th { background:#edf2f8; }
     .qa-table td { vertical-align:middle; }
+    .qa-routes-scroll { height:800px; max-height:80vh; overflow:auto; }
+    .qa-routes-scroll > table > thead > tr > th { position:sticky; top:0; z-index:2; }
+    .qa-sort { border:0; background:transparent; color:#245bb0; font:inherit; font-weight:600; cursor:pointer; padding:0; }
     #qa-series > tr > td { padding:14px 12px; }
     #qa-series > tr:nth-child(even) { background:#f8fbff; }
     #qa-series details { min-width:170px; max-width:440px; }
@@ -100,8 +103,7 @@
         <section class="qa-card">
             <h5>每条线路的价格对比</h5>
             <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出仍保留全部承运商明细。</p>
-            <div class="table-responsive"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th>最新最低价 / 提供方</th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th>日最低价CV</th><th>有效日 / 采样日 · 覆盖率</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
-            <button id="qa-prev" type="button" class="btn btn-sm btn-outline-secondary">上一页</button><span id="qa-page" class="mx-2"></span><button id="qa-next" type="button" class="btn btn-sm btn-outline-secondary">下一页</button>
+            <div id="qa-routes-scroll" class="table-responsive qa-routes-scroll"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="latest">最新最低价 / 提供方 <span>↕</span></button></th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="volatility_pct">日最低价CV <span>↕</span></button></th><th>询价次数</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
         </section>
         <section id="qa-min-section" class="qa-card" hidden><h5>所选线路每日最低价与承运商变化</h5><p class="qa-note">仅从当前筛选范围内返回的报价取最低，不表示市场上绝对最低；提供最低价的承运商可能变化。</p>
             <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>取件日期</th><th>最低价</th><th>提供报价的平台 / 承运商 / 服务</th><th>有效服务数量</th><th>最低价提供方变化</th></tr></thead><tbody id="qa-minima"></tbody></table></div></section>

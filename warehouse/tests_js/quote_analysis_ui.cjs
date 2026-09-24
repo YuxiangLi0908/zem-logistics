@@ -30,7 +30,7 @@ const report = {
 };
 report.aggregate_chart = [{address:'Newark', points:report.chart[0].points}];
 const context = {console, URLSearchParams, Date, Intl, location:{search:'?profile=1'},
-    document:{getElementById:id => nodes[id] ||= new Element(), addEventListener:(_, fn) => {ready = fn;}},
+    document:{querySelectorAll:()=>[],getElementById:id => nodes[id] ||= new Element(), addEventListener:(_, fn) => {ready = fn;}},
     fetch:async url => {
         const params = new URL(url, 'https://example.invalid').searchParams;
         calls.push(params);
