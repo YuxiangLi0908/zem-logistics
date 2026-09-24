@@ -77,17 +77,15 @@
         </section>
         <section class="qa-card">
             <h5>距仓库距离分析</h5>
-            <p class="qa-note">按上传的英里数分组（含下限、不含上限），使用所选最低价／平均价。表格和曲线仅比较全期间每个取件日期都有报价的固定地址，各地址等权。距离按范围内该地址最新记录确定；点击距离段可筛选下方地址表。</p>
+            <p class="qa-note">按上传的英里数分组（含下限、不含上限），使用所选最低价／平均价。仅比较全期间每个取件日期都有报价的固定地址，各地址等权。距离按范围内该地址最新记录确定；未填写距离单列，缺报价不按0元处理。</p>
             <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>距离范围</th><th>地址数 / 参与比较</th><th>最新平均价格（USD）</th><th>上次平均价格（USD）</th><th>涨跌金额</th><th>涨跌幅</th></tr></thead><tbody id="qa-distance-table"></tbody></table></div>
-            <div id="qa-distance-legend" class="qa-legend"></div><div id="qa-distance-chart" class="qa-chart"></div>
-            <p class="qa-note">横轴为取件日期，纵轴为美元。无固定样本时不绘制；未填写距离单列，缺报价不按0元处理。</p>
         </section>
         <section class="qa-card">
             <div class="qa-section-heading"><h5>运营商价格分析</h5><input id="qa-ranking-search" class="qa-table-search" type="search" placeholder="筛选承运商名称" aria-label="筛选承运商名称"></div><p id="qa-ranking-note" class="qa-note"></p>
             <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>排名</th><th>平台</th><th>承运商 / 服务</th><th>平均波动系数 CV</th><th>参与线路</th><th>报价覆盖率</th><th>每条线路最少采样日</th></tr></thead><tbody id="qa-ranking"></tbody></table></div>
         </section>
         <section class="qa-card">
-            <div class="qa-section-heading"><h5>收货地址价格分析 <button id="qa-distance-reset" type="button" class="btn btn-sm btn-outline-secondary" hidden>清除距离段筛选</button></h5><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"></div>
+            <div class="qa-section-heading"><h5>收货地址价格分析</h5><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"></div>
             <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出仍保留全部承运商明细。</p>
             <div id="qa-routes-scroll" class="table-responsive qa-routes-scroll"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="latest">最新最低价 / 提供方 <span>↕</span></button></th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="volatility_pct">日最低价CV <span>↕</span></button></th><th>询价次数</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
         </section>
@@ -107,5 +105,5 @@
         </details>
     </div>
 </div>
-<script src="{% static 'js/auto_quote_analysis.js' %}?v=20260924-history-chart-5"></script>
+<script src="{% static 'js/auto_quote_analysis.js' %}?v=20260924-distance-table-6"></script>
 {% endblock %}

@@ -86,9 +86,8 @@ async function main() {
     assert.equal((curve.match(/M/g) || []).length, 2, 'missing price must break the line');
     assert(!curve.includes('L'), 'must not join points across a missing quote');
     assert(!el('legend').innerHTML.includes('type="checkbox"'));
-    const historyChart = el('chart').innerHTML;
-    el('distance-legend').events.change();
-    assert.equal(el('chart').innerHTML, historyChart, 'distance legend must not change history chart');
+    assert(!el('distance-table').innerHTML.includes('data-distance='));
+    assert.equal(el('distance-table').events.click, undefined);
     failNext = true; el('form').events.submit({preventDefault(){}});
     assert.equal(el('loading').hidden, false);
     await tick();
