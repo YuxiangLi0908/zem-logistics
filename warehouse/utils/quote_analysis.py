@@ -330,5 +330,7 @@ def build_analysis(batches, params, *, export=False):
         routes.sort(key=lambda r: (r["address"], r["route"]))
         pages = max(1, math.ceil(len(routes) / 20))
         page = min(requested_page, pages)
-        report.update(route_rows=routes[(page-1)*20:page*20], rows=[], page=page, pages=pages, total=len(routes))
+        if params.get("all_routes") == "1":
+            page, pages = 1, 1
+        report.update(route_rows=routes if params.get("all_routes") == "1" else routes[(page-1)*20:page*20], rows=[], page=page, pages=pages, total=len(routes))
     return report
