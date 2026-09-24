@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!$('profile').value) return;
         const run = ++generation;
         $('submit').disabled = true;
+        $('loading').hidden = false;
+        $('content').hidden = true;
         $('error').hidden = true;
 
         const args = {kind:'analysis', page, group_by:'address', all_routes:'1'};
@@ -55,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             if (run !== generation) return;
             $('error').hidden = false; $('error').textContent = error.message; $('content').hidden = true;
-        } finally { if (run === generation) $('submit').disabled = false; }
+        } finally { if (run === generation) { $('submit').disabled = false; $('loading').hidden = true; } }
     }
     function render(data) {
         const s = data.summary, d = data.diagnostics;
@@ -67,8 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (d.duplicates_collapsed) notes.push(`同次同服务多条报价取最低，归并 ${d.duplicates_collapsed} 条重复服务报价。`);
         $('quality').textContent = notes.join(' ');
         $('ranking-note').textContent = s.common_routes ? `使用各承运商/服务共有的 ${s.common_routes} 条线路，每条线路至少3个共同报价日，线路等权平均CV；数值越大波动越大。请结合样本量和覆盖率判断，不能把缺报价当作稳定。` : '当前没有足够的共同线路和共同报价日。下表仅显示各自样本的参考值，不判定哪个承运商最稳定。';
-        const max = Math.max(1, ...data.rankings.map(r => r.volatility_pct));
-        $('ranking').innerHTML = data.rankings.map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">至少需要同一线路、同一服务3个有效报价日才能计算波动排名。</td></tr>';
+        renderRankings(data);
         renderRoutes(data);
         const addressSelected = Boolean(data.selected_address);
         $('min-section').hidden = !addressSelected;
@@ -80,9 +81,18 @@ document.addEventListener('DOMContentLoaded', () => {
         $('legend').innerHTML = chartLines.map((line, index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
         drawChart();
     }
+    let rankingReport = null;
+    function renderRankings(data) {
+        rankingReport = data;
+        const max = Math.max(1, ...data.rankings.map(r => r.volatility_pct));
+        $('ranking').innerHTML = data.rankings.filter(r => r.carrier.toLowerCase().includes($('ranking-search').value.trim().toLowerCase())).map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">没有符合条件的承运商记录。</td></tr>';
+    }
+    $('ranking-search').addEventListener('input', () => { if (rankingReport) renderRankings(rankingReport); });
+    $('route-search').addEventListener('input', () => { if (routeReport) renderRoutes(routeReport); $('routes-scroll').scrollTop = 0; });
     function renderRoutes(data) {
         routeReport = data;
-        const sorted = [...(data.route_rows || [])];
+        const query = $('route-search').value.trim().toLowerCase();
+        const sorted = (data.route_rows || []).filter(row => row.address.toLowerCase().includes(query));
         if (routeSort) sorted.sort((a,b) => {
             const av = a[routeSort], bv = b[routeSort];
             if (av == null) return bv == null ? 0 : 1;
@@ -158,6 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('origin').addEventListener('change', () => { $('profile').value = ''; fillProfiles(); $('content').hidden = true; initialAddress = ''; });
     $('address').addEventListener('input', () => { initialAddress = ''; });
     async function init() {
+        $('loading').hidden = false;
+        $('submit').disabled = true;
         try {
             const data = await api({kind:'analysis_options'});
             const parts = new Intl.DateTimeFormat('en-CA', {timeZone:data.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
@@ -174,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data.profiles.length) { $('count').textContent = '暂无比较编号。请先完成自动询价，或完成历史数据归档。'; return; }
             await analyze();
         } catch (error) { $('error').hidden = false; $('error').textContent = error.message; }
+        finally { if (!generation) { $('loading').hidden = true; $('submit').disabled = false; } }
     }
     init();
 });

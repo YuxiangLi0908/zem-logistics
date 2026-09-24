@@ -33,6 +33,10 @@
     #qa-series summary { cursor:pointer; }
     .qa-up { color:#c03036; font-weight:600; } .qa-down { color:#12784e; font-weight:600; }
     .qa-bar { display:inline-block; height:8px; background:#5282cf; border-radius:5px; vertical-align:middle; }
+    .qa-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
+    .qa-section-heading h5 { margin:0; }
+    .qa-table-search { width:280px; max-width:100%; border:1px solid #cad5e2; border-radius:6px; padding:8px 12px; }
+    #qa-loading { padding:24px; background:#edf5ff; border:1px solid #cbdff7; border-radius:10px; color:#245bb0; margin-bottom:18px; }
     #qa-error { white-space:pre-wrap; }
 </style>
 <div class="qa-page">
@@ -64,17 +68,18 @@
         </form>
         <details class="mt-3"><summary>查看所选货物、申报价值和服务条件</summary><div id="qa-profile-info" class="qa-note mt-2"></div></details>
     </section>
+    <div id="qa-loading" role="status" aria-live="polite"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><strong>正在分析中，请稍候…</strong><span class="small ms-2">报价较多时需要一些时间。</span></div>
     <div id="qa-content" hidden>
         <section class="qa-card">
             <h5 id="qa-chart-title">价格走势</h5><p id="qa-chart-note" class="qa-note"></p>
             <div id="qa-legend" class="qa-legend"></div><div id="qa-chart" class="qa-chart"></div>
         </section>
         <section class="qa-card">
-            <h5>运营商价格分析</h5><p id="qa-ranking-note" class="qa-note"></p>
+            <div class="qa-section-heading"><h5>运营商价格分析</h5><input id="qa-ranking-search" class="qa-table-search" type="search" placeholder="筛选承运商名称" aria-label="筛选承运商名称"></div><p id="qa-ranking-note" class="qa-note"></p>
             <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>排名</th><th>平台</th><th>承运商 / 服务</th><th>平均波动系数 CV</th><th>参与线路</th><th>报价覆盖率</th><th>每条线路最少采样日</th></tr></thead><tbody id="qa-ranking"></tbody></table></div>
         </section>
         <section class="qa-card">
-            <h5>收货地址价格分析</h5>
+            <div class="qa-section-heading"><h5>收货地址价格分析</h5><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"></div>
             <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出仍保留全部承运商明细。</p>
             <div id="qa-routes-scroll" class="table-responsive qa-routes-scroll"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="latest">最新最低价 / 提供方 <span>↕</span></button></th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="volatility_pct">日最低价CV <span>↕</span></button></th><th>询价次数</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
         </section>
