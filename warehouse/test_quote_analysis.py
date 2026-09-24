@@ -190,16 +190,18 @@ class AnalysisDataTests(TransactionTestCase):
         self.assertEqual(std["latest"], 100)
         self.assertEqual(data["diagnostics"]["duplicates_collapsed"], 1)
 
-    def test_partial_currency_lead_and_permissions_are_not_mixed(self):
+    def test_pickup_dates_include_all_leads_but_respect_currency_and_permissions(self):
         self.item(0, [self.rate("A", 100), self.rate("A", 999, currency="CAD")])
         self.item(1, [self.rate("A", 200)], warning=True)
         self.item(2, [self.rate("A", 888)], lead=3)
         self.item(3, [self.rate("A", 777)], user=self.other)
         data = self.analyze()
-        self.assertEqual(data["rows"][0]["samples"], 1)
-        self.assertEqual(data["rows"][0]["maximum"], 100)
+        self.assertEqual(data["rows"][0]["samples"], 2)
+        self.assertEqual(data["rows"][0]["maximum"], 888)
+        self.assertEqual(self.analyze(lead="2")["rows"], data["rows"])
         data = self.analyze(include_partial="1")
-        self.assertEqual(data["rows"][0]["maximum"], 200)
+        self.assertEqual(data["rows"][0]["samples"], 3)
+        self.assertEqual(data["rows"][0]["maximum"], 888)
         self.assertEqual(self.analyze(currency="CAD")["rows"][0]["maximum"], 999)
 
     def test_no_shared_routes_does_not_declare_best_and_worst(self):

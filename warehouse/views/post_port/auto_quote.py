@@ -47,7 +47,7 @@ def auto_quote_get(request):
             response["Content-Disposition"] = f'attachment; filename="price-analysis-{report["profile"]["code"]}.csv"'
             response.write("\ufeff")
             writer = csv.writer(response)
-            writer.writerow(["比较编号", "取件开始日期", "取件结束日期", "取件提前天数", "币种", "包含部分报价", "地址", "平台", "承运商", "服务", "最新取件日期", "最新价格",
+            writer.writerow(["比较编号", "取件开始日期", "取件结束日期", "币种", "包含部分报价", "地址", "平台", "承运商", "服务", "最新取件日期", "最新价格",
                              "上次取件日期", "上次价格", "涨跌金额", "涨跌%", "期间涨跌%", "最低", "最高", "均价", "CV%", "振幅%", "最大相邻涨跌%", "有效日", "采样日", "覆盖率%"])
             def safe_cell(value):
                 if value is None:
@@ -56,7 +56,7 @@ def auto_quote_get(request):
                     return "'" + value
                 return value
             for row in report["rows"]:
-                values = [report["profile"]["code"], report["filters"]["start"], report["filters"]["end"], report["filters"]["lead"],
+                values = [report["profile"]["code"], report["filters"]["start"], report["filters"]["end"],
                           report["filters"]["currency"], report["filters"]["include_partial"]]
                 values += [row[key] for key in ("address", "platform", "carrier", "service", "latest_date", "latest", "previous_date", "previous", "latest_change", "latest_change_pct",
                                                "period_change_pct", "minimum", "maximum", "mean", "volatility_pct", "range_pct", "max_adjacent_move_pct", "samples", "expected", "coverage_pct")]
