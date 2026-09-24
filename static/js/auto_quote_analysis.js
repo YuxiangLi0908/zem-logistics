@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('error').hidden = true;
         $('export').hidden = true;
         const args = {kind:'analysis', page, group_by:'address'};
-        for (const key of ['profile','group','start','end','platform','distance_min','distance_max']) args[key] = $(key).value;
+        for (const key of ['profile','group','start','end','platform','distance_min','distance_max','price_basis']) args[key] = $(key).value;
         args.currency = 'USD';
         args.zipcode = $('address').value.trim();
         args.carrier_query = $('carrier').value.trim();
@@ -60,12 +60,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function render(data) {
         const s = data.summary, d = data.diagnostics;
+        const addressSummary = data.address_summary || {};
+        const addressBasis = data.filters.price_basis === 'mean' ? '平均价' : '最低价';
+        $('address-basis').textContent = `按每个地址、每个取件日期的${addressBasis}计算。波动CV至少需要3个有效日期，越大越不稳定；涨跌与上一次有效取件日期比较。缺失报价不作0元处理。`;
+        $('address-kpis').innerHTML = [
+            ['波动最大的地址', addressSummary.most_volatile, 'volatility_pct'],
+            ['波动最小的地址', addressSummary.most_stable, 'volatility_pct'],
+            ['较上次涨幅最大的地址', addressSummary.largest_increase, 'latest_change_pct'],
+            ['较上次跌幅最大的地址', addressSummary.largest_decrease, 'latest_change_pct'],
+        ].map(([title, row, metric]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(row?.address || '暂无符合条件的地址')}</strong><div class="qa-kpi-value">${percent(row?.[metric])}</div><small>${metric === 'volatility_pct' ? 'CV：相对均价的波动程度，不表示涨跌幅。' : row ? `${esc(row.previous_date)}：$${num(row.previous)} → ${esc(row.latest_date)}：$${num(row.latest)}` : '需要最新价格及上一次有效价格。'}${row?.ties > 1 ? `<br>共${row.ties}个地址并列：${esc((row.tied_addresses || []).join('；'))}${row.ties > 5 ? '等' : ''}` : ''}</small></div>`).join('');
         $('kpis').innerHTML = [
             ['波动最大（平均CV）', percent(s.most_volatile?.volatility_pct), product(s.most_volatile) + (s.most_volatile_ties > 1 ? `（共${s.most_volatile_ties}个服务并列，见下表）` : '')],
             ['波动最小（平均CV）', percent(s.most_stable?.volatility_pct), product(s.most_stable) + (s.most_stable_ties > 1 ? `（共${s.most_stable_ties}个服务并列，见下表）` : '')],
             ['较上次涨幅最大', percent(s.largest_increase?.latest_change_pct), s.largest_increase ? product(s.largest_increase) + ' · ' + s.largest_increase.address : '暂无上涨的可比较报价'],
             ['较上次跌幅最大', percent(s.largest_decrease?.latest_change_pct), s.largest_decrease ? product(s.largest_decrease) + ' · ' + s.largest_decrease.address : '暂无下跌的可比较报价'],
-        ].map(([title, value, note]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>`).join('');
+        ].map(([title, value, note]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(note)}</strong><div class="qa-kpi-value">${esc(value)}</div><small>${title.includes("波动") ? "平均CV：价格相对均价的波动程度，越大越不稳定；不表示涨跌幅或价格高低。" : "具体线路最新价与上一次有效报价相比的涨跌幅。"}</small></div>`).join('');
         const notes = [`按取件日期分析；同一取件日期采用最后发起且已结束的询价。`, `最低价提供方在相邻有效采样日变化 ${s.winner_changes} 次。`];
         if (d.partial_excluded) notes.push(`已排除 ${d.partial_excluded} 条未完整平台报价。`);
         if (d.assumed_currency) notes.push(`${d.assumed_currency} 条报价未声明币种，按美国国内报价USD处理。`);
@@ -81,9 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const addressSelected = Boolean(data.selected_address);
         $('min-section').hidden = !addressSelected;
         $('minima').innerHTML = data.minimum_history.map(r => `<tr><td>${esc(r.date)}</td><td>${num(r.price)} ${esc(data.filters.currency)}</td><td>${esc(r.winners.join('；') || '无报价')}</td><td>${r.offers}</td><td>${r.winner_changed ? '已变化' : '—'}</td></tr>`).join('');
-        $('chart-title').textContent = addressSelected ? '所选地址 · 各承运商服务价格走势' : '固定线路与服务 · 综合价格指数';
-        $('chart-note').textContent = addressSelected ? `单位：${data.filters.currency}。取消勾选图例可隐藏曲线，悬停查看数值，点击数据点查看原询价任务。缺报价处断开。${data.chart_truncated ? '当前显示样本最多的8条曲线，可选择承运商查看其他服务。' : ''}` : `首日=100，使用全期间每天均有报价的 ${s.balanced_series} 条固定线路/服务等权计算。选择一个收货地址可查看实际价格曲线。`;
-        chartLines = addressSelected ? data.chart.map((row, index) => ({name:product(row), color:colors[index % colors.length], points:row.points})) : data.market_index.length ? [{name:'固定样本价格指数', color:colors[0], points:data.market_index.map(p => ({date:p.date, price:p.value}))}] : [];
+        const basis = data.filters.price_basis === 'mean' ? '平均价' : '最低价';
+        $('chart-title').textContent = addressSelected ? `所选地址 · ${basis}走势` : `固定收货地址 · ${basis}综合指数`;
+        $('chart-note').textContent = addressSelected ? `单位：USD。按每个取件日期该地址符合筛选条件的全部有效报价计算${basis}；无报价处断开。` : `先计算每个地址的${basis}，再以各地址首日价格=100归一化，对全期间均有有效正数报价的 ${s.balanced_routes} 个固定地址等权平均。平均价使用全部有效报价；报价组合变化也可能影响走势。`;
+        chartLines = addressSelected ? (data.aggregate_chart || []).map(row => ({name:row.address + ' · ' + basis, color:colors[0], points:row.points})) : data.market_index.length ? [{name:basis + '价格指数', color:colors[0], points:data.market_index.map(p => ({date:p.date, price:p.value}))}] : [];
         $('legend').innerHTML = chartLines.map((line, index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
         drawChart();
     }

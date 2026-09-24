@@ -191,10 +191,41 @@ class AnalysisDataTests(TransactionTestCase):
         data = self.analyze(address=address_key(self.address))
         self.assertEqual(data["summary"]["most_volatile"]["carrier"], "A")
         self.assertEqual(data["summary"]["most_stable"]["carrier"], "B")
-        self.assertEqual(data["market_index"][1]["value"], 150)
+        self.assertEqual(data["market_index"][1]["value"], 100)
+        averaged = self.analyze(address=address_key(self.address), price_basis="mean")
+        self.assertEqual(averaged["market_index"][1]["value"], 150)
+        self.assertEqual(averaged["summary"]["most_volatile"], data["summary"]["most_volatile"])
+        self.assertEqual(averaged["aggregate_chart"][0]["points"][1]["price"], 150)
         self.assertEqual(data["summary"]["common_routes"], 1)
         self.assertEqual(len(data["chart"]), 2)
         self.assertEqual(data["rows"][0]["samples"], 3)
+
+    def test_address_rankings_follow_price_basis_and_missing_prices(self):
+        other = {**self.address, "address": "Other Street"}
+        for day, amount in enumerate((100, 200, 400)):
+            self.item(day, [self.rate("A", amount), self.rate("B", 100)])
+            self.item(day, [self.rate("A", 100)], address=other)
+        lowest = self.analyze()["address_summary"]
+        self.assertEqual(lowest["most_stable"]["ties"], 2)
+        self.assertIsNone(lowest["largest_increase"])
+        average = self.analyze(price_basis="mean")["address_summary"]
+        self.assertEqual(average["most_volatile"]["route"], address_key(self.address))
+        self.assertEqual(average["most_stable"]["route"], address_key(other))
+        self.assertAlmostEqual(average["largest_increase"]["latest_change_pct"], 66.6667)
+        self.assertIsNone(average["largest_decrease"])
+        self.item(3, [])
+        missing = self.analyze(price_basis="mean")["address_summary"]
+        self.assertIsNone(missing["largest_decrease"])
+        self.assertIsNone(missing["largest_increase"])
+
+    def test_average_chart_uses_all_quotes_and_carrier_filter(self):
+        self.item(0, [self.rate("A", 100), self.rate("A", 200), self.rate("B", 600)])
+        report = self.analyze(address=address_key(self.address), price_basis="mean")
+        self.assertEqual(report["aggregate_chart"][0]["points"][0]["price"], 300)
+        report = self.analyze(address=address_key(self.address), price_basis="mean", carrier_query="B")
+        self.assertEqual(report["aggregate_chart"][0]["points"][0]["price"], 600)
+        with self.assertRaises(ValueError):
+            self.analyze(price_basis="bad")
 
     def test_same_day_retry_uses_latest_even_if_no_quotes(self):
         self.item(0, [self.rate("A", 100)])
