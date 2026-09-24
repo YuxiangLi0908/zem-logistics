@@ -209,6 +209,7 @@ class AnalysisDataTests(TransactionTestCase):
         data = self.analyze(address=address_key(self.address))
         self.assertEqual(data["summary"]["most_volatile"]["carrier"], "A")
         self.assertEqual(data["summary"]["most_stable"]["carrier"], "B")
+        self.assertTrue(all(row["quote_count"] == 3 for row in data["rankings"]))
         self.assertEqual(data["market_index"][1]["value"], 100)
         averaged = self.analyze(address=address_key(self.address), price_basis="mean")
         self.assertEqual(averaged["market_index"][1]["value"], 150)

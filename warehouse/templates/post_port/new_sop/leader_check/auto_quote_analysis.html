@@ -82,7 +82,7 @@
         </section>
         <section class="qa-card">
             <div class="qa-section-heading"><h5>运营商价格分析</h5><input id="qa-ranking-search" class="qa-table-search" type="search" placeholder="筛选承运商名称" aria-label="筛选承运商名称"></div><p id="qa-ranking-note" class="qa-note"></p>
-            <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>排名</th><th>平台</th><th>承运商 / 服务</th><th>平均波动系数 CV</th><th>参与线路</th><th>报价覆盖率</th><th>每条线路最少采样日</th></tr></thead><tbody id="qa-ranking"></tbody></table></div>
+            <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>排名</th><th>平台</th><th>承运商 / 服务</th><th>平均波动系数 CV</th><th title="实际参与波动分析的有效价格数量">询价次数</th></tr></thead><tbody id="qa-ranking"></tbody></table></div>
         </section>
         <section class="qa-card">
             <div class="qa-section-heading"><h5>收货地址价格分析</h5><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"></div>
@@ -105,5 +105,5 @@
         </details>
     </div>
 </div>
-<script src="{% static 'js/auto_quote_analysis.js' %}?v=20260924-distance-table-6"></script>
+<script src="{% static 'js/auto_quote_analysis.js' %}?v=20260924-carrier-count-7"></script>
 {% endblock %}
