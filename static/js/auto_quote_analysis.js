@@ -81,18 +81,29 @@ document.addEventListener('DOMContentLoaded', () => {
         $('legend').innerHTML = chartLines.map((line, index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
         drawChart();
     }
+    const searchText = value => String(value ?? '').normalize('NFKC').trim().toLowerCase();
     let rankingReport = null;
     function renderRankings(data) {
         rankingReport = data;
         const max = Math.max(1, ...data.rankings.map(r => r.volatility_pct));
-        $('ranking').innerHTML = data.rankings.filter(r => r.carrier.toLowerCase().includes($('ranking-search').value.trim().toLowerCase())).map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">没有符合条件的承运商记录。</td></tr>';
+        $('ranking').innerHTML = data.rankings.filter(r => searchText(`${r.carrier || ''} ${r.service || ''}`).includes(searchText($('ranking-search').value))).map((r, index) => `<tr><td>${r.comparable_routes ? data.rankings.findIndex(v => v.volatility_pct === r.volatility_pct) + 1 : '参考'}</td><td>${esc(platform(r.platform))}</td><td>${esc(r.carrier)} / ${esc(r.service)}</td><td><span class="qa-bar" style="width:${r.volatility_pct / max * 100}px"></span> ${percent(r.volatility_pct)}</td><td>${r.routes} / 可用${r.available_routes}</td><td>${percent(r.coverage_pct)}</td><td>${r.min_samples}天</td></tr>`).join('') || '<tr><td colspan="7">没有符合条件的承运商记录。</td></tr>';
     }
-    $('ranking-search').addEventListener('input', () => { if (rankingReport) renderRankings(rankingReport); });
-    $('route-search').addEventListener('input', () => { if (routeReport) renderRoutes(routeReport); $('routes-scroll').scrollTop = 0; });
+    function bindTableSearch(id, update) {
+        const input = $(id);
+        ['input', 'change', 'search', 'compositionend'].forEach(event => input.addEventListener(event, update));
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); update(); }
+        });
+    }
+    bindTableSearch('ranking-search', () => { if (rankingReport) renderRankings(rankingReport); });
+    bindTableSearch('route-search', () => {
+        if (routeReport) renderRoutes(routeReport);
+        $('routes-scroll').scrollTop = 0;
+    });
     function renderRoutes(data) {
         routeReport = data;
-        const query = $('route-search').value.trim().toLowerCase();
-        const sorted = (data.route_rows || []).filter(row => row.address.toLowerCase().includes(query));
+        const query = searchText($('route-search').value);
+        const sorted = (data.route_rows || []).filter(row => searchText(row.address).includes(query));
         if (routeSort) sorted.sort((a,b) => {
             const av = a[routeSort], bv = b[routeSort];
             if (av == null) return bv == null ? 0 : 1;
