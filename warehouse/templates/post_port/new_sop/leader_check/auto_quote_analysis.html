@@ -39,8 +39,8 @@
             <div class="qa-filters">
                 <div><label for="qa-profile">比较编号 / 发货仓</label><select id="qa-profile" required><option value="">正在读取编号…</option></select></div>
                 <div><label for="qa-group">地址组</label><select id="qa-group"><option value="">全部组</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
-                <div><label for="qa-start">询价开始日期</label><input type="date" id="qa-start" required></div>
-                <div><label for="qa-end">询价结束日期</label><input type="date" id="qa-end" required></div>
+                <div><label for="qa-start">取件开始日期</label><input type="date" id="qa-start" required></div>
+                <div><label for="qa-end">取件结束日期</label><input type="date" id="qa-end" required></div>
                 <div><label for="qa-address">收货地址（选择后显示各承运商价格曲线）</label><select id="qa-address"><option value="">全部地址 · 综合指数</option></select></div>
                 <div><label for="qa-platform">报价平台</label><select id="qa-platform"><option value="">全部平台</option><option value="maersk">Maersk</option><option value="kakas">卡卡省</option><option value="abf">ABF</option></select></div>
                 <div><label for="qa-carrier">承运商 / 服务</label><select id="qa-carrier"><option value="">全部承运商服务</option></select></div>
@@ -73,11 +73,11 @@
             <button id="qa-prev" type="button" class="btn btn-sm btn-outline-secondary">上一页</button><span id="qa-page" class="mx-2"></span><button id="qa-next" type="button" class="btn btn-sm btn-outline-secondary">下一页</button>
         </section>
         <section id="qa-min-section" class="qa-card" hidden><h5>所选线路每日最低价与承运商变化</h5><p class="qa-note">仅从当前筛选范围内返回的报价取最低，不表示市场上绝对最低；提供最低价的承运商可能变化。</p>
-            <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>采样日期</th><th>最低价</th><th>提供报价的平台 / 承运商 / 服务</th><th>有效服务数量</th><th>最低价提供方变化</th></tr></thead><tbody id="qa-minima"></tbody></table></div></section>
+            <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>取件日期</th><th>最低价</th><th>提供报价的平台 / 承运商 / 服务</th><th>有效服务数量</th><th>最低价提供方变化</th></tr></thead><tbody id="qa-minima"></tbody></table></div></section>
         <details class="qa-card"><summary>统计口径与数据质量说明</summary>
             <ul class="qa-note mt-2">
                 <li>比较编号由发货详细地址、货物明细、申报价值、运输类型、车型、地址类型和尾板等条件决定。取件日期不参与编号，分析时单独控制提前天数。</li>
-                <li>按服务器时区每天每个地址取最后一次已结束询价。重试不增加当天权重，最后一次失败则当天是缺失，不回填成旧报价。</li>
+                <li>以取件日期为分析日期，同一地址、同一取件日期取最后发起且已结束的询价。实际询价时间仅用于选择最新记录、计算提前天数和追溯；最后一次失败不回填旧报价。</li>
                 <li>各平台、承运商代码、服务代码和币种分开比较；没有代码时按完整名称精确匹配，不猜测不同名称是同一承运商。未知承运商不参与分析；“未标注服务”表示接口没有服务标识。</li>
                 <li>同次同平台、承运商、服务的多条报价全部保留，统计时取最低有效价。未返回价格不作为零元。接口未声明币种的美国国内报价按USD记录，并显示数量提示。</li>
                 <li>CV = 价格总体标准差 ÷ 平均价格 × 100%。高低价振幅 = (最高价 − 最低价) ÷ 最低价。零基准的百分比显示为空，不产生无穷大。</li>

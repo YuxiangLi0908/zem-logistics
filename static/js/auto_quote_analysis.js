@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ['较上次涨幅最大', percent(s.largest_increase?.latest_change_pct), s.largest_increase ? product(s.largest_increase) + ' · ' + s.largest_increase.address : '暂无上涨的可比较报价'],
             ['较上次跌幅最大', percent(s.largest_decrease?.latest_change_pct), s.largest_decrease ? product(s.largest_decrease) + ' · ' + s.largest_decrease.address : '暂无下跌的可比较报价'],
         ].map(([title, value, note]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>`).join('');
-        const notes = [`按 ${data.filters.timezone} 划分采样日。`, `最低价提供方在相邻有效采样日变化 ${s.winner_changes} 次。`];
+        const notes = [`按取件日期分析；同一取件日期采用最后发起且已结束的询价。`, `最低价提供方在相邻有效采样日变化 ${s.winner_changes} 次。`];
         if (data.filters.lead === 'all') notes.push('当前混合了不同取件提前天数，变化可能受取件时间影响。');
         else if (data.filters.lead !== null) notes.push(`当前仅比较提前 ${data.filters.lead} 个日历日的报价。`);
         if (d.partial_excluded) notes.push(`已排除 ${d.partial_excluded} 条未完整平台报价。`);
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const padding = Math.max((max - min) * .15, max * .03, 1), lo = Math.max(0, min - padding), hi = max + padding;
         const x = date => 80 + (t1 === t0 ? 430 : (Date.parse(date + 'T00:00:00Z') - t0) / (t1 - t0) * 860);
         const y = price => 290 - (price - lo) / (hi - lo) * 240;
-        let svg = '<svg viewBox="0 0 1000 350" role="img" aria-label="价格随询价日期变化的折线图"><rect width="1000" height="350" fill="white"/>';
+        let svg = '<svg viewBox="0 0 1000 350" role="img" aria-label="价格随取件日期变化的折线图"><rect width="1000" height="350" fill="white"/>';
         for (let i = 0; i <= 4; i++) {
             const value = lo + (hi - lo) * i / 4, yy = y(value);
             svg += `<line x1="80" x2="940" y1="${yy}" y2="${yy}" stroke="#e2e8f0"/><text x="70" y="${yy+4}" text-anchor="end" fill="#64748b" font-size="12">${num(value)}</text>`;
@@ -147,7 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await api({kind:'analysis_options'});
             const parts = new Intl.DateTimeFormat('en-CA', {timeZone:data.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
             const part = name => parts.find(p => p.type === name).value;
-            const end = `${part('year')}-${part('month')}-${part('day')}`;
+            const today = `${part('year')}-${part('month')}-${part('day')}`;
+            const end = /^\d{4}-\d{2}-\d{2}$/.test(data.latest_pickup_date || '') && data.latest_pickup_date > today ? data.latest_pickup_date : today;
             const start = new Date(end + 'T00:00:00Z'); start.setUTCDate(start.getUTCDate() - 29);
             $('end').value = end; $('start').value = start.toISOString().slice(0,10);
             options('profile', data.profiles.map(p => ({id:p.id,label:`${p.code} · ${p.origin} · 申报$${p.configuration.declaredValue}`})), '请选择比较编号', new URLSearchParams(location.search).get('profile'));

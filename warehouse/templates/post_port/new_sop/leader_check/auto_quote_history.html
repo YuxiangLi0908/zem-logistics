@@ -53,18 +53,18 @@
         <div class="aq-search-fields">
             <div><label for="destination-query">收货地址 / 城市 / 邮编</label>
                 <input id="destination-query" class="form-control" maxlength="250" placeholder="输入地址，查找跨任务的自动询价历史"></div>
-            <div><label for="destination-start">开始日期</label><input id="destination-start" type="date" class="form-control"></div>
-            <div><label for="destination-end">结束日期</label><input id="destination-end" type="date" class="form-control"></div>
+            <div><label for="destination-start">取件开始日期</label><input id="destination-start" type="date" class="form-control"></div>
+            <div><label for="destination-end">取件结束日期</label><input id="destination-end" type="date" class="form-control"></div>
             <button class="btn btn-primary" type="submit">搜索记录</button>
         </div>
-        <div class="aq-search-footer"><span>日期范围按任务创建日期筛选，包含开始和结束当天。</span><button id="destination-reset" type="button">清空条件</button></div>
+        <div class="aq-search-footer"><span>日期范围按取件日期筛选，包含开始和结束当天。</span><button id="destination-reset" type="button">清空条件</button></div>
     </form>
     <div id="destination-history" class="mt-3" hidden>
         <h5 style="color:#2057a1;font-weight:700">地址搜索结果</h5>
         <div id="destination-message" role="status" class="alert alert-info"></div>
         <label for="destination-address">匹配的收货地址</label><select id="destination-address" class="form-select mb-3"></select>
         <section class="border rounded p-3 mb-3" aria-label="收货地址价格走势">
-            <h5>单地址历次最低 10 价走势</h5>
+            <h5>单地址按取件日期的最低 10 价走势</h5>
             <p class="small text-muted">以下条件仅筛选走势图；下方表格保留该地址全部历史。相同编号包含相同发货地址、货物、申报价值和服务条件；取件提前天数分开比较。</p>
             <div class="d-flex flex-wrap gap-3">
                 <div><label for="destination-profile">比较编号</label><select id="destination-profile" class="form-select"></select></div>
@@ -78,7 +78,7 @@
             <div id="destination-chart" class="overflow-auto"></div>
         </section>
         <h5>收货地址历史记录</h5>
-        <p class="small text-muted">按任务创建时间倒序；卡卡省默认显示最低10条，展开可看其余报价。点击查看任务可查看询价条件及复制完整任务结果。</p>
+        <p class="small text-muted">按任务创建时间倒序展示，日期筛选采用取件日期；卡卡省默认显示最低10条，展开可看其余报价。点击查看任务可查看询价条件及复制完整任务结果。</p>
         <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
             <thead><tr><th>任务 / 执行人 / 发货仓</th><th>收货地址</th><th>状态 / 询价时间</th><th>Maersk</th><th>卡卡省</th><th>ABF</th><th>操作 / 错误</th></tr></thead>
             <tbody id="destination-rows"></tbody>

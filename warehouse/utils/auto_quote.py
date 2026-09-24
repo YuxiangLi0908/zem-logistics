@@ -251,7 +251,11 @@ def complete_item(item, status, error=""):
 
 def batch_summary(batch):
     counts = dict(batch.items.values("status").annotate(n=Count("id")).values_list("status", "n"))
+    retry_count = sum(counts.get(status, 0) for status in RETRYABLE)
+    retry_addresses = list(batch.items.filter(status__in=RETRYABLE).order_by("id").values(
+        "address_snapshot", "status")[:5]) if retry_count else []
     return {"id": batch.pk, "group": batch.group, "status": batch.status, "counts": counts,
+            "retry_count": retry_count, "retry_addresses": retry_addresses,
             "total": sum(counts.values()), "stop_requested": batch.stop_requested,
             "origin": batch.parameters.get("originWarehouse", ""), "created_at": batch.created_at,
             "profile_code": f"AQ{batch.profile_id:06d}" if batch.profile_id else "待归档",
