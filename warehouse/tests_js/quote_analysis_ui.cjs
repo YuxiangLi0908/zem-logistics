@@ -46,7 +46,10 @@ report.route_rows = [{route:'route1',address:'Newark',latest:100,previous:90,lat
 async function main() {
     vm.createContext(context);
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../static/js/auto_quote_analysis.js'), 'utf8'), context);
-    ready(); await tick();
+    ready();
+    assert.equal(el('loading').hidden, false);
+    await tick();
+    assert.equal(el('loading').hidden, true);
     assert.equal(el('content').hidden, false);
     assert.equal(calls.find(p => p.get('kind') === 'analysis').get('include_partial'), '1');
     assert.equal((el('series').innerHTML.match(/data-route=/g) || []).length, 1);
@@ -58,6 +61,22 @@ async function main() {
     assert(el('ranking').innerHTML.includes('Carrier &lt;unsafe&gt;'));
     assert(!el('ranking').innerHTML.includes('Carrier <unsafe>'));
     assert(!calls.find(p => p.get('kind') === 'analysis').has('lead'));
+    const beforeSearch = calls.length;
+    el('ranking-search').value = 'not-a-carrier'; el('ranking-search').events.input();
+    assert(!el('ranking').innerHTML.includes('Carrier &lt;unsafe&gt;'));
+    el('ranking-search').value = 'CARRIER'; el('ranking-search').events.input();
+    assert(el('ranking').innerHTML.includes('Carrier &lt;unsafe&gt;'));
+    el('ranking-search').value = ''; el('ranking-search').events.search();
+    el('route-search').value = 'not-an-address'; el('route-search').events.input();
+    assert(!el('series').innerHTML.includes('data-route='));
+    el('route-search').value = 'NEW'; el('route-search').events.input();
+    assert(el('series').innerHTML.includes('data-route='));
+    el('route-search').value = ''; el('route-search').events.input();
+    let prevented = false;
+    el('route-search').events.keydown({key:'Enter',preventDefault(){prevented=true;}});
+    assert(prevented);
+    assert.equal(calls.length, beforeSearch, 'table filtering must not request analysis again');
+
     report.selected_address = 'route1'; el('address').value = '071'; el('address').events.change(); await tick();
     const svg = el('chart').innerHTML;
     assert(svg.includes('batch=1'));
@@ -68,7 +87,10 @@ async function main() {
     assert(!curve.includes('L'), 'must not join points across a missing quote');
     el('legend').children['0'].checked = false; el('legend').events.change();
     assert(!el('chart').innerHTML.includes('<svg'));
-    failNext = true; el('form').events.submit({preventDefault(){}}); await tick();
+    failNext = true; el('form').events.submit({preventDefault(){}});
+    assert.equal(el('loading').hidden, false);
+    await tick();
+    assert.equal(el('loading').hidden, true);
     assert.equal(el('error').hidden, false);
     assert.equal(el('error').textContent, 'Test failure');
     assert.equal(el('content').hidden, true);
