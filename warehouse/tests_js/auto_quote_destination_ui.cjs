@@ -37,17 +37,11 @@ async function main() {
     await search('Rahway');
     assert.equal(el('auto-task-list').hidden,false);
     assert.equal(calls[0].q,'Rahway');
-    assert.equal((el('destination-chart').innerHTML.match(/<g data-rank=/g)||[]).length,10);
-    assert(!el('destination-chart').innerHTML.includes('NaN'));
-    assert(el('destination-chart').innerHTML.includes('&lt;unsafe&gt;'));
-    const curve=el('destination-chart').innerHTML.match(/<path d="([^"]*)"/)[1];
-    assert.equal((curve.match(/M/g)||[]).length,2); assert(!curve.includes('L'));
+    assert.equal(el('destination-chart').innerHTML, '');
     const table=el('destination-rows').innerHTML;
     assert(table.includes('&lt;operator&gt;'));
     assert.equal((table.split('<details')[0].match(/Carrier/g)||[]).length,10);
     assert(table.includes('Carrier0 ')); // Highest quote remains available when expanded.
-    el('destination-legend').events.change({target:{dataset:{rank:'0'},checked:false}});
-    assert.equal(el('destination-chart').child.style.display,'none');
     await el('destination-rows').events.click({target:{closest:()=>({dataset:{batch:'1'}})}});
     assert.equal(shown,'1');
     el('destination-next').click(); await tick(); assert.equal(calls.at(-1).page,2);
