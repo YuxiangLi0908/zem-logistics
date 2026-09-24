@@ -62,19 +62,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const s = data.summary, d = data.diagnostics;
         const addressSummary = data.address_summary || {};
         const addressBasis = data.filters.price_basis === 'mean' ? '平均价' : '最低价';
-        $('address-basis').textContent = `按每个地址、每个取件日期的${addressBasis}计算。波动CV至少需要3个有效日期，越大越不稳定；涨跌与上一次有效取件日期比较。缺失报价不作0元处理。`;
-        $('address-kpis').innerHTML = [
-            ['波动最大的地址', addressSummary.most_volatile, 'volatility_pct'],
-            ['波动最小的地址', addressSummary.most_stable, 'volatility_pct'],
-            ['较上次涨幅最大的地址', addressSummary.largest_increase, 'latest_change_pct'],
-            ['较上次跌幅最大的地址', addressSummary.largest_decrease, 'latest_change_pct'],
-        ].map(([title, row, metric]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(row?.address || '暂无符合条件的地址')}</strong><div class="qa-kpi-value">${percent(row?.[metric])}</div><small>${metric === 'volatility_pct' ? 'CV：相对均价的波动程度，不表示涨跌幅。' : row ? `${esc(row.previous_date)}：$${num(row.previous)} → ${esc(row.latest_date)}：$${num(row.latest)}` : '需要最新价格及上一次有效价格。'}${row?.ties > 1 ? `<br>共${row.ties}个地址并列：${esc((row.tied_addresses || []).join('；'))}${row.ties > 5 ? '等' : ''}` : ''}</small></div>`).join('');
-        $('kpis').innerHTML = [
-            ['波动最大（平均CV）', percent(s.most_volatile?.volatility_pct), product(s.most_volatile) + (s.most_volatile_ties > 1 ? `（共${s.most_volatile_ties}个服务并列，见下表）` : '')],
-            ['波动最小（平均CV）', percent(s.most_stable?.volatility_pct), product(s.most_stable) + (s.most_stable_ties > 1 ? `（共${s.most_stable_ties}个服务并列，见下表）` : '')],
-            ['较上次涨幅最大', percent(s.largest_increase?.latest_change_pct), s.largest_increase ? product(s.largest_increase) + ' · ' + s.largest_increase.address : '暂无上涨的可比较报价'],
-            ['较上次跌幅最大', percent(s.largest_decrease?.latest_change_pct), s.largest_decrease ? product(s.largest_decrease) + ' · ' + s.largest_decrease.address : '暂无下跌的可比较报价'],
-        ].map(([title, value, note]) => `<div class="qa-kpi"><span>${esc(title)}</span><strong>${esc(note)}</strong><div class="qa-kpi-value">${esc(value)}</div><small>${title.includes("波动") ? "平均CV：价格相对均价的波动程度，越大越不稳定；不表示涨跌幅或价格高低。" : "具体线路最新价与上一次有效报价相比的涨跌幅。"}</small></div>`).join('');
+        $('address-basis').textContent = addressBasis;
+        const shortAddress = value => {
+            const parts = String(value || '').split(' · ');
+            const normalize = text => text.replace(/[\s,，.]/g, '').toLowerCase();
+            return parts.length === 2 && normalize(parts[0]) === normalize(parts[1]) ? parts[0] : String(value || '');
+        };
+        const resultCell = (row, metric, isAddress) => {
+            if (!row) return '<span class="text-muted">—</span>';
+            const name = isAddress ? shortAddress(row.address) : row.carrier;
+            const value = row[metric];
+            const tone = metric === 'latest_change_pct' ? (value > 0 ? 'qa-up' : value < 0 ? 'qa-down' : '') : '';
+            const ties = isAddress ? (row.tied_addresses || []).map(shortAddress) : [...new Set(data.rankings.filter(r => r.volatility_pct === value).map(r => r.carrier))];
+            const count = isAddress ? row.ties : ties.length;
+            const extra = count > 1 ? `<details class="qa-ties"><summary>等${count}个</summary>${esc(ties.join('；'))}${count > ties.length ? '等' : ''}</details>` : '';
+            return `<div class="qa-result"><span class="qa-result-name">${esc(name || '—')}</span><span class="qa-result-value ${tone}">${metric === 'latest_change_pct' && value > 0 ? '+' : ''}${percent(value)}</span></div>${metric === 'volatility_pct' || isAddress ? extra : ''}`;
+        };
+        $('comparison-body').innerHTML = [
+            ['波动最大', 'most_volatile', 'volatility_pct'],
+            ['波动最小', 'most_stable', 'volatility_pct'],
+            ['最近涨幅最大', 'largest_increase', 'latest_change_pct'],
+            ['最近跌幅最大', 'largest_decrease', 'latest_change_pct'],
+        ].map(([label, key, metric]) => `<tr><th scope="row">${label}</th><td>${resultCell(addressSummary[key], metric, true)}</td><td>${resultCell(s[key], metric, false)}</td></tr>`).join('');
         const notes = [`按取件日期分析；同一取件日期采用最后发起且已结束的询价。`, `最低价提供方在相邻有效采样日变化 ${s.winner_changes} 次。`];
         if (d.partial_excluded) notes.push(`已排除 ${d.partial_excluded} 条未完整平台报价。`);
         if (d.assumed_currency) notes.push(`${d.assumed_currency} 条报价未声明币种，按美国国内报价USD处理。`);
