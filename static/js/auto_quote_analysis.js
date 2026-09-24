@@ -59,30 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function render(data) {
         const s = data.summary, d = data.diagnostics;
-        const addressSummary = data.address_summary || {};
-        const addressBasis = data.filters.price_basis === 'mean' ? '平均价' : '最低价';
-        $('address-basis').textContent = addressBasis;
-        const shortAddress = value => {
-            const parts = String(value || '').split(' · ');
-            const normalize = text => text.replace(/[\s,，.]/g, '').toLowerCase();
-            return parts.length === 2 && normalize(parts[0]) === normalize(parts[1]) ? parts[0] : String(value || '');
-        };
-        const resultCell = (row, metric, isAddress) => {
-            if (!row) return '<span class="text-muted">—</span>';
-            const name = isAddress ? shortAddress(row.address) : row.carrier;
-            const value = row[metric];
-            const tone = metric === 'latest_change_pct' ? (value > 0 ? 'qa-up' : value < 0 ? 'qa-down' : '') : '';
-            const ties = isAddress ? (row.tied_addresses || []).map(shortAddress) : [...new Set(data.rankings.filter(r => r.volatility_pct === value).map(r => r.carrier))];
-            const count = isAddress ? row.ties : ties.length;
-            const extra = count > 1 ? `<details class="qa-ties"><summary>等${count}个</summary>${esc(ties.join('；'))}${count > ties.length ? '等' : ''}</details>` : '';
-            return `<div class="qa-result"><span class="qa-result-name">${esc(name || '—')}</span><span class="qa-result-value ${tone}">${metric === 'latest_change_pct' && value > 0 ? '+' : ''}${percent(value)}</span></div>${metric === 'volatility_pct' || isAddress ? extra : ''}`;
-        };
-        $('comparison-body').innerHTML = [
-            ['波动最大', 'most_volatile', 'volatility_pct'],
-            ['波动最小', 'most_stable', 'volatility_pct'],
-            ['最近涨幅最大', 'largest_increase', 'latest_change_pct'],
-            ['最近跌幅最大', 'largest_decrease', 'latest_change_pct'],
-        ].map(([label, key, metric]) => `<tr><th scope="row">${label}</th><td>${resultCell(addressSummary[key], metric, true)}</td><td>${resultCell(s[key], metric, false)}</td></tr>`).join('');
         const notes = [`按取件日期分析；同一取件日期采用最后发起且已结束的询价。`, `最低价提供方在相邻有效采样日变化 ${s.winner_changes} 次。`];
         if (d.partial_excluded) notes.push(`已排除 ${d.partial_excluded} 条未完整平台报价。`);
         if (d.assumed_currency) notes.push(`${d.assumed_currency} 条报价未声明币种，按美国国内报价USD处理。`);
@@ -98,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('min-section').hidden = !addressSelected;
         $('minima').innerHTML = data.minimum_history.map(r => `<tr><td>${esc(r.date)}</td><td>${num(r.price)} ${esc(data.filters.currency)}</td><td>${esc(r.winners.join('；') || '无报价')}</td><td>${r.offers}</td><td>${r.winner_changed ? '已变化' : '—'}</td></tr>`).join('');
         const basis = data.filters.price_basis === 'mean' ? '平均价' : '最低价';
-        $('chart-title').textContent = addressSelected ? `所选地址 · ${basis}走势` : `固定收货地址 · ${basis}综合指数`;
+        $('chart-title').textContent = addressSelected ? `历史${basis}走势（美元）` : `历史${basis}走势（综合指数）`;
         $('chart-note').textContent = addressSelected ? `单位：USD。按每个取件日期该地址符合筛选条件的全部有效报价计算${basis}；无报价处断开。` : `先计算每个地址的${basis}，再以各地址首日价格=100归一化，对全期间均有有效正数报价的 ${s.balanced_routes} 个固定地址等权平均。平均价使用全部有效报价；报价组合变化也可能影响走势。`;
         chartLines = addressSelected ? (data.aggregate_chart || []).map(row => ({name:row.address + ' · ' + basis, color:colors[0], points:row.points})) : data.market_index.length ? [{name:basis + '价格指数', color:colors[0], points:data.market_index.map(p => ({date:p.date, price:p.value}))}] : [];
         $('legend').innerHTML = chartLines.map((line, index) => `<label style="color:${line.color}"><input type="checkbox" data-line="${index}" checked> ${esc(line.name)}</label>`).join('');
