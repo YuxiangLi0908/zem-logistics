@@ -5,6 +5,11 @@
     .qa-page { padding:24px; background:#f4f7fb; color:#223247; min-height:90vh; }
     .qa-card { background:white; border:1px solid #dce4ee; border-radius:12px; padding:20px; margin-bottom:18px; }
     .qa-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
+    .qa-config-row { grid-template-columns:minmax(180px,1fr) minmax(0,5fr); margin-bottom:14px; }
+    .qa-filters > div { min-width:0; }
+    .qa-distance { display:flex; align-items:center; gap:6px; }
+    .qa-distance input { min-width:0; }
+    @media(max-width:600px) { .qa-config-row { grid-template-columns:1fr; } }
     .qa-filters label { display:block; font-size:13px; color:#526174; margin-bottom:5px; }
     .qa-filters select,.qa-filters input:not([type=checkbox]) { width:100%; padding:8px; border:1px solid #cad5e2; border-radius:5px; background:white; }
     .qa-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
@@ -36,14 +41,17 @@
     <div id="qa-error" class="alert alert-danger" role="alert" hidden></div>
     <section class="qa-card">
         <form id="qa-form">
+            <div class="qa-filters qa-config-row">
+                <div><label for="qa-origin">发货仓</label><select id="qa-origin" required></select></div><div><label for="qa-profile">货物明细 / 申报价值</label><select id="qa-profile" required><option value="">正在读取货物配置…</option></select></div>
+            </div>
             <div class="qa-filters">
-                <div><label for="qa-origin">发货仓</label><select id="qa-origin" required></select></div><div style="grid-column:1 / -1"><label for="qa-profile">货物明细 / 申报价值</label><select id="qa-profile" required><option value="">正在读取货物配置…</option></select></div>
                 <div><label for="qa-group">地址组</label><select id="qa-group"><option value="">全部组</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
                 <div><label for="qa-start">取件开始日期</label><input type="date" id="qa-start" required></div>
                 <div><label for="qa-end">取件结束日期</label><input type="date" id="qa-end" required></div>
                 <div><label for="qa-address">收货邮编</label><input id="qa-address" type="search" placeholder="输入全部或部分邮编，如070；留空查全部"></div>
                 <div><label for="qa-platform">报价平台</label><select id="qa-platform"><option value="">全部平台</option><option value="maersk">Maersk</option><option value="kakas">卡卡省</option><option value="abf">ABF</option></select></div>
                 <div><label for="qa-carrier">承运商 / 服务</label><input id="qa-carrier" type="search" placeholder="输入承运商名称或服务关键词"></div>
+                <div><label for="qa-distance_min">距仓库距离（英里）</label><div class="qa-distance"><input id="qa-distance_min" type="number" min="0" step="any" placeholder="最小" aria-label="最小距离（英里）"><span>至</span><input id="qa-distance_max" type="number" min="0" step="any" placeholder="最大" aria-label="最大距离（英里）"></div></div>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
                 <label><input type="checkbox" id="qa-partial"> 包含尚未完整返回的平台报价</label>

@@ -115,6 +115,20 @@ class AnalysisDataTests(TransactionTestCase):
                   "end": timezone.localdate(self.base + timedelta(days=7)).isoformat(), "lead": "2", **kwargs}
         return build_analysis(visible_batches(self.user), params)
 
+    def test_distance_range_uses_snapshot_and_includes_boundaries(self):
+        for index, miles in enumerate((0, "10.5", 20, None)):
+            self.item(0, [self.rate("A", 100 + index)], address={
+                **self.address, "address": f"{index} Street", "distance_miles": miles})
+        self.assertEqual(len(self.analyze()["rows"]), 4)
+        self.assertEqual(len(self.analyze(distance_min="10.5", distance_max="20")["rows"]), 2)
+        self.assertEqual(len(self.analyze(distance_max="0")["rows"]), 1)
+        self.assertEqual(len(self.analyze(distance_min="20")["rows"]), 1)
+        self.assertEqual(self.analyze(distance_min="21")["rows"], [])
+        for filters in ({"distance_min": "-1"}, {"distance_max": "NaN"},
+                        {"distance_max": "abc"}, {"distance_min": "20", "distance_max": "10"}):
+            with self.subTest(filters=filters), self.assertRaises(ValueError):
+                self.analyze(**filters)
+
     def test_zipcode_and_carrier_keyword_filters(self):
         self.item(0, [self.rate("Alpha", 100), self.rate("Beta", 200)])
         self.item(0, [self.rate("Alpha", 300)], address={**self.address, "zipcode": "07001", "address": "071 Road"})
