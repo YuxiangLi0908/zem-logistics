@@ -1918,9 +1918,6 @@ class Dropshipping(View):
                     else:
                         new_marks = marks + "TTT1"
 
-                if customer_name in ["JINYU", "FWE"]:
-                    new_marks = f"{model}_{new_marks}" if new_marks else None
-
                 # 生成后 强制截断唛头
                 if new_marks:
                     new_marks = truncate_marks(new_marks)
