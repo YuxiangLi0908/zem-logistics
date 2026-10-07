@@ -1,0 +1,33 @@
+.po-editor { max-width: 1440px; margin: 0 auto; color: #243247; }
+.po-editor * { box-sizing: border-box; }
+.po-editor .po-heading, .po-editor .po-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.po-editor .po-heading { margin: 6px 0 22px; }
+.po-editor h3 { font-size: 24px; font-weight: 700; margin: 0 0 6px; }
+.po-editor .po-subtitle, .po-editor .po-section-description { color: #65748b; font-size: 13px; margin: 0; line-height: 1.7; }
+.po-editor .po-actions { display: flex; gap: 10px; }
+.po-editor .po-actions button { min-height: 38px; padding: 8px 18px; border-radius: 7px; font-size: 13px; }
+.po-editor .po-delete { background: white; color: #b42332; border: 1px solid #ebbac0; }
+.po-editor .po-delete:hover { background: #fff1f2; }
+.po-editor .po-card { background: #fff; border: 1px solid #dfe5ed; border-radius: 10px; margin-bottom: 18px; overflow: hidden; box-shadow: 0 2px 5px #24324704; }
+.po-editor .po-section-heading { padding: 17px 22px; border-bottom: 1px solid #e8edf3; }
+.po-editor h4 { margin: 0; font-size: 16px; font-weight: 700; }
+.po-editor .po-badge { display: inline-block; padding: 4px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; line-height: 1.6; }
+.po-editor .po-shared { color: #8a5900; background: #fff4d9; }
+.po-editor .po-pallet { color: #215fc1; background: #eaf2ff; }
+.po-editor .po-packing { color: #14705b; background: #e7f6ef; }
+.po-editor .po-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 22px; padding: 20px 22px; }
+.po-editor .po-field { display: flex; flex-direction: column; gap: 7px; margin: 0; min-width: 0; font-size: 13px; font-weight: 600; }
+.po-editor input:not([type=hidden]), .po-editor select { display: block; width: 100%; min-width: 0; height: 37px; padding: 7px 10px; border: 1px solid #cfd8e4; border-radius: 6px; background: #fff; color: #243247; font-size: 13px; font-weight: 400; }
+.po-editor input:focus, .po-editor select:focus { outline: 2px solid #9ac4ff; outline-offset: 1px; border-color: #5698ed; }
+.po-editor .po-field-wide { grid-column: span 2; }
+.po-editor .po-section-description { padding: 12px 22px 0; }
+.po-editor .po-identifiers { border-top: 1px dashed #dfe5ed; }
+.po-editor .po-table-wrap { overflow-x: auto; padding: 16px 22px 22px; }
+.po-editor #po-info { width: 100%; min-width: 580px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.po-editor #po-info th { background: #f3f7f9; color: #526378; padding: 11px 12px; border-bottom: 1px solid #dfe5ed; text-align: left; }
+.po-editor #po-info td { padding: 12px; border-bottom: 1px solid #e8edf3; vertical-align: middle; }
+.po-editor #po-info tbody tr:hover { background: #f8fafc; }
+.po-editor #po-info .po-row-number { width: 65px; color: #738298; text-align: center; }
+.po-editor .po-empty { text-align: center; color: #738298; padding: 24px; }
+@media (max-width: 900px) { .po-editor .po-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .po-editor .po-grid { grid-template-columns: minmax(0, 1fr); padding: 16px; } .po-editor .po-field-wide { grid-column: auto; } .po-editor .po-section-heading { padding: 16px; } .po-editor .po-actions { width: 100%; } .po-editor .po-actions button { flex: 1; } }
