@@ -514,7 +514,10 @@
         const rows = document.querySelectorAll("#warehouse-special tr");
         const filterRow = document.getElementById("warehouse-table-filter");
         const inputs = filterRow.querySelectorAll("input");
-        const filters = Array.from(inputs).map(i => i.value.toUpperCase().trim());
+        const filters = Array.from(inputs).map(input => ({
+            value: input.value.toUpperCase().trim(),
+            column: input.closest("th").cellIndex,
+        }));
 
         let totalW = 0, totalP = 0, totalC = 0, totalPal = 0;
 
@@ -522,10 +525,10 @@
             const cells = row.querySelectorAll("td");
             let show = true;
 
-            filters.forEach((val, idx) => {
-                if (!val) return;
-                const cell = cells[idx + 2];
-                if (!cell || !cell.textContent.toUpperCase().includes(val)) show = false;
+            filters.forEach(({value, column}) => {
+                if (!value) return;
+                const cell = cells[column];
+                if (!cell || !cell.textContent.toUpperCase().includes(value)) show = false;
             });
 
             row.style.display = show ? "" : "none";
