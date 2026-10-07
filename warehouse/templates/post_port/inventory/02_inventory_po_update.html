@@ -21,6 +21,10 @@
         <button type="submit" class="btn btn-danger" style="font-size: 11px;" 
                 onclick="setDestroyedAndSubmit(this.form)">销毁PO</button>
     </div>
+    <div role="note" style="margin: 12px 0; padding: 10px 14px; background: #fff3cd; color: #664d03; border: 1px solid #ffecb5; border-radius: 4px; font-size: 13px;">
+        <strong>保存范围提示：</strong>点击“更新PO”后，目的地、地址、邮编、派送方式、派送类型会同时更新到所选卡板（Pallet）和下方列出的装箱单（PackingList）。
+        唛头、FBA、REF 分开保存：上方卡板标记仅更新 Pallet，下方装箱单标记仅更新对应的 PackingList。
+    </div>
     <table class="table" id="pallets-info" style="font-size: 11px; width: 100%;">
         <thead>
             <th class="th">客户</th>
@@ -65,7 +69,15 @@
             <td class="td"><input name="note" value="{{ pallet.note }}"></td>
         </tbody>
     </table>
-    <span style="color: grey;font-size: 12px;">上面是板子信息，下面是相同PO_ID（不是PO）的Packinglist信息</span>
+    <table class="table" id="pallet-identifiers" style="font-size: 11px; width: 100%;">
+        <thead><tr><th>卡板唛头</th><th>卡板 FBA</th><th>卡板 REF</th></tr></thead>
+        <tbody><tr>
+            <td><input name="pallet_shipping_mark" value="{{ pallet.shipping_mark|default_if_none:'' }}"></td>
+            <td><input name="pallet_fba_id" value="{{ pallet.fba_id|default_if_none:'' }}"></td>
+            <td><input name="pallet_ref_id" value="{{ pallet.ref_id|default_if_none:'' }}"></td>
+        </tr></tbody>
+    </table>
+    <span style="color: grey;font-size: 12px;">下方是同柜号、同 PO_ID 的 PackingList 信息。下方唛头、FBA、REF 的修改仅保存到 PackingList，不会覆盖上方卡板标记。</span>
     <table class="table" id="po-info" style="font-size: 11px; width: 100%;">
         <thead>
             <th class="th">唛头</th>
@@ -85,7 +97,7 @@
                     <input type="hidden" name="fba_id" value="{{ pl.fba_id|default_if_none:"" }}">
                 </td>
                 <td class="td">
-                    <input name="ref_id_new" value="{{ pl.ref_id }}">
+                    <input name="ref_id_new" value="{{ pl.ref_id|default_if_none:"" }}">
                     <input type="hidden" name="ref_id" value="{{ pl.ref_id|default_if_none:"" }}">
                 </td>
             </tr>

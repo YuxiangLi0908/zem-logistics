@@ -1147,12 +1147,12 @@ class Inventory(View):
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
 
-        def join_packing_list_values(values: list[str]) -> str:
-            return ",".join(v.strip() for v in values if v and v.strip())
-
-        pallet_shipping_mark_new = join_packing_list_values(shipping_mark_new)
-        pallet_fba_id_new = join_packing_list_values(fba_id_new)
-        pallet_ref_id_new = join_packing_list_values(ref_id_new)
+        # Card identifiers are independent of the PackingList rows below.
+        # Missing fields from an older open page must preserve each card's value.
+        pallet_identifiers = {
+            field: request.POST.get(f"pallet_{field}")
+            for field in ("shipping_mark", "fba_id", "ref_id")
+        }
         old_pallets_for_log = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number",
@@ -1195,9 +1195,8 @@ class Inventory(View):
                     plt.zipcode = zipcode_new
                     plt.delivery_method = delivery_method_new
                     plt.delivery_type = delivery_type_new
-                    plt.shipping_mark = pallet_shipping_mark_new
-                    plt.fba_id = pallet_fba_id_new
-                    plt.ref_id = pallet_ref_id_new
+                    for field, value in pallet_identifiers.items():
+                        setattr(plt, field, value.strip() if value is not None else getattr(source, field))
                     plt.location = location_new
                     plt.note = note_new
                     plt.released_at = (
@@ -1237,9 +1236,10 @@ class Inventory(View):
                         delivery_method=delivery_method_new,
                         delivery_type=delivery_type_new,
                         PO_ID=template.PO_ID,
-                        shipping_mark=pallet_shipping_mark_new,
-                        fba_id=pallet_fba_id_new,
-                        ref_id=pallet_ref_id_new,
+                        **{
+                            field: value.strip() if value is not None else getattr(source, field)
+                            for field, value in pallet_identifiers.items()
+                        },
                         sequence_number=i + 1,
                         length=source.length,
                         width=source.width,
@@ -1321,7 +1321,7 @@ class Inventory(View):
             ],
         )
 
-        # 更新 PackingList 标记信息；Pallet 已同步为所有 PackingList 标记的组合值
+        # 下方的标记编辑仅更新对应 PackingList，不拼接到 Pallet。
         for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
                 pl_ids, shipping_mark, fba_id, ref_id, shipping_mark_new, fba_id_new, ref_id_new
         ):
@@ -1433,9 +1433,9 @@ class Inventory(View):
             action_type="update",
             po_id=",".join(sorted({p.PO_ID for p in pallet if p.PO_ID})),
             container_number=container_number,
-            shipping_mark=",".join(shipping_mark_new),
-            fba_id=",".join(fba_id_new),
-            ref_id=",".join(ref_id_new),
+            shipping_mark=",".join(sorted({p.shipping_mark for p in pallet if p.shipping_mark})),
+            fba_id=",".join(sorted({p.fba_id for p in pallet if p.fba_id})),
+            ref_id=",".join(sorted({p.ref_id for p in pallet if p.ref_id})),
             destination=destination_new,
             warehouse=location_new,
             action_detail=(
