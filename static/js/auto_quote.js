@@ -6,6 +6,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const labels = {queued:'等待执行', running:'询价中', completed:'已结束', stopped:'已停止', pending:'等待中', success:'报价完整', partial:'部分报价', failed:'失败', no_quote:'无可用报价', cancelled:'已停止'};
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const date = value => value ? new Date(value).toLocaleString() : '—';
+    const duration = seconds => {
+        if (seconds == null) return '未执行';
+        const total = Math.floor(Math.max(0, Number(seconds)));
+        const hours = Math.floor(total / 3600), minutes = Math.floor(total % 3600 / 60);
+        return `${hours ? hours + '小时' : ''}${minutes ? minutes + '分' : ''}${total % 60}秒`;
+    };
+    const timing = batch => `开始：${date(batch.started_at)} · 结束：${date(batch.finished_at)} · ${batch.finished_at ? '执行耗时' : '已运行'}：${duration(batch.duration_seconds)}`;
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let batchPage = 1, itemPage = 1, addressPage = 1, selectedBatch = new URLSearchParams(location.search).get('batch');
     let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null, lastWake = 0;
@@ -96,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             $('auto-batches').innerHTML = data.batches.map(batch => `<tr>
                 <td>#${batch.id}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
-                <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}</td>
+                <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}<div class="small text-muted">${esc(timing(batch))}</div></td>
                 <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div>${incompleteAddresses(batch)}</td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
@@ -180,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (requestedId !== selectedBatch) return;
         $('auto-detail').hidden = false;
         $('auto-detail-title').textContent = `任务 #${data.batch.id} · ${data.batch.group} · ${data.batch.origin}`;
-        $('auto-detail-summary').textContent = `执行人：${data.batch.operator} · ${progress(data.batch)}`;
+        $('auto-detail-summary').textContent = `执行人：${data.batch.operator} · ${progress(data.batch)} · ${timing(data.batch)}`;
         $('auto-detail-parameters').textContent = JSON.stringify(data.parameters, null, 2);
         $('auto-export').href = endpoint({step:'auto_quote_export', batch:selectedBatch});
         // Preserve opened details during polling.

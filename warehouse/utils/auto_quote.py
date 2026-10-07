@@ -154,7 +154,7 @@ def create_batch(group, parameters, user_id, submission_id, parent=None):
 def finish_batch(batch_id):
     batch = AutoQuoteBatch.objects.get(pk=batch_id)
     if not batch.items.filter(status__in=("pending", "running")).exists():
-        AutoQuoteBatch.objects.filter(pk=batch_id).update(
+        AutoQuoteBatch.objects.filter(pk=batch_id, finished_at__isnull=True).update(
             status="stopped" if batch.stop_requested else "completed", finished_at=timezone.now())
 
 
@@ -191,6 +191,7 @@ def claim_item(concurrency=3, worker_token=None):
     item.started_at = item.started_at or now
     item.attempts += 1
     item.save(update_fields=["status", "lease_token", "lease_until", "started_at", "attempts"])
+    AutoQuoteBatch.objects.filter(pk=item.batch_id, started_at__isnull=True).update(started_at=now)
     AutoQuoteBatch.objects.filter(pk=item.batch_id).update(status="running")
     return item
 
@@ -276,7 +277,9 @@ def batch_summary(batch):
         "address_snapshot", "status", "result")[:5]) if retry_count else []
     for item in retry_addresses:
         item["description"] = retry_description(item.pop("result"), item["status"])
+    duration_seconds = max(0, ((batch.finished_at or timezone.now()) - batch.started_at).total_seconds()) if batch.started_at else None
     return {"id": batch.pk, "group": batch.group, "status": batch.status, "counts": counts,
+            "started_at": batch.started_at, "duration_seconds": duration_seconds,
             "retry_count": retry_count, "retry_addresses": retry_addresses,
             "total": sum(counts.values()), "stop_requested": batch.stop_requested,
             "origin": batch.parameters.get("originWarehouse", ""), "created_at": batch.created_at,

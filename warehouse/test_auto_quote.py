@@ -136,6 +136,31 @@ class QueueTests(TransactionTestCase):
     def batch(self):
         return create_batch("NJ", parameters(), self.user.pk, uuid.uuid4())
 
+    def test_batch_duration_excludes_queue_and_preserves_finished_time(self):
+        batch = self.batch()
+        self.assertIsNone(batch_summary(batch)["duration_seconds"])
+        start = timezone.now() + timedelta(minutes=5)
+        with patch("warehouse.utils.auto_quote.timezone.now", return_value=start):
+            first = claim_item()
+        batch.refresh_from_db()
+        self.assertEqual(batch.started_at, start)
+        with patch("warehouse.utils.auto_quote.timezone.now", return_value=start + timedelta(seconds=30)):
+            self.assertEqual(batch_summary(batch)["duration_seconds"], 30)
+            claim_item()
+        batch.refresh_from_db()
+        self.assertEqual(batch.started_at, start)
+        batch.items.exclude(pk=first.pk).update(status="cancelled")
+        end = start + timedelta(seconds=90)
+        with patch("warehouse.utils.auto_quote.timezone.now", return_value=end):
+            complete_item(first, "failed")
+        batch.refresh_from_db()
+        self.assertEqual(batch_summary(batch)["duration_seconds"], 90)
+        with patch("warehouse.utils.auto_quote.timezone.now", return_value=end + timedelta(minutes=5)):
+            stop_batch(batch)
+        batch.refresh_from_db()
+        self.assertEqual(batch.finished_at, end)
+        self.assertEqual(batch_summary(batch)["duration_seconds"], 90)
+
     def request(self, method, values):
         request = getattr(self.factory, method)("/post_nsop/", values)
         request.user = self.user
