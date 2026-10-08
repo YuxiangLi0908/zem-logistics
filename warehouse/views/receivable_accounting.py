@@ -5972,7 +5972,8 @@ class ReceivableAccounting(View):
             filter_rules.append(f"柜号 = {container_number_filter}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("满足以下任一条件：直送订单 / 非直送已拆柜(公仓+私仓) / 一件代发入库满15天")
+            # filter_rules.append("满足以下任一条件：直送订单 / 非直送已拆柜(公仓+私仓) / 一件代发入库满15天")
+            filter_rules.append("直送订单 / 非直送已拆柜(公仓+私仓)，暂不展示一件代发")
         else:
             criteria = (
                 Q(cancel_notification=False)
@@ -5984,7 +5985,8 @@ class ReceivableAccounting(View):
             filter_rules.append(f"ETD {start_date} ~ {end_date}")
             filter_rules.append("未取消预报")
             filter_rules.append("有实际提柜时间")
-            filter_rules.append("满足以下任一条件：直送订单 / 非直送已拆柜(公仓+私仓) / 一件代发入库满15天")
+            # filter_rules.append("满足以下任一条件：直送订单 / 非直送已拆柜(公仓+私仓) / 一件代发入库满15天")
+            filter_rules.append("直送订单 / 非直送已拆柜(公仓+私仓)，暂不展示一件代发")
 
             if warehouse:
                 # 当有仓库筛选时，要么匹配仓库，要么是 cancel_notification=True 的记录
@@ -6008,6 +6010,8 @@ class ReceivableAccounting(View):
                 offload_time=F("offload_id__offload_at"),
             )
             .filter(criteria)
+            # Temporarily hide dropship orders from both billing lists.
+            .exclude(order_type='一件代发')
             .distinct()
         )
 
@@ -6194,101 +6198,102 @@ class ReceivableAccounting(View):
                     # 都没有invoice_link，全部保留
                     filtered_order_data_list.extend(records)
         
-        # 合并一件代发入库满15天的柜子
-        dropship_eligible = self._get_dropship_15days_data(
-            warehouse, start_date, end_date, container_number_filter
-        )
-        
-        # 对每个符合条件的一件代发柜子，查发票并分类
-        for container, order in dropship_eligible:
-            container_number = container.container_number
-            
-            # 查该柜子的所有发票（主账单和补开账单均参与分类）
-            invoices = Invoicev2.objects.filter(
-                container_number=container,
-            ).select_related('statement_id').prefetch_related(
-                Prefetch('invoicestatusv2_set', 
-                         queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
-                         to_attr='receivable_status_list')
-            )
-            
-            if not invoices.exists():
-                # 无发票，归入待开
-                row_data = {
-                    'order': order,
-                    'order_id': order.id,
-                    'container_number__container_number': container_number,
-                    'customer_name__zem_name': order.customer_name.zem_name if order.customer_name else None,
-                    'order_type': order.order_type,
-                    'invoice_created_at': None,
-                    'is_extra_invoice': False,
-                    'retrieval_id__retrieval_destination_precise': order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None,
-                    'retrieval_id__retrieval_carrier': getattr(order.retrieval_id, 'retrieval_carrier', None) if order.retrieval_id else None,
-                    'retrieval_id__actual_retrieval_timestamp': getattr(order.retrieval_id, 'actual_retrieval_timestamp', None) if order.retrieval_id else None,
-                    'created_at': order.created_at,
-                    'invoice_id__invoice_number': None,
-                    'invoice_number': None,
-                    'invoice_id': None,
-                    'finance_status': None,
-                    'has_invoice': False,
-                    'cancel_notification': order.cancel_notification,
-                    'invoice_link': None,
-                }
-                filtered_order_data_list.append(row_data)
-            else:
-                # 有发票，遍历每条发票
-                for invoice in invoices:
-                    status_list = getattr(invoice, 'receivable_status_list', [])
-                    status_obj = status_list[0] if status_list else None
-                    finance_status = status_obj.finance_status if status_obj else None
-                    
-                    row_data = {
-                        'order': order,
-                        'order_id': order.id,
-                        'container_number__container_number': container_number,
-                        'customer_name__zem_name': order.customer_name.zem_name if order.customer_name else None,
-                        'order_type': order.order_type,
-                        'invoice_created_at': None,
-                        'is_extra_invoice': False,
-                        'retrieval_id__retrieval_destination_precise': order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None,
-                        'retrieval_id__retrieval_carrier': getattr(order.retrieval_id, 'retrieval_carrier', None) if order.retrieval_id else None,
-                        'retrieval_id__actual_retrieval_timestamp': getattr(order.retrieval_id, 'actual_retrieval_timestamp', None) if order.retrieval_id else None,
-                        'created_at': order.created_at,
-                        'invoice_id__invoice_number': invoice.invoice_number,
-                        'invoice_number': invoice.invoice_number,
-                        'invoice_id': invoice.id,
-                        'finance_status': finance_status,
-                        'has_invoice': True,
-                        'cancel_notification': order.cancel_notification,
-                        'invoice_link': invoice.invoice_link,
-                    }
-                    
-                    if finance_status == "completed":
-                        # 已完成，归入已开
-                        rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
-                        rec_offset = getattr(invoice, 'remain_offset', 0) or 0
-                        
-                        if rec_offset != 0:
-                            stmt = invoice.statement_id
-                            stmt_id = stmt.invoice_statement_id if stmt else None
-                            stmt_link = stmt.statement_link if stmt else None
-                            
-                            row_data.update({
-                                'invoice_id__invoice_date': invoice.invoice_date,
-                                'invoice_id__invoice_link': invoice.invoice_link,
-                                'invoice_id__receivable_total_amount': rec_total,
-                                'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
-                                'invoice_id__remain_offset': rec_offset,
-                                'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
-                                'invoice_id__statement_id__invoice_statement_id': stmt_id,
-                                'invoice_id__statement_id__statement_link': stmt_link,
-                            })
-                            previous_order_data_list.append(row_data)
-                        # else: remain_offset == 0，丢弃（和非一件代发一致）
-                    else:
-                        # 未完成，归入待开
-                        filtered_order_data_list.append(row_data)
-        
+        # Temporarily disabled; keep dropship billing logic for restoration.
+        # # 合并一件代发入库满15天的柜子
+        # dropship_eligible = self._get_dropship_15days_data(
+        #     warehouse, start_date, end_date, container_number_filter
+        # )
+
+        # # 对每个符合条件的一件代发柜子，查发票并分类
+        # for container, order in dropship_eligible:
+        #     container_number = container.container_number
+
+        #     # 查该柜子的所有发票（主账单和补开账单均参与分类）
+        #     invoices = Invoicev2.objects.filter(
+        #         container_number=container,
+        #     ).select_related('statement_id').prefetch_related(
+        #         Prefetch('invoicestatusv2_set',
+        #                  queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+        #                  to_attr='receivable_status_list')
+        #     )
+
+        #     if not invoices.exists():
+        #         # 无发票，归入待开
+        #         row_data = {
+        #             'order': order,
+        #             'order_id': order.id,
+        #             'container_number__container_number': container_number,
+        #             'customer_name__zem_name': order.customer_name.zem_name if order.customer_name else None,
+        #             'order_type': order.order_type,
+        #             'invoice_created_at': None,
+        #             'is_extra_invoice': False,
+        #             'retrieval_id__retrieval_destination_precise': order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None,
+        #             'retrieval_id__retrieval_carrier': getattr(order.retrieval_id, 'retrieval_carrier', None) if order.retrieval_id else None,
+        #             'retrieval_id__actual_retrieval_timestamp': getattr(order.retrieval_id, 'actual_retrieval_timestamp', None) if order.retrieval_id else None,
+        #             'created_at': order.created_at,
+        #             'invoice_id__invoice_number': None,
+        #             'invoice_number': None,
+        #             'invoice_id': None,
+        #             'finance_status': None,
+        #             'has_invoice': False,
+        #             'cancel_notification': order.cancel_notification,
+        #             'invoice_link': None,
+        #         }
+        #         filtered_order_data_list.append(row_data)
+        #     else:
+        #         # 有发票，遍历每条发票
+        #         for invoice in invoices:
+        #             status_list = getattr(invoice, 'receivable_status_list', [])
+        #             status_obj = status_list[0] if status_list else None
+        #             finance_status = status_obj.finance_status if status_obj else None
+
+        #             row_data = {
+        #                 'order': order,
+        #                 'order_id': order.id,
+        #                 'container_number__container_number': container_number,
+        #                 'customer_name__zem_name': order.customer_name.zem_name if order.customer_name else None,
+        #                 'order_type': order.order_type,
+        #                 'invoice_created_at': None,
+        #                 'is_extra_invoice': False,
+        #                 'retrieval_id__retrieval_destination_precise': order.retrieval_id.retrieval_destination_precise if order.retrieval_id else None,
+        #                 'retrieval_id__retrieval_carrier': getattr(order.retrieval_id, 'retrieval_carrier', None) if order.retrieval_id else None,
+        #                 'retrieval_id__actual_retrieval_timestamp': getattr(order.retrieval_id, 'actual_retrieval_timestamp', None) if order.retrieval_id else None,
+        #                 'created_at': order.created_at,
+        #                 'invoice_id__invoice_number': invoice.invoice_number,
+        #                 'invoice_number': invoice.invoice_number,
+        #                 'invoice_id': invoice.id,
+        #                 'finance_status': finance_status,
+        #                 'has_invoice': True,
+        #                 'cancel_notification': order.cancel_notification,
+        #                 'invoice_link': invoice.invoice_link,
+        #             }
+
+        #             if finance_status == "completed":
+        #                 # 已完成，归入已开
+        #                 rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
+        #                 rec_offset = getattr(invoice, 'remain_offset', 0) or 0
+
+        #                 if rec_offset != 0:
+        #                     stmt = invoice.statement_id
+        #                     stmt_id = stmt.invoice_statement_id if stmt else None
+        #                     stmt_link = stmt.statement_link if stmt else None
+
+        #                     row_data.update({
+        #                         'invoice_id__invoice_date': invoice.invoice_date,
+        #                         'invoice_id__invoice_link': invoice.invoice_link,
+        #                         'invoice_id__receivable_total_amount': rec_total,
+        #                         'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
+        #                         'invoice_id__remain_offset': rec_offset,
+        #                         'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
+        #                         'invoice_id__statement_id__invoice_statement_id': stmt_id,
+        #                         'invoice_id__statement_id__statement_link': stmt_link,
+        #                     })
+        #                     previous_order_data_list.append(row_data)
+        #                 # else: remain_offset == 0，丢弃（和非一件代发一致）
+        #             else:
+        #                 # 未完成，归入待开
+        #                 filtered_order_data_list.append(row_data)
+
         # --- 新增：柜号搜索时，检查最终未找到的原因 ---
         search_fail_reasons = []
         if container_number_filter and not filtered_order_data_list and not previous_order_data_list:
