@@ -6583,14 +6583,17 @@ class PostNsop(View):
             return await self.handle_ltl_unscheduled_pos_post(request, context)
 
         carriers = set(f.carrier for f in all_fleets if f.carrier)
-        pickup_times = set(f.appointment_datetime for f in all_fleets if f.appointment_datetime)
+        pickup_times = set(
+            f.appointment_datetime.date()
+            for f in all_fleets if f.appointment_datetime
+        )
         origins = set(f.origin for f in all_fleets if f.origin)
 
         if len(carriers) > 1:
             conflicts.append(f"carrier 不一致: {', '.join(carriers)}")
         if len(pickup_times) > 1:
             pickup_time_values = ', '.join(
-                pickup_time.strftime("%Y-%m-%d %H:%M:%S")
+                pickup_time.strftime("%Y-%m-%d")
                 for pickup_time in sorted(pickup_times)
             )
             conflicts.append(f"提货时间 不一致: {pickup_time_values}")
