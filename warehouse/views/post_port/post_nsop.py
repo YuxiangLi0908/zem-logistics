@@ -6589,7 +6589,11 @@ class PostNsop(View):
         if len(carriers) > 1:
             conflicts.append(f"carrier 不一致: {', '.join(carriers)}")
         if len(pickup_times) > 1:
-            conflicts.append(f"提货时间 不一致")
+            pickup_time_values = ', '.join(
+                pickup_time.strftime("%Y-%m-%d %H:%M:%S")
+                for pickup_time in sorted(pickup_times)
+            )
+            conflicts.append(f"提货时间 不一致: {pickup_time_values}")
         if len(origins) > 1:
             conflicts.append(f"仓库 不一致: {', '.join(origins)}")
 
