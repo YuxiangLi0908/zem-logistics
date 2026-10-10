@@ -6828,6 +6828,7 @@ class PostNsop(View):
         mark_part = "".join(shipping_marks)
         
         filename = f"{date_part}{container_part}{destination_part}{mark_part}BOL.pdf"
+        filename = re.sub(r"[\x00-\x1f\x7f]", "", filename)
         filename = filename.replace("/", "-").replace("\\", "-").replace(":", "-").replace("*", "-").replace("?", "-").replace('"', "-").replace("<", "-").replace(">", "-").replace("|", "-")
         
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
