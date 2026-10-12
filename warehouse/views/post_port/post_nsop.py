@@ -588,7 +588,7 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "get_maersk_quote":
             return await self.handle_get_maersk_quote(request)
-        elif step in ("auto_quote_import", "auto_quote_start", "auto_quote_stop", "auto_quote_retry", "auto_quote_wake"):
+        elif step in ("auto_quote_import", "auto_quote_start", "auto_quote_stop", "auto_quote_retry", "auto_quote_wake", "auto_quote_table_export"):
             return await sync_to_async(auto_quote_post)(request)
         elif step == "get_multi_carrier_quote":
             return await self.handle_get_multi_carrier_quote(request)

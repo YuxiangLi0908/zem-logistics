@@ -49,6 +49,7 @@
     <div id="qa-error" class="alert alert-danger" role="alert" hidden></div>
     <section class="qa-card">
         <form id="qa-form">
+            {% csrf_token %}
             <div class="qa-filters qa-config-row">
                 <div><label for="qa-origin">发货仓</label><select id="qa-origin" required></select></div><div><label for="qa-profile">货物明细 / 申报价值</label><select id="qa-profile" required><option value="">正在读取货物配置…</option></select></div>
                 <div><label for="qa-price_basis">地址分析 / 折线图价格口径</label><select id="qa-price_basis"><option value="min">最低价</option><option value="mean">平均价</option></select></div>
@@ -76,7 +77,7 @@
             <div id="qa-legend" class="qa-legend"></div><div id="qa-chart" class="qa-chart"></div>
         </section>
         <section class="qa-card">
-            <h5>距仓库距离分析</h5>
+            <div class="qa-section-heading"><h5>距仓库距离分析</h5><button id="qa-export-distance" type="button" class="btn btn-outline-primary btn-sm">导出 Excel</button></div>
             <p class="qa-note">按上传的英里数分组（含下限、不含上限），使用所选最低价／平均价。仅比较全期间每个取件日期都有报价的固定地址，各地址等权。距离按范围内该地址最新记录确定；未填写距离单列，缺报价不按0元处理。</p>
             <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>距离范围</th><th>地址数 / 参与比较</th><th>最新平均价格（USD）</th><th>上次平均价格（USD）</th><th>涨跌金额</th><th>涨跌幅</th></tr></thead><tbody id="qa-distance-table"></tbody></table></div>
         </section>
@@ -85,7 +86,7 @@
             <div class="table-responsive"><table class="table table-sm qa-table"><thead><tr><th>排名</th><th>平台</th><th>承运商 / 服务</th><th>平均波动系数 CV</th><th title="实际参与波动分析的有效价格数量">询价次数</th></tr></thead><tbody id="qa-ranking"></tbody></table></div>
         </section>
         <section class="qa-card">
-            <div class="qa-section-heading"><h5>收货地址价格分析</h5><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"></div>
+            <div class="qa-section-heading"><h5>收货地址价格分析</h5><div class="d-flex align-items-center flex-wrap gap-2"><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"><button id="qa-export-routes" type="button" class="btn btn-outline-primary btn-sm">导出 Excel</button></div></div>
             <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出仍保留全部承运商明细。</p>
             <div id="qa-routes-scroll" class="table-responsive qa-routes-scroll"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="latest">最新最低价 / 提供方 <span>↕</span></button></th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="volatility_pct">日最低价CV <span>↕</span></button></th><th>询价次数</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
         </section>
@@ -105,5 +106,5 @@
         </details>
     </div>
 </div>
-<script src="{% static 'js/auto_quote_analysis.js' %}?v=20260924-carrier-count-7"></script>
+<script src="{% static 'js/auto_quote_analysis.js' %}?v=20261012-excel-export"></script>
 {% endblock %}

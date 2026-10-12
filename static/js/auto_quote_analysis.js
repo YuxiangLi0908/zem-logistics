@@ -101,6 +101,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (routeReport) renderRoutes(routeReport);
         $('routes-scroll').scrollTop = 0;
     });
+    function exportCellText(cell) {
+        const copy = cell.cloneNode(true);
+        copy.querySelectorAll('details, .qa-sort span').forEach(node => node.remove());
+        copy.querySelectorAll('div, br').forEach(node => node.before(document.createTextNode('\n')));
+        return copy.textContent.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+    }
+    async function exportTable(button, bodyId, title) {
+        const body = $(bodyId), table = body.closest('table');
+        const rows = Array.from(body.rows).filter(row => row.cells.length > 1);
+        if (!rows.length) { alert('当前表格没有可导出的数据。'); return; }
+        const isRoutes = bodyId === 'series';
+        const cells = row => Array.from(row.cells).slice(0, isRoutes ? -1 : undefined).map(exportCellText);
+        const sheets = [[cells(table.tHead.rows[0]), ...rows.map(cells)]];
+        if (isRoutes) {
+            const details = [['收货地址', ...Array.from(rows[0].querySelector('details table').tHead.rows[0].cells).map(exportCellText)]];
+            rows.forEach(row => {
+                const address = exportCellText(row.cells[0]);
+                Array.from(row.querySelector('details table').tBodies[0].rows).forEach(service => {
+                    details.push([address, ...Array.from(service.cells).map(exportCellText)]);
+                });
+            });
+            sheets.push(details);
+        }
+        button.disabled = true;
+        try {
+            const form = new FormData();
+            form.set('step', 'auto_quote_table_export');
+            form.set('title', title);
+            form.set('sheets', JSON.stringify(sheets));
+            form.set('csrfmiddlewaretoken', $('form').querySelector('[name=csrfmiddlewaretoken]').value);
+            const response = await fetch('/post_nsop/', {method:'POST', body:form});
+            if (response.redirected) throw new Error('登录已过期，请刷新后重新登录');
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.message || '导出失败，请重试');
+            }
+            if (!response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) throw new Error('无法读取导出文件，请刷新后重试');
+            const url = URL.createObjectURL(await response.blob());
+            const link = document.createElement('a');
+            link.href = url; link.download = title + '.xlsx';
+            document.body.appendChild(link); link.click(); link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            $('error').hidden = false; $('error').textContent = error.message;
+        } finally { button.disabled = false; }
+    }
+    $('export-distance').addEventListener('click', event => exportTable(event.currentTarget, 'distance-table', '距仓库距离分析'));
+    $('export-routes').addEventListener('click', event => exportTable(event.currentTarget, 'series', '收货地址价格分析'));
     function renderRoutes(data) {
         routeReport = data;
         const query = searchText($('route-search').value);
