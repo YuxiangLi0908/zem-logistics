@@ -1,5 +1,6 @@
 import csv
 import json
+from io import BytesIO
 from datetime import date, timedelta
 from zipfile import BadZipFile
 
@@ -10,6 +11,10 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
+from urllib.parse import quote
 
 from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteWorkerState
 from warehouse.models.system_parameter import SystemParameter
@@ -131,6 +136,39 @@ def auto_quote_post(request):
         raise PermissionDenied
     try:
         step = request.POST.get("step")
+        if step == "auto_quote_table_export":
+            title = request.POST.get("title")
+            if title not in ("距仓库距离分析", "收货地址价格分析"):
+                raise ValueError("请选择有效的分析表")
+            sheets = json.loads(request.POST.get("sheets") or "[]")
+            if not isinstance(sheets, list) or not 1 <= len(sheets) <= 2:
+                raise ValueError("导出表格格式错误")
+            workbook = Workbook()
+            workbook.remove(workbook.active)
+            for index, rows in enumerate(sheets):
+                if not isinstance(rows, list) or not rows:
+                    raise ValueError("导出表格内容不能为空")
+                sheet = workbook.create_sheet(title if index == 0 else "承运商明细")
+                for row in rows:
+                    if not isinstance(row, list) or len(row) > 30 or any(not isinstance(cell, str) for cell in row):
+                        raise ValueError("导出表格格式错误")
+                    sheet.append(row)
+                    for cell in sheet[sheet.max_row]:
+                        # All exported cells are display text, including addresses and postal codes.
+                        cell.data_type = "s"
+                        cell.alignment = Alignment(vertical="top", wrap_text=True)
+                for cell in sheet[1]:
+                    cell.font = Font(bold=True)
+                sheet.freeze_panes = "A2"
+                sheet.auto_filter.ref = sheet.dimensions
+                for column in sheet.columns:
+                    width = max(len(line) for cell in column for line in str(cell.value or "").split("\n"))
+                    sheet.column_dimensions[get_column_letter(column[0].column)].width = min(60, max(16, width + 2))
+            output = BytesIO()
+            workbook.save(output)
+            response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            response["Content-Disposition"] = "attachment; filename*=UTF-8''" + quote(title + ".xlsx")
+            return response
         if step == "auto_quote_wake":
             if visible_batches(request.user).filter(items__status__in=("pending", "running")).exists():
                 schedule_worker()
