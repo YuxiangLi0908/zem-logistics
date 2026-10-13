@@ -108,24 +108,52 @@ document.addEventListener('DOMContentLoaded', () => {
         return copy.textContent.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
     }
     async function exportTable(button, bodyId, title) {
+        if (button.disabled) return;
         const body = $(bodyId), table = body.closest('table');
         const rows = Array.from(body.rows).filter(row => row.cells.length > 1);
         if (!rows.length) { alert('当前表格没有可导出的数据。'); return; }
-        const isRoutes = bodyId === 'series';
-        const cells = row => Array.from(row.cells).slice(0, isRoutes ? -1 : undefined).map(exportCellText);
-        const sheets = [[cells(table.tHead.rows[0]), ...rows.map(cells)]];
-        if (isRoutes) {
-            const details = [['收货地址', ...Array.from(rows[0].querySelector('details table').tHead.rows[0].cells).map(exportCellText)]];
-            rows.forEach(row => {
-                const address = exportCellText(row.cells[0]);
-                Array.from(row.querySelector('details table').tBodies[0].rows).forEach(service => {
-                    details.push([address, ...Array.from(service.cells).map(exportCellText)]);
-                });
-            });
-            sheets.push(details);
+        const originalLabel = button.innerHTML;
+        let status = document.getElementById(button.id + '-status');
+        if (!status) {
+            status = document.createElement('span');
+            status.id = button.id + '-status';
+            status.className = 'qa-note';
+            status.setAttribute('role', 'status');
+            status.setAttribute('aria-live', 'polite');
+            button.after(status);
         }
         button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>正在导出…';
+        const started = Date.now();
+        let phase = '正在整理表格数据';
+        const updateStatus = () => { status.textContent = `${phase}，已等待 ${Math.floor((Date.now() - started) / 1000)} 秒；数据较多时请稍候。`; };
+        updateStatus();
+        const timer = setInterval(updateStatus, 1000);
+        const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
         try {
+            await yieldToBrowser();
+            const isRoutes = bodyId === 'series';
+            const cells = row => Array.from(row.cells).slice(0, isRoutes ? -1 : undefined).map(exportCellText);
+            const sheets = [[cells(table.tHead.rows[0])]];
+            for (let index = 0; index < rows.length; index++) {
+                sheets[0].push(cells(rows[index]));
+                if (index % 20 === 19) await yieldToBrowser();
+            }
+            if (isRoutes) {
+                const details = [['收货地址', ...Array.from(rows[0].querySelector('details table').tHead.rows[0].cells).map(exportCellText)]];
+                for (let index = 0; index < rows.length; index++) {
+                    const row = rows[index];
+                    const address = exportCellText(row.cells[0]);
+                    Array.from(row.querySelector('details table').tBodies[0].rows).forEach(service => {
+                        details.push([address, ...Array.from(service.cells).map(exportCellText)]);
+                    });
+                    if (index % 20 === 19) await yieldToBrowser();
+                }
+                sheets.push(details);
+            }
+            phase = '正在生成 Excel 文件'; updateStatus();
+            await yieldToBrowser();
             const form = new FormData();
             form.set('step', 'auto_quote_table_export');
             form.set('title', title);
@@ -138,14 +166,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(error.message || '导出失败，请重试');
             }
             if (!response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) throw new Error('无法读取导出文件，请刷新后重试');
+            phase = '正在下载 Excel 文件'; updateStatus();
             const url = URL.createObjectURL(await response.blob());
             const link = document.createElement('a');
             link.href = url; link.download = title + '.xlsx';
             document.body.appendChild(link); link.click(); link.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
+            status.textContent = 'Excel 已生成，已开始下载。';
         } catch (error) {
+            status.textContent = '导出失败：' + error.message;
             $('error').hidden = false; $('error').textContent = error.message;
-        } finally { button.disabled = false; }
+        } finally {
+            clearInterval(timer);
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.innerHTML = originalLabel;
+        }
     }
     $('export-distance').addEventListener('click', event => exportTable(event.currentTarget, 'distance-table', '距仓库距离分析'));
     $('export-routes').addEventListener('click', event => exportTable(event.currentTarget, 'series', '收货地址价格分析'));

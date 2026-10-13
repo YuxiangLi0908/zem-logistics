@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl import Workbook
+from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from urllib.parse import quote
@@ -143,27 +144,35 @@ def auto_quote_post(request):
             sheets = json.loads(request.POST.get("sheets") or "[]")
             if not isinstance(sheets, list) or not 1 <= len(sheets) <= 2:
                 raise ValueError("导出表格格式错误")
-            workbook = Workbook()
-            workbook.remove(workbook.active)
+            workbook = Workbook(write_only=True)
+            alignment = Alignment(vertical="top", wrap_text=True)
+            heading_font = Font(bold=True)
             for index, rows in enumerate(sheets):
                 if not isinstance(rows, list) or not rows:
                     raise ValueError("导出表格内容不能为空")
                 sheet = workbook.create_sheet(title if index == 0 else "承运商明细")
+                widths = {}
                 for row in rows:
                     if not isinstance(row, list) or len(row) > 30 or any(not isinstance(cell, str) for cell in row):
                         raise ValueError("导出表格格式错误")
-                    sheet.append(row)
-                    for cell in sheet[sheet.max_row]:
+                    for column, value in enumerate(row, 1):
+                        widths[column] = max(widths.get(column, 0), max(map(len, value.split("\n"))))
+                sheet.freeze_panes = "A2"
+                if widths:
+                    sheet.auto_filter.ref = f"A1:{get_column_letter(max(widths))}{len(rows)}"
+                for column, width in widths.items():
+                    sheet.column_dimensions[get_column_letter(column)].width = min(60, max(16, width + 2))
+                for row_number, row in enumerate(rows, 1):
+                    cells = []
+                    for value in row:
+                        cell = WriteOnlyCell(sheet, value=value)
                         # All exported cells are display text, including addresses and postal codes.
                         cell.data_type = "s"
-                        cell.alignment = Alignment(vertical="top", wrap_text=True)
-                for cell in sheet[1]:
-                    cell.font = Font(bold=True)
-                sheet.freeze_panes = "A2"
-                sheet.auto_filter.ref = sheet.dimensions
-                for column in sheet.columns:
-                    width = max(len(line) for cell in column for line in str(cell.value or "").split("\n"))
-                    sheet.column_dimensions[get_column_letter(column[0].column)].width = min(60, max(16, width + 2))
+                        cell.alignment = alignment
+                        if row_number == 1:
+                            cell.font = heading_font
+                        cells.append(cell)
+                    sheet.append(cells)
             output = BytesIO()
             workbook.save(output)
             response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
