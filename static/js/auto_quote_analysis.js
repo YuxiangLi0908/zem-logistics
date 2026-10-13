@@ -107,10 +107,26 @@ document.addEventListener('DOMContentLoaded', () => {
         copy.querySelectorAll('div, br').forEach(node => node.before(document.createTextNode('\n')));
         return copy.textContent.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
     }
+    function exportServiceIndexes(services) {
+        const selected = new Set();
+        const price = service => service.latest == null ? Infinity : Number(service.latest);
+        const cheapest = predicate => {
+            let best = -1;
+            services.forEach((service, index) => {
+                if (predicate(service) && (best < 0 || price(service) < price(services[best]))) best = index;
+            });
+            if (best >= 0) selected.add(best);
+        };
+        cheapest(service => Number.isFinite(price(service)));
+        cheapest(service => /\bt\s*force\b/i.test(searchText(service.carrier)));
+        cheapest(service => /\bestes\b/i.test(searchText(service.carrier)));
+        return selected;
+    }
     async function exportTable(button, bodyId, title) {
         if (button.disabled) return;
         const body = $(bodyId), table = body.closest('table');
         const rows = Array.from(body.rows).filter(row => row.cells.length > 1);
+        const routesById = new Map((routeReport?.route_rows || []).map(route => [String(route.route), route]));
         if (!rows.length) { alert('当前表格没有可导出的数据。'); return; }
         const originalLabel = button.innerHTML;
         let status = document.getElementById(button.id + '-status');
@@ -145,8 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let index = 0; index < rows.length; index++) {
                     const row = rows[index];
                     const address = exportCellText(row.cells[0]);
-                    Array.from(row.querySelector('details table').tBodies[0].rows).forEach(service => {
-                        details.push([address, ...Array.from(service.cells).map(exportCellText)]);
+                    const route = routesById.get(row.querySelector('[data-route]').dataset.route);
+                    const selected = exportServiceIndexes(route?.services || []);
+                    Array.from(row.querySelector('details table').tBodies[0].rows).forEach((service, serviceIndex) => {
+                        if (selected.has(serviceIndex)) details.push([address, ...Array.from(service.cells).map(exportCellText)]);
                     });
                     if (index % 20 === 19) await yieldToBrowser();
                 }
