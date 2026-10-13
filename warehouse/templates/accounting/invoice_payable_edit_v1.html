@@ -822,6 +822,8 @@
                                                    name="chassis_fee"
                                                     {% if fee.amount %}
                                                    value="{{ fee.amount }}"
+                                                    {% elif fee.rate %}
+                                                   value="{{ fee.rate }}"
                                                     {% elif FS and fee.description in FS %}
                                                    value="{{ FS|get_item:fee.description }}"
                                                     {% else %}
@@ -833,6 +835,8 @@
                                         {% else %}
                                             {% if fee.amount %}
                                                 <span class="amount-display">{{ fee.amount }}</span>
+                                            {% elif fee.rate %}
+                                                <span class="amount-display">{{ fee.rate }}</span>
                                             {% else %}
                                                 <span class="amount-display amount-zero">0.00</span>
                                             {% endif %}
