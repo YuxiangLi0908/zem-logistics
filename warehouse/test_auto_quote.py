@@ -15,7 +15,7 @@ from django.template import Context, Engine
 from pathlib import Path
 from django.test import SimpleTestCase, TransactionTestCase, RequestFactory
 from django.utils import timezone
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteItem
 from warehouse.utils.auto_quote import (
@@ -49,6 +49,49 @@ def workbook(rows, headers=None):
 def successful_result():
     return {"results": {"maersk": {"status": "success", "data": {"quotes": [{"TotalQuote": 100}]}},
                         "kakas": {"status": "success", "data": {"finish": True, "rates": [{"totalPrice": 120}]}}}}
+
+
+class AnalysisExcelExportTests(SimpleTestCase):
+    def export(self, **fields):
+        request = RequestFactory().post("/post_nsop/", {
+            "step": "auto_quote_table_export", "title": "收货地址价格分析", **fields,
+        })
+        request.user = User()
+        return auto_quote_post(request)
+
+    def test_file_upload_bypasses_form_field_limit_and_cleans_control_characters(self):
+        sheets = [[["地址", "价格"], ["07001\x00", "12.00\n2026-10-13"], ["=1+1", ""]],
+                  [["地址", "服务"], ["07001", "TForce"]]]
+        upload = SimpleUploadedFile("analysis.json", json.dumps(sheets).encode("utf-8"), content_type="application/json")
+        with self.settings(DATA_UPLOAD_MAX_MEMORY_SIZE=256):
+            response = self.export(sheets_file=upload)
+        self.assertEqual(response.status_code, 200)
+        book = load_workbook(io.BytesIO(response.content))
+        self.assertEqual(book.sheetnames, ["收货地址价格分析", "承运商明细"])
+        self.assertEqual(book.worksheets[0]["A2"].value, "07001")
+        self.assertEqual(book.worksheets[0]["B2"].value, "12.00\n2026-10-13")
+        self.assertEqual(book.worksheets[0]["A3"].data_type, "s")
+
+    def test_existing_form_payload_still_exports(self):
+        self.assertEqual(self.export(sheets=json.dumps([[["地址"], ["07001"]]])).status_code, 200)
+
+    def test_invalid_json_returns_specific_error(self):
+        response = self.export(sheets_file=SimpleUploadedFile("analysis.json", b"not json"))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("JSON", json.loads(response.content)["message"])
+
+    def test_write_failure_returns_error_reference_and_logs_traceback(self):
+        save = Workbook.save
+        def failed_save(book, output):
+            save(book, output)
+            raise OSError(28, "No space left on device")
+        with patch("warehouse.views.post_port.auto_quote.Workbook.save", autospec=True, side_effect=failed_save), self.assertLogs("warehouse.views.post_port.auto_quote", level="ERROR") as logs:
+            response = self.export(sheets=json.dumps([[["地址"], ["07001"]]]))
+        self.assertEqual(response.status_code, 500)
+        message = json.loads(response.content)["message"]
+        self.assertIn("No space left on device", message)
+        self.assertIn("错误编号", message)
+        self.assertIn("error_id=", logs.output[0])
 
 
 class AddressParsingTests(SimpleTestCase):

@@ -122,6 +122,34 @@ document.addEventListener('DOMContentLoaded', () => {
         cheapest(service => /\bestes\b/i.test(searchText(service.carrier)));
         return selected;
     }
+    async function exportResponseError(response) {
+        const raw = await response.text();
+        let message = '';
+        try {
+            const data = JSON.parse(raw);
+            message = data.message || data.error || data.detail || '';
+            if (typeof message !== 'string') message = JSON.stringify(message);
+        } catch (_) {
+            // HTML error pages may contain tracebacks; show only their title.
+            if (/^\s*</.test(raw)) {
+                const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                message = title ? title[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+            } else {
+                message = raw.replace(/\s+/g, ' ').trim();
+            }
+        }
+        const hints = {
+            400: '请求被拒绝，可能是导出数据格式错误或超过服务器请求大小限制',
+            403: '没有导出权限或登录验证已失效，请刷新页面后重试',
+            404: '导出接口不存在，请确认服务器已部署导出功能',
+            413: '导出数据超过服务器上传大小限制，请缩小筛选范围或调整服务器限制',
+            500: '服务器生成 Excel 时发生异常，请查看服务器错误日志',
+            502: '服务器网关异常，导出服务可能未正常响应',
+            503: '导出服务暂时不可用',
+            504: '服务器生成文件超时，请缩小筛选范围后重试'
+        };
+        return `HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}：${message.slice(0, 400) || hints[response.status] || '服务器返回异常响应'}${message && hints[response.status] ? '；' + hints[response.status] : ''}`;
+    }
     async function exportTable(button, bodyId, title) {
         if (button.disabled) return;
         const body = $(bodyId), table = body.closest('table');
@@ -139,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.after(status);
         }
         button.disabled = true;
+        $('error').hidden = true;
         button.setAttribute('aria-busy', 'true');
         button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>正在导出…';
         const started = Date.now();
@@ -175,15 +204,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const form = new FormData();
             form.set('step', 'auto_quote_table_export');
             form.set('title', title);
-            form.set('sheets', JSON.stringify(sheets));
+            // File parts do not count toward Django's normal form-field size limit.
+            form.set('sheets_file', new Blob([JSON.stringify(sheets)], {type:'application/json'}), 'analysis.json');
             form.set('csrfmiddlewaretoken', $('form').querySelector('[name=csrfmiddlewaretoken]').value);
             const response = await fetch('/post_nsop/', {method:'POST', body:form});
             if (response.redirected) throw new Error('登录已过期，请刷新后重新登录');
             if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.message || '导出失败，请重试');
+                throw new Error(await exportResponseError(response));
             }
-            if (!response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) throw new Error('无法读取导出文件，请刷新后重试');
+            if (!response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) throw new Error('接口未返回 Excel 文件。' + await exportResponseError(response));
             phase = '正在下载 Excel 文件'; updateStatus();
             const url = URL.createObjectURL(await response.blob());
             const link = document.createElement('a');
@@ -192,8 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => URL.revokeObjectURL(url), 1000);
             status.textContent = 'Excel 已生成，已开始下载。';
         } catch (error) {
-            status.textContent = '导出失败：' + error.message;
-            $('error').hidden = false; $('error').textContent = error.message;
+            const message = error instanceof TypeError ? '网络请求失败或连接中断：' + error.message : error.message;
+            status.textContent = '导出失败：' + message;
+            $('error').hidden = false; $('error').textContent = message;
         } finally {
             clearInterval(timer);
             button.disabled = false;
