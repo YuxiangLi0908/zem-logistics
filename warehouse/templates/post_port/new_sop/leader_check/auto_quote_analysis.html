@@ -87,7 +87,7 @@
         </section>
         <section class="qa-card">
             <div class="qa-section-heading"><h5>收货地址价格分析</h5><div class="d-flex align-items-center flex-wrap gap-2"><input id="qa-route-search" class="qa-table-search" type="search" placeholder="筛选城市或邮编" aria-label="筛选收货地址"><button id="qa-export-routes" type="button" class="btn btn-outline-primary btn-sm">导出 Excel</button></div></div>
-            <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出的“承运商明细”列仅显示最新最低价、TForce 和 Estes 的价格（各取最新价最低的一条）；导出的最新最低价列不显示日期。</p>
+            <p class="qa-note">每个收货地址一行，按各采样日的最低有效报价计算涨跌、均价和CV，最低价提供方可能变化。最新采样日无报价时留空；CV至少需要3个有效报价日。展开承运商明细可查看全部服务的独立对比；导出的“承运商明细”列仅显示最新最低价、TForce 和 Estes 的价格（各取最新价最低的一条）；导出不包含“最新最低价 / 提供方”列。</p>
             <div id="qa-routes-scroll" class="table-responsive qa-routes-scroll"><table class="table table-sm table-bordered qa-table"><thead><tr><th>收货地址</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="latest">最新最低价 / 提供方 <span>↕</span></button></th><th>上次最低价</th><th>较上次涨跌</th><th>区间最低 / 最高</th><th>日最低价均值</th><th aria-sort="none"><button type="button" class="qa-sort" data-sort="volatility_pct">日最低价CV <span>↕</span></button></th><th>询价次数</th><th>承运商明细</th></tr></thead><tbody id="qa-series"></tbody></table></div>
         </section>
         <section id="qa-min-section" class="qa-card" hidden><h5>所选线路每日最低价与承运商变化</h5><p class="qa-note">仅从当前筛选范围内返回的报价取最低，不表示市场上绝对最低；提供最低价的承运商可能变化。</p>
@@ -106,5 +106,5 @@
         </details>
     </div>
 </div>
-<script src="{% static 'js/auto_quote_analysis.js' %}?v=20261013-excel-carrier-column-3"></script>
+<script src="{% static 'js/auto_quote_analysis.js' %}?v=20261013-excel-carrier-column-4"></script>
 {% endblock %}

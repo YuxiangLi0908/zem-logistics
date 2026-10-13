@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await yieldToBrowser();
             const isRoutes = bodyId === 'series';
-            const cells = row => Array.from(row.cells).map(exportCellText);
+            const cells = row => Array.from(row.cells).filter((_, index) => !isRoutes || index !== 1).map(exportCellText);
             const sheets = [[cells(table.tHead.rows[0])]];
             for (let index = 0; index < rows.length; index++) {
                 const row = rows[index];
@@ -187,9 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isRoutes) {
                     const route = routesById.get(row.querySelector('[data-route]').dataset.route);
                     if (!route) throw new Error('无法找到当前收货地址的分析数据，请重新分析后导出');
-                    const latestCell = row.cells[1].cloneNode(true);
-                    latestCell.querySelector('.qa-note')?.remove();
-                    values[1] = exportCellText(latestCell);
                     values[values.length - 1] = exportCarrierPrices(route.services || []);
                 }
                 sheets[0].push(values);
