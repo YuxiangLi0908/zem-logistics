@@ -1,5 +1,7 @@
 import csv
 import json
+import logging
+from uuid import uuid4
 from io import BytesIO
 from datetime import date, timedelta
 from zipfile import BadZipFile
@@ -13,6 +15,7 @@ from django.utils import timezone
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from urllib.parse import quote
@@ -26,6 +29,8 @@ from warehouse.utils.multi_carrier_quote import gateway_config
 from warehouse.utils.quote_analysis import analysis_options, build_analysis
 from warehouse.utils.quote_destination_history import destination_history
 from warehouse.utils.auto_quote_lifecycle import schedule_worker
+
+logger = logging.getLogger(__name__)
 
 def visible_batches(user):
     queryset = AutoQuoteBatch.objects.select_related("operator")
@@ -135,13 +140,18 @@ def auto_quote_get(request):
 def auto_quote_post(request):
     if not request.user.is_authenticated:
         raise PermissionDenied
+    step = None
     try:
         step = request.POST.get("step")
         if step == "auto_quote_table_export":
             title = request.POST.get("title")
             if title not in ("距仓库距离分析", "收货地址价格分析"):
                 raise ValueError("请选择有效的分析表")
-            sheets = json.loads(request.POST.get("sheets") or "[]")
+            upload = request.FILES.get("sheets_file")
+            try:
+                sheets = json.loads(upload.read().decode("utf-8") if upload else request.POST.get("sheets") or "[]")
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError("导出数据不是有效的 UTF-8 JSON，请刷新页面后重新导出") from exc
             if not isinstance(sheets, list) or not 1 <= len(sheets) <= 2:
                 raise ValueError("导出表格格式错误")
             workbook = Workbook(write_only=True)
@@ -165,7 +175,7 @@ def auto_quote_post(request):
                 for row_number, row in enumerate(rows, 1):
                     cells = []
                     for value in row:
-                        cell = WriteOnlyCell(sheet, value=value)
+                        cell = WriteOnlyCell(sheet, value=ILLEGAL_CHARACTERS_RE.sub("", value))
                         # All exported cells are display text, including addresses and postal codes.
                         cell.data_type = "s"
                         cell.alignment = alignment
@@ -227,3 +237,14 @@ def auto_quote_post(request):
         return JsonResponse({"success": False, "message": str(exc)}, status=400)
     except IntegrityError:
         return JsonResponse({"success": False, "message": "重复提交，请刷新任务列表查看"}, status=409)
+    except Exception as exc:
+        if step != "auto_quote_table_export":
+            raise
+        error_id = uuid4().hex[:12]
+        logger.exception("Analysis Excel export failed, error_id=%s", error_id)
+        reason = "服务器生成 Excel 时发生异常"
+        if isinstance(exc, OSError):
+            reason = f"服务器文件读写失败：{exc.strerror or '请检查临时目录权限及磁盘空间'}"
+        elif isinstance(exc, MemoryError):
+            reason = "服务器内存不足，请缩小筛选范围后重试"
+        return JsonResponse({"success": False, "message": f"{reason}（{type(exc).__name__}，错误编号：{error_id}）"}, status=500)
