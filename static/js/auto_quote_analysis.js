@@ -107,20 +107,20 @@ document.addEventListener('DOMContentLoaded', () => {
         copy.querySelectorAll('div, br').forEach(node => node.before(document.createTextNode('\n')));
         return copy.textContent.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
     }
-    function exportServiceIndexes(services) {
-        const selected = new Set();
+    function exportCarrierPrices(services) {
         const price = service => service.latest == null ? Infinity : Number(service.latest);
         const cheapest = predicate => {
             let best = -1;
             services.forEach((service, index) => {
-                if (predicate(service) && (best < 0 || price(service) < price(services[best]))) best = index;
+                if (Number.isFinite(price(service)) && predicate(service) && (best < 0 || price(service) < price(services[best]))) best = index;
             });
-            if (best >= 0) selected.add(best);
+            return best < 0 ? null : services[best].latest;
         };
-        cheapest(service => Number.isFinite(price(service)));
-        cheapest(service => /\bt\s*force\b/i.test(searchText(service.carrier)));
-        cheapest(service => /\bestes\b/i.test(searchText(service.carrier)));
-        return selected;
+        return [
+            `最低价：${num(cheapest(() => true))}`,
+            `TForce：${num(cheapest(service => /\bt\s*force\b/i.test(searchText(service.carrier))))}`,
+            `Estes：${num(cheapest(service => /\bestes\b/i.test(searchText(service.carrier))))}`
+        ].join('\n');
     }
     async function exportResponseError(response) {
         const raw = await response.text();
@@ -179,25 +179,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await yieldToBrowser();
             const isRoutes = bodyId === 'series';
-            const cells = row => Array.from(row.cells).slice(0, isRoutes ? -1 : undefined).map(exportCellText);
+            const cells = row => Array.from(row.cells).filter((_, index) => !isRoutes || index !== 1).map(exportCellText);
             const sheets = [[cells(table.tHead.rows[0])]];
             for (let index = 0; index < rows.length; index++) {
-                sheets[0].push(cells(rows[index]));
-                if (index % 20 === 19) await yieldToBrowser();
-            }
-            if (isRoutes) {
-                const details = [['收货地址', ...Array.from(rows[0].querySelector('details table').tHead.rows[0].cells).map(exportCellText)]];
-                for (let index = 0; index < rows.length; index++) {
-                    const row = rows[index];
-                    const address = exportCellText(row.cells[0]);
+                const row = rows[index];
+                const values = cells(row);
+                if (isRoutes) {
                     const route = routesById.get(row.querySelector('[data-route]').dataset.route);
-                    const selected = exportServiceIndexes(route?.services || []);
-                    Array.from(row.querySelector('details table').tBodies[0].rows).forEach((service, serviceIndex) => {
-                        if (selected.has(serviceIndex)) details.push([address, ...Array.from(service.cells).map(exportCellText)]);
-                    });
-                    if (index % 20 === 19) await yieldToBrowser();
+                    if (!route) throw new Error('无法找到当前收货地址的分析数据，请重新分析后导出');
+                    values[values.length - 1] = exportCarrierPrices(route.services || []);
                 }
-                sheets.push(details);
+                sheets[0].push(values);
+                if (index % 20 === 19) await yieldToBrowser();
             }
             phase = '正在生成 Excel 文件'; updateStatus();
             await yieldToBrowser();
