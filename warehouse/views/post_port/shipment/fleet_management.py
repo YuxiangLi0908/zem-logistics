@@ -1,3 +1,4 @@
+from warehouse.utils.bol_pdf import number_bol_response
 import ast
 import base64
 import copy
@@ -5153,7 +5154,7 @@ class FleetManagement(View):
                 "Error during PDF generation: %s" % pisa_status.err,
                 content_type="text/plain",
             )
-        return response
+        return number_bol_response(response)
 
     async def handle_update_fleet_note(self, request: HttpRequest) -> HttpResponse:
         """ltl保存备注 """
@@ -5290,7 +5291,7 @@ class FleetManagement(View):
                 "Error during PDF generation: %s" % pisa_status.err,
                 content_type="text/plain",
             )
-        return response
+        return number_bol_response(response)
 
 
     async def pickupList_get(
@@ -6284,7 +6285,7 @@ class FleetManagement(View):
                 "Error during PDF generation: %s" % pisa_status.err,
                 content_type="text/plain",
             )
-        return response
+        return number_bol_response(response)
 
     def safe_value(value, default=""):
         return value.strip() if value is not None else default
@@ -6574,7 +6575,7 @@ class FleetManagement(View):
         response["Content-Disposition"] = (
             f'attachment; filename="{new_string}-{file_name}.pdf"'
         )
-        return response
+        return number_bol_response(response)
 
     async def handle_abnormal_fleet_post(
         self, request: HttpRequest, name: str | None = None

@@ -1,3 +1,4 @@
+from warehouse.utils.bol_pdf import number_bol_response
 import io
 import json
 import os
@@ -104,7 +105,7 @@ def export_bol(context: dict[str, Any]) -> HttpResponse:
             "Error during PDF generation: %s" % pisa_status.err,
             content_type="text/plain",
         )
-    return response
+    return number_bol_response(response)
 
 
 async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
