@@ -195,6 +195,7 @@ class AnalysisDataTests(TransactionTestCase):
         self.item(1, [self.rate("A", 150), self.rate("B", 80)])
         row = self.analyze(group_by="address")["route_rows"][0]
         self.assertEqual(row["latest"], 80)
+        self.assertEqual(row["winner_carrier"], "B")
         self.assertEqual(row["latest_change"], -20)
         self.assertEqual(row["mean"], 90)
         self.assertEqual(len(row["services"]), 2)
@@ -202,6 +203,15 @@ class AnalysisDataTests(TransactionTestCase):
         row = self.analyze(group_by="address")["route_rows"][0]
         self.assertIsNone(row["latest"])
         self.assertEqual(row["winners"], [])
+        self.assertEqual(row["winner_carrier"], "")
+
+    def test_address_distance_uses_latest_snapshot(self):
+        self.item(0, [self.rate("A", 100)], address={**self.address, "distance_miles": 10})
+        self.item(1, [self.rate("A", 80)], address={**self.address, "distance_miles": "25.5"})
+        row = self.analyze(group_by="address")["route_rows"][0]
+        self.assertEqual(row["distance_miles"], 25.5)
+        self.item(2, [self.rate("A", 90)], address={**self.address, "distance_miles": None})
+        self.assertIsNone(self.analyze(group_by="address")["route_rows"][0]["distance_miles"])
 
     def test_rankings_and_fixed_panel_index(self):
         for day, price in enumerate([100, 200, 100]):

@@ -1,0 +1,15 @@
+<style>
+    @page {
+        margin-bottom: 32pt;
+        @frame bol_page_footer {
+            -pdf-frame-content: bol-page-footer;
+            bottom: 10pt;
+            right: 28pt;
+            width: 100pt;
+            height: 16pt;
+        }
+    }
+</style>
+<div id="bol-page-footer" style="text-align: right; font-family: STSong-Light; font-size: 9pt;">
+    <pdf:pagenumber />/<pdf:pagecount />页
+</div>

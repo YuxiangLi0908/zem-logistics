@@ -242,6 +242,7 @@ def build_analysis(batches, params, *, export=False):
             winner_keys = {entry["key"] for entry in winners}
             daily_minima.append({"route": route, "address": addresses[route]["label"], "date": day, "price": minimum,
                                  "winners": [f'{entry["platform"]}/{entry["carrier"]}/{entry["service"]}' for entry in winners],
+                                 "winner_carrier": winners[0]["carrier"] if winners else "",
                                  "winner_changed": bool(winner_keys and previous_winners is not None and winner_keys != previous_winners),
                                  "offers": len(available)})
             previous_winners = winner_keys if winner_keys else None
@@ -289,6 +290,7 @@ def build_analysis(batches, params, *, export=False):
     distance_groups = []
     distance_labels = ("0–50 miles", "50–100 miles", "100–200 miles", "200–500 miles", "500 miles及以上", "未填写距离")
     grouped_routes = defaultdict(list)
+    route_distances = {}
     for entry in aggregate_chart:
         latest_row = max((row for day, row in route_days[entry["route"]]), key=lambda row: (row["day"], row["started_at"], row["id"]))
         try:
@@ -296,6 +298,7 @@ def build_analysis(batches, params, *, export=False):
         except (ValueError, TypeError):
             miles = -1
         bucket = next((i for i, upper in enumerate((50, 100, 200, 500)) if miles < upper), 4) if math.isfinite(miles) and miles >= 0 else 5
+        route_distances[entry["route"]] = miles if math.isfinite(miles) and miles >= 0 else None
         grouped_routes[bucket].append(entry)
     for bucket, label in enumerate(distance_labels):
         members = grouped_routes[bucket]
@@ -346,7 +349,9 @@ def build_analysis(batches, params, *, export=False):
         for route, minima in minima_by_route.items():
             services = sorted(grouped[route], key=lambda r: (r["latest"] is None, r["latest"] or 0, r["key"]))
             routes.append({"route": route, "address": addresses[route]["label"],
-                           **series_statistics(minima), "winners": minima[-1]["winners"], "services": services})
+                           "distance_miles": route_distances.get(route),
+                           **series_statistics(minima), "winners": minima[-1]["winners"],
+                           "winner_carrier": minima[-1]["winner_carrier"], "services": services})
         routes.sort(key=lambda r: (r["address"], r["route"]))
         pages = max(1, math.ceil(len(routes) / 20))
         page = min(requested_page, pages)

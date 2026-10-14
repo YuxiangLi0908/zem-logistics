@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await yieldToBrowser();
             const isRoutes = bodyId === 'series';
-            const cells = row => Array.from(row.cells).filter((_, index) => !isRoutes || index !== 1).map(exportCellText);
+            const cells = row => Array.from(row.cells).map(exportCellText);
             const sheets = [[cells(table.tHead.rows[0])]];
             for (let index = 0; index < rows.length; index++) {
                 const row = rows[index];
@@ -239,12 +239,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const servicesTable = services => `<details><summary class="text-primary">查看 ${services.length} 个承运商服务</summary><div class="table-responsive mt-2"><table class="table table-sm qa-table"><thead><tr><th>平台 / 承运商 / 服务</th><th>最新价</th><th>上次有效价</th><th>涨跌金额 / %</th><th>期间涨跌%</th><th>最低 / 最高</th><th>均价</th><th>CV%</th><th>振幅%</th><th>最大相邻涨跌%</th><th>有效日 / 采样日</th><th>覆盖率</th></tr></thead><tbody>${services.map(r => `<tr><td>${esc(product(r))}</td><td>${num(r.latest)}<div class="qa-note">${esc(r.latest_date || '')}</div></td><td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td><td>${movement(r.latest_change)} / ${movement(r.latest_change_pct)}%</td><td>${movement(r.period_change_pct)}</td><td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td><td>${percent(r.range_pct)}</td><td>${percent(r.max_adjacent_move_pct)}</td><td>${r.samples} / ${r.expected}</td><td>${percent(r.coverage_pct)}</td></tr>`).join('')}</tbody></table></div></details>`;
         $('series').innerHTML = sorted.map(r => `<tr>
             <td style="min-width:200px;white-space:normal"><button type="button" class="btn btn-link btn-sm" data-route="${esc(r.route)}">${esc(r.address)}</button></td>
-            <td><strong>${num(r.latest)}</strong><div class="qa-note">${esc(r.latest_date || '')}</div><div class="qa-note" style="max-width:260px;white-space:normal">${esc(r.winners.join('；') || '本次无有效报价')}</div></td>
+            <td>${num(r.distance_miles)}</td>
+            <td><strong>${num(r.latest)}</strong><div class="qa-note" style="max-width:260px;white-space:normal">${esc(r.winner_carrier || '本次无有效报价')}</div></td>
             <td>${num(r.previous)}<div class="qa-note">${esc(r.previous_date || '')}</div></td>
             <td>${movement(r.latest_change)}<div>${movement(r.latest_change_pct)}%</div></td>
             <td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td>
             <td>${r.expected}</td>
-            <td>${servicesTable(r.services)}</td></tr>`).join('') || '<tr><td colspan="9">当前筛选范围没有线路记录。</td></tr>';
+            <td>${servicesTable(r.services)}</td></tr>`).join('') || '<tr><td colspan="10">当前筛选范围没有线路记录。</td></tr>';
     }
     function renderDistance(data) {
         const groups = data.distance_groups || [];
