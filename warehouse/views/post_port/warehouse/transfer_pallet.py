@@ -1,3 +1,4 @@
+from warehouse.utils.bol_pdf import number_bol_response
 import ast
 import json
 import random
@@ -474,7 +475,7 @@ class TransferPallet(View):
                 "Error during PDF generation: %s" % pisa_status.err,
                 content_type="text/plain",
             )
-        return response
+        return number_bol_response(response)
 
     async def handle_transfer_confirm_arrived_post(
         self, request: HttpRequest

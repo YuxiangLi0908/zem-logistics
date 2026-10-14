@@ -1,3 +1,4 @@
+from warehouse.utils.bol_pdf import number_bol_response
 import string
 from time import perf_counter
 from datetime import datetime, timedelta, time
@@ -5217,7 +5218,7 @@ class PostNsop(View):
         response = HttpResponse(merged_bytes, content_type="application/pdf")
         response["Content-Disposition"] = content_disposition
         response["X-Content-Type-Options"] = "nosniff"
-        return response
+        return number_bol_response(response)
 
     async def handle_export_maersk_label(self, request: HttpRequest) -> HttpResponse:
         '''Maersk Label获取'''
@@ -5529,7 +5530,7 @@ class PostNsop(View):
 
                                 response_obj = HttpResponse(out_all.getvalue(), content_type='application/pdf')
                                 response_obj['Content-Disposition'] = f'attachment; filename="Maersk_BOL_{arm_pro}.pdf"'
-                                return response_obj
+                                return number_bol_response(response_obj)
 
                             else:
                                 return HttpResponse(
@@ -6429,7 +6430,7 @@ class PostNsop(View):
         if pisa_status.err:
             raise ValueError("Error during PDF generation: %s" % pisa_status.err)
         
-        return response
+        return number_bol_response(response)
     
     def _wrap_text(self, text: str, max_length: int = 25) -> str:
         if not text:
@@ -6834,7 +6835,7 @@ class PostNsop(View):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         response["X-Content-Type-Options"] = "nosniff"
         
-        return response
+        return number_bol_response(response)
 
     async def handle_batch_save_carrier(self, request: HttpRequest) -> HttpResponse:
         'ltl 待出库批次，批量保存供应商'
