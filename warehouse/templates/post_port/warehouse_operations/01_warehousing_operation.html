@@ -232,7 +232,12 @@
                                 data-container="{{ order.container_number|default:''|upper }}"
                                 data-location="{{ ret.arrival_location|default:''|upper }}">
 
-                                <td>{{ order.container_number|default:"-" }}</td>
+                                <td>
+                                    {{ order.container_number|default:"-" }}
+                                    {% if order.order_type == "一件代发" %}
+                                        <div style="margin-top:4px;font-size:12px;color:#2563eb;font-weight:500;">一件代发</div>
+                                    {% endif %}
+                                </td>
 
                                 <td>
                                     {% with p=order.unpacking_priority|default:"P4" %}
