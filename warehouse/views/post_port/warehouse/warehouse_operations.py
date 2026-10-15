@@ -82,7 +82,7 @@ class WarehouseOperations(View):
             template, context = await self.handle_upcoming_fleet_get(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "upcoming_fleet_ltl":
-            context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+            context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -556,7 +556,7 @@ class WarehouseOperations(View):
 
     async def warehousing_operation_get(self, request: HttpRequest):
         context = {
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -710,7 +710,7 @@ class WarehouseOperations(View):
 
         context = {
             'retrieval': retrieval,
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -778,7 +778,7 @@ class WarehouseOperations(View):
     async def handle_counting_pallet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+        context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -788,7 +788,7 @@ class WarehouseOperations(View):
     async def handle_upcoming_fleet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        context = {"warehouse_options": [("", "")] + await sync_to_async(list)(
+        context = {"warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -1147,6 +1147,7 @@ class WarehouseOperations(View):
         plt_int_list = [int(id) for id in plt_list]
         actual_pallets = request.POST.get('actual_pallets')
         pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_int_list))
+        warehouse = request.POST.get('warehouse')
         operation_name = "调整库存"
         if len(pallets) > int(actual_pallets):
             print('是减少库存')
@@ -1216,7 +1217,7 @@ class WarehouseOperations(View):
             if plt['delivery_type'] == "other":
                 private_inventory.append(plt)
         context = {
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -1625,7 +1626,7 @@ class WarehouseOperations(View):
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
@@ -1960,7 +1961,7 @@ class WarehouseOperations(View):
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         
         context = {
-            "warehouse_options": [("", "")] + await sync_to_async(list)(
+            "warehouse_options": await sync_to_async(list)(
                 ZemWarehouse.objects
                 .order_by("name")
                 .values_list("name", "name")
