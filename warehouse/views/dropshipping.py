@@ -1164,6 +1164,7 @@ class Dropshipping(View):
                     )
             offload.total_pallet = total_pallet
             offload.offload_at = offload_time
+            offload.offload_other_at = offload_time
             await sync_to_async(offload.save)()
 
 
