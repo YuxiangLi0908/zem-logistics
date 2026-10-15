@@ -417,7 +417,7 @@
                                                     新拆柜单
                                                 </button>
                                             </form>
-                                            <form method="post" class="download-form m-0" action="">
+                                            <form method="post" class="download-form m-0" action="" onsubmit="return handleDropshippingPalletLabel(this)">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="step" value="export_pallet_label_dropshipping">
                                                 <input type="hidden" name="status" value="non_palletized">
@@ -427,8 +427,8 @@
                                                        value="{{ order.container_number.container_number|default:'' }}">
                                                 <button type="submit"
                                                         class="bg-primary text-white text-xs px-2 py-1 rounded hover:bg-primary/90"
-                                                        {% if not order.container_number.container_number or not order.customer_name.zem_code %}disabled
-                                                        title="信息不全"{% endif %}>
+                                                        {% if not order.container_number.container_number %}disabled
+                                                        title="缺少柜号"{% endif %}>
                                                     <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>托盘标
                                                 </button>
                                             </form>
@@ -562,12 +562,11 @@
             return false;
         }
 
-        document.querySelectorAll('input[name="step"][value="export_pallet_label_dropshipping"]').forEach(input => {
-            input.form.addEventListener('submit', async event => {
-                event.preventDefault();
-                const form = event.currentTarget;
+        function handleDropshippingPalletLabel(form) {
+            if (form.dataset.exporting === '1') return false;
+            form.dataset.exporting = '1';
+            (async () => {
                 const button = form.querySelector('button[type="submit"]');
-                if (button.disabled) return;
                 const label = button.innerHTML;
                 button.disabled = true;
                 button.textContent = '正在生成…';
@@ -592,8 +591,10 @@
                 } finally {
                     button.disabled = false;
                     button.innerHTML = label;
+                    delete form.dataset.exporting;
                 }
-            });
-        });
+            })();
+            return false;
+        }
     </script>
 {% endblock %}
