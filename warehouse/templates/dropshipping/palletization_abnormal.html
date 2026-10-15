@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>{% if warehouse %}{{ warehouse }}{% endif %}异常拆柜</b></div>
+    <div><b>一件代发{% if warehouse %}{{ warehouse }}{% endif %}异常拆柜</b></div>
 </div>
 
 <form method="post" action="" onsubmit="showLoadingBar()">

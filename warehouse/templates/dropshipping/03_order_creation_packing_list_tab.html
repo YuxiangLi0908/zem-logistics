@@ -1,11 +1,11 @@
-{% extends 'pre_port/create_order/02_base_order_creation_status.html' %}
+{% extends 'dropshipping/02_base_order_creation_status.html' %}
 {% block order_supplement %}
 <div style="display: flex;">
     <div style="width: 100%; font-size: 11px;">
         <ul class="nav nav-tabs">
             <div style="width: 20%;">
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                    订单信息 - {{ selected_order.container_number.container_number }}
+                    一件代发订单信息 - {{ selected_order.container_number.container_number }}
                 </b>
             </div>
             <li class="nav-item">
