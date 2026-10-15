@@ -2995,17 +2995,43 @@
         }
     }
     function handleArmPickupClick(btn) {
+        const fleetNumber = btn?.dataset?.fleetNumber || '未提供';
+        const fleetType = btn?.dataset?.fleetType || '未提供';
+        const raw = btn?.dataset?.armPickup;
+        let stage = '读取按钮数据';
+        let hint = '检查拣货单按钮上的 data-arm-pickup 属性是否正确生成。';
         try {
-            const armPickupData = JSON.parse(btn.dataset.armPickup);
+            if (raw === undefined || raw.trim() === '') {
+                throw new Error('按钮的 data-arm-pickup 属性缺失或内容为空。');
+            }
+            stage = '解析拣货单 JSON';
+            hint = '检查后端 arm_pickup 是否为合法 JSON，以及 HTML 属性是否被数据中的引号截断。';
+            const armPickupData = JSON.parse(raw);
+            stage = '校验拣货单数据结构';
+            hint = 'arm_pickup 应为对象数组；没有记录时传 []，不能包含 null、字符串或子数组。';
+            if (!Array.isArray(armPickupData)) {
+                throw new TypeError(`预期数组，实际收到 ${armPickupData === null ? 'null' : typeof armPickupData}。`);
+            }
+            const invalidIndex = armPickupData.findIndex(item => item === null || typeof item !== 'object' || Array.isArray(item));
+            if (invalidIndex !== -1) {
+                throw new TypeError(`第 ${invalidIndex + 1} 条拣货单记录不是有效对象。`);
+            }
+            stage = '检查拣货单弹窗';
+            hint = '检查页面是否完整加载了拣货单模态框及其脚本。';
+            const missing = ['armPickupModal', 'armPickupFleetNumber', 'armPickupContent'].filter(id => !document.getElementById(id));
+            if (missing.length) throw new Error('页面缺少元素：' + missing.join('、'));
+            stage = '渲染拣货单弹窗';
+            hint = 'JSON 已解析且结构校验通过；请查看控制台异常堆栈，定位 showArmPickupModal 或表格渲染函数。空数组还会尝试读取本地保存的数据。';
             showArmPickupModal(
-                btn.dataset.fleetNumber,
-                btn.dataset.fleetType,
+                fleetNumber,
+                fleetType,
                 armPickupData
             );
         } catch (e) {
-            console.error('armPickup JSON parse failed:', btn.dataset.armPickup);
+            const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+            console.error('[拣货单打开失败]', {fleetNumber, fleetType, stage, rawLength: raw?.length ?? 0, raw, hint});
             console.error(e);
-            alert('拣货单数据异常，请联系开发');
+            alert(`拣货单打开失败\n车次：${fleetNumber}\n类型：${fleetType}\n出错阶段：${stage}\n具体原因：${detail}\n排查建议：${hint}\n完整数据及异常堆栈已输出到浏览器控制台（F12 → Console）。`);
         }
     }
     // 临时保存拣货单数据
