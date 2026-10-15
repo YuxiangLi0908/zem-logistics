@@ -5,7 +5,7 @@
     <form method="post" action="" style="width: 100%;" id="palletForm">  <!-- 表单ID -->
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
-            <h4 class="mb-4">拆柜录入</h4>
+            <h4 class="mb-4">一件代发拆柜录入</h4>
             {% if status == 'non_palletized' %}
             <div class="text-right">
                 {% if warehouse == "LA-91761" %}
