@@ -20358,6 +20358,7 @@ class PostNsop(View):
         return self.template_sp_bind_history, context
 
     async def _get_system_parameter_context(self, request, current_category=None):
+        from warehouse.utils.permission_catalog import get_permission_catalog, PERMISSION_CATEGORY
         has_public = await sync_to_async(ShipmentBindingPermission.has_public_permission)(request.user)
         has_other = await sync_to_async(ShipmentBindingPermission.has_other_permission)(request.user)
         is_superuser = await sync_to_async(lambda: request.user.is_superuser)()
@@ -20383,10 +20384,15 @@ class PostNsop(View):
         categories = []
         for cat_name in visible_categories:
             categories.append({"category": cat_name, "count": categories_map.get(cat_name, 0)})
+        permission_rows = await sync_to_async(get_permission_catalog)()
+        categories.append({"category": PERMISSION_CATEGORY, "count": len(permission_rows)})
         context = {
             "categories": categories,
             "current_category": current_category,
         }
+        if current_category == PERMISSION_CATEGORY:
+            context["permission_rows"] = permission_rows
+            return context
         if current_category:
             if current_category in visible_categories:
                 params = await sync_to_async(list)(

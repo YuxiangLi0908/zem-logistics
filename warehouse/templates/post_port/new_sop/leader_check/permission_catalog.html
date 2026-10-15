@@ -1,0 +1,49 @@
+<style>
+    .permission-description { color:#526174; font-size:13px; line-height:1.8; margin-bottom:14px; }
+    .permission-search { width:100%; padding:9px 12px; border:1px solid #d5dce6; border-radius:5px; margin-bottom:14px; font-size:13px; }
+    .permission-scroll { overflow:auto; max-height:72vh; }
+    .permission-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:13px; }
+    .permission-table th:nth-child(1) { width:20%; }
+    .permission-table th:nth-child(2) { width:45%; }
+    .permission-table th:nth-child(3) { width:35%; white-space:normal; }
+    .permission-table th, .permission-table td { padding:10px; border:1px solid #e5e8ed; vertical-align:top; text-align:left; }
+    .permission-table th { position:sticky; top:0; background:#edf3fc; z-index:1; white-space:nowrap; }
+    .permission-table td { overflow-wrap:anywhere; }
+    .permission-table td:nth-child(3) { white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+</style>
+<p class="permission-description">
+    当前代码中的页面、按钮、接口和数据范围权限清单。仅供查询，修改本表不会授予账号权限。
+    仅限超级用户的显示 superuser；存在其他授权方式时省略 superuser。
+    is_staff 表示工作人员标记，其余英文名称表示用户组，多个业务分支涉及的组分别列出。
+</p>
+<input id="permission-catalog-search" class="permission-search" type="search" placeholder="搜索页面、按钮、用户组或权限，例如 create_order、公仓、取消预报" aria-label="搜索权限清单">
+<div class="permission-scroll">
+    <table class="permission-table">
+        <thead><tr><th>模块</th><th>页面 / 按钮 / 功能</th><th>涉及的账号权限 / 用户组</th></tr></thead>
+        <tbody id="permission-catalog-rows">
+        {% for row in permission_rows %}
+            <tr>
+                <td>{{ row.area }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.permission }}</td>
+            </tr>
+        {% empty %}<tr><td colspan="3">暂无权限记录</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+<p id="permission-catalog-empty" class="permission-description" hidden>没有匹配的权限记录。</p>
+<script>
+(function () {
+    const input = document.getElementById('permission-catalog-search');
+    const rows = Array.from(document.querySelectorAll('#permission-catalog-rows > tr'));
+    input.addEventListener('input', function () {
+        const query = input.value.trim().toLowerCase();
+        let visible = 0;
+        rows.forEach(function (row) {
+            row.hidden = !row.textContent.toLowerCase().includes(query);
+            if (!row.hidden) visible++;
+        });
+        document.getElementById('permission-catalog-empty').hidden = visible > 0;
+    });
+})();
+</script>
