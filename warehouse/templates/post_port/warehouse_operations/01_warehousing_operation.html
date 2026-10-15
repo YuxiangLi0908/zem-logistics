@@ -346,7 +346,7 @@
                                                         {% if not order.container_number %}disabled{% endif %}>新拆柜单
                                                 </button>
                                             </form>
-                                            <form method="post" class="download-form m-0" action="">
+                                            <form method="post" class="download-form m-0" action="" onsubmit="return handlePalletLabelDownload(this)">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="step" value="export_pallet_label">
                                                 <input type="hidden" name="status" value="non_palletized">
@@ -356,7 +356,7 @@
                                                        value="{{ order.container_number|default:'' }}">
                                                 <button type="submit"
                                                         class="bg-primary text-white text-xs px-2 py-1 rounded hover:bg-primary/90"
-                                                        {% if not order.container_number or not order.customer_name.zem_code %}disabled
+                                                        {% if not order.container_number %}disabled
                                                         title="信息不全"{% endif %}>
                                                     <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>托盘标
                                                 </button>
@@ -417,7 +417,7 @@
                                                     新拆柜单
                                                 </button>
                                             </form>
-                                            <form method="post" class="download-form m-0" action="" onsubmit="return handleDropshippingPalletLabel(this)">
+                                            <form method="post" class="download-form m-0" action="" onsubmit="return handlePalletLabelDownload(this)">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="step" value="export_pallet_label_dropshipping">
                                                 <input type="hidden" name="status" value="non_palletized">
@@ -562,7 +562,12 @@
             return false;
         }
 
-        function handleDropshippingPalletLabel(form) {
+        function handlePalletLabelDownload(form) {
+            const step = form.querySelector('[name="step"]').value;
+            if (step === 'export_pallet_label' && !form.querySelector('[name="customer_name"]').value.trim()) {
+                alert('该柜子缺少客户信息');
+                return false;
+            }
             if (form.dataset.exporting === '1') return false;
             form.dataset.exporting = '1';
             (async () => {
@@ -580,6 +585,7 @@
                     form.appendChild(status);
                 }
                 status.textContent = '正在生成托盘标，请勿重复点击。';
+                let downloadStarted = false;
                 try {
                     const response = await fetch(form.action || location.href, {method: 'POST', body: new FormData(form)});
                     if (response.redirected) throw new Error('登录已过期，请刷新页面后重新登录。');
@@ -597,19 +603,26 @@
                     document.body.appendChild(link);
                     link.click();
                     link.remove();
-                    button.textContent = '已开始下载';
-                    status.textContent = '文件已生成并发起下载，请查看浏览器下载列表，无需重复点击。';
-                    setTimeout(() => URL.revokeObjectURL(url), 60000);
-                    // Browsers do not expose download completion; keep clear feedback
-                    // and prevent repeat requests while the download UI appears.
-                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    downloadStarted = true;
+                    button.textContent = '已发起下载';
+                    status.textContent = '文件已生成，浏览器可能需要一些时间显示下载，请勿重复生成。请查看浏览器下载列表。';
+                    const retry = document.createElement('a');
+                    retry.href = url;
+                    retry.download = link.download;
+                    retry.textContent = '未弹出下载？再次下载';
+                    retry.style.cssText = 'display:block;color:#1d4ed8;text-decoration:underline;margin-top:4px;';
+                    status.appendChild(retry);
+                    // Keep this file available for direct retries until the page unloads.
+                    // A browser download has no reliable completion event or duration.
                 } catch (error) {
                     status.textContent = error.message || '下载失败，请重试。';
                     alert(error.message || '托盘标下载失败，请检查网络后重试。');
                 } finally {
-                    button.disabled = false;
-                    button.innerHTML = label;
-                    delete form.dataset.exporting;
+                    if (!downloadStarted) {
+                        button.disabled = false;
+                        button.innerHTML = label;
+                        delete form.dataset.exporting;
+                    }
                 }
             })();
             return false;
