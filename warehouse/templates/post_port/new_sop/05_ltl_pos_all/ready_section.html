@@ -454,7 +454,7 @@
                                                     <button class="action-btn"
                                                             data-fleet-number="{{ fleet_group.fleet_number }}"
                                                             data-fleet-type="{{ fleet_group.fleet_type }}"
-                                                            data-arm-pickup='{{ fleet_group.arm_pickup|safe }}'
+                                                            data-arm-pickup='{{ fleet_group.arm_pickup|force_escape }}'
                                                             onclick="handleArmPickupClick(this)"
                                                             style="background: linear-gradient(135deg, #ff9800, #f57c00);
                                                                 color: white;
@@ -2998,6 +2998,8 @@
         const fleetNumber = btn?.dataset?.fleetNumber || '未提供';
         const fleetType = btn?.dataset?.fleetType || '未提供';
         const raw = btn?.dataset?.armPickup;
+        console.log(`[拣货单原始数据] 车次：${fleetNumber}，类型：${fleetType}，字符数：${raw?.length ?? 0}`);
+        console.log(raw);
         let stage = '读取按钮数据';
         let hint = '检查拣货单按钮上的 data-arm-pickup 属性是否正确生成。';
         try {
@@ -3007,6 +3009,7 @@
             stage = '解析拣货单 JSON';
             hint = '检查后端 arm_pickup 是否为合法 JSON，以及 HTML 属性是否被数据中的引号截断。';
             const armPickupData = JSON.parse(raw);
+            console.log(`[拣货单解析结果] 车次：${fleetNumber}`, armPickupData);
             stage = '校验拣货单数据结构';
             hint = 'arm_pickup 应为对象数组；没有记录时传 []，不能包含 null、字符串或子数组。';
             if (!Array.isArray(armPickupData)) {
