@@ -164,6 +164,8 @@ class ExceptionHandling(View):
         
     async def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
+        if step == "repair_dropshipping_offload_times":
+            return await self.handle_repair_dropshipping_offload_times(request)
         print('step',step)
         #修改约状态相关的
         if step == "search_shipment":
@@ -402,6 +404,32 @@ class ExceptionHandling(View):
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
+    @sync_to_async
+    @transaction.atomic
+    def handle_repair_dropshipping_offload_times(self, request: HttpRequest) -> HttpResponse:
+        if not (request.user.is_authenticated and request.user.is_staff):
+            return HttpResponseForbidden("仅工作人员可补齐一件代发拆柜时间。")
+        orders = Order.objects.filter(order_type="一件代发", offload_id__isnull=False)
+        offloads = list(Offload.objects.select_for_update().filter(
+            pk__in=orders.values("offload_id"), offload_at__isnull=False,
+            offload_other_at__isnull=True,
+        ).order_by("pk"))
+        times = {item.pk: item.offload_at for item in offloads}
+        records = [
+            {"container_number": number or "未填写柜号", "offload_id": offload_id,
+             "offload_at": times[offload_id], "offload_other_at": times[offload_id]}
+            for offload_id, number in orders.filter(offload_id__in=times).values_list(
+                "offload_id", "container_number__container_number"
+            ).distinct()
+        ]
+        updated = Offload.objects.filter(pk__in=times, offload_other_at__isnull=True).update(
+            offload_other_at=F("offload_at")
+        )
+        context = {"offload_repair_records": records, "offload_repair_count": updated,
+                   "offload_repair_container_count": len({row["container_number"] for row in records}),
+                   "offload_repair_done": True}
+        return render(request, self.template_post_port_status, context)
+
     async def handle_update_invoice_status(self, request):
         '''更新账单的状态'''
         record_id = request.POST.get("record_id")

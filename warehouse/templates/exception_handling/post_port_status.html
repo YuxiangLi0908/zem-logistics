@@ -1010,6 +1010,25 @@
     </table>
 {% endif %}
 {% if user.is_staff %}
+    <form method="post" style="display:inline-block;margin:2px;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='正在补齐…';">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="repair_dropshipping_offload_times">
+        <button type="submit" class="search-btn">补齐一件代发拆柜时间</button>
+    </form>
+    {% if offload_repair_done %}
+        <div style="margin:12px 0;padding:12px;background:#edf9f0;border:1px solid #b7eb8f;">
+            补齐完成：共 {{ offload_repair_container_count }} 个柜号、{{ offload_repair_count }} 条拆柜记录。
+            {% if not offload_repair_records %}没有需要补齐的记录。{% endif %}
+        </div>
+        {% if offload_repair_records %}
+        <table class="data-table">
+            <thead><tr><th>柜号</th><th>拆柜记录ID</th><th>原拆柜时间 offload_at</th><th>补齐后的 offload_other_at</th></tr></thead>
+            <tbody>{% for record in offload_repair_records %}
+                <tr><td>{{ record.container_number }}</td><td>{{ record.offload_id }}</td><td>{{ record.offload_at|date:"Y-m-d H:i:s" }}</td><td>{{ record.offload_other_at|date:"Y-m-d H:i:s" }}</td></tr>
+            {% endfor %}</tbody>
+        </table>
+        {% endif %}
+    {% endif %}
     <form method="post" style="display: inline-block; margin: 2px;">
         {% csrf_token %}
         <input type="hidden" name="step" value="update_shipment_type_to_fleet_type">
