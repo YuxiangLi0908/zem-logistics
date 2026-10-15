@@ -11896,6 +11896,9 @@ class PostNsop(View):
 
         # 收集数据：按PO_ID分组
         grouped_data = {}  # key: PO_ID, value: dict
+        cbm_totals = defaultdict(float)
+        packing_cbm_totals = defaultdict(float)
+        pallet_numbers = defaultdict(set)
 
         # 从PackingList查询
         if pl_ids:
@@ -11910,6 +11913,7 @@ class PostNsop(View):
                     "delivery_est_start",
                     "delivery_est_end",
                     "container_number_id",
+                    "cbm",
                 )
             )
             # 获取container到customer的映射
@@ -11926,6 +11930,8 @@ class PostNsop(View):
 
             for r in pl_records:
                 po_id = r.get("PO_ID") or ""
+                cbm_totals[po_id] += r.get("cbm") or 0
+                packing_cbm_totals[po_id] += r.get("cbm") or 0
                 if po_id not in grouped_data:
                     grouped_data[po_id] = {
                         "customer_name": order_map.get(r.get("container_number_id"), ""),
@@ -11949,6 +11955,8 @@ class PostNsop(View):
                     "delivery_est_start",
                     "delivery_est_end",
                     "container_number_id",
+                    "cbm",
+                    "pallet_id",
                 )
             )
             container_ids = list(set(r["container_number_id"] for r in plt_records if r["container_number_id"]))
@@ -11964,6 +11972,9 @@ class PostNsop(View):
 
             for r in plt_records:
                 po_id = r.get("PO_ID") or ""
+                cbm_totals[po_id] += r.get("cbm") or 0
+                if r.get("pallet_id") is not None:
+                    pallet_numbers[po_id].add(r["pallet_id"])
                 if po_id not in grouped_data:
                     grouped_data[po_id] = {
                         "customer_name": order_map.get(r.get("container_number_id"), ""),
@@ -11983,7 +11994,7 @@ class PostNsop(View):
         ws = wb.active
         ws.title = "派送时间汇总"
 
-        headers = ["客户", "柜号", "仓点", "建议时间段", "派送方式"]
+        headers = ["客户", "柜号", "仓点", "建议时间段", "派送方式", "CBM", "板数"]
         header_font = Font(bold=True)
         thin_border = Border(
             left=Side(style='thin'),
@@ -12018,6 +12029,8 @@ class PostNsop(View):
                 data.get("destination", ""),
                 time_range,
                 data.get("delivery_method", ""),
+                round(cbm_totals[po_id], 3),
+                math.ceil(packing_cbm_totals[po_id] / 1.8) + len(pallet_numbers[po_id]),
             ]
             for col, val in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=val)
