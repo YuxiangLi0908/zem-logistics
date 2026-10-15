@@ -408,6 +408,11 @@ class WarehouseOperations(View):
         else:
             customer_name = request.POST.get("customer_name")
             n_label = int(request.POST.get("n_label", 4))
+            dropship_cargo = await self._get_packing_list(container_number=container_number)
+            if not dropship_cargo:
+                return JsonResponse({"success": False, "message": "该一件代发柜尚未录入货物明细，请先导入一件代发货物明细后再打印托盘标。"}, status=400)
+            if not any((row.get("pcs") or 0) > 0 for row in dropship_cargo):
+                return JsonResponse({"success": False, "message": "该一件代发柜货物件数为空或为0，无法生成托盘标，请先补充货物件数。"}, status=400)
             retrieval = await sync_to_async(Retrieval.objects.get)(
                 order__container_number__container_number=container_number
             )
@@ -425,19 +430,16 @@ class WarehouseOperations(View):
             else:
                 # 空值，取当前时间
                 retrieval_date = datetime.now().strftime("%m/%d")
-            dropship_cargo = await self._get_packing_list(
-                container_number=container_number
-            )
             for pl in dropship_cargo:
                 delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
                 pcs = pl.get("pcs") or 0
                 pallet_cnt = math.ceil(pcs / 25.0)  # 向上取整算出板数，不满25件也要占1板
                 label_count = pallet_cnt * n_label  # 每板4张标签
 
-                if "pickup" in pl.get("model"):
+                if "pickup" in (pl.get("model") or ""):
                     model = "S/P"
                 else:
-                    model = pl.get("model")
+                    model = pl.get("model") or ""
                 marks = pl.get("shipping_marks") or pl.get("shipping_mark")
                 new_marks = None
                 if marks:
@@ -466,7 +468,7 @@ class WarehouseOperations(View):
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
                     model = model.replace('\xa0', ' ')
-                    barcode_content = f"{pl.get('container_number__container_number')}|{model}-{i}"
+                    barcode_content = f"{pl.get('container__container_number')}|{model}-{i}"
                     try:
                         my_barcode = barcode_class(barcode_content, writer=ImageWriter())
                     except:

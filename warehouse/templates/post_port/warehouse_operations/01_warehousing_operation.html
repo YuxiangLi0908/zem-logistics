@@ -27,7 +27,8 @@
                 font-size: 12px; border-radius: 0.4rem; font-weight: 500;
                 transition: all 0.2s ease; white-space: nowrap;
             }
-            .fixed-width-cell { min-width: 150px; max-width: 200px; }
+            .fixed-width-cell { width: 120px; min-width: 120px; max-width: 120px; }
+            .warehouse-op-table .arrival-location-input { width: 90px; max-width: 100%; padding: 5px; font-size: 13px; }
             .search-input {
                 width: 100%; padding: 0.375rem 0.75rem; border: 1px solid #d1d5db;
                 border-radius: 0.25rem; font-size: 0.875rem; outline: none;
@@ -85,12 +86,24 @@
                 padding: 8px 10px; font-size: 13px; line-height: 1.4;
             }
 
-            /* 柜号加宽 */
-            .warehouse-op-table th:nth-child(1), .warehouse-op-table td:nth-child(1) { min-width: 160px; font-weight: 500; }
+            .warehouse-op-table th:nth-child(1), .warehouse-op-table td:nth-child(1) { width: 130px; min-width: 130px; font-weight: 500; white-space: nowrap; }
             .warehouse-op-table th:nth-child(2), .warehouse-op-table td:nth-child(2) { min-width: 90px; }
-            .warehouse-op-table th:nth-child(4), .warehouse-op-table td:nth-child(4) { min-width: 220px; } /* 拆柜状态加宽 */
-            .warehouse-op-table th:nth-child(9), .warehouse-op-table td:nth-child(9) { min-width: 200px; } /* 导出列收窄 */
+            .warehouse-op-table th:nth-child(3), .warehouse-op-table td:nth-child(3) { width: 120px; min-width: 120px; max-width: 120px; }
+            .warehouse-op-table th:nth-child(4), .warehouse-op-table td:nth-child(4) { width: 200px; min-width: 200px; }
+            .warehouse-op-wrap .warehouse-op-table .unpacking-state-grid {
+                display: grid; grid-template-columns: repeat(3, max-content); gap: 6px 4px;
+            }
+            .warehouse-op-table th:nth-child(9), .warehouse-op-table td:nth-child(9) { width: 260px; min-width: 260px; }
+            .warehouse-op-table td:nth-child(9) form { flex-shrink: 0; }
+            .warehouse-op-table td:nth-child(9) button { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
             .warehouse-op-table th:nth-child(10), .warehouse-op-table td:nth-child(10) { min-width: 90px; } /* 操作列收窄 */
+            .warehouse-op-wrap .warehouse-op-table td:nth-child(10) button[type="submit"] {
+                min-width: 76px; padding: 7px 16px; font-size: 15px; font-weight: 600; white-space: nowrap;
+                background: #2563eb; color: #fff; border: 1px solid #1d4ed8; border-radius: 6px;
+                box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); cursor: pointer;
+            }
+            .warehouse-op-wrap .warehouse-op-table td:nth-child(10) button[type="submit"]:hover { background: #1d4ed8; }
+            .warehouse-op-wrap .warehouse-op-table td:nth-child(10) button[type="submit"]:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
             .warehouse-op-table th:nth-child(11), .warehouse-op-table td:nth-child(11) { min-width: 160px; } /* 回传列收窄 */
 
             .warehouse-op-table thead tr:first-child {
@@ -244,14 +257,14 @@
                                         <input type="text" id="loc_{{ rid }}"
                                                value="{{ ret.arrival_location|default:''|upper }}"
                                                oninput="this.value=this.value.toUpperCase();this.closest('tr').dataset.location=this.value"
-                                               style="width:100%;padding:5px;font-size:13px;">
+                                               class="arrival-location-input">
                                     {% else %}
                                         <span class="text-gray-500 text-sm">{{ ret.arrival_location|upper|default:"-" }}</span>
                                     {% endif %}
                                 </td>
 
                                 <td>
-                                    <div class="flex flex-wrap gap-1 items-center w-full"
+                                    <div class="unpacking-state-grid"
                                          id="status_group_row_{{ order.id }}">
                                         <label class="inline-flex items-center px-1.5 py-1 bg-gray-50 rounded text-xs cursor-pointer whitespace-nowrap">
                                             <input type="radio" name="unpacking_status_row_{{ order.id }}" value="0"
@@ -548,5 +561,39 @@
             });
             return false;
         }
+
+        document.querySelectorAll('input[name="step"][value="export_pallet_label_dropshipping"]').forEach(input => {
+            input.form.addEventListener('submit', async event => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const button = form.querySelector('button[type="submit"]');
+                if (button.disabled) return;
+                const label = button.innerHTML;
+                button.disabled = true;
+                button.textContent = '正在生成…';
+                try {
+                    const response = await fetch(form.action || location.href, {method: 'POST', body: new FormData(form)});
+                    if (response.redirected) throw new Error('登录已过期，请刷新页面后重新登录。');
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.message || `托盘标生成失败（HTTP ${response.status}），请联系管理员查看日志。`);
+                    }
+                    if (!response.headers.get('Content-Type')?.includes('application/pdf')) throw new Error('服务器未返回托盘标PDF，请刷新页面后重试。');
+                    const url = URL.createObjectURL(await response.blob());
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'pallet_label_' + form.querySelector('[name="container_number"]').value + '.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                } catch (error) {
+                    alert(error.message || '托盘标下载失败，请检查网络后重试。');
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = label;
+                }
+            });
+        });
     </script>
 {% endblock %}
