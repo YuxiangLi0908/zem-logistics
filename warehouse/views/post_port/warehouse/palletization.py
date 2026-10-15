@@ -2894,6 +2894,8 @@ class Palletization(View):
             packing_list = await self._get_packing_list(
                 container_number=container_number, status=status
             )
+            if not packing_list:
+                return JsonResponse({"success": False, "message": "该柜没有可用于生成托盘标的Packing List明细，请先录入货物明细。"}, status=400)
             for pl in packing_list:
                 delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
                 if customer_name == "JINYU":
@@ -3006,6 +3008,8 @@ class Palletization(View):
                     }
                     data.append(new_data)
 
+        if not data:
+            return JsonResponse({"success": False, "message": "该柜没有可生成的托盘标，请检查Packing List中的CBM或件数是否大于0。"}, status=400)
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
