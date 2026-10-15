@@ -5891,7 +5891,7 @@ class FleetManagement(View):
         return pdf_buf.getvalue()
 
     async def _upload_ltl_other_file_to_sharepoint(
-        self, conn, fleet_number: str, file
+        self, conn, fleet_number: str, file, filename_base: str | None = None
     ) -> None:
         '''ltl 上传第三份文件到云盘（上传时自动追加拣货单）'''
         shipment = await sync_to_async(Shipment.objects.get)(
@@ -5911,6 +5911,13 @@ class FleetManagement(View):
         
         final_bytes = file_bytes
         temp_ext = file_extension
+        if filename_base:
+            # SharePoint and Windows do not allow these characters in filenames.
+            filename_base = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '_', filename_base).strip(' .')
+            filename_base = filename_base[:180].rstrip(' .')
+            if not filename_base.endswith('BOL'):
+                filename_base = filename_base[:176] + '+BOL'
+        upload_filename = f"{filename_base or shipment_batch_number}{temp_ext}"
         
         if pickup_pdf_bytes:
             if is_pdf:
@@ -5964,13 +5971,13 @@ class FleetManagement(View):
         try:
             sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
             resp = sp_folder.upload_file(
-                f"{shipment_batch_number}{temp_ext}", upload_file
+                upload_filename, upload_file
             ).execute_query()
         except:
             conn = await self._get_sharepoint_auth()
             sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
             resp = sp_folder.upload_file(
-                f"{shipment_batch_number}{temp_ext}", upload_file
+                upload_filename, upload_file
             ).execute_query()
         
         # 生成并获取链接
