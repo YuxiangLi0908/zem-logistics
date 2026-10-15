@@ -1953,6 +1953,18 @@
         document.body.removeChild(form);
     }
 
+    function appendOtherFileName(form, index, fleetNumber) {
+        const pickup = Array.from(document.querySelectorAll('.pickup-date-input')).find(input => input.dataset.fleetNumber === fleetNumber);
+        const checkbox = Array.from(document.querySelectorAll('.readyShip-fleet-checkbox')).find(input => input.dataset.fleetNumber === fleetNumber);
+        const row = checkbox?.closest('tr');
+        const date = pickup?.value || '未填提货日期';
+        const name = document.createElement('input');
+        name.type = 'hidden';
+        name.name = `filename_${index}`;
+        name.value = [date, row?.dataset.containerNo || '未填柜号', row?.dataset.destination || '未填目的地', row?.dataset.markings || '未填唛头', 'BOL'].join('+');
+        form.appendChild(name);
+    }
+
     function batchUploadOtherFile() {
         const fleetNumbers = getSelectedFleetNumbers();
         if (fleetNumbers.length === 0) {
@@ -2028,6 +2040,7 @@
                         fleetInput.name = `fleet_${fileIndex}`;
                         fleetInput.value = fleetNumbers[fileIndex];
                         form.appendChild(fleetInput);
+                        appendOtherFileName(form, fileIndex, fleetNumbers[fileIndex]);
                     }
                 });
 
@@ -2104,6 +2117,7 @@
             fleetInput.name = 'fleet_0';
             fleetInput.value = fleetNumber;
             form.appendChild(fleetInput);
+            appendOtherFileName(form, 0, fleetNumber);
 
             document.body.appendChild(form);
             form.submit();

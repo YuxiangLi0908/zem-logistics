@@ -6984,7 +6984,9 @@ class PostNsop(View):
             
             file = request.FILES[file_key]
             fleet_number = request.POST[fleet_key]
-            await fm._upload_ltl_other_file_to_sharepoint(conn, fleet_number, file)
+            await fm._upload_ltl_other_file_to_sharepoint(
+                conn, fleet_number, file, filename_base=request.POST.get(f"filename_{index}")
+            )
             
             index += 1
         
