@@ -163,7 +163,7 @@ class Dropshipping(View):
             template, context = await self.handle_palletization_abnormal_get()
             return await sync_to_async(render)(request, template, context)
         elif step == "abnormal_records":
-            return await sync_to_async(render)(request, self.template_pallet_abnormal_records_search, {"page_title": "异常拆柜记录",})
+            return await sync_to_async(render)(request, self.template_pallet_abnormal_records_search, {"page_title": "一件代发异常拆柜记录",})
 
 
 
@@ -612,7 +612,7 @@ class Dropshipping(View):
                 .order_by("name")
                 .values_list("name", "name")
             ),
-            "page_title": "待处理异常",
+            "page_title": "一件代发待处理异常",
         }
         if include_all:
             return self.template_pallet_abnormal_records_display, context
@@ -992,7 +992,7 @@ class Dropshipping(View):
                 .order_by("name")
                 .values_list("name", "name")
             ),
-            "page_title": "库存管理",
+            "page_title": "一件代发库存管理",
         }
         return self.template_inventory_management_main, context
 
@@ -2169,14 +2169,14 @@ class Dropshipping(View):
                 "warehouse": warehouse,
                 "unpacking_personnel": unpacking_personnel,
                 "error_msg": error_msg,
-                "page_title": "拆柜入库",
+                "page_title": "一件代发拆柜入库",
             }
         else:
             context = {
                 "warehouse_form": ZemWarehouseForm(),
                 "unpacking_personnel": unpacking_personnel,
                 "error_msg": error_msg,
-                "page_title": "拆柜入库",
+                "page_title": "一件代发拆柜入库",
             }
         return self.template_palletization_main, context
 
@@ -2380,7 +2380,7 @@ class Dropshipping(View):
             "orders_at_warehouse": orders_at_warehouse,
             "orders_palletized": orders_empty_return,
             "current_date": current_date,
-            "page_title": "货柜追踪提醒",
+            "page_title": "一件代发货柜追踪提醒",
         }
         return self.template_status_summary, context
 
