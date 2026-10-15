@@ -2,7 +2,7 @@
 {% block content %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
 
-    <style type="text/tailwindcss">
+    <style>
         :root {
             --primary-color: #3498db;
             --secondary-color: #2c3e50;
@@ -13,7 +13,6 @@
             --dark-color: #343a40;
         }
 
-        @layer utilities {
             .table-shadow { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
             .cell-transition { transition: all 0.2s ease; }
             .tag-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
@@ -41,11 +40,12 @@
 
             .warehouse-header {
                 background: linear-gradient(135deg, var(--secondary-color), #4a6491);
-                color: white; padding: 16px 24px; border-radius: 8px; margin-bottom: 20px;
+                color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 12px; gap: 12px;
                 display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
             }
-            .warehouse-title { display: flex; align-items: center; font-size: 1.25rem; font-weight: bold; }
+            .warehouse-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 1.25rem; font-weight: bold; }
             .warehouse-title i { margin-right: 10px; font-size: 1.5rem; }
+            .warehouse-record-count { font-size: 0.9rem; font-weight: 500; white-space: nowrap; }
             .filter-container {
                 display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.15);
                 padding: 10px 16px; border-radius: 6px;
@@ -60,23 +60,13 @@
                 border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background 0.3s;
             }
             .filter-container button:hover { background: #218838; }
-            .record-stats {
-                display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-                white-space: nowrap; background: white; padding: 12px 16px;
-                border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-                border: 1px solid #e5e7eb; margin-bottom: 20px;
-            }
-            .stats-icon {
-                width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-color), #2980b9);
-                color: white; border-radius: 8px; display: flex; align-items: center;
-                justify-content: center; margin-right: 12px; font-size: 18px;
-            }
+            #zemContentArea { max-width: 100%; padding: 12px; }
             .warehouse-op-wrap {
-                width: 100%; max-width: 100vw; box-sizing: border-box;
-                padding-bottom: 20px; margin-top: 85px; position: relative;
+                width: 100%; min-width: 0; box-sizing: border-box;
+                padding: 0; margin-top: 0; position: relative;
             }
             .table-container {
-                height: 600px; width: 100%; overflow-y: auto; overflow-x: auto;
+                height: calc(100dvh - 250px); min-height: 240px; width: 100%; overflow-y: auto; overflow-x: auto;
                 border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);
                 position: relative; scrollbar-width: auto;
             }
@@ -97,11 +87,11 @@
 
             /* 柜号加宽 */
             .warehouse-op-table th:nth-child(1), .warehouse-op-table td:nth-child(1) { min-width: 160px; font-weight: 500; }
-            .warehouse-op-table th:nth-child(2), td:nth-child(2) { min-width: 90px; }
-            .warehouse-op-table th:nth-child(4), td:nth-child(4) { min-width: 220px; } /* 拆柜状态加宽 */
-            .warehouse-op-table th:nth-child(9), td:nth-child(9) { min-width: 200px; } /* 导出列收窄 */
-            .warehouse-op-table th:nth-child(10), td:nth-child(10) { min-width: 90px; } /* 操作列收窄 */
-            .warehouse-op-table th:nth-child(11), td:nth-child(11) { min-width: 160px; } /* 回传列收窄 */
+            .warehouse-op-table th:nth-child(2), .warehouse-op-table td:nth-child(2) { min-width: 90px; }
+            .warehouse-op-table th:nth-child(4), .warehouse-op-table td:nth-child(4) { min-width: 220px; } /* 拆柜状态加宽 */
+            .warehouse-op-table th:nth-child(9), .warehouse-op-table td:nth-child(9) { min-width: 200px; } /* 导出列收窄 */
+            .warehouse-op-table th:nth-child(10), .warehouse-op-table td:nth-child(10) { min-width: 90px; } /* 操作列收窄 */
+            .warehouse-op-table th:nth-child(11), .warehouse-op-table td:nth-child(11) { min-width: 160px; } /* 回传列收窄 */
 
             .warehouse-op-table thead tr:first-child {
                 background: linear-gradient(135deg, var(--secondary-color), #4a6491);
@@ -110,12 +100,73 @@
             .warehouse-op-table thead tr:nth-child(2) {
                 background: #f9fafb; border-bottom: 1px solid #e5e7eb;
             }
-        }
+        /* Local utility styles keep the initial and filtered views identical. */
+        .warehouse-op-wrap { background: #f9fafb; color: #343a40; font-family: Inter, sans-serif; }
+        .warehouse-op-wrap *, .warehouse-op-wrap *::before, .warehouse-op-wrap *::after { box-sizing: border-box; }
+        .warehouse-op-wrap .hidden { display: none; }
+        .warehouse-op-wrap .flex { display: flex; }
+        .warehouse-op-wrap .inline-flex { display: inline-flex; }
+        .warehouse-op-wrap .flex-col { flex-direction: column; }
+        .warehouse-op-wrap .flex-wrap { flex-wrap: wrap; }
+        .warehouse-op-wrap .flex-nowrap { flex-wrap: nowrap; }
+        .warehouse-op-wrap .items-center { align-items: center; }
+        .warehouse-op-wrap .justify-center { justify-content: center; }
+        .warehouse-op-wrap .gap-1 { gap: 4px; }
+        .warehouse-op-wrap .w-full { width: 100%; }
+        .warehouse-op-wrap .m-0 { margin: 0; }
+        .warehouse-op-wrap .mr-1 { margin-right: 4px; }
+        .warehouse-op-wrap .mr-0\.5 { margin-right: 2px; }
+        .warehouse-op-wrap .mt-2 { margin-top: 8px; }
+        .warehouse-op-wrap .p-1 { padding: 4px; }
+        .warehouse-op-wrap .px-1\.5 { padding-left: 6px; padding-right: 6px; }
+        .warehouse-op-wrap .px-2 { padding-left: 8px; padding-right: 8px; }
+        .warehouse-op-wrap .py-1 { padding-top: 4px; padding-bottom: 4px; }
+        .warehouse-op-wrap .py-6 { padding-top: 24px; padding-bottom: 24px; }
+        .warehouse-op-wrap .rounded { border-radius: 4px; }
+        .warehouse-op-wrap .border { border: 1px solid #e5e7eb; }
+        .warehouse-op-wrap .border-blue-200 { border-color: #bfdbfe; }
+        .warehouse-op-wrap .text-left { text-align: left; }
+        .warehouse-op-wrap .text-center { text-align: center; }
+        .warehouse-op-wrap .text-sm { font-size: 14px; }
+        .warehouse-op-wrap .text-xs { font-size: 12px; }
+        .warehouse-op-wrap .text-\[11px\] { font-size: 11px; }
+        .warehouse-op-wrap .font-bold { font-weight: 700; }
+        .warehouse-op-wrap .font-medium { font-weight: 500; }
+        .warehouse-op-wrap .whitespace-nowrap { white-space: nowrap; }
+        .warehouse-op-wrap .cursor-pointer { cursor: pointer; }
+        .warehouse-op-wrap .text-white { color: white; }
+        .warehouse-op-wrap .text-gray-500 { color: #6b7280; }
+        .warehouse-op-wrap .text-gray-600 { color: #4b5563; }
+        .warehouse-op-wrap .text-primary { color: #165dff; }
+        .warehouse-op-wrap .text-blue-600 { color: #2563eb; }
+        .warehouse-op-wrap .text-blue-700 { color: #1d4ed8; }
+        .warehouse-op-wrap .text-green-700 { color: #15803d; }
+        .warehouse-op-wrap .text-yellow-700 { color: #a16207; }
+        .warehouse-op-wrap .text-orange-700 { color: #c2410c; }
+        .warehouse-op-wrap .text-purple-700 { color: #7e22ce; }
+        .warehouse-op-wrap .bg-gray-50 { background: #f9fafb; }
+        .warehouse-op-wrap .bg-blue-50 { background: #eff6ff; }
+        .warehouse-op-wrap .bg-green-50 { background: #f0fdf4; }
+        .warehouse-op-wrap .bg-yellow-50 { background: #fefce8; }
+        .warehouse-op-wrap .bg-orange-50 { background: #fff7ed; }
+        .warehouse-op-wrap .bg-purple-50 { background: #faf5ff; }
+        .warehouse-op-wrap .bg-white { background: white; }
+        .warehouse-op-wrap .bg-primary { background: #165dff; }
+        .warehouse-op-wrap .bg-success { background: #00b42a; }
+        .warehouse-op-wrap .hover\:bg-blue-100:hover { background: #dbeafe; }
+        .warehouse-op-wrap .hover\:bg-gray-100:hover { background: #f3f4f6; }
+        .warehouse-op-wrap .hover\:bg-primary\/90:hover { background: #1454e6; }
+        .warehouse-op-wrap .hover\:bg-success\/90:hover { background: #00a226; }
+        .warehouse-op-wrap .divide-y > tr + tr { border-top: 1px solid #e5e7eb; }
+        .warehouse-op-wrap label, .warehouse-op-wrap form { margin-bottom: 0; }
+        .warehouse-op-wrap button, .warehouse-op-wrap input { font-family: inherit; }
+        #table-loader { position: absolute; inset: 0; background: rgba(255,255,255,0.7); z-index: 20; }
+        #table-loader.hidden, #no-results.hidden { display: none; }
     </style>
 
-    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6 warehouse-op-wrap">
+    <div class="bg-gray-50 font-inter text-textDark warehouse-op-wrap">
         <div class="warehouse-header">
-            <div class="warehouse-title"><i class="fas fa-warehouse"></i><span>仓库入库管理</span></div>
+            <div class="warehouse-title"><i class="fas fa-warehouse"></i><span>仓库入库管理</span><span class="warehouse-record-count">共计{{ total_count|default:0 }}条</span></div>
             <form method="post" class="filter-container">
                 {% csrf_token %}
                 <label>选择仓点区域:</label>
@@ -128,18 +179,6 @@
                 </select>
                 <button type="submit"><i class="fas fa-check"></i>确认</button>
             </form>
-        </div>
-
-        <div class="record-stats">
-            <div class="stats-icon"><i class="bi bi-clipboard-data"></i></div>
-            <div class="stats-content">
-                <div class="stats-main">
-                    <span class="stats-label">共</span>
-                    <span class="stats-count">{{ total_count|default:0 }}</span>
-                    <span class="stats-unit">条记录</span>
-                </div>
-                <div class="stats-filtered">显示全部</div>
-            </div>
         </div>
 
         <div id="table-loader" class="hidden absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center">
@@ -437,15 +476,23 @@
         </div>
     </div>
 
-    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            theme: { extend: { colors: { primary: '#165DFF', success: '#00B42A' }, fontFamily: { inter: ['Inter','sans-serif'] } } }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             initSearch();
             initForm();
+            const tableContainer = document.querySelector('.warehouse-op-wrap .table-container');
+            function fitTableToPage() {
+                const top = tableContainer.getBoundingClientRect().top + window.scrollY;
+                tableContainer.style.height = Math.max(240, window.innerHeight - top - 12) + 'px';
+            }
+            fitTableToPage();
+            window.addEventListener('resize', fitTableToPage);
+            if (window.ResizeObserver) {
+                const layoutObserver = new ResizeObserver(fitTableToPage);
+                layoutObserver.observe(document.querySelector('.warehouse-header'));
+                const navigation = document.querySelector('.zem-bootstrap-nav');
+                if (navigation) layoutObserver.observe(navigation);
+            }
         });
 
         function initSearch() {
@@ -463,8 +510,9 @@
                     r.style.display = ok ? '' : 'none';
                     if(ok) show++;
                 });
-                document.getElementById('no-results').style.display = show ? 'none' : '';
+                document.getElementById('no-results').classList.toggle('hidden', show > 0);
             }
+            filterTable();
         }
 
         function initForm() {
