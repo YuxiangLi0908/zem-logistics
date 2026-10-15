@@ -570,6 +570,16 @@
                 const label = button.innerHTML;
                 button.disabled = true;
                 button.textContent = '正在生成…';
+                let status = form.querySelector('.pallet-label-download-status');
+                if (!status) {
+                    status = document.createElement('span');
+                    status.className = 'pallet-label-download-status';
+                    status.setAttribute('role', 'status');
+                    status.setAttribute('aria-live', 'polite');
+                    status.style.cssText = 'display:block;max-width:160px;white-space:normal;font-size:12px;line-height:1.4;margin-top:4px;color:#1d4ed8;';
+                    form.appendChild(status);
+                }
+                status.textContent = '正在生成托盘标，请勿重复点击。';
                 try {
                     const response = await fetch(form.action || location.href, {method: 'POST', body: new FormData(form)});
                     if (response.redirected) throw new Error('登录已过期，请刷新页面后重新登录。');
@@ -578,6 +588,8 @@
                         throw new Error(error.message || `托盘标生成失败（HTTP ${response.status}），请联系管理员查看日志。`);
                     }
                     if (!response.headers.get('Content-Type')?.includes('application/pdf')) throw new Error('服务器未返回托盘标PDF，请刷新页面后重试。');
+                    button.textContent = '正在接收文件…';
+                    status.textContent = '文件正在传输，请稍候。';
                     const url = URL.createObjectURL(await response.blob());
                     const link = document.createElement('a');
                     link.href = url;
@@ -585,8 +597,14 @@
                     document.body.appendChild(link);
                     link.click();
                     link.remove();
-                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    button.textContent = '已开始下载';
+                    status.textContent = '文件已生成并发起下载，请查看浏览器下载列表，无需重复点击。';
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    // Browsers do not expose download completion; keep clear feedback
+                    // and prevent repeat requests while the download UI appears.
+                    await new Promise(resolve => setTimeout(resolve, 10000));
                 } catch (error) {
+                    status.textContent = error.message || '下载失败，请重试。';
                     alert(error.message || '托盘标下载失败，请检查网络后重试。');
                 } finally {
                     button.disabled = false;
