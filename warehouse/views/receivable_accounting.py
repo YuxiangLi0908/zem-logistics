@@ -9672,7 +9672,18 @@ class ReceivableAccounting(View):
     def _calculate_total_pallet(
         self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse, cbm_per_pl
     ) -> float:
-        '''板数计算公式'''
+        """板数计算公式（按当前代码实际生效的逻辑）：
+        原始板数 P = float(cbm) / float(cbm_per_pl)，整数部分 N = int(P)，小数部分 D = P - N。
+        D = 0 时，总板数 = N；D > 0 时，总板数 = N + 补计板数：
+        1. 新规则（is_new_rule=True）：
+           - 冷门仓点：只要 D > 0，一律补 1 板。
+           - 热门仓点：D > 0.5 补 1 板，0 < D <= 0.5 补 0.5 板。
+        2. 旧规则（is_new_rule=False）：
+           - 冷门仓点：只要 D > 0，一律补 1 板。
+           - 热门仓点：D > 0.9 补 1 板，0 < D <= 0.9 补 0.5 板。
+        注意：ETD 晚于 2025-07-01 的 NJ/SAV/LA 分仓规则虽先计算 additional，
+        但随后会被上述 is_new_rule 分支覆盖，因此目前不会影响最终板数。
+        """
         raw_p = float(cbm) / float(cbm_per_pl)
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
@@ -9705,11 +9716,17 @@ class ReceivableAccounting(View):
                             additional = 1  # 0.9以上按1个板
                         else:
                             additional = 0.5  # 0.1-0.9按0.5个板
-            if is_new_rule:  # etd4.1之后的
+            # 8月之前的规则（原新规则，保留供参考）：
+            # if is_new_rule:
+            #     if is_niche_warehouse:
+            #         additional = 1 if decimal_part > 0.5 else 0.5
+            #     else:
+            #         additional = 1 if decimal_part > 0.5 else 0
+            if is_new_rule:
                 if is_niche_warehouse:
-                    additional = 1 if decimal_part > 0.5 else 0.5
+                    additional = 1
                 else:
-                    additional = 1 if decimal_part > 0.5 else 0
+                    additional = 1 if decimal_part > 0.5 else 0.5
             else:
                 if is_niche_warehouse:
                     additional = 1
