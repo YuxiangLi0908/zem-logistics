@@ -30,7 +30,7 @@ from barcode.writer import ImageWriter
 from django.db.models.functions import Ceil, Length
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
 from django.contrib.postgres.aggregates import StringAgg
 from django.db.models.functions import Round, Cast, Coalesce
 from django.core.exceptions import ObjectDoesNotExist
@@ -602,15 +602,12 @@ class PostNsop(View):
         elif step == 'save_company_info':
             return await self.handle_save_company_info(request)
         elif step == "bind_group_shipment":
-            sm = ShippingManagement()
-            if request.POST.get("shipment_type", "").strip() == "快递":
-                batch_number = await sm.handle_courier_shipment_post(request)
-                template, context = await self.handle_td_shipment_post(request)
-                context["success_messages"] = f"快递预约出库成功！批次号：{batch_number}"
+            try:
+                template, context = await self.handle_bind_group_shipment_atomic(request)
                 return render(request, template, context)
-            else:
-                template, context = await self.handle_appointment_post(request)
-                return render(request, template, context)
+            except Exception:
+                response_delivery_logger.exception("预约出库失败，事务已回滚")
+                return JsonResponse({"success": False, "message": "网络异常，请重新再试。本次预约出库未完成，数据库修改已回滚。"}, status=503)
         elif step =="ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
             return render(request, template, context) 
@@ -9458,6 +9455,52 @@ class PostNsop(View):
         # 合并 Pallet ID 列表并去重
         updated_selected_plt = list(set(selected_plt + new_found_plt_ids))
         return updated_selected, updated_selected_plt
+
+    @sync_to_async
+    @transaction.atomic
+    def handle_bind_group_shipment_atomic(self, request):
+        """同一连接内执行预约及货物绑定，验证全部成功后才提交。"""
+        def parse_ids(value):
+            if isinstance(value, (list, tuple)):
+                return sorted({int(item) for item in value})
+            return sorted({int(item.strip()) for item in (value or "").strip("[]").split(",") if item.strip()})
+
+        selected = parse_ids(request.POST.get("cargo_ids"))
+        selected_plt = parse_ids(request.POST.get("plt_ids"))
+        for model, ids in ((PackingList, selected), (Pallet, selected_plt)):
+            locked = list(model.objects.select_for_update().filter(pk__in=ids).values_list("pk", flat=True))
+            if len(locked) != len(ids):
+                raise ValueError("所选货物已发生变化，请刷新页面后重试")
+        selected, selected_plt = async_to_sync(self.handle_pl_ids_to_plt_ids)(selected, selected_plt)
+        for model, ids in ((PackingList, selected), (Pallet, selected_plt)):
+            list(model.objects.select_for_update().filter(pk__in=ids).values_list("pk", flat=True))
+        request.POST = request.POST.copy()
+        request.POST["cargo_ids"] = ",".join(map(str, selected))
+        request.POST["plt_ids"] = ",".join(map(str, selected_plt))
+        if not selected and not selected_plt:
+            raise ValueError("没有选择可绑定的货物")
+
+        if request.POST.get("shipment_type", "").strip() == "快递":
+            request.POST["pl_ids"] = ",".join(map(str, selected))
+            batch = async_to_sync(ShippingManagement().handle_courier_shipment_post)(request)
+            template, context = async_to_sync(self.handle_td_shipment_post)(request)
+            context["success_messages"] = f"快递预约出库成功！批次号：{batch}"
+        else:
+            template, context = async_to_sync(self.handle_appointment_post)(request)
+            batch = request.POST.get("batch_number")
+        if context.get("error_messages"):
+            transaction.set_rollback(True)
+            return template, context
+        if request.POST.get("operation_type") != "remove_po":
+            selected = parse_ids(request.POST.get("pl_ids", selected))
+            selected_plt = parse_ids(request.POST.get("plt_ids", selected_plt))
+            if not batch or not Shipment.objects.filter(shipment_batch_number=batch).exists():
+                raise ValueError("预约记录未生成")
+            for model, ids in ((PackingList, selected), (Pallet, selected_plt)):
+                count = model.objects.filter(pk__in=ids, shipment_batch_number__shipment_batch_number=batch).count()
+                if count != len(ids):
+                    raise ValueError(f"{model.__name__} 绑定不完整，预期{len(ids)}条，实际{count}条")
+        return template, context
 
     async def handle_appointment_post(
             self, request: HttpRequest
