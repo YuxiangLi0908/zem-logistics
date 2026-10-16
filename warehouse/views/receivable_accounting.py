@@ -9664,7 +9664,7 @@ class ReceivableAccounting(View):
         }
     
     def _is_niche_pallet_destination(self, destination, public_fee):
-        """冷门列表中的仓点，以及公仓报价 details 中没有报价的仓点，都按冷门计算。"""
+        """仅按热门仓点列表判断：不在 hot_warehouse 中的仓点一律按冷门计算。"""
         if public_fee is None:
             return True
 
@@ -9674,29 +9674,8 @@ class ReceivableAccounting(View):
         target = normalize(destination)
         if not target:
             return True
-        cold_locations = {normalize(value) for value in (public_fee.niche_warehouse or [])}
-        if target in cold_locations:
-            return True
-
-        quoted_locations = set()
-
-        def collect_locations(value):
-            # NJ/SAV: 类别 -> 价格 -> 仓点列表；LA: 价格 -> 仓点列表。
-            if isinstance(value, dict):
-                for key, child in value.items():
-                    if key == "location" and isinstance(child, str):
-                        quoted_locations.add(normalize(child))
-                    else:
-                        collect_locations(child)
-            elif isinstance(value, (list, tuple)):
-                for child in value:
-                    if isinstance(child, str):
-                        quoted_locations.add(normalize(child))
-                    elif isinstance(child, (dict, list, tuple)):
-                        collect_locations(child)
-
-        collect_locations(public_fee.details or {})
-        return target not in quoted_locations
+        hot_locations = {normalize(value) for value in (public_fee.hot_warehouse or [])}
+        return target not in hot_locations
 
     def _calculate_total_pallet(
         self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse, cbm_per_pl,
