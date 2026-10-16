@@ -8318,8 +8318,7 @@ class ReceivableAccounting(View):
                 is_combina = False
             else:
                 # 未定义，直接去判断
-                if self._is_combina(order.container_number.container_number):
-                    is_combina = True
+                _, is_combina, _ = self._is_combina(order.container_number.container_number)
         return is_combina
 
     def _merge_combina_info(self, info1: dict, info2: dict , info3: dict = None) -> dict:
@@ -11221,6 +11220,18 @@ class ReceivableAccounting(View):
             container.non_combina_reason = f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
             container.save()
             return context, False,f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
+        # 非组合柜仓点有独立上限，未用满的组合柜名额不能抵扣此上限。
+        non_combina_limit = uncombina_threshold - combina_threshold
+        if non_combina_region_count > non_combina_limit:
+            reason = (
+                f"非组合柜仓点数为{non_combina_region_count}，超过允许的"
+                f"{non_combina_limit}个（bulk_threshold={uncombina_threshold}"
+                f" - max_mixed={combina_threshold}），整柜按非组合柜计费"
+            )
+            container.account_order_type = "转运"
+            container.non_combina_reason = reason
+            container.save()
+            return context, False, reason
         container.non_combina_reason = None
         container.account_order_type = "转运组合"
         container.save()
