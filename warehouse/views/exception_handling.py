@@ -166,6 +166,8 @@ class ExceptionHandling(View):
         step = request.POST.get("step", None)
         if step == "repair_dropshipping_offload_times":
             return await self.handle_repair_dropshipping_offload_times(request)
+        elif step == "organize_fee_detail_hot_warehouses":
+            return await self.handle_organize_fee_detail_hot_warehouses(request)
         print('step',step)
         #修改约状态相关的
         if step == "search_shipment":
@@ -404,6 +406,35 @@ class ExceptionHandling(View):
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
+    @sync_to_async
+    @transaction.atomic
+    def handle_organize_fee_detail_hot_warehouses(self, request: HttpRequest) -> HttpResponse:
+        if not (request.user.is_authenticated and request.user.is_staff):
+            return HttpResponseForbidden("仅工作人员可整理报价表热门仓点。")
+        updates, errors = [], []
+        scanned = updated = hot_count = 0
+        for fee in FeeDetail.objects.only("id", "fee_type", "details", "niche_warehouse", "hot_warehouse").iterator(chunk_size=200):
+            scanned += 1
+            try:
+                values = fee.get_hot_warehouse_locations()
+                hot_count += len(values)
+                if fee.hot_warehouse != values:
+                    fee.hot_warehouse = values
+                    updates.append(fee)
+                    updated += 1
+                if len(updates) >= 200:
+                    FeeDetail.objects.bulk_update(updates, ["hot_warehouse"])
+                    updates.clear()
+            except (ValueError, TypeError, SyntaxError) as exc:
+                errors.append({"id": fee.pk, "fee_type": fee.fee_type, "error": str(exc)})
+        if updates:
+            FeeDetail.objects.bulk_update(updates, ["hot_warehouse"])
+        return render(request, self.template_post_port_status, {
+            "hot_warehouse_done": True, "hot_warehouse_scanned": scanned,
+            "hot_warehouse_updated": updated, "hot_warehouse_count": hot_count,
+            "hot_warehouse_errors": errors,
+        })
+
     @sync_to_async
     @transaction.atomic
     def handle_repair_dropshipping_offload_times(self, request: HttpRequest) -> HttpResponse:

@@ -1630,6 +1630,17 @@ class QuoteManagement(View):
         context = {"quotes": quotes}
         return self.template_payable_quote_master, context
 
+    def _update_quote_hot_warehouses(self, quote):
+        """仅整理本次上传的报价明细，与历史数据整理按钮使用同一提取规则。"""
+        fees = list(FeeDetail.objects.filter(quotation_id=quote))
+        for fee in fees:
+            try:
+                fee.hot_warehouse = fee.get_hot_warehouse_locations()
+            except (ValueError, TypeError, SyntaxError) as exc:
+                raise ValueError(f"报价明细 {fee.fee_type} 热门仓点归纳失败：{exc}") from exc
+        if fees:
+            FeeDetail.objects.bulk_update(fees, ["hot_warehouse"], batch_size=200)
+
     def handle_upload_quote_post(self, request: HttpRequest) -> dict[str, Any]:
         order_form = OrderForm(request.POST)
         if order_form.is_valid():
@@ -1671,6 +1682,7 @@ class QuoteManagement(View):
                 quote.is_dropship = True
                 quote.save()
                 self.process_dropship_sheet(df, quote)
+                self._update_quote_hot_warehouses(quote)
                 quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by("-id")
                 context = {"quotes": quotes}
                 return self.template_quote_master, context
@@ -1723,6 +1735,7 @@ class QuoteManagement(View):
                     df = excel_file.parse(sheet_name)
                     handler = SHEET_HANDLERS[sheet_key]
                     handler(df, file, quote)
+            self._update_quote_hot_warehouses(quote)
         quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by("-id")
         context = {"quotes": quotes}
         return self.template_quote_master, context
