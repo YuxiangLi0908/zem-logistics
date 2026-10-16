@@ -1,6 +1,7 @@
 from django import template
 from django.contrib.auth.models import Group
 from django.utils.safestring import mark_safe
+from django.utils.html import escape
 import json
 
 
@@ -44,8 +45,11 @@ def render_fee_details(details, fee_type):
     """渲染费用详情为表格形式"""
     html = ""
     
-    if fee_type in ["NJ_AMAZON", "LA_AMAZON", "SAV_AMAZON"]:
+    if fee_type in ["NJ_AMAZON", "LA_AMAZON", "SAV_AMAZON", "NJ_PUBLIC", "LA_PUBLIC", "SAV_PUBLIC"]:
         # 亚马逊派送类型
+        # LA_PUBLIC 直接按价格分组；NJ/SAV 通常还有 AMAZON/WALMART 分类层。
+        if isinstance(details, dict) and all(isinstance(value, list) for value in details.values()):
+            details = {fee_type.replace("_PUBLIC", "_AMAZON"): details}
         html += _render_amazon_details(details)
     elif fee_type in ["NJ_COMBINA", "LA_COMBINA", "SAV_COMBINA"]:
         # 组合柜类型
@@ -88,10 +92,10 @@ def _render_amazon_details(details):
         for price, locations in price_groups.items():
             html += '<tr>'
             if first_row:
-                html += f'<td style="padding: 10px; border: 1px solid #e9d5ff; vertical-align: top; word-wrap: break-word;" rowspan="{len(price_groups)}"><strong>{type_display}</strong></td>'
+                html += f'<td style="padding: 10px; border: 1px solid #e9d5ff; vertical-align: top; word-wrap: break-word;" rowspan="{len(price_groups)}"><strong>{escape(type_display)}</strong></td>'
                 first_row = False
-            html += f'<td style="padding: 10px; border: 1px solid #e9d5ff; word-wrap: break-word;">{price if price is not None else ""}</td>'
-            html += f'<td style="padding: 10px; border: 1px solid #e9d5ff; word-wrap: break-word;">{", ".join(locations) if locations else ""}</td>'
+            html += f'<td style="padding: 10px; border: 1px solid #e9d5ff; word-wrap: break-word;">{escape(price) if price is not None else ""}</td>'
+            html += f'<td style="padding: 10px; border: 1px solid #e9d5ff; word-wrap: break-word;">{escape(", ".join(str(location) for location in locations)) if locations else ""}</td>'
             html += '</tr>'
     
     html += '</tbody></table>'
