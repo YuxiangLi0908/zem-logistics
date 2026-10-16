@@ -11028,6 +11028,75 @@ class ReceivableAccounting(View):
         # 5. 返回结果（修正返回值类型定义，与实际返回3个值匹配）
         return invoice, invoice_status_receivable, invoice_status_payable
 
+    def check_combina_container_limits(self, order):
+        """只读检查组合柜仓点数量，不受人工柜型覆盖，也不修改数据库。"""
+        container = order.container_number
+        if not container or not order.retrieval_id or not order.vessel_id or not order.customer_name:
+            raise ValueError("缺少柜号、提柜信息、船期或客户信息，无法匹配报价规则")
+        warehouse = order.retrieval_id.retrieval_destination_area
+        quotation, error = self._get_quotation_for_order(order)
+        if error or quotation is None:
+            raise ValueError(error or "未找到适用报价表")
+        try:
+            stipulate = FeeDetail.objects.get(quotation_id=quotation.pk, fee_type="COMBINA_STIPULATE").details
+            combina_fee = FeeDetail.objects.get(quotation_id=quotation.pk, fee_type=f"{warehouse}_COMBINA").details
+        except FeeDetail.DoesNotExist as exc:
+            raise ValueError(f"报价表《{quotation.filename}》缺少 COMBINA_STIPULATE 或 {warehouse}_COMBINA 分表") from exc
+        stipulate = json.loads(stipulate) if isinstance(stipulate, str) else stipulate
+        global_rules = stipulate.get("global_rules", {})
+
+        def threshold(key):
+            source = f"{warehouse}_{key}" if f"{warehouse}_{key}" in global_rules else key
+            if source not in global_rules:
+                raise ValueError(f"报价表未配置 {source}")
+            value = float(global_rules[source]["default"])
+            if not math.isfinite(value) or value < 0 or not value.is_integer():
+                raise ValueError(f"报价参数 {source} 必须为非负整数")
+            return int(value), source
+
+        max_mixed, mixed_key = threshold("max_mixed")
+        bulk_threshold, bulk_key = threshold("bulk_threshold")
+        if bulk_threshold < max_mixed:
+            raise ValueError(f"报价规则异常：{bulk_key}={bulk_threshold} 小于 {mixed_key}={max_mixed}")
+        combina_fee = json.loads(combina_fee) if isinstance(combina_fee, str) else combina_fee
+        cargo = Pallet.objects.filter(container_number=container)
+        source = "Pallet"
+        if not cargo.exists():
+            cargo = PackingList.objects.filter(container_number=container)
+            source = "PackingList"
+        groups = list(cargo.exclude(destination__isnull=True).exclude(destination="").values("destination").annotate(total_cbm=Sum("cbm")))
+        if not groups:
+            raise ValueError("没有可用于校验的货物仓点")
+        groups = [group for group in groups if self._filter_ups_destinations([group["destination"]])]
+        for group in groups:
+            group["total_cbm"] = float(group["total_cbm"] or 0)
+        total_cbm = sum(group["total_cbm"] for group in groups)
+        if not groups or total_cbm <= 0:
+            raise ValueError("无有效仓点或有效仓点的总 CBM 为0，无法按原计费规则归类")
+        if not container.container_type:
+            raise ValueError("缺少柜型，无法匹配组合柜报价")
+        matched = self.find_matching_regions(groups, combina_fee, 0 if "40" in container.container_type else 1, total_cbm, max_mixed)
+        mixed = list(matched["combina_dests"])
+        non_mixed = self._filter_ups_destinations(list(matched["non_combina_dests"]))
+        total = len(mixed) + len(non_mixed)
+        limit = bulk_threshold - max_mixed
+        reasons = []
+        raw_count = cargo.aggregate(count=Count("destination", distinct=True))["count"]
+        if raw_count > bulk_threshold:
+            reasons.append(f"原始总仓点数{raw_count} > {bulk_key}={bulk_threshold}")
+        if len(mixed) > max_mixed:
+            reasons.append(f"组合柜仓点数{len(mixed)} > {mixed_key}={max_mixed}")
+        if total > bulk_threshold:
+            reasons.append(f"计费总仓点数{total} > {bulk_key}={bulk_threshold}")
+        if len(non_mixed) > limit:
+            reasons.append(f"非组合柜仓点数{len(non_mixed)} > {bulk_key}-{mixed_key}={limit}")
+        return {"warehouse": warehouse, "quotation": quotation.filename, "quotation_id": quotation.pk,
+                "max_mixed": max_mixed, "bulk_threshold": bulk_threshold, "non_mixed_limit": limit,
+                "mixed_key": mixed_key, "bulk_key": bulk_key,
+                "mixed_count": len(mixed), "non_mixed_count": len(non_mixed), "total_count": total,
+                "non_mixed_destinations": "、".join(non_mixed), "source": source,
+                "reason": "；".join(reasons), "compliant": not reasons}
+
     def _is_combina(self, container_number: str) -> Any:
         context = {}
         try:

@@ -164,6 +164,8 @@ class ExceptionHandling(View):
         
     async def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
+        if step == "check_combina_container_compliance":
+            return await self.handle_check_combina_container_compliance(request)
         if step == "repair_dropshipping_offload_times":
             return await self.handle_repair_dropshipping_offload_times(request)
         elif step == "organize_fee_detail_hot_warehouses":
@@ -406,6 +408,39 @@ class ExceptionHandling(View):
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
+    @sync_to_async
+    def handle_check_combina_container_compliance(self, request: HttpRequest) -> HttpResponse:
+        """面向所有页面用户的只读校验，无工作人员/用户组限制。"""
+        from warehouse.views.receivable_accounting import ReceivableAccounting
+        checker = ReceivableAccounting()
+        orders = Order.objects.filter(
+            order_type="转运组合", vessel_id__vessel_eta__gt=make_aware(datetime(2026, 10, 1)),
+        ).select_related("container_number", "vessel_id", "retrieval_id", "offload_id", "customer_name").order_by("container_number__container_number", "pk")
+        records = []
+        scanned = passed = failed = errors = 0
+        for order in orders.iterator(chunk_size=100):
+            scanned += 1
+            row = {"container_number": str(order.container_number or "未填写柜号"),
+                   "vessel_eta": order.vessel_id.vessel_eta, "vessel_etd": order.vessel_id.vessel_etd,
+                   "actual_retrieval_timestamp": order.retrieval_id.actual_retrieval_timestamp if order.retrieval_id else None,
+                   "offload_at": order.offload_id.offload_at if order.offload_id else None}
+            try:
+                result = checker.check_combina_container_limits(order)
+                if result["compliant"]:
+                    passed += 1
+                    continue
+                row.update(result, status="不合规")
+                failed += 1
+            except Exception as exc:
+                row.update(status="无法校验", reason=f"{type(exc).__name__}: {exc}")
+                errors += 1
+            records.append(row)
+        return render(request, self.template_post_port_status, {
+            "combina_check_done": True, "combina_check_records": records,
+            "combina_check_scanned": scanned, "combina_check_passed": passed,
+            "combina_check_failed": failed, "combina_check_errors": errors,
+        })
+
     @sync_to_async
     @transaction.atomic
     def handle_organize_fee_detail_hot_warehouses(self, request: HttpRequest) -> HttpResponse:
