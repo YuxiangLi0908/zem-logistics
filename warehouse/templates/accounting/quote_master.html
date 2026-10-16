@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
+{% if quote_upload_error %}<div class="alert alert-danger" role="alert">报价表上传失败：{{ quote_upload_error }}</div>{% endif %}
 
 <div style="display: flex; gap: 20px; align-items: flex-start;">
     <div style="width: 320px; flex-shrink: 0;">
@@ -36,6 +37,24 @@
                 <input type="hidden" name="step" value="upload_quote_excel">
             </div>
         </form>
+        <details style="margin-top:14px;padding:12px;background:#f0f6ff;border:1px solid #d4e3fc;border-radius:6px;font-size:12px;line-height:1.8;">
+            <summary style="cursor:pointer;font-weight:600;">Excel 板数小数规则填写说明</summary>
+            <p>在“组合柜规则”工作表的 <b>▶ global_rules</b> 区域增加下列参数，不要新增工作表。沿用现有四列：参数名称、默认值、例外区域、例外值。</p>
+            <table class="table table-sm" style="font-size:11px;">
+                <thead><tr><th>参数名称（A列）</th><th>默认值（B列）</th></tr></thead>
+                <tbody>
+                    <tr><td>hot_pallet_threshold</td><td>0.5</td></tr>
+                    <tr><td>hot_pallet_below</td><td>0.5</td></tr>
+                    <tr><td>hot_pallet_above</td><td>1</td></tr>
+                    <tr><td>cold_pallet_threshold</td><td>0</td></tr>
+                    <tr><td>cold_pallet_below</td><td>0</td></tr>
+                    <tr><td>cold_pallet_above</td><td>1</td></tr>
+                </tbody>
+            </table>
+            <p>hot 表示热门仓点，cold 表示冷门仓点；threshold 是小数分界值，below 是小数 ≤ 分界值时补计的板数，above 是小数 &gt; 分界值时补计的板数。整数不补板。</p>
+            <p>例外区域（C列）和例外值（D列）可留空；需要仓库专用规则时填写 LA、NJ 或 SAV 及对应数字。每类三个参数必须一起填写，可以仅配置一类。</p>
+            <p><b>优先使用所选报价表的配置，不受新旧规则 ETD 分界限制。没有配置的类别沿用系统当前规则：ETD ≥ 2025-04-01（含LA），热门小数 ≤ 0.5 补0.5板、&gt; 0.5 补1板，冷门有小数补1板；此前按旧规：热门小数 ≤ 0.9 补0.5板、&gt; 0.9 补1板，冷门有小数补1板。所有规则仅处理大于0的小数部分。</b></p>
+        </details>
     </div>
 
     <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 0;">

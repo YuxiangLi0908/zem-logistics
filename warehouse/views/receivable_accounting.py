@@ -8704,6 +8704,13 @@ class ReceivableAccounting(View):
         global_lines.append(f"- 标准每板 CBM：{g['cbm_per_pl']['default']}")
         global_lines.append(f"- 单柜限重：{g['weight_limit']['default']} 磅")
         global_lines.append(f"- 超重费区间：{g['overweight_min']['default']} - {g['overweight_max']['default']}")
+        for prefix, label in (("hot", "热门仓点"), ("cold", "冷门仓点")):
+            keys = [f"{prefix}_pallet_{suffix}" for suffix in ("threshold", "below", "above")]
+            if all(key in g for key in keys):
+                values = [g[key].get("exceptions", {}).get(warehouse_code, g[key]["default"]) for key in keys]
+                global_lines.append(f"- {label}板数（报价表优先）：有小数且 ≤ {values[0]} 补 {values[1]} 板，超过补 {values[2]} 板；整数不补板")
+            else:
+                global_lines.append(f"- {label}板数：报价表未配置，沿用系统当前规则")
 
         result["global_rules"] = "\n".join(global_lines)
 
@@ -9212,12 +9219,6 @@ class ReceivableAccounting(View):
             combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
 
         rules = fee_details.get(combina_key).details
-        niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
-        niche_warehouse_fixed = {
-            self._process_destination_wlm(x)
-            for x in niche_warehouse
-            if x
-        }
 
         # 2. 筛选出属于组合区域的pallet_groups
         combina_pallet_groups = []
@@ -9428,9 +9429,10 @@ class ReceivableAccounting(View):
                 description = ""
 
             # 根据冷热门仓点计算板数
-            is_niche_warehouse = dest_fixed in niche_warehouse_fixed
+            is_niche_warehouse = self._is_niche_pallet_destination(dest_fixed, fee_details.get(f"{warehouse}_PUBLIC"))
             must_pallet = self._calculate_total_pallet(
-                group_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
+                group_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl,
+                quote_rules=stipulate.get("global_rules", {})
             )
             item_data = {
                 "id": None,
@@ -9598,11 +9600,7 @@ class ReceivableAccounting(View):
                 context.update({'error_messages':f'{warehouse}_PUBLIC-group-{group}未找到亚马逊沃尔玛报价表'})
                 return context
             rules = fee_details.get(f"{warehouse}_PUBLIC").details
-            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
-            if destination in niche_warehouse:
-                is_niche_warehouse = True
-            else:
-                is_niche_warehouse = False
+            is_niche_warehouse = self._is_niche_pallet_destination(destination, fee_details.get(public_key))
             
             #LA和其他的存储格式有点区别
             details = (
@@ -9630,12 +9628,13 @@ class ReceivableAccounting(View):
                 rate = 0
                 amount = 0
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
+                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl,
+                    quote_rules=stipulates.get("global_rules", {})
                 )   
-                is_niche_warehouse = True
             else:            
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
+                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl,
+                    quote_rules=stipulates.get("global_rules", {})
                 )               
                 rate = float(rate) if rate else 0.0
                 total_pallets = float(total_pallets) if total_pallets else 0.0
@@ -9665,10 +9664,49 @@ class ReceivableAccounting(View):
             "cbm_ratio": cbm_ratio,
         }
     
+    def _is_niche_pallet_destination(self, destination, public_fee):
+        """冷门列表中的仓点，以及公仓报价 details 中没有报价的仓点，都按冷门计算。"""
+        if public_fee is None:
+            return True
+
+        def normalize(value):
+            return str(self._process_destination_wlm(str(value or "").strip()) or "").strip().upper()
+
+        target = normalize(destination)
+        if not target:
+            return True
+        cold_locations = {normalize(value) for value in (public_fee.niche_warehouse or [])}
+        if target in cold_locations:
+            return True
+
+        quoted_locations = set()
+
+        def collect_locations(value):
+            # NJ/SAV: 类别 -> 价格 -> 仓点列表；LA: 价格 -> 仓点列表。
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if key == "location" and isinstance(child, str):
+                        quoted_locations.add(normalize(child))
+                    else:
+                        collect_locations(child)
+            elif isinstance(value, (list, tuple)):
+                for child in value:
+                    if isinstance(child, str):
+                        quoted_locations.add(normalize(child))
+                    elif isinstance(child, (dict, list, tuple)):
+                        collect_locations(child)
+
+        collect_locations(public_fee.details or {})
+        return target not in quoted_locations
+
     def _calculate_total_pallet(
-        self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse, cbm_per_pl
+        self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse, cbm_per_pl,
+        quote_rules=None,
     ) -> float:
         """板数计算公式（按当前代码实际生效的逻辑）：
+        优先级：报价表 global_rules 中对应的 hot/cold_pallet_threshold、below、above
+        三项参数齐全时，按报价表的小数分界与补板数计算（与 ETD 无关）。
+        没有对应配置的旧报价表，继续使用下列当前计算规则，不改变历史兼容逻辑。
         原始板数 P = float(cbm) / float(cbm_per_pl)，整数部分 N = int(P)，小数部分 D = P - N。
         D = 0 时，总板数 = N；D > 0 时，总板数 = N + 补计板数：
         1. 新规则（is_new_rule=True）：
@@ -9680,6 +9718,24 @@ class ReceivableAccounting(View):
         注意：ETD 晚于 2025-07-01 的 NJ/SAV/LA 分仓规则虽先计算 additional，
         但随后会被上述 is_new_rule 分支覆盖，因此目前不会影响最终板数。
         """
+        prefix = "cold" if is_niche_warehouse else "hot"
+        keys = [f"{prefix}_pallet_{suffix}" for suffix in ("threshold", "below", "above")]
+        if quote_rules and any(key in quote_rules for key in keys):
+            if not all(key in quote_rules for key in keys):
+                raise ValueError(f"报价表板数规则不完整，必须同时配置：{', '.join(keys)}")
+            def configured_value(key):
+                rule = quote_rules[key]
+                return Decimal(str(rule.get("exceptions", {}).get(warehouse, rule["default"])))
+            threshold, below, above = [configured_value(key) for key in keys]
+            if (not all(value.is_finite() and 0 <= value <= 1 for value in (threshold, below, above))
+                    or threshold >= 1):
+                raise ValueError("报价表板数规则超出范围：分界值须为0至小于1，补板数须为0至1")
+            raw = Decimal(str(cbm)) / Decimal(str(cbm_per_pl))
+            whole = int(raw)
+            fraction = raw - whole
+            if fraction == 0:
+                return whole
+            return float(Decimal(whole) + (above if fraction > threshold else below))
         raw_p = float(cbm) / float(cbm_per_pl)
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
@@ -11546,6 +11602,7 @@ class ReceivableAccounting(View):
         if warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
         for pl in plts_by_destination:
+            is_niche_warehouse = self._is_niche_pallet_destination(pl.get("destination"), fee_details.get(f"{warehouse}_PUBLIC"))
             # 从亚马逊、沃尔玛、本地报价表中挨个找
             # 先找亚马逊
             pl["is_fixed_price"] = False  #是否为一口价，先默认为否
@@ -11553,13 +11610,6 @@ class ReceivableAccounting(View):
                 if pl["destination"] in locations:
                     pl["price"] = price
                     break
-            if pl.get("price"):  # 说明这个仓点在这个报价表里，确认是不是冷门仓点
-                niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
-                if pl["destination"] in niche_warehouse:
-                    is_niche_warehouse = True
-                else:
-                    is_niche_warehouse = False
-
             # 再找沃尔玛
             if not pl.get("price") and walmart_data:
                 for price, locations in walmart_data.items():
@@ -11568,14 +11618,6 @@ class ReceivableAccounting(View):
                     ]:
                         pl["price"] = price
                         break
-                if pl.get("price"):
-                    niche_warehouse = fee_details.get(
-                        f"{warehouse}_PUBLIC"
-                    ).niche_warehouse
-                    if pl["destination"] in niche_warehouse:
-                        is_niche_warehouse = True
-                    else:
-                        is_niche_warehouse = False
             # 再找本地派送
             if not pl.get("price") and warehouse == "NJ":
                 destination = re.sub(r"[^0-9]", "", str(pl["destination"]))
@@ -11587,7 +11629,8 @@ class ReceivableAccounting(View):
                         costs = locations["prices"]
                         if not over_count:
                             total_pallet = self._calculate_total_pallet(
-                                pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
+                                pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl,
+                                quote_rules=stipulates.get("global_rules", {})
                             )
                         else:
                             total_pallet = over_count
@@ -11600,7 +11643,8 @@ class ReceivableAccounting(View):
                 pl["price"] = 0
             if not over_count:
                 total_pallet = self._calculate_total_pallet(
-                    pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
+                    pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl,
+                                quote_rules=stipulates.get("global_rules", {})
                 )
             else:
                 total_pallet = over_count 

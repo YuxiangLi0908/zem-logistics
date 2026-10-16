@@ -1,4 +1,5 @@
 import os
+import math
 import random
 import re
 import string
@@ -12,7 +13,7 @@ from typing import Dict, List, Any, Tuple, Union
 
 import pandas as pd
 from django.contrib.auth.decorators import login_required
-from django.db import models
+from django.db import models, transaction
 from django.forms import formset_factory
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -84,7 +85,12 @@ class QuoteManagement(View):
                 request, self.template_update, self.handle_update_post(request)
             )
         elif step == "upload_quote_excel":
-            template, context = self.handle_upload_quote_post(request)
+            try:
+                with transaction.atomic():
+                    template, context = self.handle_upload_quote_post(request)
+            except ValueError as exc:
+                template, context = self.handle_quote_master_get(request)
+                context["quote_upload_error"] = str(exc)
             return render(request, template, context)
         
         elif step == "upload_payable_quote_excel":
@@ -1186,7 +1192,7 @@ class QuoteManagement(View):
             ):
                 continue
             if current_section == "global_rules":
-                rule_name = str(row.iloc[0])
+                rule_name = str(row.iloc[0]).strip()
                 rule_value = row.iloc[1]
                 exception_zone = row.iloc[2] if pd.notna(row.iloc[2]) else None
                 exception_value = row.iloc[3] if pd.notna(row.iloc[3]) else None
@@ -1248,6 +1254,28 @@ class QuoteManagement(View):
                 if warehouse not in result["tiered_pricing"]:
                     result["tiered_pricing"][warehouse] = []
                 result["tiered_pricing"][warehouse].append(addition_rule)
+        # 板数小数规则为可选项；旧报价表没有这些参数时保持原计算方式。
+        for prefix in ("hot", "cold"):
+            keys = [f"{prefix}_pallet_{suffix}" for suffix in ("threshold", "below", "above")]
+            supplied = [key for key in keys if key in result["global_rules"]]
+            if not supplied:
+                continue
+            if len(supplied) != len(keys):
+                raise ValueError(f"组合柜规则中 {prefix} 板数规则必须同时填写：{', '.join(keys)}")
+            for key in keys:
+                rule = result["global_rules"][key]
+                values = {"default": rule["default"], **rule["exceptions"]}
+                for zone, raw in values.items():
+                    try:
+                        value = float(raw)
+                    except (ValueError, TypeError) as exc:
+                        raise ValueError(f"板数规则 {key}（{zone}）必须为数字") from exc
+                    if not math.isfinite(value) or not 0 <= value <= 1 or (key.endswith("threshold") and value == 1):
+                        raise ValueError(f"板数规则 {key}（{zone}）超出范围：分界值须为0至小于1，补板数须为0至1")
+                    if zone == "default":
+                        rule["default"] = value
+                    else:
+                        rule["exceptions"][zone] = value
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
