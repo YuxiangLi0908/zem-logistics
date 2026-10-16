@@ -886,6 +886,16 @@ class OrderCreation(View):
             context["check_destination"] = True
             context["non_combina_region"] = non_combina_region 
             context["combina_region"] = combina_region
+            destination_counts = {}
+            for destinations in combina_region.values():
+                for destination in destinations:
+                    name = str(destination).strip().upper()
+                    if name:
+                        destination_counts[name] = destination_counts.get(name, 0) + 1
+            context["duplicate_combina_destinations"] = [
+                {"destination": name, "count": count}
+                for name, count in sorted(destination_counts.items()) if count > 1
+            ]
             context["quotation_file"] = getattr(request, "quotation_file")
         else:
             context["check_destination"] = False

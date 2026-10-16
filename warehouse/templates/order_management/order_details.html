@@ -862,6 +862,12 @@
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">组合柜区域</label>
+                <div style="margin-bottom:8px;padding:8px 12px;background:#fff7e6;border:1px solid #ffe0a3;border-radius:4px;color:#92400e;">
+                    组合柜区域内重复仓点：
+                    {% for item in duplicate_combina_destinations %}
+                        <span style="display:inline-block;margin-right:12px;">{{ item.destination }}（出现 {{ item.count }} 次）</span>
+                    {% empty %}无{% endfor %}
+                </div>
                 <div class="region-display combina-region">
                     <div class="region-grid">
                         {% for zone, destinations in combina_region.items %}
