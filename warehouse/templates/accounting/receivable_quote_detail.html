@@ -149,6 +149,13 @@
                     </div>
                     {% endif %}
                     
+                    {% if fee_type == "LA_COMBINA" or fee_type == "LA_PUBLIC" or fee_type == "NJ_COMBINA" or fee_type == "NJ_PUBLIC" or fee_type == "SAV_COMBINA" or fee_type == "SAV_PUBLIC" %}
+                    <div style="margin-bottom: 20px; padding: 14px; background: #ecfdf5; border-radius: 8px; border-left: 4px solid #34d399; overflow-wrap: anywhere;">
+                        <strong style="color: #065f46; font-size: 14px;">热门仓点:</strong>
+                        <span style="color: #065f46; margin-left: 8px;">{% if fee_detail.hot_warehouse %}{{ fee_detail.hot_warehouse|join:"、" }}{% else %}暂无热门仓点{% endif %}</span>
+                    </div>
+                    {% endif %}
+
                     {% with details=fee_detail.details %}
                         {% if details %}
                             <div style="padding: 4px;">
