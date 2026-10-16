@@ -9552,10 +9552,6 @@ class ReceivableAccounting(View):
             tzinfo=pytz.UTC
         )
         is_new_rule = vessel_etd >= cutoff_datetime
-        rule_warehouse = order.retrieval_id.retrieval_destination_area
-        if 'LA' in rule_warehouse:
-            # LA 统一用旧规则
-            is_new_rule = False
 
         po_id = group.get("PO_ID")
         delivery_method = group.get("delivery_method", "")
