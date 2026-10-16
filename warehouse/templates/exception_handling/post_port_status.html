@@ -173,6 +173,37 @@
         100% { background-position: 0% 50%; }
     }
 </style>
+<div style="margin:12px 0;">
+    <form method="post" style="display:inline-block;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='正在检验…';">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="check_combina_container_compliance">
+        <button type="submit" class="search-btn">检验柜子类型是否合规</button>
+    </form>
+    <p style="margin-top:6px;color:#64748b;font-size:12px;">只读检查：ETA 在2026-10-01 00:00之后、订单类型为转运组合的柜子；使用各柜匹配的报价规则，不修改柜子类型。</p>
+</div>
+{% if combina_check_done %}
+<div style="padding:12px;margin:12px 0;background:#edf5ff;border:1px solid #cbdff7;">
+    校验完成：检查 {{ combina_check_scanned }} 条订单，合规 {{ combina_check_passed }} 条，
+    不合规 {{ combina_check_failed }} 条，无法校验 {{ combina_check_errors }} 条。
+</div>
+{% if combina_check_records %}
+<div style="overflow:auto;">
+    <table class="data-table">
+        <thead><tr><th>柜号</th><th>ETA / ETD</th><th>提柜时间</th><th>是否拆柜</th><th>结果</th><th>仓库</th><th>适用报价表</th><th>组合柜仓点数</th><th>非组合柜仓点数</th><th>计费总仓点数</th><th>报价阈值</th><th>不合规 / 无法校验原因</th></tr></thead>
+        <tbody>{% for row in combina_check_records %}
+            <tr><td>{{ row.container_number }}</td><td>{{ row.vessel_eta|date:"Y-m-d" }} / {{ row.vessel_etd|date:"Y-m-d" }}</td>
+                <td>{{ row.actual_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"未提柜" }}</td>
+                <td>{% if row.offload_at %}已拆柜<br>{{ row.offload_at|date:"Y-m-d H:i:s" }}{% else %}未拆柜{% endif %}</td><td>{{ row.status }}</td>
+                <td>{{ row.warehouse|default:"—" }}</td><td>{{ row.quotation|default:"—" }}{% if row.quotation_id %}（ID: {{ row.quotation_id }}）{% endif %}</td>
+                <td>{{ row.mixed_count|default_if_none:"—" }}</td><td>{{ row.non_mixed_count|default_if_none:"—" }}</td><td>{{ row.total_count|default_if_none:"—" }}</td>
+                <td>{% if row.mixed_key %}{{ row.mixed_key }}={{ row.max_mixed }}<br>{{ row.bulk_key }}={{ row.bulk_threshold }}<br>非组合上限={{ row.non_mixed_limit }}{% else %}—{% endif %}</td>
+                <td style="min-width:260px;white-space:normal;">{{ row.reason }}{% if row.non_mixed_destinations %}<br>非组合仓点：{{ row.non_mixed_destinations }}{% endif %}</td>
+            </tr>
+        {% endfor %}</tbody>
+    </table>
+</div>
+{% else %}<p>未发现不合规或无法校验的柜子。</p>{% endif %}
+{% endif %}
 
 <h2> 港后异常状态</h2>
 <!-- 查询表单 -->

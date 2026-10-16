@@ -1524,7 +1524,7 @@ class ShippingManagement(View):
                     fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
             except Exception:
-                pass
+                raise
 
         # --- 4. 绑定 Pallet ---
         plt_ids = request.POST.get("plt_ids")
@@ -1590,7 +1590,7 @@ class ShippingManagement(View):
                         Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
             except Exception:
-                pass
+                raise
 
         # --- 5. 计算 totals 并更新 Shipment / Fleet ---
         try:
@@ -1652,7 +1652,7 @@ class ShippingManagement(View):
             fleet.warehouse_process_status = "shipped"
             await sync_to_async(fleet.save)()
         except Exception:
-            pass
+            raise
 
         return batch_number
 
