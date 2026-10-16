@@ -1010,6 +1010,22 @@
     </table>
 {% endif %}
 {% if user.is_staff %}
+    <form method="post" style="display:inline-block;margin:2px;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='正在整理…';">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="organize_fee_detail_hot_warehouses">
+        <button type="submit" class="search-btn">整理报价表热门仓点</button>
+    </form>
+    {% if hot_warehouse_done %}
+        <div style="margin:12px 0;padding:12px;background:#edf9f0;border:1px solid #b7eb8f;">
+            热门仓点整理完成：扫描 {{ hot_warehouse_scanned }} 条报价明细，更新 {{ hot_warehouse_updated }} 条，
+            整理出 {{ hot_warehouse_count }} 个热门仓点（每条报价明细内去重），失败 {{ hot_warehouse_errors|length }} 条。
+        </div>
+        {% if hot_warehouse_errors %}
+        <table class="data-table"><thead><tr><th>报价明细ID</th><th>费用类型</th><th>失败原因</th></tr></thead>
+            <tbody>{% for item in hot_warehouse_errors %}<tr><td>{{ item.id }}</td><td>{{ item.fee_type }}</td><td>{{ item.error }}</td></tr>{% endfor %}</tbody>
+        </table>
+        {% endif %}
+    {% endif %}
     <form method="post" style="display:inline-block;margin:2px;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='正在补齐…';">
         {% csrf_token %}
         <input type="hidden" name="step" value="repair_dropshipping_offload_times">
