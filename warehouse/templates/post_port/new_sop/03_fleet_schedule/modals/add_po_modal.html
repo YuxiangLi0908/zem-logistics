@@ -239,6 +239,42 @@
             width: 60px;
         }
     }
+    /* 独立限定加塞弹框的定位，避免其他弹框样式和顶部导航覆盖。 */
+    #addPOModal {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10000;
+    }
+
+    #addPOModal > .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+        width: 90%;
+        max-width: 900px;
+        max-height: min(700px, calc(100dvh - 32px));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    #addPOModal .modal-header,
+    #addPOModal .modal-actions {
+        flex-shrink: 0;
+    }
+
+    #addPOModal .modal-header h3 {
+        color: #fff;
+    }
+
+    #addPOModal .modal-body {
+        min-height: 0;
+        overflow: auto;
+    }
 </style>
 <form method="post" id="addPOForm">
     {% csrf_token %}
@@ -248,9 +284,9 @@
     <input type="hidden" name="add_pallet_ISA" value="{{ add_pallet_ISA }}">
 
     <div id="addPOModal" class="modal">
-        <div class="modal-content" style="width: 90%; max-width: 900px; max-height: 700px;">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fas fa-plus"></i> 加塞 - {{ add_pallet_ISA }} <span style="font-size: 0.75rem; font-weight: 400; opacity: 0.85; margin-left: 8px;">筛选规则：已打板、仓库与约内PO一致、仓点与约的目的地一致、未排车或未发货</span></h3>
+                <h3><i class="fas fa-plus"></i> 加塞 - {{ add_pallet_ISA }} <span style="font-size: 0.75rem; font-weight: 400; color: #fff; margin-left: 8px;">筛选规则：已打板、仓库与约内PO一致、仓点与约的目的地一致、未排车或未发货</span></h3>
                 <span class="close" onclick="closeAddPOModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -401,29 +437,43 @@ document.addEventListener('DOMContentLoaded', function() {
 // 关闭模态框事件
 document.querySelector('#addPOModal .close').addEventListener('click', closeAddPOModal);
 
-document.querySelectorAll(".col-filter").forEach(input => {
-    input.addEventListener("input", function () {
-        const colIndex = parseInt(this.dataset.col);
-        const keyword = this.value.trim();
+(() => {
+    const modal = document.getElementById('addPOModal');
+    // 连同表单移至 body，保留提交关系，并避开父容器的层叠和裁切。
+    document.body.appendChild(document.getElementById('addPOForm'));
+    const filters = Array.from(modal.querySelectorAll('.col-filter'));
+    // 一次缓存静态列文本，避免每次输入读取 innerText 触发布局计算。
+    const rows = Array.from(modal.querySelectorAll('#addPOTableBody tr'))
+        .filter(row => row.querySelector('.plt-checkbox'))
+        .map(row => ({
+            element: row,
+            cells: Array.from(row.cells, cell => cell.textContent.trim().toLowerCase())
+        }));
+    let timer;
 
-        // 柜号列（colIndex=3）支持多值筛选，以空格和换行分隔
-        const keywords = colIndex === 3
-            ? keyword.split(/[\s\n]+/).filter(k => k.length > 0).map(k => k.toLowerCase())
-            : keyword ? [keyword.toLowerCase()] : [];
+    function applyFilters() {
+        const conditions = filters.map(input => {
+            const column = Number(input.dataset.col);
+            const value = input.value.trim().toLowerCase();
+            // 各列同时满足；柜号框内多个柜号仍按任一匹配。
+            return {column, keywords: column === 3 ? value.split(/\s+/).filter(Boolean) : value ? [value] : []};
+        }).filter(condition => condition.keywords.length);
 
-        document.querySelectorAll("#addPOTableBody tr").forEach(row => {
-            const cell = row.children[colIndex];
-            if (!cell) return;
-
-            const text = cell.innerText.toLowerCase();
-            if (keywords.length === 0) {
-                row.style.display = "";
-            } else {
-                row.style.display = keywords.some(k => text.includes(k)) ? "" : "none";
-            }
+        rows.forEach(({element, cells}) => {
+            const visible = conditions.every(({column, keywords}) =>
+                keywords.some(keyword => cells[column].includes(keyword))
+            );
+            const display = visible ? '' : 'none';
+            if (element.style.display !== display) element.style.display = display;
         });
-    });
-});
+    }
+
+    filters.forEach(input => input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(applyFilters, 120);
+    }));
+    applyFilters();
+})();
 
 // 点击外部关闭
 window.addEventListener('click', function(event) {
