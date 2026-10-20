@@ -98,22 +98,22 @@ function validatePOUpdate(form) {
         ];
         const errors = [];
         let firstMismatch = null;
+        // 合并各行标记后去重比较，忽略顺序、首尾空格，兼容中英文逗号。
+        const collectValues = values => [...new Set(values.flatMap(value =>
+            value.split(/[,，]/).map(item => item.trim()).filter(Boolean)
+        ))].sort();
         checks.forEach(({pallet, packing, label}) => {
-            const palletValue = form.elements[pallet].value.trim();
+            const palletValues = collectValues([form.elements[pallet].value]);
             const inputs = Array.from(form.querySelectorAll(`input[name="${packing}"]`));
-            if (!inputs.length && palletValue) {
-                errors.push(`卡板 ${label} 有值，但没有对应装箱单，无法保存更新。`);
-                return;
-            }
-            const mismatchRows = [];
-            inputs.forEach((input, index) => {
-                if (input.value.trim() !== palletValue) {
-                    mismatchRows.push(index + 1);
-                    if (!firstMismatch) firstMismatch = input;
-                }
-            });
-            if (mismatchRows.length) {
-                errors.push(`第 ${mismatchRows.join('、')} 行装箱单 ${label} 与卡板 ${label} 不一致，请修改为相同值后保存。`);
+            const packingValues = collectValues(inputs.map(input => input.value));
+            if (JSON.stringify(palletValues) !== JSON.stringify(packingValues)) {
+                const missing = palletValues.filter(value => !packingValues.includes(value));
+                const extra = packingValues.filter(value => !palletValues.includes(value));
+                const details = [];
+                if (missing.length) details.push(`装箱单缺少：${missing.join('、')}`);
+                if (extra.length) details.push(`装箱单多出：${extra.join('、')}`);
+                errors.push(`装箱单 ${label} 合并后与卡板 ${label} 不一致（${details.join('；')}），请核对后保存。`);
+                if (!firstMismatch) firstMismatch = inputs[0] || form.elements[pallet];
             }
         });
         if (errors.length) {
