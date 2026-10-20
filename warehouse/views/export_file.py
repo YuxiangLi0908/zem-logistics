@@ -46,6 +46,7 @@ from openpyxl.worksheet.page import PageMargins
 from xhtml2pdf import pisa
 
 from warehouse.models.customer import Customer
+from warehouse.utils.unpacking_order import unpacking_order_fields, unpacking_delivery_order
 from warehouse.utils.unpacking_notes import append_walmart_height, needs_walmart_height
 from warehouse.models.dropship_cargo import DropshipCargo
 from warehouse.models.offload import Offload
@@ -342,7 +343,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by(*(["destination", "custom_delivery_method", "-cbm"]))
+            .order_by(*unpacking_order_fields(zem_name))
         )
     else:
         packing_list = []
@@ -679,6 +680,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
+                raw_cbm=Sum("cbm", output_field=FloatField()),
                 cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
@@ -738,6 +740,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
+                raw_cbm=Sum("cbm", output_field=FloatField()),
                 cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
@@ -844,6 +847,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             )
             .annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
+                raw_cbm=Sum("cbm", output_field=FloatField()),
                 cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
@@ -898,6 +902,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
+                raw_cbm=Sum("cbm", output_field=FloatField()),
                 cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
@@ -947,6 +952,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             )
             .annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
+                raw_cbm=Sum("cbm", output_field=FloatField()),
                 cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
@@ -1001,6 +1007,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
+                raw_cbm=Sum("cbm", output_field=FloatField()),
                 cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
@@ -1175,8 +1182,19 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
 
     df["delivery_method"] = df["delivery_method_final"].apply(split_delivery)
 
+    # NJ follows the new sheet before delivery-method suffixes are stripped.
+    if warehouse == "NJ" and not df.empty:
+        df["delivery_order"] = df.apply(
+            lambda row: unpacking_delivery_order(row.get("destination"), row["delivery_method_final"]), axis=1
+        )
+        fields = unpacking_order_fields(zem_name, "delivery_order", "raw_cbm")
+        df = df.sort_values(
+            by=[field.lstrip("-") for field in fields],
+            ascending=[not field.startswith("-") for field in fields],
+            kind="stable", ignore_index=True,
+        )
     # LA keeps the query order to match the new export.
-    if not (
+    elif not (
         zem_name != "JINYU"
         and warehouse == "LA"
     ):
