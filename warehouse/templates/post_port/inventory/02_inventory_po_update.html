@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{% static 'css/inventory_po_update.css' %}?v=20261007">
 <div id="loading-bar"><div class="spinner"></div><p>Loading, please wait...</p></div>
 <div class="po-editor">
-<form method="post" action="" onsubmit="showLoadingBar()">
+<form method="post" action="" onsubmit="return validatePOUpdate(this)">
     {% csrf_token %}
     <input type="hidden" name="step" value="update_po">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
@@ -90,6 +90,41 @@
 
 </div></section></form></div>
 <script>
+function validatePOUpdate(form) {
+    if (form.elements.is_destroyed.value !== 'True') {
+        const checks = [
+            {pallet: 'pallet_fba_id', packing: 'fba_id_new', label: 'FBA'},
+            {pallet: 'pallet_ref_id', packing: 'ref_id_new', label: 'REF'}
+        ];
+        const errors = [];
+        let firstMismatch = null;
+        checks.forEach(({pallet, packing, label}) => {
+            const palletValue = form.elements[pallet].value.trim();
+            const inputs = Array.from(form.querySelectorAll(`input[name="${packing}"]`));
+            if (!inputs.length && palletValue) {
+                errors.push(`卡板 ${label} 有值，但没有对应装箱单，无法保存更新。`);
+                return;
+            }
+            const mismatchRows = [];
+            inputs.forEach((input, index) => {
+                if (input.value.trim() !== palletValue) {
+                    mismatchRows.push(index + 1);
+                    if (!firstMismatch) firstMismatch = input;
+                }
+            });
+            if (mismatchRows.length) {
+                errors.push(`第 ${mismatchRows.join('、')} 行装箱单 ${label} 与卡板 ${label} 不一致，请修改为相同值后保存。`);
+            }
+        });
+        if (errors.length) {
+            alert(errors.join('\n'));
+            if (firstMismatch) firstMismatch.focus();
+            return false;
+        }
+    }
+    showLoadingBar();
+    return true;
+}
 function showLoadingBar() { document.getElementById('loading-bar').style.display = 'block'; }
 function setDestroyedAndSubmit(form) { document.getElementById('is_destroyed').value = 'True'; }
 </script>
