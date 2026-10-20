@@ -58,6 +58,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
+from warehouse.utils.unpacking_order import unpacking_order_fields, unpacking_delivery_order
 from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
@@ -782,7 +783,7 @@ class Palletization(View):
 
         order_selected = await sync_to_async(
             Order.objects.select_related(
-                "container_number", "warehouse", "offload_id"
+                "container_number", "warehouse", "offload_id", "customer_name"
             ).get
         )(pk=pk)
 
@@ -817,7 +818,9 @@ class Palletization(View):
                     # 其他仓库走普通接口
                     else:
                         packing_list = await self._get_packing_list(
-                            container_number=container.container_number, status="non_palletized"
+                            container_number=container.container_number, status="non_palletized",
+                            warehouse=warehouse,
+                            customer_name=order_selected.customer_name.zem_name if order_selected.customer_name else None
                         )
                     context = {"status": "non_palletized"}
 
@@ -831,7 +834,9 @@ class Palletization(View):
                         )
                     else:
                         packing_list = await self._get_packing_list(
-                            container_number=container.container_number, status="palletized"
+                            container_number=container.container_number, status="palletized",
+                            warehouse=warehouse,
+                            customer_name=order_selected.customer_name.zem_name if order_selected.customer_name else None
                         )
                     context = {"status": "palletized"}
 
@@ -857,6 +862,21 @@ class Palletization(View):
                     context = {"status": "palletized"}
 
         # 组装列表
+        if warehouse == "NJ" and (
+            not order_selected.customer_name or order_selected.customer_name.zem_name != "JINYU"
+        ):
+            # Match the new sheet's self-pickup key without changing entry groups.
+            packing_list.sort(key=lambda row: (
+                row.get("destination") is None,
+                row.get("destination") or "",
+                unpacking_delivery_order(
+                    row.get("destination"),
+                    row.get("custom_delivery_method", row.get("delivery_method")),
+                ) or "",
+                row.get("cbm") is not None,
+                -(row.get("cbm") or 0),
+            ))
+
         for pl in packing_list:
             pl["PO_ID"] = pl.get("PO_ID", "")
             pl_form = PackingListForm(initial={"n_pallet": pl.get("n_pallet", 0)})
@@ -3686,7 +3706,7 @@ class Palletization(View):
             raise ValueError(f"invalid status: {status}")
 
     async def _get_packing_list(
-        self, container_number: str, status: str
+        self, container_number: str, status: str, warehouse: str = "", customer_name: str = None
     ) -> PackingList:
         if status == "non_palletized":
             return await sync_to_async(list)(
@@ -3753,7 +3773,7 @@ class Palletization(View):
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*(unpacking_order_fields(customer_name) if warehouse == "NJ" else ("-cbm",)))
             )
         elif status == "palletized":
             return await sync_to_async(list)(
@@ -3804,7 +3824,7 @@ class Palletization(View):
                         "str_weight", delimiter=",", ordering="str_weight"
                     ),
                 )
-                .order_by("-cbm")
+                .order_by(*(unpacking_order_fields(customer_name, "delivery_method") if warehouse == "NJ" else ("-cbm",)))
             )
         else:
             raise ValueError(f"invalid status: {status}")
