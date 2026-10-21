@@ -850,7 +850,7 @@
 
     function initializeCargoSelection() {
         const selectAll = document.getElementById('selectAllCargos');
-        const checkboxes = document.querySelectorAll('.cargo-checkbox');
+        const checkboxes = document.querySelectorAll('#cargoSelectionBody .cargo-checkbox');
         
         const newSelectAll = selectAll.cloneNode(true);
         selectAll.parentNode.replaceChild(newSelectAll, selectAll);
@@ -858,7 +858,7 @@
         newSelectAll.checked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
         
         newSelectAll.addEventListener('click', function() {
-            const allCheckboxes = document.querySelectorAll('.cargo-checkbox');
+            const allCheckboxes = document.querySelectorAll('#cargoSelectionBody .cargo-checkbox');
             allCheckboxes.forEach(cb => cb.checked = this.checked);
             updateHiddenIds();
         });
@@ -869,7 +869,7 @@
             
             newCheckbox.addEventListener('change', function() {
                 updateHiddenIds();
-                const allCheckboxes = document.querySelectorAll('.cargo-checkbox');
+                const allCheckboxes = document.querySelectorAll('#cargoSelectionBody .cargo-checkbox');
                 const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
                 const someChecked = Array.from(allCheckboxes).some(cb => cb.checked);
                 
@@ -882,7 +882,7 @@
     }
 
     function updateHiddenIds() {
-        const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
+        const selected = Array.from(document.querySelectorAll('#cargoSelectionBody .cargo-checkbox:checked'));
         const cargoIds = selected.map(cb => cb.dataset.cargoId).filter(id => id && id.trim() !== '');
         const pltIds = selected.map(cb => cb.dataset.pltId).filter(id => id && id.trim() !== '');
         
@@ -1037,7 +1037,7 @@
     newBindShipmentForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         if (this.dataset.submitting === '1') return;
-        const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
+        const selected = Array.from(document.querySelectorAll('#cargoSelectionBody .cargo-checkbox:checked'));
         if (selected.length === 0) {
             alert('请至少选择一个PO！');
             e.preventDefault();
@@ -1106,10 +1106,29 @@
                     const result = await response.json().catch(() => ({}));
                     throw new Error(result.message || '网络异常，请重新再试。');
                 }
-                const html = await response.text();
-                document.open();
-                document.write(html);
-                document.close();
+                // 正常导航会创建新的文档及脚本环境，避免 document.write
+                // 清除事件监听或重复声明全局变量，导致列表操作按钮失效。
+                // 只重新查询列表，不能再次提交 bind_group_shipment。
+                await response.text();
+                const refreshForm = document.createElement('form');
+                refreshForm.method = 'POST';
+                refreshForm.action = this.action || location.href;
+                refreshForm.hidden = true;
+                const refreshFields = {
+                    csrfmiddlewaretoken: this.elements.csrfmiddlewaretoken.value,
+                    step: 'td_shipment_warehouse',
+                    warehouse: this.elements.warehouse.value,
+                    st_type: this.elements.st_type.value
+                };
+                Object.entries(refreshFields).forEach(([name, value]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = name;
+                    input.value = value;
+                    refreshForm.appendChild(input);
+                });
+                document.body.appendChild(refreshForm);
+                refreshForm.submit();
             } catch (error) {
                 alert(error.message || '网络异常，请重新再试。');
                 btn.innerHTML = originalLabel;
