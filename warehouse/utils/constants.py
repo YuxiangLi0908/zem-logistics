@@ -121,22 +121,6 @@ DELIVERY_METHOD_CODE = {
     "TNT": "TN",
 }
 
-WAREHOUSE_OPTIONS = [
-    ("", ""),
-    ("NJ-07001", "NJ-07001"),
-    ("NJ-08817", "NJ-08817"),
-    ("SAV-31326", "SAV-31326"),
-    ("SAV-31419", "SAV-31419"),
-    ("SAV-31322", "SAV-31322"),
-    ("SAV-31322-OLW", "SAV-31322-OLW"),
-    ("SAV-31322-ALLWAYS", "SAV-31322-ALLWAYS"),
-    ("LA-91761", "LA-91761"),
-    ("LA-91789", "LA-91789"),
-    ("LA-91730", "LA-91730"),
-    ("N/A(直送)", "N/A(直送)"),
-    ("Empty", "Empty"),
-]
-
 CARRIER_OPTIONS = [
     ("UPS", "UPS"),
     ("FedEx", "FedEx"),
