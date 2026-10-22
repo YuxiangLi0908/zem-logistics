@@ -5,6 +5,11 @@ from warehouse.utils.constants import WAREHOUSE_OPTIONS
 
 
 class ZemWarehouseForm(forms.ModelForm):
+    def __init__(self, *args, warehouse_options=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if warehouse_options is not None:
+            self.fields["name"].widget.choices = warehouse_options
+
     class Meta:
         model = ZemWarehouse
         fields = "__all__"

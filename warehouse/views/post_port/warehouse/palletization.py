@@ -631,6 +631,12 @@ class Palletization(View):
         return self.template_pallet_daily_operation, context
 
     async def handle_all_get(self, request, warehouse: str = None, storehouse: str = None, error_msg: str = []) -> tuple[str, dict[str, Any]]:
+        warehouse_options = await sync_to_async(list)(
+            ZemWarehouse.objects.order_by("name").values_list("name", "name").distinct()
+        )
+        warehouse_form = ZemWarehouseForm(
+            initial={"name": warehouse}, warehouse_options=warehouse_options
+        )
         @sync_to_async
         def check_perm():
             if not request.user.is_authenticated:
@@ -649,7 +655,7 @@ class Palletization(View):
                     "order_not_palletized": order_not_palletized,
                     "order_palletized": order_palletized,
                     "order_with_shipment": order_with_shipment,
-                    "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "warehouse_form": warehouse_form,
                     "warehouse": warehouse,
                     "storehouse": storehouse,
                     "storehouse_form": {"public": "public", "other": "other"},
@@ -664,7 +670,7 @@ class Palletization(View):
                     "order_not_palletized": order_not_palletized,
                     "order_palletized": order_palletized,
                     "order_with_shipment": order_with_shipment,
-                    "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "warehouse_form": warehouse_form,
                     "warehouse": warehouse,
                     "storehouse": storehouse,
                     "storehouse_form": {"public": "public", "other": "other"},
@@ -705,7 +711,7 @@ class Palletization(View):
                     "order_not_palletized": order_not_palletized,
                     "order_palletized": order_palletized,
                     "order_with_shipment": order_with_shipment,
-                    "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+                    "warehouse_form": warehouse_form,
                     "storehouse_form": {"public": "public", "other": "other"},
                     "storehouse": storehouse,
                     "warehouse": warehouse,
@@ -715,7 +721,7 @@ class Palletization(View):
         else:
             storehouse_form = {"public": "public", "other": "other"}
             context = {
-                "warehouse_form": ZemWarehouseForm(),
+                "warehouse_form": warehouse_form,
                 "storehouse_form": storehouse_form,
                 "unpacking_personnel": unpacking_personnel,
                 "error_msg": error_msg,
