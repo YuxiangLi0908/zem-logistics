@@ -1,5 +1,6 @@
 <!--库存排约之未排车-->
 {% load custom_filters %}
+{% load tz %}
 <style>
     .highlight1 {
         background-color: yellow;
@@ -123,6 +124,7 @@
                             {% endif %}
                         </td>
                         <td>{{ s.appointment_id }}</td>
+                        {% localtime off %}
                         <td style="max-width: 150px; word-break: break-all;">
                             {% if s.shipping_status == "past_due" %}
                             <span class="status-span-red">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
@@ -135,6 +137,7 @@
                         <td data-pickup-time="{{ s.pickup_time|date:'Y-m-d\TH:i' }}">
                             {{ s.pickup_time|date:"Y-m-d" }} {{ s.pickup_time|time:"H:i" }}
                         </td>
+                        {% endlocaltime %}
                         <td>{{ s.total_weight|floatformat:2 }}</td>
                         <td>{{ s.total_cbm|floatformat:2 }}</td>
                         <td>{{ s.total_pallet }}</td>
