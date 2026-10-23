@@ -604,10 +604,14 @@ class PostNsop(View):
         elif step == "bind_group_shipment":
             try:
                 template, context = await self.handle_bind_group_shipment_atomic(request)
-                return render(request, template, context)
-            except Exception:
+            except Exception as exc:
                 response_delivery_logger.exception("预约出库失败，事务已回滚")
-                return JsonResponse({"success": False, "message": "网络异常，请重新再试。本次预约出库未完成，数据库修改已回滚。"}, status=503)
+                return self.bind_shipment_error_response(exc, committed=False)
+            try:
+                return await sync_to_async(render)(request, template, context)
+            except Exception as exc:
+                response_delivery_logger.exception("预约事务已提交，但返回页面渲染失败")
+                return self.bind_shipment_error_response(exc, committed=True)
         elif step =="ltl_bind_group_shipment":
             template, context = await self.handle_ltl_bind_group_shipment(request)
             return render(request, template, context) 
@@ -9456,6 +9460,27 @@ class PostNsop(View):
         updated_selected_plt = list(set(selected_plt + new_found_plt_ids))
         return updated_selected, updated_selected_plt
 
+    def bind_shipment_error_response(self, exc, committed):
+        details = []
+        current = exc
+        seen = set()
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
+            frames = traceback.extract_tb(current.__traceback__)
+            project_frames = [frame for frame in frames if "site-packages" not in frame.filename]
+            frame = (project_frames or frames)[-1] if frames else None
+            location = f"{frame.filename}:{frame.lineno}（{frame.name}）" if frame else "无堆栈位置"
+            details.append(f"{type(current).__name__}: {current}\n位置：{location}")
+            current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+        state = (
+            "预约操作已提交，但返回页面加载失败。请刷新列表核实结果，不要重复绑定。"
+            if committed else "预约操作失败，本次事务中的数据库修改已回滚。"
+        )
+        return JsonResponse({
+            "success": False, "committed": committed,
+            "message": state + "\n具体原因：\n" + "\n底层原因：".join(details),
+        }, status=500)
+
     @sync_to_async
     @transaction.atomic
     def handle_bind_group_shipment_atomic(self, request):
@@ -9489,8 +9514,9 @@ class PostNsop(View):
             template, context = async_to_sync(self.handle_appointment_post)(request)
             batch = request.POST.get("batch_number")
         if context.get("error_messages"):
-            transaction.set_rollback(True)
-            return template, context
+            # 业务校验失败也必须返回失败响应和原始原因，不能以成功页面返回，
+            # 否则前端会直接刷新列表，导致失败原因丢失。
+            raise ValueError(f"预约业务校验失败：{context['error_messages']}")
         if request.POST.get("operation_type") != "remove_po":
             selected = parse_ids(request.POST.get("pl_ids", selected))
             selected_plt = parse_ids(request.POST.get("plt_ids", selected_plt))
