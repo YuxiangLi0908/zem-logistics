@@ -466,7 +466,10 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "td_shipment_warehouse":
             template, context = await self.handle_td_shipment_post(request)
-            return render(request, template, context)
+            binding_notice = await sync_to_async(request.session.pop)("binding_success_notice", None)
+            if binding_notice:
+                context["success_messages"] = binding_notice
+            return await sync_to_async(render)(request, template, context)
         elif step == "deltime_confirm_time":
             template, context = await self.handle_deltime_confirm_time(request)
             return render(request, template, context)
@@ -608,6 +611,10 @@ class PostNsop(View):
                 response_delivery_logger.exception("预约出库失败，事务已回滚")
                 return self.bind_shipment_error_response(exc, committed=False)
             try:
+                if context.get("success_messages"):
+                    await sync_to_async(request.session.__setitem__)(
+                        "binding_success_notice", context["success_messages"]
+                    )
                 return await sync_to_async(render)(request, template, context)
             except Exception as exc:
                 response_delivery_logger.exception("预约事务已提交，但返回页面渲染失败")
