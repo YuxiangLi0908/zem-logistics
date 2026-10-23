@@ -1951,6 +1951,19 @@ class ShippingManagement(View):
                     
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
+                # 在保存前逐个检查时间字段，让格式错误包含字段名和原始值。
+                from django.core.exceptions import ValidationError
+                for field in shipment._meta.concrete_fields:
+                    if field.get_internal_type() not in ("DateTimeField", "DateField", "TimeField"):
+                        continue
+                    value = getattr(shipment, field.attname)
+                    try:
+                        field.to_python(value)
+                    except (ValidationError, ValueError, TypeError) as exc:
+                        raise ValueError(
+                            f"Shipment 时间字段格式错误：{field.name}（{field.verbose_name}），"
+                            f"收到的值={value!r}；详细原因：{exc}"
+                        ) from exc
                 await sync_to_async(shipment.save)()
                 
             
