@@ -160,7 +160,23 @@
                                 </a>
                             </td>
                             <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
-                            <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
+                            <td class="td">
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="save_retrieval_carrier">
+                                    <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
+                                    <select name="retrieval_carrier" aria-label="供应商 - {{ o.container_number.container_number }}" style="font-size: 11px; max-width: 120px;" required>
+                                        <option value="">请选择供应商</option>
+                                        {% if o.retrieval_id.retrieval_carrier and o.retrieval_id.retrieval_carrier not in active_carrier_names %}
+                                        <option value="{{ o.retrieval_id.retrieval_carrier }}" selected>{{ o.retrieval_id.retrieval_carrier }}</option>
+                                        {% endif %}
+                                        {% for carrier in active_carrier_names %}
+                                        <option value="{{ carrier }}" {% if carrier == o.retrieval_id.retrieval_carrier %}selected{% endif %}>{{ carrier }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-primary btn-sm" style="font-size: 11px; margin-top: 4px;">保存</button>
+                                </form>
+                            </td>
                             <td class="td">
                                 {% if o.vessel_id.eta_status == "past_due" %}
                                 <span class="status-span-red">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>

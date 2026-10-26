@@ -83,6 +83,23 @@ class TerminalDispatch(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step == "save_retrieval_carrier":
+            container_number = request.POST.get("container_number")
+            carrier = request.POST.get("retrieval_carrier", "").strip()
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=container_number
+            )
+            valid_carrier = await sync_to_async(
+                ContainerPickupCarrier.objects.filter(name=carrier, is_active=True).exists
+            )()
+            if not carrier or (not valid_carrier and carrier != retrieval.retrieval_carrier):
+                return HttpResponse("请选择有效的供应商", status=400)
+            retrieval.retrieval_carrier = carrier
+            retrieval.retrieval_delegation_status = bool(retrieval.retrieval_destination_precise)
+            await sync_to_async(retrieval.save)(
+                update_fields=["retrieval_carrier", "retrieval_delegation_status"]
+            )
+            return redirect("/terminal_dispatch/?step=all")
         elif step == "pickup_schedule_update":
             template, context = await self.handle_pickup_schedule_confirmation_post(
                 request
@@ -126,7 +143,8 @@ class TerminalDispatch(View):
                 (
                     models.Q(add_to_t49=True)
                     & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
-                    & models.Q(retrieval_id__retrieval_carrier__isnull=True)
+                    & (models.Q(retrieval_id__retrieval_carrier__isnull=True) | models.Q(retrieval_id__retrieval_carrier=""))
+                    & models.Q(retrieval_id__scheduled_at__isnull=True)
                     & models.Q(
                         vessel_id__vessel_eta__lte=timezone.now() + timedelta(weeks=2)
                     )
@@ -149,7 +167,10 @@ class TerminalDispatch(View):
                 (
                     models.Q(add_to_t49=True)
                     & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
-                    & models.Q(retrieval_id__retrieval_carrier__isnull=False)
+                    & (
+                        models.Q(retrieval_id__scheduled_at__isnull=False)
+                        | (models.Q(retrieval_id__retrieval_carrier__isnull=False) & ~models.Q(retrieval_id__retrieval_carrier=""))
+                    )
                     & models.Q(cancel_notification=False)
                 )
                 & (
@@ -165,6 +186,10 @@ class TerminalDispatch(View):
             "orders_not_scheduled": orders_not_scheduled,
             "orders_not_pickup": orders_not_pickup,
             "current_date": current_date,
+            "active_carrier_names": await sync_to_async(list)(
+                ContainerPickupCarrier.objects.filter(is_active=True)
+                .order_by("name").values_list("name", flat=True)
+            ),
         }
         return self.template_terminal_dispatch, context
 
@@ -384,8 +409,9 @@ class TerminalDispatch(View):
                 await sync_to_async(order.save)()
             # 更新retrieval记录
             order.retrieval_id.retrieval_destination_precise = retrieval_destination
-            order.retrieval_id.retrieval_carrier = retrieval_carrier
-            if retrieval_destination and retrieval_carrier:
+            if retrieval_carrier is not None:
+                order.retrieval_id.retrieval_carrier = retrieval_carrier
+            if retrieval_destination and order.retrieval_id.retrieval_carrier:
                 order.retrieval_id.retrieval_delegation_status = True
             if request.POST.get("target_retrieval_timestamp"):
                 ts = request.POST.get("target_retrieval_timestamp")
@@ -442,8 +468,9 @@ class TerminalDispatch(View):
             await sync_to_async(order.save)()
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
-        retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
-        if destination and request.POST.get("retrieval_carrier").strip():
+        if "retrieval_carrier" in request.POST:
+            retrieval.retrieval_carrier = request.POST.get("retrieval_carrier", "").strip()
+        if destination and retrieval.retrieval_carrier:
             retrieval.retrieval_delegation_status = True
         retrieval.planned_release_time = planned_release_time
         tzinfo = self._parse_tzinfo(destination)
@@ -460,7 +487,7 @@ class TerminalDispatch(View):
         retrieval.note = request.POST.get("note", "").strip()
         retrieval.scheduled_at = timezone.now()
         if container_number and destination and planned_release_time and request.POST.get(
-                "target_retrieval_timestamp") and request.POST.get("target_retrieval_timestamp_lower") and request.POST.get("retrieval_carrier").strip():
+                "target_retrieval_timestamp") and request.POST.get("target_retrieval_timestamp_lower") and retrieval.retrieval_carrier:
             retrieval.actual_release_status = True
         if request.POST.get("retrieval_carrier") == "客户自提":
             if request.POST.get("target_retrieval_timestamp"):
