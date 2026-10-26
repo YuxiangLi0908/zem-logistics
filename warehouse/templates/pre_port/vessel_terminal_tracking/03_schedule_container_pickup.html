@@ -85,7 +85,6 @@
                             目的地
                             {% endif %}
                         </th>
-                        <th class="th">供应商</th>
                         <th class="th">提柜备注</th>
                     </tr>
                 </thead>
@@ -105,13 +104,6 @@
                                 {% endfor %}
                             </select>
                             {% endif %}
-                        </td>
-                        <td class="td">
-                            <select name="retrieval_carrier" id="retrieval-carrier-select" style="font-size: 13px;">
-                                {% for k, v in carrier_options %}
-                                <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
                         </td>
                         <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
                     </tr>
@@ -139,13 +131,6 @@
                 alert('请选择仓库!');
                 event.preventDefault();
             }
-        };
-        var carrierSelect = document.getElementById('retrieval-carrier-select');
-        var carrierOption = carrierSelect.options[carrierSelect.selectedIndex];
-        var carrierValue = carrierOption.value;
-        if (!carrierValue) {
-            alert('请选择Carrier!');
-            event.preventDefault();
         };
     };
 </script>
