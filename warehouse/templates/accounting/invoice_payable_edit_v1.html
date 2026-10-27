@@ -643,6 +643,8 @@
                                                 {% if not is_save_invoice %}
                                                     {% if "NJ" == warehouse %}
                                                         <select class="supplier-select" id="select_carrier"
+                                                                data-warehouse="{{ warehouse_precise_p }}"
+                                                                data-container-type="{{ container_type }}"
                                                                 onchange="updateUnloadingFee(this)">
                                                             <option value="">-- 选择供应商 --</option>
                                                             {% for key,value in pallet_details.items %}
@@ -1168,14 +1170,23 @@
 
     function updateUnloadingFee(select) {
         const selectedOption = select.options[select.selectedIndex];
-        const feeValue = selectedOption.value;
+        let feeValue = selectedOption.value;
+        const carrier = (selectedOption.dataset.name || '').trim();
+        const warehouse = (select.dataset.warehouse || '').toUpperCase().replace(/[\s-]+/g, '');
+        const containerType = (select.dataset.containerType || '').trim();
+        if (warehouse === 'NJ07080' && carrier.toUpperCase() === 'HABR') {
+            if (/^40(?:\D|$)/.test(containerType)) {
+                feeValue = 900;
+            } else if (/^45(?:\D|$)/.test(containerType)) {
+                feeValue = 950;
+            }
+        }
         const feeInput = document.getElementById('palletization_fee_input');
         if (feeInput) {
             feeInput.value = feeValue || 0;
         }
 
-        const plt_carrier = selectedOption.dataset.name;
-        document.getElementById('palletization_carrier').value = plt_carrier;
+        document.getElementById('palletization_carrier').value = carrier;
         calculateTotal();
     }
 
