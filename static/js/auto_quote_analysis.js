@@ -187,7 +187,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isRoutes) {
                     const route = routesById.get(row.querySelector('[data-route]').dataset.route);
                     if (!route) throw new Error('无法找到当前收货地址的分析数据，请重新分析后导出');
-                    values[values.length - 1] = exportCarrierPrices(route.services || []);
+                    Array.from(row.cells).forEach((cell, column) => {
+                        if (cell.hasAttribute('data-carrier-platform')) {
+                            values[column] = exportCarrierPrices((route.services || []).filter(service =>
+                                (service.platform || 'unknown') === cell.dataset.carrierPlatform
+                            ));
+                        }
+                    });
                 }
                 sheets[0].push(values);
                 if (index % 20 === 19) await yieldToBrowser();
@@ -228,6 +234,18 @@ document.addEventListener('DOMContentLoaded', () => {
     $('export-routes').addEventListener('click', event => exportTable(event.currentTarget, 'series', '收货地址价格分析'));
     function renderRoutes(data) {
         routeReport = data;
+        const platforms = [...new Set((data.route_rows || []).flatMap(row =>
+            (row.services || []).map(service => service.platform || 'unknown')
+        ))].sort();
+        if (!platforms.length) platforms.push('maersk', 'kakas');
+        const heading = $('series').closest('table').tHead.rows[0];
+        heading.querySelectorAll('[data-carrier-platform]').forEach(cell => cell.remove());
+        platforms.forEach(key => {
+            const cell = document.createElement('th');
+            cell.dataset.carrierPlatform = key;
+            cell.textContent = `${key === 'unknown' ? '未知平台' : platform(key)} 承运商明细`;
+            heading.appendChild(cell);
+        });
         const query = searchText($('route-search').value);
         const sorted = (data.route_rows || []).filter(row => searchText(row.address).includes(query));
         if (routeSort) sorted.sort((a,b) => {
@@ -245,7 +263,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${movement(r.latest_change)}<div>${movement(r.latest_change_pct)}%</div></td>
             <td>${num(r.minimum)} / ${num(r.maximum)}</td><td>${num(r.mean)}</td><td>${percent(r.volatility_pct)}</td>
             <td>${r.expected}</td>
-            <td>${servicesTable(r.services)}</td></tr>`).join('') || '<tr><td colspan="10">当前筛选范围没有线路记录。</td></tr>';
+            ${platforms.map(key => {
+                const services = (r.services || []).filter(service => (service.platform || 'unknown') === key);
+                return `<td data-carrier-platform="${esc(key)}">${services.length ? servicesTable(services) : '—'}</td>`;
+            }).join('')}</tr>`).join('') || `<tr><td colspan="${9 + platforms.length}">当前筛选范围没有线路记录。</td></tr>`;
     }
     function renderDistance(data) {
         const groups = data.distance_groups || [];
