@@ -233,7 +233,10 @@ def retry_description(result, status):
     if not isinstance(carriers, dict) or not carriers:
         return "询价未完成，尚无法确认具体平台，请查看错误详情"
     descriptions = []
-    for key, name in (("maersk", "Maersk"), ("kakas", "卡卡省")):
+    platforms = [("maersk", "Maersk"), ("kakas", "卡卡省")]
+    if "abf" in carriers and carriers["abf"].get("status") != "skipped":
+        platforms.append(("abf", "ABF"))
+    for key, name in platforms:
         carrier = carriers.get(key)
         if not isinstance(carrier, dict):
             descriptions.append(f"{name}价格未查询成功（未返回结果）")
@@ -247,6 +250,8 @@ def retry_description(result, status):
 def classify_result(result):
     carriers = result.get("results", {})
     active = [carriers.get(name, {}) for name in ("maersk", "kakas")]
+    if "abf" in carriers and carriers["abf"].get("status") != "skipped":
+        active.append(carriers["abf"])
 
     has_quotes = [has_price(carrier) for carrier in active]
     issues = [carrier.get("warning") or carrier.get("error") or

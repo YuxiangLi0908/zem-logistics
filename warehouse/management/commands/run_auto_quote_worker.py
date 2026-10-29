@@ -19,14 +19,14 @@ logger = logging.getLogger(__name__)
 
 class RequestPacer:
     def __init__(self):
-        self.locks = {kind: asyncio.Lock() for kind in ("submit", "poll")}
+        self.locks = {kind: asyncio.Lock() for kind in ("submit", "poll", "abf")}
         self.next_time = {kind: 0 for kind in self.locks}
 
     async def wait(self, kind):
         async with self.locks[kind]:
             loop = asyncio.get_running_loop()
             await asyncio.sleep(max(0, self.next_time[kind] - loop.time()))
-            self.next_time[kind] = loop.time() + (1.0 if kind == "submit" else 0.5)
+            self.next_time[kind] = loop.time() + {"submit": 1.0, "poll": 0.5, "abf": 5.0}[kind]
 
 
 async def process_item(item, pacer):

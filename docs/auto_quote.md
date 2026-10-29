@@ -35,6 +35,23 @@ python manage.py run_auto_quote_worker --concurrency 3
 
 已有网关配置 `MAERSK_GATEWAY_URL`、`MAERSK_GATEWAY_API_KEY`（或 `MAERSK_API_KEY`）继续复用。上线前先用小组验证网关限流；本地自动化测试不会调用真实网关。
 
+### ABF / ArcBest 标准 LTL 报价
+
+ABF 直接向 `https://www.abfs.com/xml/aquotexml.asp` 发送表单 POST，解析 XML；不调用提货或下单接口。凭证只从服务器环境变量读取，不保存到任务请求或前端：
+
+- `ABF_API_KEY`：已开通 Rate Quote 权限的 API Key。
+- `ABF_PAYING_PARTY`：默认 `shipper`（已确认 ZEM 为发货方并承担运费），不配置即可。特殊业务可覆盖为 `consignee`（收货方付款）或 `third_party`（第三方付款）。这决定报价付款账号，不会扣款。请求人身份固定为发货方 `ShipAff=Y`。
+- `ABF_SHIPPER_ACCOUNT`、`ABF_CONSIGNEE_ACCOUNT`、`ABF_THIRD_PARTY_ACCOUNT`：对应 ABF 账号，按实际业务配置；第三方付款时第三方账号必填。若接口要求完整的第三方地址，当前表单尚不支持，应根据 ABF 返回原因补充信息后再使用。
+- `ABF_APP_ID`：仅在 ArcBest 要求 TMS 提供商 App ID 时配置。
+
+支持美国境内 LTL；FTL 明确跳过，不能当成整车价。每行使用单板英寸尺寸，重量为向上取整的单板磅重乘板数，等级复用卡卡省密度公式。最多15行，超过时明确失败，不截断。现有“需要尾板”选项与卡卡省一致应用于提货和送货；住宅地址传对应住宅附加服务。申报价值不会自动开启额外责任险，以免引入未选择的服务和费用。
+
+返回 `NUMERRORS=0`、有效 `QUOTEID` 和 `CHARGE` 才视为成功。保留报价编号、时效、有效期、费用明细及脱敏 XML。`CHARGE` 已包含普通费用明细，不再重复累加。当前未请求 TruckPack 和保证时效服务。平台失败不会抹除其他平台已有报价；任务可标记为部分成功。自动任务 ABF 请求间隔至少5秒；文档标准限额为每24小时20000次，如还有其他系统共用密钥应另行控制总量。
+
+配置后重启 Web 和自动询价 worker。旧记录不会自动补询价，未调用 ABF 的历史记录仍保持原状。无需数据库迁移。
+
+本地验证（不调用真实 API）：`python -m unittest warehouse.test_abf_quote`。
+
 默认并发3条，可设置1～10条。生产使用 PostgreSQL 行锁协调任务；建议只启动一个 worker。每进程提交请求至少间隔1秒、轮询请求至少间隔0.5秒，每个地址卡卡省轮询间隔3秒。一次地址执行最多4分钟，卡卡省轮询最多90秒、连续50秒无更新则返回已有报价。HTTP 429/5xx及连接超时最多尝试3次。
 
 500条地址按平均每条1分钟估算，3并发约2小时47分，实际取决于报价平台响应及重试。页面每5秒更新任务状态，不需要保持页面打开。

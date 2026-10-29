@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const a = item.address, result = item.result.results || {};
             return [`${a.city}, ${a.state} ${a.zipcode}\n${a.address}\n${a.distance_miles || ''} miles`,
                 `${labels[item.status] || item.status}\n${date(item.started_at)}`, priceText(result.maersk), priceText(result.kakas),
-                rows(result.abf).length ? priceText(result.abf) : '暂未接入',
+                result.abf ? priceText(result.abf) : '该历史记录未查询 ABF',
                 [item.error, item.finished_at ? '完成时间：' + date(item.finished_at) : ''].filter(Boolean).join('\n')];
         });
         // Keep pasted text as text, including addresses/names that start with spreadsheet formulas.
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const a = item.address, result = item.result.results || {};
             return `<tr><td>${esc(a.city)}, ${esc(a.state)} ${esc(a.zipcode)}<div>${esc(a.address)}</div><small>${esc(a.distance_miles)} miles</small></td>
                 <td>${esc(labels[item.status])}<div class="small">${esc(date(item.started_at))}</div></td>
-                <td>${prices(result.maersk)}</td><td>${prices(result.kakas, {limit:10, key:'kakas-' + item.id, open:opened.has('kakas-' + item.id)})}</td><td>${rows(result.abf).length ? prices(result.abf) : '暂未接入'}</td>
+                <td>${prices(result.maersk)}</td><td>${prices(result.kakas, {limit:10, key:'kakas-' + item.id, open:opened.has('kakas-' + item.id)})}</td><td>${result.abf ? prices(result.abf) : '该历史记录未查询 ABF'}</td>
                 <td><div class="text-danger" style="max-width:320px;overflow-wrap:anywhere">${esc(item.error)}</div>
                 <details data-id="${item.id}" ${opened.has(String(item.id)) ? 'open' : ''}><summary>完整结果与请求</summary><pre style="max-width:400px;max-height:300px;white-space:pre-wrap">${esc(JSON.stringify({address:a, request:item.request_payload, result:item.result, finished_at:item.finished_at}, null, 2))}</pre></details></td></tr>`;
         }).join('') || '<tr><td colspan="6">没有符合条件的记录</td></tr>';
