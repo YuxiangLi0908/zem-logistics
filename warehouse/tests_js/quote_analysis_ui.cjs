@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 class Element {
-    constructor() { this.value = ''; this.checked = false; this.hidden = false; this.disabled = false; this.events = {}; this.children = {}; }
+    constructor() { this.value = ''; this.checked = false; this.hidden = false; this.disabled = false; this.events = {}; this.children = {}; this.dataset = {}; this.childNodes = []; }
     set innerHTML(html) {
         this.html = html;
         this.children = {};
@@ -14,7 +14,12 @@ class Element {
     get innerHTML() { return this.html || ''; }
     addEventListener(name, fn) { this.events[name] = fn; }
     querySelector(selector) { return this.children[selector.match(/data-line="(\d+)"/)[1]]; }
+    querySelectorAll() { return [...this.childNodes]; }
+    appendChild(child) { child.parent = this; this.childNodes.push(child); }
+    remove() { this.parent.childNodes = this.parent.childNodes.filter(child => child !== this); }
+    closest() { return {tHead:{rows:[routeHeading]}}; }
 }
+const routeHeading = new Element();
 const nodes = {};
 const el = id => nodes['qa-' + id] ||= new Element();
 let ready, calls = [], failNext = false;
@@ -30,7 +35,7 @@ const report = {
 };
 report.aggregate_chart = [{address:'Newark', points:report.chart[0].points}];
 const context = {console, URLSearchParams, Date, Intl, location:{search:'?profile=1'},
-    document:{querySelectorAll:()=>[],getElementById:id => nodes[id] ||= new Element(), addEventListener:(_, fn) => {ready = fn;}},
+    document:{createElement:()=>new Element(),querySelectorAll:()=>[],getElementById:id => nodes[id] ||= new Element(), addEventListener:(_, fn) => {ready = fn;}},
     fetch:async url => {
         const params = new URL(url, 'https://example.invalid').searchParams;
         calls.push(params);
@@ -42,7 +47,8 @@ const context = {console, URLSearchParams, Date, Intl, location:{search:'?profil
 const tick = () => new Promise(setImmediate);
 report.route_rows = [{route:'route1',address:'Newark',latest:100,previous:90,latest_change:10,latest_change_pct:11.11,
     minimum:90,maximum:100,mean:95,volatility_pct:null,samples:2,expected:3,coverage_pct:66.67,
-    winners:['Carrier A'],services:[report.rows[0], {...report.rows[0],carrier:'Carrier B'}]}];
+    winners:['Carrier A'],services:[report.rows[0], {...report.rows[0],carrier:'Carrier B'},
+        {...report.rows[0],platform:'abf',carrier:'ABF Freight'}]}];
 async function main() {
     vm.createContext(context);
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../static/js/auto_quote_analysis.js'), 'utf8'), context);
@@ -55,6 +61,9 @@ async function main() {
     assert.equal((el('series').innerHTML.match(/data-route=/g) || []).length, 1);
     assert(el('series').innerHTML.includes('Carrier B'));
     assert(el('series').innerHTML.includes('<details>'));
+    assert(routeHeading.childNodes.some(cell => cell.dataset.carrierPlatform === 'abf'));
+    assert(routeHeading.childNodes.some(cell => cell.dataset.carrierPlatform === 'kakas'));
+    assert(el('series').innerHTML.includes('ABF Freight'));
     assert.equal(calls.find(p => p.get('kind') === 'analysis').get('group_by'), 'address');
     assert(el('chart').innerHTML.includes('<svg'));
     assert(!el('chart').innerHTML.includes('NaN'));
