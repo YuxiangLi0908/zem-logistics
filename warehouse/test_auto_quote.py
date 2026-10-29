@@ -215,6 +215,34 @@ class QueueTests(TransactionTestCase):
         self.assertEqual(result["duplicates"], 10)
         self.assertEqual(import_addresses("LA", self.rows, self.user.pk)["added"], 5)
 
+    def test_delete_cascades_results_but_preserves_addresses_profiles_and_other_batches(self):
+        from warehouse.models.auto_quote import AutoQuotePrice, AutoQuoteProfile
+        batch = self.batch()
+        other = create_batch("NJ", dict(parameters(), declaredValue=200), self.user.pk, uuid.uuid4())
+        item = batch.items.first()
+        AutoQuotePrice.objects.create(item=item, row_number=0, platform="abf", carrier="ABF",
+                                      series_key="test", currency="USD", price=100)
+        response = auto_quote_post(self.request("post", {"step": "auto_quote_delete", "batch": batch.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(AutoQuoteBatch.objects.filter(pk=batch.pk).exists())
+        self.assertFalse(AutoQuoteItem.objects.filter(batch_id=batch.pk).exists())
+        self.assertFalse(AutoQuotePrice.objects.exists())
+        self.assertTrue(AutoQuoteBatch.objects.filter(pk=other.pk).exists())
+        self.assertEqual(AutoQuoteAddress.objects.count(), 5)
+        self.assertTrue(AutoQuoteProfile.objects.exists())
+
+    def test_delete_rejects_running_items_and_other_users_batches(self):
+        batch = self.batch()
+        item = claim_item()
+        response = auto_quote_post(self.request("post", {"step": "auto_quote_delete", "batch": batch.pk}))
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(AutoQuoteItem.objects.filter(pk=item.pk).exists())
+        stranger = User.objects.create_user("other-user")
+        request = self.request("post", {"step": "auto_quote_delete", "batch": batch.pk})
+        request.user = stranger
+        with self.assertRaises(Http404):
+            auto_quote_post(request)
+
     def test_retry_preview_describes_saved_results_without_returning_full_quotes(self):
         batch = self.batch()
         result = successful_result()

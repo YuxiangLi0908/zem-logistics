@@ -8,7 +8,7 @@ from zipfile import BadZipFile
 
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -23,7 +23,7 @@ from urllib.parse import quote
 from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteWorkerState
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.utils.auto_quote import (
-    batch_summary, check_group, create_batch, import_addresses, read_addresses, stop_batch,
+    batch_summary, check_group, create_batch, import_addresses, read_addresses, stop_batch, queue_lock,
 )
 from warehouse.utils.multi_carrier_quote import gateway_config
 from warehouse.utils.quote_analysis import analysis_options, build_analysis
@@ -35,6 +35,19 @@ logger = logging.getLogger(__name__)
 def visible_batches(user):
     queryset = AutoQuoteBatch.objects.select_related("operator")
     return queryset if user.is_staff else queryset.filter(operator=user)
+
+
+@transaction.atomic
+def delete_auto_quote_batch(request):
+    # 与 worker 领取任务使用同一把锁，避免检查后又有地址开始执行。
+    queue_lock()
+    batch = get_object_or_404(visible_batches(request.user).select_related(None).select_for_update(), pk=request.POST.get("batch"))
+    if batch.items.filter(status="running").exists():
+        return JsonResponse({"success": False, "message": "任务仍有地址正在询价，请先停止后续询价，等待当前地址执行结束后再删除。"}, status=409)
+    batch_id = batch.pk
+    batch.delete()
+    return JsonResponse({"success": True, "deleted_batch": batch_id,
+                         "message": f"任务 #{batch_id} 及其全部报价和价格分析明细已删除。"})
 
 
 def auto_quote_get(request):
@@ -143,6 +156,8 @@ def auto_quote_post(request):
     step = None
     try:
         step = request.POST.get("step")
+        if step == "auto_quote_delete":
+            return delete_auto_quote_batch(request)
         if step == "auto_quote_table_export":
             title = request.POST.get("title")
             if title not in ("距仓库距离分析", "收货地址价格分析"):

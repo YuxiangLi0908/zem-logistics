@@ -107,7 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div>${incompleteAddresses(batch)}</td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
-                ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';
+                ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}
+                <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${batch.id}">删除</button></td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';
             paginate('auto-batches', data);
             if (selectedBatch) await detail();
         } catch (error) { message(error.message, true); }
@@ -255,6 +256,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (button.dataset.action === 'detail') {
                 selectedBatch = button.dataset.id; itemPage = 1; $('auto-item-status').value = ''; await detail();
                 $('auto-detail').scrollIntoView({behavior:'smooth', block:'start'});
+            } else if (button.dataset.action === 'delete') {
+                const id = button.dataset.id;
+                if (!confirm(`确定删除自动询价任务 #${id} 吗？\n该任务全部地址询价结果和价格分析明细将永久删除，无法恢复。地址库、询价配置和其他任务不受影响。`)) return;
+                const data = await post('auto_quote_delete', {batch:id});
+                if (String(selectedBatch) === String(id)) {
+                    selectedBatch = null;
+                    preparedCopy = null;
+                    $('auto-detail').hidden = true;
+                }
+                message(data.message);
+                await refresh();
             } else {
                 button.dataset.token ||= uuid();
                 const data = await post('auto_quote_' + button.dataset.action, {batch:button.dataset.id, submission_id:button.dataset.token});
