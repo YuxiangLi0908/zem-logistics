@@ -822,15 +822,7 @@
                                     </th>
                                     <th class="th">
                                         <!-- 状态筛选下拉框 -->
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'recorded-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="unstarted">未开始</option>
-                                            <option value="in_progress">录入中</option>
-                                            <option value="pending_review">待审核</option>
-                                            <option value="rejected">已驳回</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="confirmed">已确认</option>
-                                        </select>
+                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'recorded-table')"><option value="">全部状态</option><option value="unstarted">财务未确认</option><option value="tobeconfirmed">财务已回退</option><option value="completed">财务已完成</option></select>
                                     </th>
                                     <th class="th">
                                         <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'recorded-table')">
@@ -844,9 +836,9 @@
                                         data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
                                         data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-status="{{ item.public_status|default:'unstarted' }}"
+                                        data-status="{{ item.finance_status|default:'unstarted' }}"
                                         data-reject-reason="{{ item.warehouse_public_reason|default:''|lower }}"
-                                        {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
+                                        {% if item.finance_status == 'tobeconfirmed' %}class="status-rejected-row"{% endif %}>
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}&container_number_filter={{ container_number_filter }}" class="container-link">
@@ -865,20 +857,7 @@
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {% if item.public_status %}
-                                                <span class="status-badge {{ item.public_status }}">
-                                                    {% if item.public_status == 'unstarted' %}未开始
-                                                    {% elif item.public_status == 'in_progress' %}录入中
-                                                    {% elif item.public_status == 'pending_review' %}待审核
-                                                    {% elif item.public_status == 'rejected' %}已驳回
-                                                    {% elif item.public_status == 'completed' %}已完成
-                                                    {% elif item.public_status == 'confirmed' %}已确认
-                                                    {% else %}{{ item.public_status }}{% endif %}
-                                                </span>
-                                            {% else %}
-                                                <span class="status-badge unstarted">未开始</span>
-                                            {% endif %}
-                                        </td>
+                                            <span class="status-badge {{ item.finance_status|default:'unstarted' }}">{% if item.finance_status == 'tobeconfirmed' %}财务已回退{% elif item.finance_status == 'completed' %}财务已完成{% elif not item.finance_status or item.finance_status == 'unstarted' %}财务未确认{% else %}{{ item.finance_status }}{% endif %}</span></td>
                                         <td class="td">
                                             {{ item.warehouse_public_reason|default_if_none:'-' }}
                                         </td>
@@ -1073,12 +1052,7 @@
                                     </th>
                                     <th class="th">
                                         <!-- 状态筛选下拉框 -->
-                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'completed-table')">
-                                            <option value="">全部状态</option>
-                                            <option value="completed">已完成</option>
-                                            <option value="rejected">已驳回</option>
-                                            <option value="confirmed">已确认</option>
-                                        </select>
+                                        <select class="status-filter-select" onchange="filterTableByStatus(this, 'completed-table')"><option value="">全部状态</option><option value="unstarted">财务未确认</option><option value="tobeconfirmed">财务已回退</option><option value="completed">财务已完成</option></select>
                                     </th>
                                     <th class="th">
                                         <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'completed-table')">
@@ -1092,9 +1066,9 @@
                                         data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
                                         data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-status="{{ item.self_status|default:'unstarted' }}"
+                                        data-status="{{ item.finance_status|default:'unstarted' }}"
                                         data-reject-reason="{{ item.warehouse_other_reason|default:''|lower }}"
-                                        {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
+                                        {% if item.finance_status == 'tobeconfirmed' %}class="status-rejected-row"{% endif %}>
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}&container_number_filter={{ container_number_filter }}" class="container-link">
@@ -1113,17 +1087,7 @@
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {% if item.self_status %}
-                                                <span class="status-badge {{ item.self_status }}">
-                                                    {% if item.self_status == 'completed' %}已完成
-                                                    {% elif item.self_status == 'rejected' %}已驳回
-                                                    {% elif item.self_status == 'confirmed' %}已确认
-                                                    {% else %}{{ item.self_status }}{% endif %}
-                                                </span>
-                                            {% else %}
-                                                <span class="status-badge unstarted">未开始</span>
-                                            {% endif %}
-                                        </td>
+                                            <span class="status-badge {{ item.finance_status|default:'unstarted' }}">{% if item.finance_status == 'tobeconfirmed' %}财务已回退{% elif item.finance_status == 'completed' %}财务已完成{% elif not item.finance_status or item.finance_status == 'unstarted' %}财务未确认{% else %}{{ item.finance_status }}{% endif %}</span></td>
                                         <td class="td">
                                             {{ item.warehouse_other_reason|default_if_none:'-' }}
                                         </td>
