@@ -43,6 +43,7 @@
             ${booking.pro_number ? `<div>PRO号：${esc(booking.pro_number)}</div>` : ''}
             ${booking.bol_number ? `<div>BOL编号：${esc(booking.bol_number)}</div>` : ''}
             ${[['document','下载 BOL'],['label_document','下载货物标签'],['pro_label_document','下载 PRO 标签']].map(([key,label]) => booking[key] ? `<a class="btn btn-sm btn-outline-primary me-2" href="${esc(booking[key])}" target="_blank" rel="noopener noreferrer">${label}</a>` : '').join('')}
+            ${window.ABFFollowup ? window.ABFFollowup.button(current.history_id) : ''}
         </div>`;
     }
     async function open(historyId, container) {

@@ -66,6 +66,22 @@ ABF 直接向 `https://www.abfs.com/xml/aquotexml.asp` 发送表单 POST，解�
 
 验证：`python manage.py test warehouse.test_abf_booking --settings=warehouse.auto_quote_test_settings`，全部使用模拟响应，不向 ABF 创建测试或正式提货。
 
+### ABF 物流跟踪与文件获取
+
+入口：ABF 下单结果的“物流跟踪 / 文件获取”；手动询价历史表的同名按钮；历史页顶部“ABF 物流 / 文件查询”可直接查询其他真实运输编号。
+
+这两项查询只使用 `ABF_API_KEY`，不读取 `ABF_BOOKING_MODE`，不向 API 发送 `Test`，不要求在本系统完成正式下单。未配置下单模式、处于测试模式或使用其他渠道下单，都可查询有权限的真实编号。测试固定提货号 `WWW0000000` 不得用于真实查询，测试记录中的 PRO号也不会被自动带入。
+
+- 跟踪接口：`https://www.abfs.com/xml/tracexml.asp`，表单 POST 参数 `DL=2`、`ID`、`RefNum`、`RefType`。编号类型支持 `A` PRO、`B` BOL、`P` PO、`C` 客户参考、`K` 提货确认号。按 `SHORTSTATUS2`、`LONGSTATUS` 展示当前状态，保留多个匹配运输、提货/送达/预约日期时间、签收与异常信息。文档未提供逐节点历史轨迹，页面不虚构轨迹；运输时间按接口原值展示。
+- 文件接口：`https://www.abfs.com/xml/docretxml.asp`，同上，并传 `DocType`、`ImageType`。只支持 `A/B/P/C`，不能传 `K`。可先用提货确认号查询物流，再选择返回的 PRO号取文件；多个匹配运输分别显示按钮，不自动混用编号。
+- 支持文档列出的全部文件类型，包括 BOL、DR/POD、INV、装箱单等；INV 必须用 PRO号。支持 JPEG低清 `L`、高清 `H` 和 TIFF `T`，返回的文件按类型和页码提供图片链接，不伪装为 PDF。文件权限、是否已签收或扫描，以 API 返回的错误码和说明为准。
+
+带询价历史编号查询时，仅本人或工作人员可访问，成功结果及查询编号、时间保存为原记录 `abf_quotes.tracking_latest` / `documents_latest`；每次查询只更新对应快照，不覆盖下单状态，也不更新本系统 Shipment / Fleet。独立编号查询不写入询价历史。原下单生成的 BOL / 标签链接仍可直接打开，不用重复下单取文件。
+
+均为手动查询，不自动轮询；文档限额分别为跟踪每24小时30000次、文件每24小时15000次，其他系统共用密钥时需一起控制调用量。无需新增环境变量或数据库迁移。配置 API Key 后须具备 Tracking、Document Retrieval 权限。
+
+验证：`python manage.py test warehouse.test_abf_followup --settings=warehouse.auto_quote_test_settings`，所有外部查询均模拟，不会向 ABF 发送真实请求。
+
 默认并发3条，可设置1～10条。生产使用 PostgreSQL 行锁协调任务；建议只启动一个 worker。每进程提交请求至少间隔1秒、轮询请求至少间隔0.5秒，每个地址卡卡省轮询间隔3秒。一次地址执行最多4分钟，卡卡省轮询最多90秒、连续50秒无更新则返回已有报价。HTTP 429/5xx及连接超时最多尝试3次。
 
 500条地址按平均每条1分钟估算，3并发约2小时47分，实际取决于报价平台响应及重试。页面每5秒更新任务状态，不需要保持页面打开。

@@ -599,6 +599,9 @@ class PostNsop(View):
         elif step in ("abf_booking_preview", "abf_booking_submit"):
             from warehouse.views.post_port.abf_booking import abf_booking_post
             return await sync_to_async(abf_booking_post)(request)
+        elif step in ("abf_shipment_preview", "abf_tracking", "abf_documents"):
+            from warehouse.views.post_port.abf_followup import abf_followup_post
+            return await sync_to_async(abf_followup_post)(request)
         elif step == "get_maersk_tracking":
             return await self.handle_get_maersk_tracking(request)
         elif step == "check_business_residential":
