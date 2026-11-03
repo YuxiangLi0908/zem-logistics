@@ -29,6 +29,7 @@ from django.views import View
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.packing_list_export import export_order_packing_list
 from warehouse.utils.packing_list_import import (
     can_import_packing_list, replace_packing_list, validate_packing_list_import,
 )
@@ -210,6 +211,8 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "download_template":
             return await self.handle_download_template_post()
+        elif step == "export_uploaded_packing_list":
+            return await sync_to_async(export_order_packing_list)(request)
         elif step == "order_management_search":
             start_date_eta = request.POST.get("start_date_eta")
             end_date_eta = request.POST.get("end_date_eta")

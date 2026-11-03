@@ -7,6 +7,14 @@
             <h3 class="pl-import__title">导入 Packing List</h3>
             <p class="pl-import__subtitle">使用 Excel 模板，批量录入货物清单</p>
         </div>
+        {% if enable_packing_list_export %}
+        <form method="post" class="pl-import__download-form">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_uploaded_packing_list">
+            <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+            <button type="submit" class="btn pl-import__download" title="导出本柜已保存的全部 Packing List 明细"><i class="bi bi-download" aria-hidden="true"></i> 导出已上传清单</button>
+        </form>
+        {% endif %}
     </div>
     <div class="pl-import__actions">
     {% if can_import_packing_list %}
