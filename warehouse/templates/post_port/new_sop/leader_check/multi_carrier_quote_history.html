@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <style>
@@ -18,7 +19,7 @@
     }
     .quote-history-title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.4px; }
     .quote-history-subtitle { margin: 7px 0 0; color: #7b8799; font-size: 13px; }
-    .quote-history-actions { display: flex; align-items: center; gap: 10px; }
+    .quote-history-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .quote-history-count {
         padding: 7px 12px;
         border: 1px solid #dbe3ec;
@@ -126,6 +127,7 @@
         font-weight: 700;
     }
     .quote-history-table .items-cell, .quote-history-table .price-cell { white-space: normal; min-width: 205px; }
+    .quote-history-table .abf-shipment-cell { white-space: normal; min-width: 220px; overflow-wrap: anywhere; }
     .request-payload-cell { min-width: 280px; max-width: 380px; }
     .quote-history-table .request-payload-source { display: none !important; }
     .request-payload-preview {
@@ -174,6 +176,7 @@
             <p class="quote-history-subtitle">集中查看每次询价条件、货物明细与承运商报价</p>
         </div>
         <div class="quote-history-actions">
+            <button type="button" class="btn btn-outline-primary abf-followup-button">ABF 物流 / 文件查询</button>
             <a class="btn btn-outline-primary" href="{% url 'post_nsop' %}?step=auto_quote_analysis">价格分析</a>
             <span class="text-muted small">分析范围：自动询价数据</span>
             <span class="quote-history-count">共 {{ histories|length }} 条记录</span>
@@ -189,10 +192,10 @@
                 <tr>
                     <th>ID</th><th>询价时间</th><th>询价人</th><th>发货仓库</th><th>收货仓点</th>
                     <th>取件日期</th><th>运输类型</th><th>FTL车型</th><th>Freight Class</th><th>申报价值</th>
-                    <th>板子明细</th><th>卡卡省请求体</th><th>卡卡省返回体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th>
+                    <th>板子明细</th><th>卡卡省请求体</th><th>卡卡省返回体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th><th>ABF下单 / 物流 / 文件</th>
                 </tr>
                 <tr class="search-row">
-                    {% for index in "0123456789012345" %}
+                    {% for index in "01234567890123456" %}
                     <th><input class="quote-history-search" data-column="{{ forloop.counter0 }}" placeholder="搜索"></th>
                     {% endfor %}
                 </tr>
@@ -248,9 +251,23 @@
                         <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
                         {% empty %}-{% endfor %}
                     </td>
+                    <td class="abf-shipment-cell">
+                        {% if request.user.is_staff or history.operator_id == request.user.id %}
+                            {% with booking=history.abf_quotes.booking %}
+                                {% if booking.status == 'success' %}<div class="text-success">已下单</div>
+                                {% elif booking.status == 'test_success' %}<div class="text-muted">测试下单</div>
+                                {% elif booking.status == 'unknown' or booking.status == 'submitting' %}<div class="text-warning">下单状态待核实</div>
+                                {% elif booking.status == 'rejected' %}<div class="text-danger">下单被拒绝</div>
+                                {% else %}<div class="text-muted">尚未下单</div>{% endif %}
+                                {% if booking.pro_number %}<div>PRO：{{ booking.pro_number }}</div>{% endif %}
+                                {% if booking.confirmation %}<div>提货确认号：{{ booking.confirmation }}</div>{% endif %}
+                            {% endwith %}
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2 abf-followup-button" data-history-id="{{ history.id }}">物流跟踪 / 文件获取</button>
+                        {% else %}—{% endif %}
+                    </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="16" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
+                <tr><td colspan="17" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -258,6 +275,8 @@
     </div>
 </div>
 
+<form hidden>{% csrf_token %}</form>
+<script src="{% static 'js/abf_followup.js' %}?v=20261103-1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const table = document.getElementById('multiCarrierQuoteHistoryTable');
