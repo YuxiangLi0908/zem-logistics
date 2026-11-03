@@ -596,6 +596,9 @@ class PostNsop(View):
             return await sync_to_async(auto_quote_post)(request)
         elif step == "get_multi_carrier_quote":
             return await self.handle_get_multi_carrier_quote(request)
+        elif step in ("abf_booking_preview", "abf_booking_submit"):
+            from warehouse.views.post_port.abf_booking import abf_booking_post
+            return await sync_to_async(abf_booking_post)(request)
         elif step == "get_maersk_tracking":
             return await self.handle_get_maersk_tracking(request)
         elif step == "check_business_residential":
@@ -3603,7 +3606,9 @@ class PostNsop(View):
             carriers = result.get("results", {})
             car_types = {1: "53尺厢式货车", 2: "冷链车", 3: "48尺平板车", 10: "26尺小车", 12: "26尺小车带尾板", 13: "快速拖车"}
             quote_type = int(form.get("quoteType") or 1)
-            await sync_to_async(MultiCarrierQuoteHistory.objects.create)(
+            if carriers.get("abf", {}).get("status") == "success":
+                carriers["abf"]["booking_source"] = {"form": form, "classes": result["freightClasses"]}
+            history = await sync_to_async(MultiCarrierQuoteHistory.objects.create)(
                 origin_warehouse=str(form.get("originWarehouse") or "").strip(),
                 destination_warehouse=str(form.get("destinationWarehouse") or "").strip(),
                 pickup_date=datetime.strptime(form["pickupDate"], "%Y-%m-%d").date(),
@@ -3616,6 +3621,7 @@ class PostNsop(View):
                 kakas_response_payload=carriers.get("kakas", {}).get("data", carriers.get("kakas", {})),
                 abf_quotes=carriers.get("abf", {}), operator_id=request.user.pk,
             )
+            result["history_id"] = history.pk
             return JsonResponse({"success": True, "data": result})
         except (ValueError, TypeError, KeyError) as exc:
             return JsonResponse({"success": False, "message": str(exc)}, status=400)

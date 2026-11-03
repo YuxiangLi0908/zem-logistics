@@ -52,6 +52,20 @@ ABF 直接向 `https://www.abfs.com/xml/aquotexml.asp` 发送表单 POST，解�
 
 本地验证（不调用真实 API）：`python -m unittest warehouse.test_abf_quote`。
 
+### 手动询价后的 ABF 下单
+
+手动询价页面、库存排约的多平台询价弹框，ABF 成功结果下显示“下单（生成BOL并预约提货）”。使用 `bolpkupxml.asp`，绑定原始 `QuoteID`，填写联系人和当地时间后提交。使用已有 `ABF_API_KEY`；身份固定 `RequesterType=1`，预付 `PayTerms=P`。原始询价的日期、地址、货物和附加服务从服务器保存的快照读取，修改这些条件需重新询价。
+
+`ABF_BOOKING_MODE` 默认为 `test`，发送 `Test=Y`，弹框明确标注“测试模式”，固定测试确认号不算正式预约。测试验证后，生产环境设置 `ABF_BOOKING_MODE=live` 并重启 Web 服务，按钮和确认提示会显示“正式下单”。正式模式不接受固定测试确认号 `WWW0000000`。
+
+下单快照、状态、确认号、PRO号、BOL编号和文件链接保存在原 `MultiCarrierQuoteHistory.abf_quotes` 的 `booking` 中，不修改本系统 Shipment / Fleet，不需要数据库迁移。只有发起询价的用户和工作人员可访问该记录。
+
+使用数据库行锁防止同一询价重复下单。成功后再次点击仅返回已有结果。ABF 明确返回错误时可纠正后再提交；请求超时、进程中断、响应无法解析等情况不得自动重试，状态保持 `unknown` 或 `submitting`，需先人工向 ABF 核实，不能靠重新点击或重新询价绕过。不要直接清除历史里的下单状态来重试。
+
+不默认启用 API 的抄送邮件参数。不重算报价、不叠加费用、不调用其他预订接口。ABF 账单和实际运输价格由合同及实际服务决定。BOL文件只开放到文档声明的 ABF / ArcBest 域名的链接。
+
+验证：`python manage.py test warehouse.test_abf_booking --settings=warehouse.auto_quote_test_settings`，全部使用模拟响应，不向 ABF 创建测试或正式提货。
+
 默认并发3条，可设置1～10条。生产使用 PostgreSQL 行锁协调任务；建议只启动一个 worker。每进程提交请求至少间隔1秒、轮询请求至少间隔0.5秒，每个地址卡卡省轮询间隔3秒。一次地址执行最多4分钟，卡卡省轮询最多90秒、连续50秒无更新则返回已有报价。HTTP 429/5xx及连接超时最多尝试3次。
 
 500条地址按平均每条1分钟估算，3并发约2小时47分，实际取决于报价平台响应及重试。页面每5秒更新任务状态，不需要保持页面打开。
