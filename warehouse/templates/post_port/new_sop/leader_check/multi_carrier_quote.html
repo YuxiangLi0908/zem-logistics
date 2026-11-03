@@ -291,6 +291,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const kakas = nestedArray(results.kakas?.data, 'rates').map(item => ({name: item.carrierName || item.carrierCode || '卡卡省承运商', days: item.carrierTransitDays, price: item.totalPrice}));
         const cards = [{name:'Maersk', state:results.maersk, rows:maersk},{name:'卡卡省', state:results.kakas, rows:kakas},{name:'ABF', state:results.abf, rows:nestedArray(results.abf?.data, 'quotes').map(q => ({name:q.carrierName || 'ABF Freight', code:q.quoteId || '', days:q.transitDays, price:q.TotalQuote}))}];
         document.getElementById('quote_result').innerHTML = `<div class="row g-3">${cards.map(card => `<div class="col-md-4"><div class="result-card"><div class="result-card-title">${card.name}</div><div class="result-card-body">${card.state?.warning ? `<div class="alert alert-warning">${escapeHtml(card.state.warning)}</div>` : ''}${card.rows.length ? card.rows.map(row => `<div class="result-row"><span>${escapeHtml(row.name)}</span><span class="quote-price float-end">${Number.isFinite(Number(row.price)) ? '$' + Number(row.price).toFixed(2) : '价格待返回'}</span>${row.code ? `<div class="small text-muted">服务代码：${escapeHtml(row.code)}</div>` : ''}${row.days ? `<div class="small text-muted">预计 ${row.days} 天</div>` : ''}</div>`).join('') : `<div class="text-muted">${escapeHtml(card.state?.error || '暂未返回可用报价')}</div>`}</div></div></div>`).join('')}</div>`;
+        if (data.history_id && results.abf?.status === 'success' && nestedArray(results.abf.data, 'quotes').length) {
+            document.querySelectorAll('#quote_result .result-card-body')[2].insertAdjacentHTML('beforeend', window.ABFBooking.button(data.history_id));
+        }
     }
 
     document.getElementById('addQuoteItem').addEventListener('click', () => addItem());
@@ -337,4 +340,5 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 <script src="{% static 'js/auto_quote.js' %}?v=20261030-timing-bold"></script>
 {% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}"></script>{% endif %}
+<script src="{% static 'js/abf_booking.js' %}?v=20261103-1"></script>
 {% endblock %}
