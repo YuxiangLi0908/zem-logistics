@@ -107,49 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         copy.querySelectorAll('div, br').forEach(node => node.before(document.createTextNode('\n')));
         return copy.textContent.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
     }
-    function exportCarrierPrices(services) {
-        const price = service => service.latest == null ? Infinity : Number(service.latest);
-        const cheapest = predicate => {
-            let best = -1;
-            services.forEach((service, index) => {
-                if (Number.isFinite(price(service)) && predicate(service) && (best < 0 || price(service) < price(services[best]))) best = index;
-            });
-            return best < 0 ? null : services[best].latest;
-        };
-        return [
-            `最低价：${num(cheapest(() => true))}`,
-            `TForce：${num(cheapest(service => /\bt\s*force\b/i.test(searchText(service.carrier))))}`,
-            `Estes：${num(cheapest(service => /\bestes\b/i.test(searchText(service.carrier))))}`
-        ].join('\n');
-    }
-    async function exportResponseError(response) {
-        const raw = await response.text();
-        let message = '';
-        try {
-            const data = JSON.parse(raw);
-            message = data.message || data.error || data.detail || '';
-            if (typeof message !== 'string') message = JSON.stringify(message);
-        } catch (_) {
-            // HTML error pages may contain tracebacks; show only their title.
-            if (/^\s*</.test(raw)) {
-                const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-                message = title ? title[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
-            } else {
-                message = raw.replace(/\s+/g, ' ').trim();
-            }
-        }
-        const hints = {
-            400: '请求被拒绝，可能是导出数据格式错误或超过服务器请求大小限制',
-            403: '没有导出权限或登录验证已失效，请刷新页面后重试',
-            404: '导出接口不存在，请确认服务器已部署导出功能',
-            413: '导出数据超过服务器上传大小限制，请缩小筛选范围或调整服务器限制',
-            500: '服务器生成 Excel 时发生异常，请查看服务器错误日志',
-            502: '服务器网关异常，导出服务可能未正常响应',
-            503: '导出服务暂时不可用',
-            504: '服务器生成文件超时，请缩小筛选范围后重试'
-        };
-        return `HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}：${message.slice(0, 400) || hints[response.status] || '服务器返回异常响应'}${message && hints[response.status] ? '；' + hints[response.status] : ''}`;
-    }
     async function exportTable(button, bodyId, title) {
         if (button.disabled) return;
         const body = $(bodyId), table = body.closest('table');
@@ -180,44 +137,26 @@ document.addEventListener('DOMContentLoaded', () => {
             await yieldToBrowser();
             const isRoutes = bodyId === 'series';
             const cells = row => Array.from(row.cells).map(exportCellText);
-            const sheets = [[cells(table.tHead.rows[0])]];
-            for (let index = 0; index < rows.length; index++) {
-                const row = rows[index];
-                const values = cells(row);
-                if (isRoutes) {
+            let sheets;
+            if (isRoutes) {
+                const visibleRoutes = rows.map(row => {
                     const route = routesById.get(row.querySelector('[data-route]').dataset.route);
                     if (!route) throw new Error('无法找到当前收货地址的分析数据，请重新分析后导出');
-                    Array.from(row.cells).forEach((cell, column) => {
-                        if (cell.hasAttribute('data-carrier-platform')) {
-                            values[column] = exportCarrierPrices((route.services || []).filter(service =>
-                                (service.platform || 'unknown') === cell.dataset.carrierPlatform
-                            ));
-                        }
-                    });
+                    return route;
+                });
+                sheets = [window.AutoQuoteExport.routeSheet(visibleRoutes, window.AutoQuoteExport.platforms(routeReport.route_rows || []))];
+            } else {
+                sheets = [[cells(table.tHead.rows[0])]];
+                for (let index = 0; index < rows.length; index++) {
+                    sheets[0].push(cells(rows[index]));
+                    if (index % 20 === 19) await yieldToBrowser();
                 }
-                sheets[0].push(values);
-                if (index % 20 === 19) await yieldToBrowser();
             }
             phase = '正在生成 Excel 文件'; updateStatus();
             await yieldToBrowser();
-            const form = new FormData();
-            form.set('step', 'auto_quote_table_export');
-            form.set('title', title);
-            // File parts do not count toward Django's normal form-field size limit.
-            form.set('sheets_file', new Blob([JSON.stringify(sheets)], {type:'application/json'}), 'analysis.json');
-            form.set('csrfmiddlewaretoken', $('form').querySelector('[name=csrfmiddlewaretoken]').value);
-            const response = await fetch('/post_nsop/', {method:'POST', body:form});
-            if (response.redirected) throw new Error('登录已过期，请刷新后重新登录');
-            if (!response.ok) {
-                throw new Error(await exportResponseError(response));
-            }
-            if (!response.headers.get('Content-Type')?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) throw new Error('接口未返回 Excel 文件。' + await exportResponseError(response));
+            const blob = await window.AutoQuoteExport.requestExcel(sheets, title, $('form').querySelector('[name=csrfmiddlewaretoken]').value);
             phase = '正在下载 Excel 文件'; updateStatus();
-            const url = URL.createObjectURL(await response.blob());
-            const link = document.createElement('a');
-            link.href = url; link.download = title + '.xlsx';
-            document.body.appendChild(link); link.click(); link.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            window.AutoQuoteExport.download(blob, title + '.xlsx');
             status.textContent = 'Excel 已生成，已开始下载。';
         } catch (error) {
             const message = error instanceof TypeError ? '网络请求失败或连接中断：' + error.message : error.message;
@@ -336,12 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
         $('submit').disabled = true;
         try {
             const data = await api({kind:'analysis_options'});
-            const parts = new Intl.DateTimeFormat('en-CA', {timeZone:data.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
-            const part = name => parts.find(p => p.type === name).value;
-            const today = `${part('year')}-${part('month')}-${part('day')}`;
-            const end = /^\d{4}-\d{2}-\d{2}$/.test(data.latest_pickup_date || '') && data.latest_pickup_date > today ? data.latest_pickup_date : today;
-            const start = new Date(end + 'T00:00:00Z'); start.setUTCDate(start.getUTCDate() - 29);
-            $('end').value = end; $('start').value = start.toISOString().slice(0,10);
+            const dates = window.AutoQuoteExport.defaultDates(data.timezone, data.latest_pickup_date);
+            $('end').value = dates.end; $('start').value = dates.start;
             profiles = data.profiles;
             const requested = new URLSearchParams(location.search).get('profile');
             const chosen = profiles.find(p => String(p.id) === requested) || profiles[0];

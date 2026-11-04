@@ -34,7 +34,7 @@ const report = {
     chart:[{...product,points:[{date:'2026-09-18',price:100,batch_id:1},{date:'2026-09-19',price:null,batch_id:2},{date:'2026-09-20',price:110,batch_id:3}]}],
 };
 report.aggregate_chart = [{address:'Newark', points:report.chart[0].points}];
-const context = {console, URLSearchParams, Date, Intl, location:{search:'?profile=1'},
+const context = {console, window:{}, URLSearchParams, Date, Intl, location:{search:'?profile=1'},
     document:{createElement:()=>new Element(),querySelectorAll:()=>[],getElementById:id => nodes[id] ||= new Element(), addEventListener:(_, fn) => {ready = fn;}},
     fetch:async url => {
         const params = new URL(url, 'https://example.invalid').searchParams;
@@ -51,6 +51,7 @@ report.route_rows = [{route:'route1',address:'Newark',latest:100,previous:90,lat
         {...report.rows[0],platform:'abf',carrier:'ABF Freight'}]}];
 async function main() {
     vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../static/js/auto_quote_export.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../static/js/auto_quote_analysis.js'), 'utf8'), context);
     ready();
     assert.equal(el('loading').hidden, false);

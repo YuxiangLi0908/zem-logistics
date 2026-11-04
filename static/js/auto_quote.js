@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let batchPage = 1, itemPage = 1, addressPage = 1, selectedBatch = new URLSearchParams(location.search).get('batch');
     let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null, lastWake = 0;
+    let exportingBatch = null;
     const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const n = Math.floor(Math.random() * 16); return (c === 'x' ? n : (n & 3) | 8).toString(16);
     });
@@ -106,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}<div class="small text-muted">开始：${esc(date(batch.started_at))}</div><div class="small text-muted">结束：${esc(date(batch.finished_at))}</div><div class="small text-muted"><strong>${batch.finished_at ? '执行耗时' : '已运行'}：${esc(duration(batch.duration_seconds))}</strong></div></td>
                 <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div>${incompleteAddresses(batch)}</td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
+                <button type="button" class="btn btn-sm btn-outline-success" data-action="export" data-id="${batch.id}" data-profile="${batch.profile_id || ''}" ${!batch.profile_id || exportingBatch !== null ? 'disabled' : ''} ${String(exportingBatch) === String(batch.id) ? 'aria-busy="true"' : ''}>${String(exportingBatch) === String(batch.id) ? '正在导出…' : '导出Excel'}</button>
                 ${['queued','running'].includes(batch.status) && !batch.stop_requested ? `<button class="btn btn-sm btn-outline-danger" data-action="stop" data-id="${batch.id}">停止后续询价</button>` : ''}
                 ${['completed','stopped'].includes(batch.status) && ['failed','partial','no_quote','cancelled'].some(key => batch.counts[key]) ? `<button class="btn btn-sm btn-outline-secondary" data-action="retry" data-id="${batch.id}">重试未完成项</button>` : ''}
                 <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${batch.id}">删除</button></td></tr>`).join('') || '<tr><td colspan="6" class="text-muted">暂无自动询价任务</td></tr>';
@@ -248,12 +250,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     $('auto-refresh')?.addEventListener('click', refresh);
+    async function exportTaskAnalysis(button) {
+        if (exportingBatch !== null) return;
+        const id = button.dataset.id, profile = button.dataset.profile;
+        if (!profile) throw new Error('该任务尚无比较编号，请先完成历史归档后再导出。');
+        exportingBatch = id;
+        button.textContent = '正在导出…';
+        button.setAttribute('aria-busy','true');
+        document.querySelectorAll('#auto-batches [data-action="export"]').forEach(other => { other.disabled = true; });
+        const started = Date.now();
+        let phase = '正在读取收货地址价格分析';
+        const update = () => message(`任务 #${id}：${phase}，已等待 ${Math.floor((Date.now()-started)/1000)} 秒，请稍候。`);
+        update();
+        const timer = setInterval(update,1000);
+        try {
+            const options = await get({kind:'analysis_options'});
+            const dates = window.AutoQuoteExport.defaultDates(options.timezone,options.latest_pickup_date);
+            const report = await get({kind:'analysis',profile,...dates,group:'',platform:'',price_basis:'min',currency:'USD',
+                include_partial:'1',group_by:'address',all_routes:'1',page:1});
+            if (!report.route_rows?.length) throw new Error('该比较编号在默认日期范围内没有可导出的收货地址分析记录。');
+            phase = '正在生成 Excel 文件'; update();
+            const sheet = window.AutoQuoteExport.routeSheet(report.route_rows);
+            const blob = await window.AutoQuoteExport.requestExcel([sheet],'收货地址价格分析',csrf);
+            window.AutoQuoteExport.download(blob,`收货地址价格分析-${report.profile.code}-任务${id}.xlsx`);
+            message(`任务 #${id} 的收货地址价格分析已开始下载；比较编号 ${report.profile.code}，取件日期范围 ${dates.start} 至 ${dates.end}，共 ${report.route_rows.length} 个地址。`);
+        } finally {
+            clearInterval(timer);
+            exportingBatch = null;
+            document.querySelectorAll('#auto-batches [data-action="export"]').forEach(other => {
+                other.disabled = !other.dataset.profile;
+                other.textContent = '导出Excel';
+                other.removeAttribute('aria-busy');
+            });
+        }
+    }
     $('auto-batches')?.addEventListener('click', async event => {
         const button = event.target.closest('button[data-action]');
         if (!button) return;
         button.disabled = true;
         try {
-            if (button.dataset.action === 'detail') {
+            if (button.dataset.action === 'export') {
+                await exportTaskAnalysis(button);
+            } else if (button.dataset.action === 'detail') {
                 selectedBatch = button.dataset.id; itemPage = 1; $('auto-item-status').value = ''; await detail();
                 $('auto-detail').scrollIntoView({behavior:'smooth', block:'start'});
             } else if (button.dataset.action === 'delete') {
