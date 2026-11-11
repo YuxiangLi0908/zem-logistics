@@ -853,7 +853,8 @@ class OrderCreation(View):
             "container_type": self.container_type,
             "customers": customers,
             "area": self.area,
-            "offload_at": offload.offload_at,
+            "offload_at": offload.offload_at if offload else None,
+            "offload_other_at": offload.offload_other_at if offload else None,
             "cancel_access": await sync_to_async(
                 request.user.groups.filter(name="create_order").exists
             )(),

@@ -324,6 +324,7 @@
                                 ">
                         删除选中行
                     </button>
+                    {% if not offload_at and not offload_other_at %}
                     <button type="submit"
                                     form="packing-list-form"
                                     onclick="return submitSelectedPackingList('update');"
@@ -336,6 +337,7 @@
                                 ">
                                 更新选中PackingList信息
                             </button>
+                    {% endif %}
                     <div style="
                         color:#888;
                         font-size:12px;
