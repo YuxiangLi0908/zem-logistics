@@ -40,10 +40,39 @@ class AutoQuoteProfile(models.Model):
         return f"AQ{self.pk:06d}"
 
 
+class AutoQuoteCargoGroup(models.Model):
+    name = models.CharField(max_length=100)
+    operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    profiles = models.ManyToManyField(AutoQuoteProfile, through="AutoQuoteCargoGroupMember")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["operator", "name"], name="auto_quote_cargo_group_name_unique")]
+
+
+class AutoQuoteCargoGroupMember(models.Model):
+    group = models.ForeignKey(AutoQuoteCargoGroup, related_name="members", on_delete=models.CASCADE)
+    profile = models.ForeignKey(AutoQuoteProfile, on_delete=models.PROTECT)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["group", "profile"], name="auto_quote_cargo_member_unique"),
+            models.UniqueConstraint(fields=["group", "position"], name="auto_quote_cargo_position_unique"),
+        ]
+
+
 class AutoQuoteBatch(models.Model):
     group = models.CharField(max_length=3, choices=GROUPS)
     parameters = models.JSONField(default=dict)
     profile = models.ForeignKey(AutoQuoteProfile, null=True, blank=True, on_delete=models.PROTECT)
+    cargo_group = models.ForeignKey(AutoQuoteCargoGroup, null=True, blank=True, on_delete=models.SET_NULL)
+    cargo_group_name = models.CharField(max_length=100, blank=True, default="")
+    cargo_group_position = models.PositiveIntegerField(null=True, blank=True)
+    cargo_submission_id = models.UUIDField(null=True, blank=True, db_index=True)
     operator = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     # Stable browser submission ID prevents duplicate batches after a network retry.
     submission_id = models.UUIDField(unique=True)

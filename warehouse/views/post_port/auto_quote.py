@@ -29,6 +29,7 @@ from warehouse.utils.multi_carrier_quote import gateway_config
 from warehouse.utils.quote_analysis import analysis_options, build_analysis
 from warehouse.utils.quote_destination_history import destination_history
 from warehouse.utils.auto_quote_lifecycle import schedule_worker
+from warehouse.utils.auto_quote_cargo import cargo_options, delete_cargo_group, save_cargo_group, start_cargo_group
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,8 @@ def auto_quote_get(request):
         return render(request, "post_port/new_sop/leader_check/auto_quote_analysis.html")
     try:
         kind = request.GET.get("kind", "batches")
+        if kind == "cargo_groups":
+            return JsonResponse({"success": True, **cargo_options(request.user)})
         if kind == "destination_history":
             return JsonResponse({"success": True, **destination_history(visible_batches(request.user), request.GET)})
         if kind == "analysis_options":
@@ -92,7 +95,7 @@ def auto_quote_get(request):
             response["Content-Disposition"] = f'attachment; filename="auto-quote-{batch.pk}.csv"'
             response.write("\ufeff")
             writer = csv.writer(response)
-            writer.writerow(["组", "发货仓", "取件日期", "城市", "州", "邮编", "详细地址", "距离(miles)", "状态", "询价时间", "完成时间", "错误", "报价结果(JSON)"])
+            writer.writerow(["组", "发货仓", "取件日期", "城市", "州", "邮编", "详细地址", "距离(miles)", "状态", "询价时间", "完成时间", "错误", "报价结果(JSON)", "货物明细组", "组内序号"])
 
             def safe(value):
                 text = str(value if value is not None else "")
@@ -103,7 +106,7 @@ def auto_quote_get(request):
                 values = [batch.group, batch.parameters.get("originWarehouse"), batch.parameters.get("pickupDate"),
                           a["city"], a["state"], a["zipcode"], a["address"], a.get("distance_miles"),
                           item.status, item.started_at, item.finished_at, item.error,
-                          json.dumps(item.result, ensure_ascii=False)]
+                          json.dumps(item.result, ensure_ascii=False), batch.cargo_group_name, batch.cargo_group_position]
                 writer.writerow([safe(value) for value in values])
             return response
         if kind == "addresses":
@@ -219,6 +222,21 @@ def auto_quote_post(request):
             if not rows:
                 raise ValueError("Excel中没有地址记录")
             return JsonResponse({"success": True, **import_addresses(group, rows, request.user.pk)})
+        if step == "auto_quote_cargo_group_save":
+            group = save_cargo_group(request.user, request.POST.get("cargo_group"), request.POST.get("name"),
+                                     json.loads(request.POST.get("profile_ids") or "[]"))
+            return JsonResponse({"success": True, "cargo_group_id": group.pk, **cargo_options(request.user)})
+        if step == "auto_quote_cargo_group_delete":
+            delete_cargo_group(request.user, request.POST.get("cargo_group"))
+            return JsonResponse({"success": True, **cargo_options(request.user)})
+        if step == "auto_quote_cargo_group_start":
+            gateway_config()
+            batches, reused = start_cargo_group(
+                request.user, request.POST.get("cargo_group"), request.POST.get("group"),
+                request.POST.get("pickup_date"), request.POST.get("submission_id"), SystemParameter.get_zem_warehouse_addresses(),
+            )
+            schedule_worker()
+            return JsonResponse({"success": True, "reused": reused, "batches": [batch_summary(batch) for batch in batches]})
         if step == "auto_quote_start":
             parameters = json.loads(request.POST.get("quote_payload") or "{}")
             if not isinstance(parameters, dict):

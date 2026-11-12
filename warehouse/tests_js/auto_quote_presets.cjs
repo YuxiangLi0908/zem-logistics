@@ -29,4 +29,20 @@ assert.throws(()=>context.window.AutoQuoteForm.applyProfile({...c,origin:{...c.o
 assert.equal(JSON.stringify(cargo),before);
 assert.throws(()=>context.window.AutoQuoteForm.applyProfile({...c,commodityUnit:999}));
 assert.equal(JSON.stringify(cargo),before);
+const originType={disabled:true,dataset:{}};
+Object.values(nodes).forEach(input=>{input.dataset={};});
+const groupedInputs=[nodes.quote_type,nodes.quote_car_type,nodes.quote_declared_value,originType];
+const panel={hidden:false,querySelectorAll:()=>groupedInputs};
+context.document.querySelectorAll=()=>[panel];
+context.window.AutoQuoteForm.setGroupedMode(true);
+context.window.AutoQuoteForm.setGroupedMode(true);
+assert(groupedInputs.every(input=>input.disabled));
+assert.equal(panel.hidden,true);
+assert.equal(nodes.quote_pickup_date.value,'2026-10-10');
+context.window.AutoQuoteForm.setGroupedMode(false);
+assert.equal(panel.hidden,false);
+assert.equal(nodes.quote_type.disabled,false);
+assert.equal(nodes.quote_declared_value.disabled,false);
+assert.equal(originType.disabled,true);
+assert.equal(nodes.quote_car_type.disabled,false); // The previously selected FTL car remains enabled.
 console.log('Saved cargo checks passed: multi-row fill, full conditions, renamed origin, unchanged pickup date, FTL/LTL, invalid preset leaves form intact.');

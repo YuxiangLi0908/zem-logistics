@@ -1,13 +1,13 @@
 <section id="auto-quote-tasks" class="mt-4" aria-label="自动询价任务">
     {% csrf_token %}
     <div class="d-flex justify-content-between align-items-center mb-2">
-        <div><h5 id="auto-task-title">全部历史自动询价任务</h5><p class="small text-muted mb-0">每次自动询价为一个任务，点击“查看”展开该次完整结果。“导出Excel”按该任务的比较编号及价格分析页面的默认日期范围，导出收货地址价格分析。</p></div><button type="button" id="auto-refresh" class="btn btn-sm btn-outline-primary">刷新任务</button>
+        <div><h5 id="auto-task-title">全部历史自动询价任务</h5><p class="small text-muted mb-0">货物明细组中的每个 AQ 分别生成一个任务，组名及序号显示在任务列。点击“查看”展开完整结果；“导出Excel”按该任务的比较编号及价格分析页面的默认日期范围，导出收货地址价格分析。</p></div><button type="button" id="auto-refresh" class="btn btn-sm btn-outline-primary">刷新任务</button>
     </div>
     <div id="auto-worker-state" class="small text-muted mb-2"></div>
     <div id="auto-ui-message" class="alert alert-info" hidden role="status"></div>
     <div id="auto-task-list">
     <div class="table-responsive"><table class="table table-sm table-bordered">
-        <thead><tr><th>任务</th><th>组 / 发货仓</th><th>执行人</th><th>创建时间</th><th>状态 / 进度</th><th>操作</th></tr></thead>
+        <thead><tr><th>任务</th><th>地址组 / 发货仓</th><th>执行人</th><th>创建时间</th><th>状态 / 进度</th><th>操作</th></tr></thead>
         <tbody id="auto-batches"></tbody>
     </table></div>
     <div class="d-flex gap-2 align-items-center">

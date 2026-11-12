@@ -15,6 +15,7 @@
     .cargo-table input { min-width: 82px; }
     .cargo-table .description-input { min-width: 140px; }
     .quote-example { color: #64748b; font-size: 13px; font-weight: 400; line-height: 1.5; }
+    .standalone-quote-page [data-cargo-single][hidden] { display: none !important; }
     .quote-price { color: #075985; font-size: 18px; font-weight: 800; white-space: nowrap; }
     .result-card { height: 100%; border: 1px solid #dbe3ec; border-radius: 10px; }
     .result-card-title { padding: 10px 14px; border-bottom: 1px solid #dbe3ec; background: #f8fafc; font-weight: 700; }
@@ -67,19 +68,19 @@
                         <button type="button" id="auto-address-next" class="btn btn-sm btn-outline-secondary">下一页</button>
                     </div>
                 </details>
-                <p class="small text-muted mt-2 mb-0">组内地址共用下方货物条件及收货地址类型。提交后后台执行，关闭页面仍会继续；可在自动历史查看进度。</p>
+                <p class="small text-muted mt-2 mb-0">选择货物明细组后，组内每个 AQ 分别跑完所选地址组，各自保留货物、申报价值、发货仓及服务条件。提交后后台执行，关闭页面仍会继续。</p>
                 <p class="small text-muted mt-1 mb-0">相同发货地址、货物明细、申报价值及服务条件自动复用比较编号（AQ开头）；任务列表中可点击“价格分析”查看历次变化。</p>
             </div>
             <form id="standaloneQuoteForm">
                 {% csrf_token %}
                 <div class="row g-3 mb-3 quote-basic-fields">
                     <div class="col-md-3"><label class="form-label">取件日期 *</label><input id="quote_pickup_date" type="date" class="form-control" required></div>
-                    <div class="col-md-3"><label class="form-label">运输类型 *</label><select id="quote_type" class="form-select"><option value="1">LTL</option><option value="2">FTL</option></select></div>
-                    <div class="col-md-3"><label class="form-label">FTL 车型</label><select id="quote_car_type" class="form-select" disabled><option value=""></option><option value="1">53尺厢式货车</option><option value="2">冷链车</option><option value="3">48尺平板车</option><option value="10">26尺小车</option><option value="12">26尺小车带尾板</option><option value="13">快速拖车</option></select></div>
-                    <div class="col-md-3"><label class="form-label">申报价值 ($) *{% if not automatic %}<span class="quote-example ms-2">参考：$2500</span>{% endif %}</label><input id="quote_declared_value" type="number" min="1" step="0.01" class="form-control"{% if not automatic %} placeholder="例：2500"{% endif %} required></div>
+                    <div class="col-md-3" data-cargo-single{% if automatic %} hidden{% endif %}><label class="form-label">运输类型 *</label><select id="quote_type" class="form-select"><option value="1">LTL</option><option value="2">FTL</option></select></div>
+                    <div class="col-md-3" data-cargo-single{% if automatic %} hidden{% endif %}><label class="form-label">FTL 车型</label><select id="quote_car_type" class="form-select" disabled><option value=""></option><option value="1">53尺厢式货车</option><option value="2">冷链车</option><option value="3">48尺平板车</option><option value="10">26尺小车</option><option value="12">26尺小车带尾板</option><option value="13">快速拖车</option></select></div>
+                    <div class="col-md-3" data-cargo-single{% if automatic %} hidden{% endif %}><label class="form-label">申报价值 ($) *{% if not automatic %}<span class="quote-example ms-2">参考：$2500</span>{% endif %}</label><input id="quote_declared_value" type="number" min="1" step="0.01" class="form-control"{% if not automatic %} placeholder="例：2500"{% endif %} required></div>
                 </div>
 
-                <div class="row g-3 mb-3">
+                <div class="row g-3 mb-3" data-cargo-single{% if automatic %} hidden{% endif %}>
                     <div class="col-lg-6">
                         <div class="address-panel">
                             <h5>发货地址</h5>
@@ -111,7 +112,7 @@
                     </div>
                 </div>
 
-                <div class="row g-3 mb-3">
+                <div class="row g-3 mb-3" data-cargo-single{% if automatic %} hidden{% endif %}>
                     <div class="col-md-3"><label class="form-label">货物单位</label><select id="quote_commodity_unit" class="form-select"><option value="11">PALLETS</option><option value="2">BOXES</option><option value="3">CARTONS</option><option value="14">CRATE</option></select></div>
                     <div class="col-md-3"><label class="form-label">托盘类型</label><select id="quote_pallet_type" class="form-select"><option value="1">PALLETS</option><option value="2">CRATES</option></select></div>
                     <div class="col-md-3 d-flex align-items-end"><div class="form-check mb-2"><input id="quote_liftgate" type="checkbox" class="form-check-input"><label class="form-check-label" for="quote_liftgate">需要 Liftgate</label></div></div>
@@ -120,20 +121,42 @@
                 {% if automatic %}
                 <div class="border rounded p-3 mb-3" style="background:#eef5ff;border-color:#c9dcf7!important">
                     <div id="quote-cargo-source" role="group" aria-label="货物明细填写方式">
-                        <div class="form-label fw-bold">货物明细填写方式</div>
+                        <div class="form-label fw-bold">货物明细</div>
                         <div class="d-flex gap-4 mb-2">
-                            <label><input type="radio" name="quote-cargo-source" id="quote-cargo-auto" value="saved"> 自动输入</label>
-                            <label><input type="radio" name="quote-cargo-source" id="quote-cargo-manual" value="manual" checked> 手动输入</label>
+                            <label><input type="radio" name="quote-cargo-source" id="quote-cargo-auto" value="saved" checked> 选择货物明细组</label>
+                            <label><input type="radio" name="quote-cargo-source" id="quote-cargo-manual" value="manual"> 手动输入单次货物</label>
                         </div>
                     </div>
-                    <div id="quote-preset-controls" hidden>
-                        <label for="quote-cargo-profile" class="form-label">选择已有货物明细</label>
-                        <select id="quote-cargo-profile" class="form-select" style="width:100%;max-width:100%"><option value="">请选择货物明细，选中后自动填入</option></select>
-                        <p class="small text-muted mt-2 mb-0">选择后自动填入货物、申报价值及原组的发货仓、运输和尾板条件。</p>
+                    <div id="quote-preset-controls">
+                        <label for="quote-cargo-group" class="form-label">货物明细组</label>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <select id="quote-cargo-group" class="form-select" style="width:auto;min-width:260px;max-width:100%" required disabled><option value="">请选择货物明细组</option></select>
+                            <button type="button" id="quote-cargo-new" class="btn btn-sm btn-outline-primary">新建组</button>
+                            <button type="button" id="quote-cargo-edit" class="btn btn-sm btn-outline-secondary" disabled>编辑当前组</button>
+                            <button type="button" id="quote-cargo-delete" class="btn btn-sm btn-outline-danger" disabled>删除组</button>
+                        </div>
+                        <p class="small text-muted mt-2 mb-2">每个 AQ 独立询价，沿用其原发货仓、货物、申报价值及服务条件；使用本次取件日期和地址组。</p>
+                        <div id="quote-cargo-preview" class="table-responsive"></div>
+                        <p id="quote-cargo-plan" class="small text-primary mt-2 mb-0" role="status"></p>
+                        <div id="quote-cargo-editor" class="border rounded bg-white p-3 mt-3" hidden>
+                            <fieldset id="quote-cargo-editor-fields">
+                                <label for="quote-cargo-name" class="form-label">组名称</label>
+                                <input id="quote-cargo-name" class="form-control mb-2" maxlength="100" placeholder="例如：LA 常用货物">
+                                <label for="quote-cargo-search" class="form-label">从已有 AQ 中选择（按勾选顺序保存，每组最多50条）</label>
+                                <input id="quote-cargo-search" class="form-control mb-2" placeholder="搜索 AQ 编号、发货仓或货物尺寸">
+                                <div id="quote-cargo-options" style="max-height:340px;overflow:auto"></div>
+                                <div id="quote-cargo-selected" class="small text-primary mt-2"></div>
+                                <div class="d-flex gap-2 mt-3">
+                                    <button type="button" id="quote-cargo-save" class="btn btn-sm btn-primary">保存组</button>
+                                    <button type="button" id="quote-cargo-cancel" class="btn btn-sm btn-outline-secondary">取消</button>
+                                </div>
+                            </fieldset>
+                        </div>
                     </div>
                     <div id="quote-profile-message" class="small mt-2" role="status" aria-live="polite"></div>
                 </div>
                 {% endif %}
+                <div data-cargo-single{% if automatic %} hidden{% endif %}>
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <h5 class="mb-0">货物明细</h5>
@@ -146,6 +169,7 @@
                         <thead><tr><th>描述</th><th>件数/板</th><th>长(in)</th><th>宽(in)</th><th>高(in)</th><th>单板重量(lb)</th><th>板数</th><th>Class</th><th>操作</th></tr></thead>
                         <tbody id="quote_items"></tbody>
                     </table>
+                </div>
                 </div>
             </form>
 
@@ -236,6 +260,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     window.AutoQuoteForm = {
+        setGroupedMode(grouped) {
+            document.querySelectorAll('[data-cargo-single]').forEach(panel => {
+                panel.hidden = grouped;
+                panel.querySelectorAll('input, select, button').forEach(input => {
+                    if (grouped) {
+                        if (input.dataset.cargoDisabled === undefined) input.dataset.cargoDisabled = input.disabled ? '1' : '0';
+                        input.disabled = true;
+                    } else if (input.dataset.cargoDisabled !== undefined) {
+                        input.disabled = input.dataset.cargoDisabled === '1';
+                        delete input.dataset.cargoDisabled;
+                    }
+                });
+            });
+            if (!grouped) setQuoteType();
+        },
         applyProfile(configuration) {
             const normalize = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
             const origin = configuration.origin || {};
@@ -314,8 +353,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('quote_type').addEventListener('change', setQuoteType);
     submitButton.addEventListener('click', async function () {
         if (!form.reportValidity()) return;
-        const requestPayload = payload();
-        if (!requestPayload.items.length || requestPayload.items.some(item => !item.length || !item.width || !item.height || !item.weight || !item.palletCount || !item.freightClass)) {
+        const grouped = mode.value === 'auto' && window.AutoQuoteCargoGroups?.isActive();
+        const requestPayload = grouped ? null : payload();
+        if (!grouped && (!requestPayload.items.length || requestPayload.items.some(item => !item.length || !item.width || !item.height || !item.weight || !item.palletCount || !item.freightClass))) {
             errorBox.textContent = '请填写完整的货物尺寸、单板重量和板数。'; errorBox.style.display = 'block'; return;
         }
         const originalHtml = submitButton.innerHTML;
@@ -324,7 +364,8 @@ document.addEventListener('DOMContentLoaded', function () {
         errorBox.style.display = 'none';
         try {
             if (mode.value === 'auto') {
-                await window.AutoQuoteUI.start(requestPayload);
+                if (grouped) await window.AutoQuoteCargoGroups.submit();
+                else await window.AutoQuoteUI.start(requestPayload);
                 return;
             }
             const data = new FormData();
@@ -352,8 +393,8 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script src="{% static 'js/auto_quote_export.js' %}?v=20261104-1"></script>
-<script src="{% static 'js/auto_quote.js' %}?v=20261104-task-export"></script>
-{% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}"></script>{% endif %}
+<script src="{% static 'js/auto_quote.js' %}?v=20261112-cargo-groups"></script>
+{% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}?v=20261112-cargo-groups"></script>{% endif %}
 <script src="{% static 'js/p1_quote_ui.js' %}?v=20261112-1"></script>
 <script src="{% static 'js/abf_followup.js' %}?v=20261103-1"></script>
 <script src="{% static 'js/abf_booking.js' %}?v=20261103-2"></script>
