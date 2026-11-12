@@ -51,7 +51,7 @@
         border-radius: 8px;
         box-shadow: 0 3px 10px rgba(0, 0, 0, .08);
     }
-    .quote-history-table { width: 100%; min-width: 2330px; margin: 0; border-collapse: collapse; font-size: 15px; }
+    .quote-history-table { width: 100%; min-width: 2535px; margin: 0; border-collapse: collapse; font-size: 15px; }
     .quote-history-table thead th {
         position: sticky;
         top: 0;
@@ -192,10 +192,10 @@
                 <tr>
                     <th>ID</th><th>询价时间</th><th>询价人</th><th>发货仓库</th><th>收货仓点</th>
                     <th>取件日期</th><th>运输类型</th><th>FTL车型</th><th>Freight Class</th><th>申报价值</th>
-                    <th>板子明细</th><th>卡卡省请求体</th><th>卡卡省返回体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th><th>ABF下单 / 物流 / 文件</th>
+                    <th>板子明细</th><th>卡卡省请求体</th><th>卡卡省返回体</th><th>马士基价格</th><th>卡卡省价格</th><th>ABF价格</th><th>P1价格</th><th>ABF下单 / 物流 / 文件</th>
                 </tr>
                 <tr class="search-row">
-                    {% for index in "01234567890123456" %}
+                    {% for index in "012345678901234567" %}
                     <th><input class="quote-history-search" data-column="{{ forloop.counter0 }}" placeholder="搜索"></th>
                     {% endfor %}
                 </tr>
@@ -251,6 +251,12 @@
                         <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
                         {% empty %}-{% endfor %}
                     </td>
+                    <td class="price-cell">
+                        {% for row in history.p1_price_rows %}
+                        <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
+                        {% empty %}{{ history.p1_quotes.error|default:"该历史记录未返回 P1 报价" }}{% endfor %}
+                        {% if history.p1_quotes.warning %}<div class="small text-warning mt-2">{{ history.p1_quotes.warning }}</div>{% endif %}
+                    </td>
                     <td class="abf-shipment-cell">
                         {% if request.user.is_staff or history.operator_id == request.user.id %}
                             {% with booking=history.abf_quotes.booking %}
@@ -267,7 +273,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="17" class="text-center text-muted py-4">暂无三方询价历史记录</td></tr>
+                <tr><td colspan="18" class="text-center text-muted py-4">暂无询价历史记录</td></tr>
                 {% endfor %}
             </tbody>
         </table>

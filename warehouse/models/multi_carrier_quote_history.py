@@ -16,6 +16,7 @@ class MultiCarrierQuoteHistory(models.Model):
     kakas_request_payload = models.JSONField(default=dict, blank=True, verbose_name="卡卡省询价请求体")
     kakas_response_payload = models.JSONField(null=True, blank=True, verbose_name="卡卡省返回体")
     abf_quotes = models.JSONField(default=dict, blank=True, verbose_name="ABF报价")
+    p1_quotes = models.JSONField(default=dict, blank=True, verbose_name="P1报价")
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

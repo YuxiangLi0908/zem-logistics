@@ -384,6 +384,7 @@ class PostNsop(View):
                 history.maersk_price_rows = self._quote_price_rows(history.maersk_quotes, "maersk")
                 history.kakas_price_rows = self._quote_price_rows(history.kakas_quotes, "kakas")
                 history.abf_price_rows = self._quote_price_rows(history.abf_quotes, "abf")
+                history.p1_price_rows = self._quote_price_rows(history.p1_quotes, "p1")
                 history.kakas_request_payload_json = json.dumps(
                     history.kakas_request_payload, ensure_ascii=False, separators=(",", ":")
                 )
@@ -3622,7 +3623,7 @@ class PostNsop(View):
                 maersk_quotes=carriers.get("maersk", {}), kakas_quotes=carriers.get("kakas", {}),
                 kakas_request_payload=payload["carrierPayloads"]["kakas"],
                 kakas_response_payload=carriers.get("kakas", {}).get("data", carriers.get("kakas", {})),
-                abf_quotes=carriers.get("abf", {}), operator_id=request.user.pk,
+                abf_quotes=carriers.get("abf", {}), p1_quotes=carriers.get("p1", {}), operator_id=request.user.pk,
             )
             result["history_id"] = history.pk
             return JsonResponse({"success": True, "data": result})
