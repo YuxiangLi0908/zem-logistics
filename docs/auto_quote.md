@@ -65,6 +65,8 @@ ABF 直接向 `https://www.abfs.com/xml/aquotexml.asp` 发送表单 POST，解�
 
 价格直接使用每家承运商 `rateQuoteDetail.total`，已含费用明细，不再次累加。P1 结果按价格升序排列，保留承运商、服务级别、运输天数、报价编号、有效期和费用明细；部分承运商失败时保留其他报价，并展示失败原因。认证、权限、限流和参数错误显示 HTTP 状态及接口返回的具体说明，P1 失败不清空其他平台结果。
 
+P1 部分承运商失败的提示放在成功报价下方，常见的账号未激活、认证失败、500 服务异常等显示简短原因，完整报错默认折叠，可点击“查看完整报错”展开。手动询价页面、询价弹框与手动历史页共用同一展示逻辑；原始报错及历史报价数据保留。
+
 P1 报价保存到手动询价历史的新增 `p1_quotes` 字段，历史页增加“P1价格”列；旧历史为空，不自动补询。部署前执行 `python manage.py migrate`（新增迁移 `0403_multicarrierquotehistory_p1_quotes`），配置密钥后重启 Web。本次没有接入 P1 下单，不会自动安排提货。
 
 验证：`python manage.py test warehouse.test_p1_quote --settings=warehouse.auto_quote_test_settings --noinput`，使用模拟响应，不调用真实 P1 接口。

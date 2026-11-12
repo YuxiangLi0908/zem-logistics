@@ -255,7 +255,11 @@
                         {% for row in history.p1_price_rows %}
                         <div class="quote-price-row">{{ row.category }}{% if row.code %} <span class="quote-code">({{ row.code }})</span>{% endif %}<span class="quote-price-value">${{ row.price|floatformat:2 }}</span></div>
                         {% empty %}{{ history.p1_quotes.error|default:"该历史记录未返回 P1 报价" }}{% endfor %}
-                        {% if history.p1_quotes.warning %}<div class="small text-warning mt-2">{{ history.p1_quotes.warning }}</div>{% endif %}
+                        {% if history.p1_quotes.warning %}
+                        <div data-p1-quote-warning>
+                            <details class="small text-warning mt-2"><summary>查看询价提示</summary><pre style="white-space:pre-wrap;max-height:180px;overflow:auto">{{ history.p1_quotes.warning }}</pre></details>
+                        </div>
+                        {% endif %}
                     </td>
                     <td class="abf-shipment-cell">
                         {% if request.user.is_staff or history.operator_id == request.user.id %}
@@ -282,6 +286,7 @@
 </div>
 
 <form hidden>{% csrf_token %}</form>
+<script src="{% static 'js/p1_quote_ui.js' %}?v=20261112-1"></script>
 <script src="{% static 'js/abf_followup.js' %}?v=20261103-1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
