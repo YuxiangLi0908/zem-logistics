@@ -8,6 +8,7 @@ import aiohttp
 
 from warehouse.utils.kakas_polling import wait_for_kakas_quotes
 from warehouse.utils.abf_quote import request_abf_quote
+from warehouse.utils.p1_quote import request_p1_quote
 
 
 def prepare_quote(form):
@@ -160,10 +161,16 @@ async def execute_quote(form, *, checkpoint=None, resume=None, before_request=No
             kakas = result.get("results", {}).get("kakas", {})
             quote_uuid = find_uuid(kakas.get("data")) if kakas.get("status") == "success" else ""
         result.setdefault("freightClasses", classes)
+        requests = []
         if fresh_request or "abf" not in result.setdefault("results", {}):
-            abf_result, abf_payload = await request_abf_quote(session, form, classes, before_request)
-            result["results"]["abf"] = abf_result
-            payload["carrierPayloads"]["abf"] = abf_payload
+            requests.append(("abf", request_abf_quote(session, form, classes, before_request)))
+        # P1 is currently enabled only for manual quotes, not queued automatic tasks.
+        if not automatic and (fresh_request or "p1" not in result["results"]):
+            requests.append(("p1", request_p1_quote(session, form, classes)))
+        responses = await asyncio.gather(*(request for _, request in requests))
+        for (platform, _), (platform_result, platform_payload) in zip(requests, responses):
+            result["results"][platform] = platform_result
+            payload["carrierPayloads"][platform] = platform_payload
         kakas = result.setdefault("results", {}).setdefault("kakas", {})
         if checkpoint:
             await checkpoint(result, quote_uuid or "", payload)

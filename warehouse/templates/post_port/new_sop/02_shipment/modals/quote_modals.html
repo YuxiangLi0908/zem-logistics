@@ -279,7 +279,7 @@
         const button = document.getElementById('multi_quote_submit');
         const oldHtml = button.innerHTML;
         button.disabled = true;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在查询三家报价...';
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在查询四个平台报价...';
         error.style.display = 'none';
         try {
             const data = new FormData();
@@ -319,13 +319,14 @@
                 price: q.TotalQuote ?? q.totalPrice ?? q.price
             }))},
             {name: '卡卡省', state: results.kakas, rows: kakas.map(q => ({name: q.carrierName || q.carrierCode || '卡卡省承运商', price: q.totalPrice, days: q.carrierTransitDays}))},
-            {name: 'ABF', state: results.abf, rows: findNestedArray(results.abf?.data, 'quotes').map(q => ({name:q.carrierName || 'ABF Freight', serviceCode:q.quoteId || '', price:q.TotalQuote, days:q.transitDays}))}
+            {name: 'ABF', state: results.abf, rows: findNestedArray(results.abf?.data, 'quotes').map(q => ({name:q.carrierName || 'ABF Freight', serviceCode:q.quoteId || '', price:q.TotalQuote, days:q.transitDays}))},
+            {name: 'P1', state: results.p1, rows: findNestedArray(results.p1?.data, 'quotes').map(q => ({name:q.carrierName || 'P1 承运商', serviceCode:q.serviceName || q.serviceCode || '', price:q.TotalQuote, days:q.transitDays}))}
         ];
         document.getElementById('multi_quote_result').innerHTML = `<div class="row g-3">${cards.map(card => {
             const rows = card.rows.length
-                ? card.rows.map(r => `<div class="border rounded p-2 mb-2"><strong>${escapeMultiQuoteHtml(r.name)}</strong><span class="float-end multi-quote-price">${money(r.price)}</span>${r.serviceCode ? `<div class="small text-muted">服务代码：${escapeMultiQuoteHtml(r.serviceCode)}</div>` : ''}${r.days ? `<div class="small text-muted">预计 ${r.days} 天</div>` : ''}</div>`).join('')
+                ? card.rows.map(r => `<div class="border rounded p-2 mb-2"><strong>${escapeMultiQuoteHtml(r.name)}</strong><span class="float-end multi-quote-price">${money(r.price)}</span>${r.serviceCode ? `<div class="small text-muted">服务代码：${escapeMultiQuoteHtml(r.serviceCode)}</div>` : ''}${r.days !== undefined && r.days !== null && r.days !== '' ? `<div class="small text-muted">预计 ${escapeMultiQuoteHtml(r.days)} 天</div>` : ''}</div>`).join('')
                 : `<div class="alert alert-secondary mb-0">${escapeMultiQuoteHtml(card.state?.error || '暂未返回可用报价')}</div>`;
-            return `<div class="col-md-4"><div class="card h-100"><div class="card-header fw-bold">${card.name}</div><div class="card-body">${card.state?.warning ? `<div class="alert alert-warning">${escapeMultiQuoteHtml(card.state.warning)}</div>` : ''}${rows}</div></div></div>`;
+            return `<div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-header fw-bold">${card.name}</div><div class="card-body">${card.state?.warning ? `<div class="alert alert-warning">${escapeMultiQuoteHtml(card.state.warning)}</div>` : ''}${rows}</div></div></div>`;
         }).join('')}</div>`;
         if (data.history_id && results.abf?.status === 'success' && findNestedArray(results.abf.data, 'quotes').length) {
             document.querySelectorAll('#multi_quote_result .card-body')[2].insertAdjacentHTML('beforeend', window.ABFBooking.button(data.history_id));
