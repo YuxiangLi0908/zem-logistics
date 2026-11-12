@@ -125,7 +125,7 @@ def queue_lock():
 
 
 @transaction.atomic
-def create_batch(group, parameters, user_id, submission_id, parent=None):
+def create_batch(group, parameters, user_id, submission_id, parent=None, *, snapshots=None, cargo_context=None):
     check_group(group)
     token = uuid.UUID(str(submission_id))
     queue_lock()
@@ -136,17 +136,20 @@ def create_batch(group, parameters, user_id, submission_id, parent=None):
         if parent.items.filter(status__in=("pending", "running")).exists():
             raise ValueError("请等待原任务结束后再重试")
         snapshots = list(parent.items.filter(status__in=RETRYABLE).values_list("address_snapshot", flat=True))
-    else:
+    elif snapshots is None:
         snapshots = [row.snapshot() for row in AutoQuoteAddress.objects.filter(group=group)]
     if not snapshots:
         raise ValueError("没有可询价的地址")
     validate_parameters(parameters, snapshots[0])
     # A second tab cannot launch the same conditions while they are still running.
     for active in AutoQuoteBatch.objects.filter(group=group, operator_id=user_id, status__in=("queued", "running")):
-        if active.parameters == parameters:
+        if active.parameters == parameters and (not cargo_context or active.cargo_submission_id == cargo_context["cargo_submission_id"]):
             return active
+    if cargo_context is None and parent and parent.cargo_group_name:
+        cargo_context = {"cargo_group_id": parent.cargo_group_id, "cargo_group_name": parent.cargo_group_name,
+                         "cargo_group_position": parent.cargo_group_position}
     batch = AutoQuoteBatch.objects.create(group=group, parameters=parameters, profile=get_profile(parameters), operator_id=user_id,
-                                         submission_id=token, parent=parent)
+                                         submission_id=token, parent=parent, **(cargo_context or {}))
     AutoQuoteItem.objects.bulk_create([AutoQuoteItem(batch=batch, address_snapshot=a) for a in snapshots])
     return batch
 
@@ -290,5 +293,6 @@ def batch_summary(batch):
             "origin": batch.parameters.get("originWarehouse", ""), "created_at": batch.created_at,
             "profile_code": f"AQ{batch.profile_id:06d}" if batch.profile_id else "待归档",
             "profile_id": batch.profile_id,
+            "cargo_group_name": batch.cargo_group_name, "cargo_group_position": batch.cargo_group_position,
             "operator": (batch.operator.get_full_name() or batch.operator.get_username()) if batch.operator else "原用户已删除 / 未记录",
             "finished_at": batch.finished_at, "parent_id": batch.parent_id}

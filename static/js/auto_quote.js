@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function groupCount() {
         if ($('auto-group-count')) $('auto-group-count').textContent = `共 ${groups[$('auto-group').value] || 0} 条地址`;
+        window.AutoQuoteCargoGroups?.updatePlan();
     }
     async function refresh() {
         if (refreshing) return;
@@ -103,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await post('auto_quote_wake', {});
             }
             $('auto-batches').innerHTML = data.batches.map(batch => `<tr>
-                <td>#${batch.id}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
+                <td>#${batch.id}${batch.cargo_group_name ? `<div class="small text-primary">货物组：${esc(batch.cargo_group_name)} · 第${esc(batch.cargo_group_position)}条</div>` : ''}<div class="small">比较编号：${esc(batch.profile_code)}</div>${batch.profile_id ? `<a href="${endpoint({step:'auto_quote_analysis',profile:batch.profile_id})}">价格分析</a>` : ''}${batch.parent_id ? `<div class="small text-muted">重试自 #${batch.parent_id}</div>` : ''}</td>
                 <td>${esc(batch.group)} / ${esc(batch.origin)}</td><td>${esc(batch.operator)}</td><td>${esc(date(batch.created_at))}<div class="small text-muted">开始：${esc(date(batch.started_at))}</div><div class="small text-muted">结束：${esc(date(batch.finished_at))}</div><div class="small text-muted"><strong>${batch.finished_at ? '执行耗时' : '已运行'}：${esc(duration(batch.duration_seconds))}</strong></div></td>
                 <td class="aq-progress-cell"><span class="aq-status aq-status-${esc(batch.status)}">${esc(labels[batch.status])}</span>${batch.stop_requested && batch.status === 'running' ? '（正在停止，等待当前询价结束）' : ''}${progressBar(batch)}<div class="small text-muted">共${batch.total}条 · ${esc(progress(batch))}</div>${incompleteAddresses(batch)}</td>
                 <td><button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${batch.id}">查看</button>
@@ -189,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await get({kind:'batch', batch:requestedId, page:itemPage, status:$('auto-item-status').value});
         if (requestedId !== selectedBatch) return;
         $('auto-detail').hidden = false;
-        $('auto-detail-title').textContent = `任务 #${data.batch.id} · ${data.batch.group} · ${data.batch.origin}`;
+        $('auto-detail-title').textContent = `任务 #${data.batch.id} · ${data.batch.group} · ${data.batch.origin}` + (data.batch.cargo_group_name ? ` · ${data.batch.cargo_group_name} 第${data.batch.cargo_group_position}条` : '');
         $('auto-detail-summary').textContent = `执行人：${data.batch.operator} · ${progress(data.batch)} · ${timing(data.batch)}`;
         $('auto-detail-parameters').textContent = JSON.stringify(data.parameters, null, 2);
         $('auto-export').href = endpoint({step:'auto_quote_export', batch:selectedBatch});
@@ -343,9 +344,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.AutoQuoteUI = {
         refresh, prices, rows, esc, date, labels, get,
+        addressCount: () => groups[$('auto-group')?.value] || 0,
         async filterTasks(start, end) { taskDates = {start, end}; batchPage = 1; $('auto-batches').innerHTML = ''; $('auto-ui-message').hidden = true; await refresh(); },
         clearSelection() { selectedBatch = null; $('auto-detail').hidden = true; },
         async showBatch(id) { selectedBatch = String(id); itemPage = 1; $('auto-item-status').value = ''; await detail(); $('auto-detail').scrollIntoView({behavior:'smooth', block:'start'}); },
+        async startGroup(cargoGroup, pickupDate, revision) {
+            const group = $('auto-group').value;
+            const signature = JSON.stringify({cargoGroup, group, pickupDate, revision});
+            if (!startToken || signature !== startSignature) { startToken = uuid(); startSignature = signature; }
+            const data = await post('auto_quote_cargo_group_start', {cargo_group:cargoGroup, group, pickup_date:pickupDate, submission_id:startToken});
+            startToken = null; selectedBatch = String(data.batches[0].id); itemPage = 1; batchPage = 1;
+            const total = data.batches.reduce((sum, batch) => sum + batch.total, 0);
+            message(`货物组「${data.batches[0].cargo_group_name}」${data.reused ? '已在任务列表中，继续使用原任务' : '已提交'}，共${data.batches.length}个任务、${total}条地址询价。任务：${data.batches.map(batch => '#' + batch.id).join('、')}。可关闭页面，稍后到自动历史查看。`);
+            await refresh();
+        },
         async start(payload) {
             const group = $('auto-group').value;
             const signature = JSON.stringify({group, payload});

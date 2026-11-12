@@ -8,9 +8,15 @@ Excel 使用 `.xlsx`，首行为表头，A列忽略，B～F列依次为：城市
 
 ## 部署
 
-自动询价货物明细支持“手动输入”和“选择已有组（AQ编号）”。已有组沿用当前用户有权查看的历史比较配置，展示编号、发货仓、货物行数及申报价值，点击“填入这组配置”后回填货物、申报价值、发货仓、运输类型、车型、货物单位、托盘类型、收货地址类型和尾板条件。本次取件日期及LA/SAV/NJ地址组保持不变。支持多行货物，回填后仍可编辑；提交时按最终参数自动复用或生成AQ编号，不修改历史组。若原发货地址已不在当前仓库列表，提示手动填写，不悄悄套用其他发货地址。首次没有组时，手动提交后自动生成编号供后续使用；切回手动保留已填内容。
+自动询价货物明细默认按“货物明细组”选择。点击“新建组”，输入名称，从有权使用的既有 AQ 中多选（每组1至50条），按勾选顺序保存。支持搜索 AQ、预览各条明细、编辑和删除组；搜索隐藏的已选项会保留，取消勾选的 AQ 不会提交。普通用户管理自己的组，工作人员可以查看和管理全部组。已有组保存后，即使原始任务历史删除，组里的 AQ 配置仍可继续使用。
 
-迁移 `0396` 创建任务队列，`0397`～`0398` 增加价格分析；`0399_auto_quote_worker_lifecycle` 为执行状态增加启动令牌、租约、最后活动时间及启动错误。代码提交后，在部署环境执行：
+提交时，每个 AQ 独立生成一个原有自动询价任务，完整跑一遍本次所选 LA / SAV / NJ 地址组。例如3个 AQ、100个地址，生成3个任务、300条地址询价记录；页面在提交前显示数量。每条沿用其发货地址、申报价值、运输类型、车型、货物单位、托盘类型、收货地址类型和尾板条件，使用本次选择的取件日期，AQ 内原本有多行货物时仍作为一票货物一起询价。
+
+组内所有配置先统一校验，再在一个事务中创建任务；某条发货地址已不可用或保存失败时整组回滚，提示具体 AQ 与原因。重复网络提交复用原任务，多个标签页重复提交相同运行条件也复用尚未结束的整组任务。任务保存组名、序号、货物及地址快照；后续修改或删除组不会改变原任务。历史列表、任务详情和任务 CSV 标出组名及序号，每个任务保留自己的 AQ 价格分析、导出、停止及重试入口。
+
+首次没有 AQ 时，可切换“手动输入单次货物”，提交后生成 AQ 编号，再将它加入组；手动输入的多行货物仍按同一票货物询价。组功能不会增加自动询价的平台，仍为 Maersk、卡卡省和 ABF，P1 仅用于手动询价。
+
+迁移 `0396` 创建任务队列，`0397`～`0398` 增加价格分析；`0399_auto_quote_worker_lifecycle` 为执行状态增加启动令牌、租约、最后活动时间及启动错误；`0404_auto_quote_cargo_groups` 新增货物明细组及成员表，并为任务保存组名、序号和提交标记。代码提交后，在部署环境执行：
 
 ```shell
 python manage.py migrate
@@ -121,7 +127,8 @@ P1 报价保存到手动询价历史的新增 `p1_quotes` 字段，历史页增�
 使用内存 SQLite，不连接业务数据库：
 
 ```shell
-python manage.py test warehouse.test_auto_quote_lifecycle warehouse.test_auto_quote warehouse.test_kakas_polling --settings=warehouse.auto_quote_test_settings
+python manage.py test warehouse.test_auto_quote_lifecycle warehouse.test_auto_quote warehouse.test_auto_quote_cargo warehouse.test_kakas_polling --settings=warehouse.auto_quote_test_settings
+node warehouse/tests_js/auto_quote_cargo_groups.cjs
 node --check static/js/auto_quote.js
 ```
 
