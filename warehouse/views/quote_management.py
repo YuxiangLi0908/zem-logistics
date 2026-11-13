@@ -1717,9 +1717,10 @@ class QuoteManagement(View):
                 "组合柜规则": self.process_combine_stipulate,
                 # "LA本地派送": self.process_la_local_sheet,
             }
-            #查看是否有表缺失
+            # 可选工作表缺失不拦截上传；存在时仍按 SHEET_HANDLERS 正常解析。
+            optional_sheets = {"LA亚马逊派送费", "LA组合柜", "NJ组合柜", "SAV组合柜"}
             excel_sheets = {normalize_sheet_name(n) for n in excel_file.sheet_names}
-            required_sheets = set(SHEET_HANDLERS.keys())
+            required_sheets = set(SHEET_HANDLERS.keys()) - optional_sheets
             missing_sheets = required_sheets - excel_sheets
 
             if missing_sheets:
