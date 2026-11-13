@@ -47,6 +47,20 @@
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+#inventory-release-dialog { width: min(960px, calc(100% - 32px)); max-height: 85vh; padding: 0; border: 1px solid #dfe5ed; border-radius: 10px; color: #243247; }
+#inventory-release-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+#inventory-release-dialog form { margin: 0; }
+#inventory-release-dialog .release-heading, #inventory-release-dialog .release-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; }
+#inventory-release-dialog .release-heading { border-bottom: 1px solid #e8edf3; }
+#inventory-release-dialog h4 { margin: 0; font-size: 18px; font-weight: 700; }
+#inventory-release-dialog .release-description { margin: 16px 22px 0; color: #65748b; font-size: 13px; }
+#inventory-release-dialog .release-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 22px; padding: 20px 22px; }
+#inventory-release-dialog label { display: flex; flex-direction: column; gap: 7px; margin: 0; font-size: 13px; font-weight: 600; }
+#inventory-release-dialog .release-address { grid-column: span 2; }
+#inventory-release-dialog input:not([type=hidden]), #inventory-release-dialog select { width: 100%; min-width: 0; height: 38px; padding: 7px 10px; border: 1px solid #cfd8e4; border-radius: 6px; background: white; color: #243247; font-size: 13px; font-weight: 400; }
+#inventory-release-dialog .release-actions { justify-content: flex-end; border-top: 1px solid #e8edf3; }
+#inventory-release-message { margin: 0 22px 18px; white-space: pre-wrap; }
+@media (max-width: 650px) { #inventory-release-dialog .release-grid { grid-template-columns: minmax(0, 1fr); } #inventory-release-dialog .release-address { grid-column: auto; } }
 </style>
 
 <div style="display: flex;">
@@ -58,10 +72,10 @@
                 </b>
             </div>
             <li class="nav-item">
-                <button class="nav-link active" onclick="showSection(this, 'inventory-summary-sec')"><b>库存汇总</b></button>
+                <button class="nav-link {% if active_section != 'warehouse-special-process-sec' %}active{% endif %}" onclick="showSection(this, 'inventory-summary-sec')"><b>库存汇总</b></button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
+                <button class="nav-link {% if active_section == 'warehouse-special-process-sec' %}active{% endif %}" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
             </li>
             {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
@@ -85,7 +99,7 @@
 
 <div id="inventory-info-sec">
     <!-- 库存汇总 -->
-    <div id="inventory-summary-sec" style="display: block;">
+    <div id="inventory-summary-sec" style="display: {% if active_section == 'warehouse-special-process-sec' %}none{% else %}block{% endif %};">
         <div style="max-height: 680px; overflow-y: auto;">
             <table class="table" id="inventory-summary-table" style="font-size: 11px; width:100%; border-collapse: collapse;">
                 <thead>
@@ -135,7 +149,7 @@
     </div>
 
     <!-- 库内操作 -->
-    <div id="warehouse-special-process-sec" style="display: none;">
+    <div id="warehouse-special-process-sec" style="display: {% if active_section == 'warehouse-special-process-sec' %}block{% else %}none{% endif %};">
         <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
             <div style="display: flex; gap: 20px; font-size: 12px; font-weight: bold;">
                 <div><span style="color: #666;">总重量:</span> <span id="total-weight">0.00</span> lbs</div>
@@ -149,7 +163,7 @@
             <table class="table" id="inventory-summary-table" style="font-size: 11px; width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="position: sticky; top: 0px; background: #f8f9fa; z-index: 100;">
-                        <th class="th" style="min-width:150px;"></th>
+                        <th class="th" style="min-width:120px;">操作</th>
                         <th class="th">客户</th>
                         <th class="th">柜号</th>
                         <th class="th">目的地</th>
@@ -187,15 +201,22 @@
                     {% for p in pallet %}
                     <tr>
                         <td class="td" style="min-width:40px; text-align:center;">
-                            <div style="display:flex;">
-                                <button type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size:11px;">分拣</button>
-                                <form method="post" action="">
+                            <div style="display:flex; flex-direction:column; gap:5px;">
+                                <div style="display:flex; gap:5px; justify-content:center; white-space:nowrap;">
+                                    <button type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size:11px;">分拣</button>
+                                    <button type="button" class="btn btn-warning" style="font-size:11px;" onclick="showInventoryReleasePopup(this)"
+                                            data-plt-ids="{{ p.plt_ids }}" data-container="{{ p.container|default_if_none:'' }}"
+                                            data-destination="{{ p.destination|default_if_none:'' }}" data-address="{{ p.address|default_if_none:'' }}"
+                                            data-zipcode="{{ p.zipcode|default_if_none:'' }}" data-delivery-method="{{ p.delivery_method|default_if_none:'' }}"
+                                            data-delivery-type="{{ p.delivery_type|default_if_none:'' }}">解扣</button>
+                                </div>
+                                <form method="post" action="" style="margin:0;">
                                     {% csrf_token %}
                                     <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
                                     <input type="hidden" name="step" value="update_po_page">
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
-                                    <button type="submit" class="btn btn-primary" style="font-size:11px; background-color:rgb(35,189,11); border-color:rgb(35,189,11);">更新PO</button>
+                                    <button type="submit" class="btn btn-primary" style="width:100%; font-size:11px; background-color:rgb(35,189,11); border-color:rgb(35,189,11);">更新PO</button>
                                 </form>
                             </div>
                         </td>
@@ -378,6 +399,45 @@
     </div>
 </div>
 
+<dialog id="inventory-release-dialog" aria-labelledby="inventory-release-title">
+    <form id="inventory-release-form" method="post" action="" onsubmit="saveInventoryRelease(event)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="release_pallet">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="plt_ids">
+        <div class="release-heading">
+            <h4 id="inventory-release-title">解扣 · 派送信息</h4>
+            <button type="button" class="btn btn-light" onclick="closeInventoryReleasePopup()" aria-label="关闭">&times;</button>
+        </div>
+        <p class="release-description" id="inventory-release-context"></p>
+        <p class="release-description">以下 5 项修改会同步保存到本行卡板及同柜号、同 PO_ID 的装箱单，请核对后保存。</p>
+        <div class="release-grid">
+            <label>目的地<input name="destination" maxlength="255" required></label>
+            <label class="release-address">地址<input name="address" maxlength="2000"></label>
+            <label>邮编<input name="zipcode" maxlength="200"></label>
+            <label>派送方式<select name="delivery_method" onchange="syncInventoryReleaseType()">
+                {% for k, v in delivery_method_options %}<option value="{{ v }}">{{ k }}</option>{% endfor %}
+            </select></label>
+            <label>派送类型<select name="delivery_type_new">
+                <option value=""></option><option value="public">公仓</option><option value="other">其他</option>
+            </select></label>
+        </div>
+        <div id="inventory-release-message" class="alert alert-danger" role="alert" hidden></div>
+        <div class="release-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeInventoryReleasePopup()">取消</button>
+            <button type="submit" class="btn btn-success" id="inventory-release-save">保存修改</button>
+        </div>
+    </form>
+</dialog>
+<form id="inventory-release-refresh" method="post" action="" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="step" value="warehouse">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
+    <input type="hidden" name="is_shipment_batch_number" value="{{ is_shipment_batch_number }}">
+    <input type="hidden" name="active_section" value="warehouse-special-process-sec">
+</form>
+
 <script>
     let selectedOrders = [];
     let selectedIds = [];
@@ -437,7 +497,81 @@
         });
     };
 
-    const palletData = JSON.parse('{{ pallet_json|safe }}');
+    const palletData = JSON.parse('{{ pallet_json|default:"{}"|escapejs }}');
+
+    let inventoryReleaseSaving = false;
+
+    function showInventoryReleasePopup(button) {
+        const form = document.getElementById('inventory-release-form');
+        form.reset();
+        form.elements.plt_ids.value = button.dataset.pltIds;
+        ['destination', 'address', 'zipcode'].forEach(name => {
+            form.elements[name].value = button.dataset[name] || '';
+        });
+        [['delivery_method', button.dataset.deliveryMethod], ['delivery_type_new', button.dataset.deliveryType]].forEach(([name, value]) => {
+            const select = form.elements[name];
+            select.querySelectorAll('[data-current-value]').forEach(option => option.remove());
+            value = value || '';
+            if (!Array.from(select.options).some(option => option.value === value)) {
+                const option = new Option(value, value);
+                option.dataset.currentValue = 'true';
+                select.add(option);
+            }
+            select.value = value;
+        });
+        syncInventoryReleaseType();
+        document.getElementById('inventory-release-context').textContent = `柜号：${button.dataset.container}　卡板数：${button.dataset.pltIds.split(',').filter(Boolean).length}`;
+        document.getElementById('inventory-release-message').hidden = true;
+        document.getElementById('inventory-release-dialog').showModal();
+    }
+
+    function syncInventoryReleaseType() {
+        const form = document.getElementById('inventory-release-form');
+        if (form.elements.delivery_method.value === '客户自提') form.elements.delivery_type_new.value = 'other';
+    }
+
+    function closeInventoryReleasePopup() {
+        if (!inventoryReleaseSaving) document.getElementById('inventory-release-dialog').close();
+    }
+
+    document.getElementById('inventory-release-dialog').addEventListener('cancel', event => {
+        if (inventoryReleaseSaving) event.preventDefault();
+    });
+
+    async function saveInventoryRelease(event) {
+        event.preventDefault();
+        if (inventoryReleaseSaving) return;
+        const form = document.getElementById('inventory-release-form');
+        if (!form.reportValidity()) return;
+        const button = document.getElementById('inventory-release-save');
+        const message = document.getElementById('inventory-release-message');
+        inventoryReleaseSaving = true;
+        button.disabled = true;
+        button.textContent = '保存中…';
+        message.hidden = true;
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {'Accept': 'application/json'}
+            });
+            if (response.redirected || !(response.headers.get('Content-Type') || '').includes('application/json')) {
+                throw new Error('服务器未返回保存结果，请检查登录状态或稍后刷新核对。');
+            }
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '保存失败，请重试。');
+            message.className = 'alert alert-success';
+            message.textContent = result.message + ' 正在刷新库存…';
+            message.hidden = false;
+            button.textContent = '已保存，正在刷新…';
+            document.getElementById('inventory-release-refresh').submit();
+        } catch (error) {
+            message.className = 'alert alert-danger';
+            message.textContent = error.message || '请求异常，请刷新核对后重试。';
+            message.hidden = false;
+            inventoryReleaseSaving = false;
+            button.disabled = false;
+            button.textContent = '保存修改';
+        }
+    }
 
     function showRepalletizePopup(pltIds, popupClass) {
         var popupWindow = document.querySelector('.' + popupClass);
