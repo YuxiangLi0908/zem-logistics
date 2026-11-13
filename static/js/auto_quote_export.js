@@ -10,7 +10,7 @@
         const keys = [...new Set(routes.flatMap(route => (route.services || []).map(service => service.platform || 'unknown')))].sort();
         return keys.length ? keys : ['maersk','kakas'];
     }
-    function carrierPrices(services) {
+    function carrierPrices(services, platform) {
         const price = service => service.latest == null ? Infinity : Number(service.latest);
         const cheapest = predicate => {
             let best = null;
@@ -19,9 +19,13 @@
             });
             return best === null ? null : best.latest;
         };
-        return [`最低价：${num(cheapest(() => true))}`,
+        const result = [`最低价：${num(cheapest(() => true))}`,
             `TForce：${num(cheapest(service => /\bt\s*force\b/i.test(text(service.carrier))))}`,
-            `Estes：${num(cheapest(service => /\bestes\b/i.test(text(service.carrier))))}`].join('\n');
+            `Estes：${num(cheapest(service => /\bestes\b/i.test(text(service.carrier))))}`];
+        if (platform === 'kakas') {
+            result.push(`ABF：${num(cheapest(service => /\babf\b/i.test(text(service.carrier)) || text(service.carrier_code) === 'abfs'))}`);
+        }
+        return result.join('\n');
     }
     function routeSheet(routes, keys = platforms(routes)) {
         const header = ['收货地址','距离（英里）','最新最低价 / 提供方','上次最低价','较上次涨跌','区间最低 / 最高','日最低价均值','日最低价CV','询价次数',
@@ -30,7 +34,7 @@
             lines(route.address), num(route.distance_miles), lines(num(route.latest), route.winner_carrier || '本次无有效报价'),
             lines(num(route.previous), route.previous_date), lines(movement(route.latest_change), movement(route.latest_change_pct) + '%'),
             `${num(route.minimum)} / ${num(route.maximum)}`, num(route.mean), percent(route.volatility_pct), String(route.expected ?? 0),
-            ...keys.map(key => carrierPrices((route.services || []).filter(service => (service.platform || 'unknown') === key)))
+            ...keys.map(key => carrierPrices((route.services || []).filter(service => (service.platform || 'unknown') === key), key))
         ])];
     }
     function defaultDates(timezone, latestPickup, now = new Date()) {
