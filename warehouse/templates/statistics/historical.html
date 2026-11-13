@@ -2,6 +2,15 @@
 {% load static custom_filters tz %}
 
 {% block content %}
+<style>
+    .historical-results-table .history-compact { padding: 0.5rem 0.375rem; vertical-align: top; }
+    .historical-results-table .history-time-col { width: 112px; min-width: 112px; max-width: 112px; white-space: nowrap; }
+    .historical-results-table .history-user-col { width: 92px; min-width: 92px; max-width: 92px; overflow-wrap: anywhere; }
+    .historical-results-table .history-type-col { width: 80px; min-width: 80px; max-width: 80px; white-space: nowrap; }
+    .historical-results-table .history-id-col { width: 80px; min-width: 80px; max-width: 80px; overflow-wrap: anywhere; }
+    .historical-results-table .history-compact input { min-width: 0; box-sizing: border-box; font-size: 12px; }
+    .historical-results-table .history-time-zone { display: block; font-size: 12px; font-weight: normal; color: #6c757d; }
+</style>
 <div class="container-fluid" style="padding: 1.5rem 0;">
     <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); margin-bottom: 1.5rem;">
         <div class="card-header" style="background-color: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; padding: 0.75rem 1.25rem;">
@@ -82,34 +91,34 @@
       {% else %}
       <div class="card-body" style="padding: 0; max-height: 600px; overflow-y: auto;">
           <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
+            <table class="historical-results-table" style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
                 <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
                     <tr>
-                        <th style="padding: 0.75rem; width: 15%; white-space: nowrap;">操作时间（北京时间）</th>
-                        <th style="padding: 0.75rem; width: 10%;">操作人</th>
-                        <th style="padding: 0.75rem; width: 8%;">操作类型</th>
-                        <th style="padding: 0.75rem; min-width: 90px;" title="原表记录ID">ID</th>
+                        <th class="history-compact history-time-col">操作时间<span class="history-time-zone">（北京时间）</span></th>
+                        <th class="history-compact history-user-col">操作人</th>
+                        <th class="history-compact history-type-col">操作类型</th>
+                        <th class="history-compact history-id-col" title="原表记录ID">ID</th>
                         {% for field in records.0.station_fields %}
                         <th style="padding: 0.75rem;">{{ field }}</th>
                         {% endfor %}
                         <th style="padding: 0.75rem; max-width: 40%; min-width: 300px;">变更内容</th>
                     </tr>
-                    <tr style="position: sticky; top: 37px; background-color: #f8f9fa;">
-                        <th style="padding: 0.5rem;">
-                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="搜索北京时间..." oninput="filterTable()" data-column="0">
+                    <tr style="background-color: #f8f9fa;">
+                        <th class="history-compact history-time-col">
+                            <input type="text" size="1" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;"
+                                   placeholder="搜索时间" oninput="filterTable()" data-column="0">
                         </th>
-                        <th style="padding: 0.5rem;">
-                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="搜索操作人..." oninput="filterTable()" data-column="1">
+                        <th class="history-compact history-user-col">
+                            <input type="text" size="1" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;"
+                                   placeholder="操作人" oninput="filterTable()" data-column="1">
                         </th>
-                        <th style="padding: 0.5rem;">
-                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="操作类型" oninput="filterTable()" data-column="2">
+                        <th class="history-compact history-type-col">
+                            <input type="text" size="1" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;"
+                                   placeholder="类型" oninput="filterTable()" data-column="2">
                         </th>
-                        <th style="padding: 0.5rem;">
-                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;"
-                                   placeholder="搜索ID..." oninput="filterTable()" data-column="3">
+                        <th class="history-compact history-id-col">
+                            <input type="text" size="1" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;"
+                                   placeholder="ID" oninput="filterTable()" data-column="3">
                         </th>
                         {% for field in records.0.station_fields %}
                             <th style="padding: 0.5rem;">
@@ -130,15 +139,15 @@
                 <tbody>
                     {% for record in records %}
                     <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|timezone:"Asia/Shanghai"|date:"Y-m-d H:i:s" }}</td>
-                        <td style="padding: 0.75rem; vertical-align: top;">
+                        <td class="history-compact history-time-col">{% with beijing_time=record.date|timezone:"Asia/Shanghai" %}<span>{{ beijing_time|date:"Y-m-d" }}</span> <br><span>{{ beijing_time|date:"H:i:s" }}</span>{% endwith %}</td>
+                        <td class="history-compact history-user-col">
                             {% if record.user %}
                                 {{ record.user|default:record.user.username }}
                             {% else %}
                                 账号已注销
                             {% endif %}
                         </td>
-                        <td style="padding: 0.75rem; vertical-align: top;">
+                        <td class="history-compact history-type-col">
                             <span style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; 
                                 {% if record.display_type == '创建' %}background-color: #0d6efd; color: white;
                                 {% elif record.display_type == '修改' %}background-color: #198754; color: white;
@@ -146,7 +155,7 @@
                                 {{ record.display_type }}
                             </span>
                         </td>
-                        <td style="padding: 0.75rem; vertical-align: top; white-space: nowrap;">{{ record.record.id|default_if_none:"-" }}</td>
+                        <td class="history-compact history-id-col">{{ record.record.id|default_if_none:"-" }}</td>
                         {% for field in record.station_fields %}
                         <td style="padding: 0.75rem; vertical-align: top;">
                             {% with value=record.all_fields|get:field %}
