@@ -3434,6 +3434,16 @@ class OrderCreation(View):
 
     async def handle_check_destination(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
+        vessel_etd = await sync_to_async(
+            Order.objects.values_list("vessel_id__vessel_etd", flat=True).get
+        )(container_number__container_number=container_number)
+        if not vessel_etd:
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = container_number
+            request.GET = mutable_get
+            template, context = await self.handle_order_management_container_get(request)
+            context["check_destination_error"] = "清补充ETD后再尝试"
+            return template, context
         # 准备参数
         # 找组合柜报价
         matched_regions = await self._is_combina(container_number)
