@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import uuid
@@ -38,6 +39,9 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 from warehouse.utils.shipment_binding_utils import ShipmentBindingLogger
+
+
+logger = logging.getLogger(__name__)
 
 
 class Inventory(View):
@@ -266,6 +270,8 @@ class Inventory(View):
         elif step == "update_po":
             template, context = await self.handle_update_po_post(request)
             return render(request, template, context)
+        elif step == "release_pallet":
+            return await self.handle_release_pallet_post(request)
         elif step == "counting":
             template, context = await self.handle_counting_post(request)
             return render(request, template, context)
@@ -569,6 +575,7 @@ class Inventory(View):
             "total_cbm": round(total_cbm, 2),
             "total_pallet": total_pallet,
             "pallet_json": json.dumps(pallet_json, ensure_ascii=False),
+            "active_section": request.POST.get("active_section"),
         }
         return self.template_inventory_management_main, context
 
@@ -1002,6 +1009,120 @@ class Inventory(View):
             )
 
         return await self.handle_warehouse_post(request)
+
+    async def handle_release_pallet_post(self, request: HttpRequest) -> JsonResponse:
+        try:
+            result = await sync_to_async(self._update_pallet_delivery_info)(request)
+        except ValueError as exc:
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+        except Exception as exc:
+            logger.exception("库存管理解扣失败，数据库修改已回滚")
+            return JsonResponse({
+                "success": False,
+                "message": f"解扣保存失败：{type(exc).__name__}: {exc}。本次修改已回滚。",
+            }, status=500)
+
+        for entry in result["logs"]:
+            await self._record_pallet_pl_operation(
+                request, target_type=entry["target_type"], target_ids=entry["ids"],
+                operation_name="解扣", action_type="update", po_id=result["po_id"],
+                container_number=result["container_number"],
+                destination=result["destination"], warehouse=request.POST.get("warehouse"),
+                action_detail=f"库存管理解扣，修改派送信息；{entry['summary']}",
+                metadata={"operation": "inventory_release", **entry},
+            )
+        return JsonResponse({
+            "success": True,
+            "message": f"已同步更新 {result['pallet_count']} 块卡板、{result['packing_list_count']} 条装箱单。",
+        })
+
+    @transaction.atomic
+    def _update_pallet_delivery_info(self, request: HttpRequest) -> dict[str, Any]:
+        """解扣只修改派送信息，装箱单范围与更新 PO 页面保持一致。"""
+        raw_ids = request.POST.get("plt_ids", "").split(",")
+        if not raw_ids or any(not value.strip().isdigit() for value in raw_ids):
+            raise ValueError("卡板 ID 无效，请刷新库存后重新选择。")
+        pallet_ids = sorted({int(value) for value in raw_ids})
+        pallets = list(Pallet.objects.select_for_update(of=("self",)).filter(
+            pk__in=pallet_ids, location=request.POST.get("warehouse", ""),
+        ).order_by("pk"))
+        if len(pallets) != len(pallet_ids):
+            raise ValueError("部分卡板已不存在或已转仓，请刷新库存后重试。")
+        if Shipment.objects.filter(
+            pk__in=[item.shipment_batch_number_id for item in pallets], is_shipped=True,
+        ).exists():
+            raise ValueError("所选卡板已发货，不能修改派送信息，请刷新库存核对。")
+        groups = {(item.container_number_id, item.PO_ID) for item in pallets}
+        if len(groups) != 1 or not pallets[0].container_number_id:
+            raise ValueError("所选卡板必须属于同一柜号、同一 PO_ID。")
+        container = Container.objects.select_for_update().get(pk=pallets[0].container_number_id)
+        packing_lists = list(PackingList.objects.select_for_update().filter(
+            container_number_id=container.pk, PO_ID=pallets[0].PO_ID,
+        ).order_by("pk"))
+
+        field_labels = {"destination": "目的地", "address": "地址", "zipcode": "邮编",
+                        "delivery_method": "派送方式", "delivery_type": "派送类型"}
+        values = {}
+        for field, label in field_labels.items():
+            name = "delivery_type_new" if field == "delivery_type" else field
+            if name not in request.POST:
+                raise ValueError(f"缺少{label}，请重新打开解扣弹框。")
+            value = request.POST.get(name, "").strip()
+            if len(value) > Pallet._meta.get_field(field).max_length:
+                raise ValueError(f"{label}内容过长，请缩短后保存。")
+            values[field] = value
+        if not values["destination"]:
+            raise ValueError("请填写目的地后保存。")
+        allowed_methods = {value for _, value in DELIVERY_METHOD_OPTIONS}
+        allowed_methods.update(item.delivery_method or "" for item in pallets)
+        if values["delivery_method"] not in allowed_methods:
+            raise ValueError("派送方式无效，请从下拉框中选择。")
+        if values["delivery_method"] == "客户自提":
+            values["delivery_type"] = "other"
+        allowed_types = {"", "public", "other"} | {item.delivery_type or "" for item in pallets}
+        if values["delivery_type"] not in allowed_types:
+            raise ValueError("派送类型无效，请从下拉框中选择。")
+
+        logs = []
+        for model, rows, target_type in (
+            (Pallet, pallets, "pallet"), (PackingList, packing_lists, "packing_list"),
+        ):
+            old_values = [{"id": item.pk, **{field: getattr(item, field) for field in values}}
+                          for item in rows]
+            for item in rows:
+                if model is Pallet and item.delivery_method != values["delivery_method"]:
+                    # 沿用更新 PO 的暂扣/可派送时间规则，未改派送方式时保留原时间。
+                    item.released_at = (None if self._is_hold_delivery_method(values["delivery_method"])
+                                        else item.created_at)
+                for field, value in values.items():
+                    setattr(item, field, value)
+            fields = list(values) + (["released_at"] if model is Pallet else [])
+            if rows:
+                bulk_update_with_history(rows, model, fields=fields, default_user=request.user)
+                new_values = [{"id": item.pk, **{field: getattr(item, field) for field in values}}
+                              for item in rows]
+                logs.append({
+                    "target_type": target_type, "ids": [item.pk for item in rows],
+                    "old_values": old_values, "new_values": new_values,
+                    "summary": self._build_change_summary(old_values, new_values, list(values)),
+                })
+
+        # 与更新 PO 一致，根据整柜现有卡板重新汇总派送类型。
+        types = set(Pallet.objects.filter(container_number_id=container.pk)
+                    .exclude(delivery_type__isnull=True).exclude(delivery_type="")
+                    .values_list("delivery_type", flat=True))
+        if not types:
+            raise ValueError("缺少派送类型，请选择派送类型后保存。")
+        container_type = next(iter(types)) if len(types) == 1 else "mixed"
+        if container.delivery_type != container_type:
+            container.delivery_type = container_type
+            container._history_user = request.user
+            container.save(update_fields=["delivery_type"])
+        return {
+            "pallet_count": len(pallets), "packing_list_count": len(packing_lists),
+            "po_id": pallets[0].PO_ID, "container_number": container.container_number,
+            "destination": values["destination"], "logs": logs,
+        }
 
     async def handle_update_po_page_post(
         self, request: HttpRequest
