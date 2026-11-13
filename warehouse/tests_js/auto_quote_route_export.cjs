@@ -7,7 +7,8 @@ const routes = [{route:'r1', address:'Newark 07101',distance_miles:0,latest:50,w
     previous:40,previous_date:'2026-11-03',latest_change:10,latest_change_pct:25,minimum:40,maximum:50,mean:45,volatility_pct:null,expected:2,
     services:[{platform:'maersk',carrier:'TForce',latest:100},{platform:'maersk',carrier:'Estes',latest:110},
         {platform:'maersk',carrier:'Other',latest:50},{platform:'kakas',carrier:'TForce',latest:80},
-        {platform:'kakas',carrier:'Estes',latest:90},{platform:'abf',carrier:'ABF Freight',latest:120}]}];
+        {platform:'kakas',carrier:'Estes',latest:90},{platform:'kakas',carrier:'ABF Freight',latest:145},
+        {platform:'kakas',carrier:'abf Freight System',latest:130},{platform:'abf',carrier:'ABF Freight',latest:120}]}];
 const context = {window:{},Date,Intl,FormData,Blob,console,setTimeout,clearTimeout,setInterval,clearInterval,Map};
 vm.createContext(context);
 vm.runInContext(read('auto_quote_export.js'),context);
@@ -21,8 +22,12 @@ assert.equal(sheet[1][2],'50.00\nSupplier');
 assert.equal(sheet[1][3],'40.00\n2026-11-03');
 assert.equal(sheet[1][4],'+10.00\n+25.00%');
 assert.equal(sheet[1][9],'最低价：120.00\nTForce：—\nEstes：—');
-assert.equal(sheet[1][10],'最低价：80.00\nTForce：80.00\nEstes：90.00');
+assert.equal(sheet[1][10],'最低价：80.00\nTForce：80.00\nEstes：90.00\nABF：130.00');
 assert.equal(sheet[1][11],'最低价：50.00\nTForce：100.00\nEstes：110.00');
+const withoutABF = {...routes[0],services:routes[0].services.filter(service => service.platform !== 'kakas' || !/\babf\b/i.test(service.carrier))};
+assert(shared.routeSheet([withoutABF])[1][10].endsWith('ABF：—'), 'The standalone ABF platform must not fill the Kakas ABF price');
+const scacABF = {...withoutABF,services:[...withoutABF.services,{platform:'kakas',carrier:'Account carrier',carrier_code:'abfs',latest:0}]};
+assert(shared.routeSheet([scacABF])[1][10].endsWith('ABF：0.00'), 'ABFS SCAC and valid zero prices must be supported');
 assert.equal(shared.defaultDates('America/New_York', '2026-11-10', new Date('2026-11-04T01:00Z')).start,'2026-10-12');
 assert.equal(shared.defaultDates('America/New_York', null, new Date('2026-11-04T01:00Z')).end,'2026-11-03');
 
