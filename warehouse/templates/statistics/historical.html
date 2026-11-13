@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static custom_filters %}     
+{% load static custom_filters tz %}
 
 {% block content %}
 <div class="container-fluid" style="padding: 1.5rem 0;">
@@ -85,7 +85,7 @@
             <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
                 <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
                     <tr>
-                        <th style="padding: 0.75rem; width: 15%; white-space: nowrap;">操作时间</th>
+                        <th style="padding: 0.75rem; width: 15%; white-space: nowrap;">操作时间（北京时间）</th>
                         <th style="padding: 0.75rem; width: 10%;">操作人</th>
                         <th style="padding: 0.75rem; width: 8%;">操作类型</th>
                         <th style="padding: 0.75rem; min-width: 90px;" title="原表记录ID">ID</th>
@@ -97,7 +97,7 @@
                     <tr style="position: sticky; top: 37px; background-color: #f8f9fa;">
                         <th style="padding: 0.5rem;">
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
-                                   placeholder="搜索时间..." oninput="filterTable()" data-column="0">
+                                   placeholder="搜索北京时间..." oninput="filterTable()" data-column="0">
                         </th>
                         <th style="padding: 0.5rem;">
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
@@ -130,7 +130,7 @@
                 <tbody>
                     {% for record in records %}
                     <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|date:"Y-m-d H:i" }}</td>
+                        <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|timezone:"Asia/Shanghai"|date:"Y-m-d H:i:s" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top;">
                             {% if record.user %}
                                 {{ record.user|default:record.user.username }}
