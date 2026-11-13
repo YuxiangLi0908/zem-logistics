@@ -5,7 +5,7 @@
 <div class="container-fluid" style="padding: 1.5rem 0;">
     <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); margin-bottom: 1.5rem;">
         <div class="card-header" style="background-color: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; padding: 0.75rem 1.25rem;">
-            <h5 style="margin-bottom: 0; font-size: 1.1rem;">历史记录查询</h5>
+            <h5 style="margin-bottom: 0; font-size: 1.1rem;">历史修改记录查询</h5>
         </div>
         <div class="card-body" style="padding: 1.25rem;">
             <form method="post" style="width: 100%;">
@@ -88,6 +88,7 @@
                         <th style="padding: 0.75rem; width: 15%; white-space: nowrap;">操作时间</th>
                         <th style="padding: 0.75rem; width: 10%;">操作人</th>
                         <th style="padding: 0.75rem; width: 8%;">操作类型</th>
+                        <th style="padding: 0.75rem; min-width: 90px;" title="原表记录ID">ID</th>
                         {% for field in records.0.station_fields %}
                         <th style="padding: 0.75rem;">{{ field }}</th>
                         {% endfor %}
@@ -106,19 +107,23 @@
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
                                    placeholder="操作类型" oninput="filterTable()" data-column="2">
                         </th>
+                        <th style="padding: 0.5rem;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;"
+                                   placeholder="搜索ID..." oninput="filterTable()" data-column="3">
+                        </th>
                         {% for field in records.0.station_fields %}
                             <th style="padding: 0.5rem;">
                                 <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
                                     placeholder="搜索{{ field }}..." 
                                     oninput="filterTable()" 
-                                    data-column="{{ forloop.counter|add:2 }}"> 
+                                    data-column="{{ forloop.counter|add:3 }}">
                             </th>
                         {% endfor %}
                         <th style="padding: 0.5rem;">
                             <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" 
                                    placeholder="搜索变更..." 
                                    oninput="filterTable()" 
-                                   data-column="{{ records.0.station_fields|length|add:3 }}">  
+                                   data-column="{{ records.0.station_fields|length|add:4 }}">
                         </th>
                     </tr>
                 </thead>
@@ -141,6 +146,7 @@
                                 {{ record.display_type }}
                             </span>
                         </td>
+                        <td style="padding: 0.75rem; vertical-align: top; white-space: nowrap;">{{ record.record.id|default_if_none:"-" }}</td>
                         {% for field in record.station_fields %}
                         <td style="padding: 0.75rem; vertical-align: top;">
                             {% with value=record.all_fields|get:field %}
