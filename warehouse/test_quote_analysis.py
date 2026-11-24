@@ -3,6 +3,7 @@ import importlib
 import io
 import json
 import uuid
+from contextlib import redirect_stdout
 from pathlib import Path
 from datetime import timedelta
 from types import SimpleNamespace
@@ -11,15 +12,17 @@ from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db import connection
-from django.test import RequestFactory, SimpleTestCase, TransactionTestCase
+from django.db.migrations.loader import MigrationLoader
+from django.test import RequestFactory, SimpleTestCase, TransactionTestCase, override_settings
 from django.template import Context, Engine
 from django.utils import timezone
 
-from warehouse.models.auto_quote import AutoQuoteBatch, AutoQuoteItem, AutoQuotePrice, AutoQuoteProfile
+from warehouse.models.auto_quote import AutoQuoteBatch, AutoQuoteCargoGroup, AutoQuoteCargoGroupMember, AutoQuoteItem, AutoQuotePrice, AutoQuoteProfile
 from warehouse.test_auto_quote import parameters
 from warehouse.utils.quote_analysis import build_analysis, series_statistics
 from warehouse.utils.quote_analysis_storage import get_profile, index_item
-from warehouse.utils.quote_identity_v1 import address_key, normalize_prices, profile_configuration
+from warehouse.utils.quote_identity_v1 import address_key, digest, normalize_prices, profile_configuration
+from warehouse.utils.quote_identity_v2 import profile_configuration as scoped_configuration
 from warehouse.views.post_port.auto_quote import auto_quote_get, visible_batches
 
 
@@ -83,6 +86,16 @@ class AnalysisMathTests(SimpleTestCase):
         self.assertEqual(rows[1]["currency"], "CAD")
         self.assertFalse(rows[2]["comparable"])
 
+    def test_scoped_identity_separates_groups_and_still_ignores_pickup_date(self):
+        original = parameters()
+        config = scoped_configuration(original, "NJ")
+        self.assertEqual(config["address_group"], "NJ")
+        self.assertEqual(config["version"], 2)
+        self.assertEqual(config, scoped_configuration({**original, "pickupDate": "2030-01-01"}, "NJ"))
+        self.assertNotEqual(config, scoped_configuration(original, "LA"))
+        with self.assertRaises(ValueError):
+            scoped_configuration(original, "")
+
 
 class AnalysisDataTests(TransactionTestCase):
     def setUp(self):
@@ -90,7 +103,7 @@ class AnalysisDataTests(TransactionTestCase):
         self.other = User.objects.create_user("other")
         self.base = (timezone.now() - timedelta(days=10)).replace(hour=12, minute=0, second=0, microsecond=0)
         self.address = {"city": "Newark", "state": "NJ", "zipcode": "07101", "address": "1 Test Street", "group": "NJ", "id": 1}
-        self.profile = get_profile(parameters())
+        self.profile = get_profile(parameters(), "NJ")
 
     def item(self, day, rates, *, address=None, lead=2, warning=False, user=None, hour=0, indexed=True):
         now = self.base + timedelta(days=day, hours=hour)
@@ -159,11 +172,21 @@ class AnalysisDataTests(TransactionTestCase):
         self.assertEqual(self.analyze(carrier_query="not found")["rows"], [])
 
     def test_profile_reused_and_indexing_is_idempotent(self):
-        self.assertEqual(get_profile(parameters()).pk, self.profile.pk)
+        self.assertEqual(get_profile(parameters(), "NJ").pk, self.profile.pk)
         item = self.item(0, [self.rate("A", 100), self.rate("B", 200)])
         index_item(item.pk)
         self.assertEqual(item.prices.count(), 2)
         self.assertEqual(AutoQuoteProfile.objects.count(), 1)
+
+    def test_indexed_item_can_repair_its_profile_group_without_rebuilding_prices(self):
+        item = self.item(0, [self.rate("A", 100)])
+        before = list(item.prices.values())
+        AutoQuoteBatch.objects.filter(pk=item.batch_id).update(group="LA")
+        index_item(item.pk)
+        item.refresh_from_db()
+        self.assertNotEqual(item.batch.profile_id, self.profile.pk)
+        self.assertEqual(item.batch.profile.configuration["address_group"], "LA")
+        self.assertEqual(list(item.prices.values()), before)
 
     def test_analysis_filters_and_groups_by_pickup_instead_of_query_day(self):
         first = self.item(0, [self.rate("A", 100)])
@@ -190,7 +213,7 @@ class AnalysisDataTests(TransactionTestCase):
         self.assertTrue(all(len(row["services"]) == 2 for row in data["route_rows"]))
         self.assertEqual(len(self.analyze(group_by="address", page="2")["route_rows"]), 1)
 
-    def test_address_counts_are_pickup_dates_and_profiles_can_span_address_groups(self):
+    def test_analysis_never_combines_other_address_groups_even_with_stale_profile_links(self):
         for day in (0, 1, 2):
             self.item(day, [self.rate("A", 100)])
         self.item(2, [self.rate("A", 110)], hour=1)  # Same pickup date is still one sample.
@@ -201,10 +224,12 @@ class AnalysisDataTests(TransactionTestCase):
         report = self.analyze(group_by="address", all_routes="1")
         rows = {row["route"]: row for row in report["route_rows"]}
         self.assertEqual(rows[address_key(self.address)]["expected"], 3)
-        self.assertEqual(rows[address_key(la_address)]["expected"], 1)
+        self.assertNotIn(address_key(la_address), rows)
         nj_only = self.analyze(group_by="address", group="NJ", all_routes="1")
         self.assertEqual(len(nj_only["route_rows"]), 1)
         self.assertEqual(nj_only["route_rows"][0]["expected"], 3)
+        with self.assertRaisesRegex(ValueError, "属于 NJ"):
+            self.analyze(group="LA")
 
     def test_address_statistics_use_daily_minima_and_preserve_missing_latest(self):
         self.item(0, [self.rate("A", 100), self.rate("B", 200)])
@@ -374,3 +399,122 @@ class AnalysisDataTests(TransactionTestCase):
         self.assertEqual(item.analysis_version, 1)
         self.assertEqual(item.prices.count(), 1)
         self.assertEqual(item.batch.profile_id, self.profile.pk)
+
+
+class ProfileGroupMigrationTests(TransactionTestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("profile-migration-owner")
+        self.configuration = profile_configuration(parameters())  # Frozen v1 identity.
+        self.legacy = AutoQuoteProfile.objects.create(fingerprint=digest(self.configuration),
+                                                      configuration=self.configuration, origin_label="NJ test")
+        self.cargo_group = AutoQuoteCargoGroup.objects.create(name="Saved cargo", operator=self.user)
+        AutoQuoteCargoGroupMember.objects.create(group=self.cargo_group, profile=self.legacy, position=1)
+
+    def batch(self, group, profile=None):
+        return AutoQuoteBatch.objects.create(group=group, profile=profile or self.legacy, parameters=parameters(),
+                                             operator=self.user, submission_id=uuid.uuid4())
+
+    def repair(self):
+        migration = importlib.import_module("warehouse.migrations.0405_scope_auto_quote_profiles_by_address_group")
+        output = io.StringIO()
+        with redirect_stdout(output):
+            migration.split_profiles(apps, SimpleNamespace(connection=connection))
+        return output.getvalue()
+
+    def test_split_preserves_oldest_group_number_tasks_prices_and_saved_cargo(self):
+        la, nj, sav = [self.batch(group) for group in ("LA", "NJ", "SAV")]
+        retry = self.batch("NJ")
+        retry.parent = nj
+        retry.save(update_fields=["parent"])
+        item = AutoQuoteItem.objects.create(batch=nj, address_snapshot={"group": "NJ", "city": "Newark", "zipcode": "07101"},
+            status="success", started_at=timezone.now(), finished_at=timezone.now(), analysis_version=1,
+            result={"results": {"kakas": {"status": "success", "data": {"rates": [
+                {"carrierName": "Carrier A", "totalPrice": 100, "currency": "USD"}]}}}})
+        AutoQuotePrice.objects.bulk_create([AutoQuotePrice(item=item, **row) for row in normalize_prices(item.result)])
+        la_item = AutoQuoteItem.objects.create(batch=la, address_snapshot={"group": "LA", "city": "West Covina", "state": "CA",
+            "zipcode": "91792", "address": "1 CA Street"}, status="success", started_at=timezone.now(),
+            finished_at=timezone.now(), analysis_version=1, result=copy.deepcopy(item.result))
+        AutoQuotePrice.objects.bulk_create([AutoQuotePrice(item=la_item, **row) for row in normalize_prices(la_item.result)])
+        items_before = list(AutoQuoteItem.objects.values())
+        prices_before = list(AutoQuotePrice.objects.values())
+        batch_data = list(AutoQuoteBatch.objects.order_by("id").values("id", "parameters", "created_at", "parent_id", "status"))
+        self.assertIn("检查完成", self.repair())
+        for batch in (la, nj, sav, retry):
+            batch.refresh_from_db()
+            self.assertEqual(batch.profile_id, get_profile(batch.parameters, batch.group).pk)
+            self.assertEqual(batch.profile.configuration["address_group"], batch.group)
+        self.assertEqual(la.profile_id, self.legacy.pk)
+        self.assertEqual(nj.profile_id, retry.profile_id)
+        self.assertEqual(len({la.profile_id, nj.profile_id, sav.profile_id}), 3)
+        self.assertEqual(list(AutoQuoteItem.objects.values()), items_before)
+        self.assertEqual(list(AutoQuotePrice.objects.values()), prices_before)
+        self.assertEqual(list(AutoQuoteBatch.objects.order_by("id").values("id", "parameters", "created_at", "parent_id", "status")), batch_data)
+        self.assertEqual(self.cargo_group.members.get().profile_id, self.legacy.pk)
+        dates = {"start": parameters()["pickupDate"], "end": parameters()["pickupDate"],
+                 "group_by": "address", "all_routes": "1"}
+        nj_report = build_analysis(visible_batches(self.user), {**dates, "profile": nj.profile_id})
+        la_report = build_analysis(visible_batches(self.user), {**dates, "profile": la.profile_id})
+        self.assertEqual([row["address"] for row in nj_report["route_rows"]], ["Newark 07101"])
+        self.assertEqual([row["address"] for row in la_report["route_rows"]], ["West Covina 91792"])
+        ids = list(AutoQuoteBatch.objects.order_by("id").values_list("profile_id", flat=True))
+        count = AutoQuoteProfile.objects.count()
+        self.assertIn("调整0个旧编号", self.repair())
+        self.assertEqual(AutoQuoteProfile.objects.count(), count)
+        self.assertEqual(list(AutoQuoteBatch.objects.order_by("id").values_list("profile_id", flat=True)), ids)
+
+    def test_single_group_profile_keeps_its_number(self):
+        batch = self.batch("NJ")
+        self.repair()
+        batch.refresh_from_db()
+        self.assertEqual(batch.profile_id, self.legacy.pk)
+        self.assertEqual(get_profile(batch.parameters, "NJ").pk, self.legacy.pk)
+        self.assertEqual(AutoQuoteProfile.objects.count(), 1)
+
+    def test_existing_scoped_target_preserves_saved_group_order_without_duplicate_members(self):
+        batch = self.batch("NJ")
+        target = get_profile(parameters(), "NJ")
+        self.batch("NJ", target)
+        AutoQuoteCargoGroupMember.objects.create(group=self.cargo_group, profile=target, position=2)
+        third = get_profile({**parameters(), "declaredValue": 900}, "NJ")
+        AutoQuoteCargoGroupMember.objects.create(group=self.cargo_group, profile=third, position=3)
+        self.repair()
+        batch.refresh_from_db()
+        self.assertEqual(batch.profile_id, target.pk)
+        self.assertEqual(list(self.cargo_group.members.values_list("profile_id", "position")), [(target.pk, 1), (third.pk, 2)])
+        self.repair()
+        self.assertEqual(list(self.cargo_group.members.values_list("profile_id", "position")), [(target.pk, 1), (third.pk, 2)])
+
+    def test_missing_profile_is_scoped_but_incomplete_parameters_are_preserved(self):
+        batch = self.batch("SAV")
+        AutoQuoteBatch.objects.filter(pk=batch.pk).update(profile=None)
+        invalid = AutoQuoteBatch.objects.create(group="NJ", parameters={}, operator=self.user, submission_id=uuid.uuid4())
+        output = self.repair()
+        batch.refresh_from_db()
+        invalid.refresh_from_db()
+        self.assertEqual(batch.profile.configuration["address_group"], "SAV")
+        self.assertIsNone(invalid.profile_id)
+        self.assertIn(f"#{invalid.pk}", output)
+        self.assertEqual(self.cargo_group.members.get().profile_id, self.legacy.pk)
+
+    def test_invalid_group_rolls_back_all_prior_rebindings(self):
+        self.batch("NJ")
+        cfg = profile_configuration({**parameters(), "declaredValue": 900})
+        other = AutoQuoteProfile.objects.create(configuration=cfg, fingerprint=digest(cfg), origin_label="Other")
+        self.batch("invalid", other)
+        before = list(AutoQuoteProfile.objects.order_by("id").values())
+        with self.assertRaisesRegex(ValueError, "地址组不正确"):
+            self.repair()
+        self.assertEqual(list(AutoQuoteProfile.objects.order_by("id").values()), before)
+
+    def test_migration_runs_against_the_preceding_historical_model_state(self):
+        nj, la = self.batch("NJ"), self.batch("LA")
+        migration = importlib.import_module("warehouse.migrations.0405_scope_auto_quote_profiles_by_address_group")
+        with override_settings(MIGRATION_MODULES={}):
+            state = MigrationLoader(None).project_state([("warehouse", "0404_auto_quote_cargo_groups")])
+        with redirect_stdout(io.StringIO()):
+            migration.split_profiles(state.apps, SimpleNamespace(connection=connection))
+        nj.refresh_from_db()
+        la.refresh_from_db()
+        self.assertEqual(nj.profile_id, self.legacy.pk)
+        self.assertNotEqual(nj.profile_id, la.profile_id)
+        self.assertEqual(la.profile.configuration["address_group"], "LA")

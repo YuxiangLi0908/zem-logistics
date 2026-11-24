@@ -133,6 +133,8 @@ def create_batch(group, parameters, user_id, submission_id, parent=None, *, snap
     if existing:
         return existing
     if parent:
+        if parent.group != group:
+            raise ValueError("重试任务必须使用原任务的地址组")
         if parent.items.filter(status__in=("pending", "running")).exists():
             raise ValueError("请等待原任务结束后再重试")
         snapshots = list(parent.items.filter(status__in=RETRYABLE).values_list("address_snapshot", flat=True))
@@ -148,7 +150,7 @@ def create_batch(group, parameters, user_id, submission_id, parent=None, *, snap
     if cargo_context is None and parent and parent.cargo_group_name:
         cargo_context = {"cargo_group_id": parent.cargo_group_id, "cargo_group_name": parent.cargo_group_name,
                          "cargo_group_position": parent.cargo_group_position}
-    batch = AutoQuoteBatch.objects.create(group=group, parameters=parameters, profile=get_profile(parameters), operator_id=user_id,
+    batch = AutoQuoteBatch.objects.create(group=group, parameters=parameters, profile=get_profile(parameters, group), operator_id=user_id,
                                          submission_id=token, parent=parent, **(cargo_context or {}))
     AutoQuoteItem.objects.bulk_create([AutoQuoteItem(batch=batch, address_snapshot=a) for a in snapshots])
     return batch

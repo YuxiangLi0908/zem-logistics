@@ -25,7 +25,7 @@ class DestinationHistoryTests(TransactionTestCase):
         now = self.now + timedelta(minutes=minute)
         form = parameters()
         form.update(declaredValue=value, pickupDate=(timezone.localdate(now) + timedelta(days=lead)).isoformat())
-        batch = AutoQuoteBatch.objects.create(group="NJ", parameters=form, profile=get_profile(form),
+        batch = AutoQuoteBatch.objects.create(group="NJ", parameters=form, profile=get_profile(form, "NJ"),
                                              operator=user or self.user, submission_id=uuid.uuid4())
         item = AutoQuoteItem.objects.create(batch=batch, address_snapshot=address or self.address, status="success",
                                            started_at=now, finished_at=now + timedelta(seconds=10),

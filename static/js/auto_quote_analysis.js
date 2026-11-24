@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function showConfiguration(configuration) {
         const c = configuration;
-        $('profile-info').innerHTML = `<div>发货地址：${esc(Object.values(c.origin).join(', '))}</div><div>申报价值：$${esc(c.declaredValue)} · ${c.quoteType === 1 ? 'LTL' : 'FTL'} · 尾板：${c.needLiftgate ? '需要' : '不需要'} · 收货地址类型：${esc({1:'商业地址',2:'住宅地址',3:'装卸平台'}[c.destinationType])}</div>` +
+        $('profile-info').innerHTML = `<div>地址组：${esc(c.address_group || '待迁移')}</div><div>发货地址：${esc(Object.values(c.origin).join(', '))}</div><div>申报价值：$${esc(c.declaredValue)} · ${c.quoteType === 1 ? 'LTL' : 'FTL'} · 尾板：${c.needLiftgate ? '需要' : '不需要'} · 收货地址类型：${esc({1:'商业地址',2:'住宅地址',3:'装卸平台'}[c.destinationType])}</div>` +
             c.items.map(item => `<div>${esc(item.description)}：${esc(item.palletCount)}板，${esc(item.pieces)}件/板，${esc(item.length)} × ${esc(item.width)} × ${esc(item.height)} in，单板 ${esc(item.weight)} lb</div>`).join('');
     }
     async function analyze() {
@@ -263,10 +263,17 @@ document.addEventListener('DOMContentLoaded', () => {
     $('platform').addEventListener('change', () => { $('carrier').value = ''; });
     $('address').addEventListener('change', () => { page = 1; analyze(); });
     $('series').addEventListener('click', event => { const button = event.target.closest('[data-route]'); if (button) { initialAddress = button.dataset.route; $('address').value = ''; page = 1; analyze(); } });
+    function syncAddressGroup() {
+        const profile = profiles.find(p => String(p.id) === String($('profile').value));
+        $('group').value = profile?.configuration.address_group || '';
+        $('group').disabled = true;
+    }
+    $('profile').addEventListener('change', syncAddressGroup);
     function fillProfiles(selected) {
         const available = profiles.filter(p => p.origin === $('origin').value);
-        options('profile', available.map(p => ({id:p.id,label:p.configuration.items.map(i => `长宽高 ${i.length}×${i.width}×${i.height} in · 单板 ${i.weight} lb · ${i.palletCount}板`).join('；') + ` · 申报价值 $${p.configuration.declaredValue} · ${Number(p.configuration.quoteType) === 2 ? 'FTL' : 'LTL'} · ${p.configuration.needLiftgate ? '需要尾板' : '无需尾板'} · ${{1:'商业地址',2:'住宅地址',3:'装卸平台'}[p.configuration.destinationType] || '未指定地址类型'}`})), '请选择货物配置', selected);
+        options('profile', available.map(p => ({id:p.id,label:`${p.code} · ${p.configuration.address_group || '待迁移'}地址组 · ` + p.configuration.items.map(i => `长宽高 ${i.length}×${i.width}×${i.height} in · 单板 ${i.weight} lb · ${i.palletCount}板`).join('；') + ` · 申报价值 $${p.configuration.declaredValue} · ${Number(p.configuration.quoteType) === 2 ? 'FTL' : 'LTL'} · ${p.configuration.needLiftgate ? '需要尾板' : '无需尾板'} · ${{1:'商业地址',2:'住宅地址',3:'装卸平台'}[p.configuration.destinationType] || '未指定地址类型'}`})), '请选择货物配置', selected);
         if (!$('profile').value && available.length) $('profile').value = available[0].id;
+        syncAddressGroup();
     }
     $('origin').addEventListener('change', () => { $('profile').value = ''; fillProfiles(); $('content').hidden = true; initialAddress = ''; });
     $('address').addEventListener('input', () => { initialAddress = ''; });

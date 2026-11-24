@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cargo = profile => profile.configuration.items.map(item =>
         `${item.length}×${item.width}×${item.height} in / 单板 ${item.weight} lb / ${item.palletCount}板 / 每板${item.pieces}件`
     ).join('；');
-    const label = profile => `${profile.code} · ${profile.origin} · ${cargo(profile)} · 申报价值 $${profile.configuration.declaredValue}`;
+    const label = profile => `${profile.code} · ${profile.configuration.address_group || '历史模板'}地址组 · ${profile.origin} · ${cargo(profile)} · 申报价值 $${profile.configuration.declaredValue}`;
     function updatePlan() {
         const group = selectedGroup(), count = ui.addressCount();
         $('quote-cargo-plan').textContent = group ?
@@ -32,14 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function preview() {
         const group = selectedGroup();
         $('quote-cargo-preview').innerHTML = group ?
-            '<table class="table table-sm table-bordered mb-0"><thead><tr><th>序号</th><th>AQ编号</th><th>发货仓</th><th>货物明细</th><th>申报价值</th><th>服务条件</th></tr></thead><tbody>' +
+            '<table class="table table-sm table-bordered mb-0"><thead><tr><th>序号</th><th>参考AQ编号 / 地址组</th><th>发货仓</th><th>货物明细</th><th>申报价值</th><th>服务条件</th></tr></thead><tbody>' +
             group.profile_ids.map((id, index) => {
                 const profile = profileById(id);
                 if (!profile) return `<tr><td>${index + 1}</td><td colspan="5">该 AQ 已不可用，请编辑货物明细组</td></tr>`;
                 const c = profile.configuration;
                 const services = [(c.quoteType === 2 ? `FTL（车型 ${c.carType}）` : 'LTL'),
                     {1:'商业地址',2:'住宅地址',3:'装卸平台'}[c.destinationType] || '', c.needLiftgate ? '需要尾板' : '无需尾板'].join(' / ');
-                return `<tr><td>${index + 1}</td><td>${esc(profile.code)}</td><td>${esc(profile.origin)}</td><td style="min-width:260px;white-space:normal">${esc(cargo(profile))}</td><td>$${esc(c.declaredValue)}</td><td>${esc(services)}</td></tr>`;
+                return `<tr><td>${index + 1}</td><td>${esc(profile.code)} · ${esc(c.address_group || '历史模板')}</td><td>${esc(profile.origin)}</td><td style="min-width:260px;white-space:normal">${esc(cargo(profile))}</td><td>$${esc(c.declaredValue)}</td><td>${esc(services)}</td></tr>`;
             }).join('') + '</tbody></table>' : '';
         updatePlan(); controls();
     }

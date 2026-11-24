@@ -55,7 +55,7 @@
                 <div><label for="qa-price_basis">地址分析 / 折线图价格口径</label><select id="qa-price_basis"><option value="min">最低价</option><option value="mean">平均价</option></select></div>
             </div>
             <div class="qa-filters">
-                <div><label for="qa-group">地址组</label><select id="qa-group"><option value="">全部组</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
+                <div><label for="qa-group">编号所属地址组</label><select id="qa-group" disabled><option value="">随AQ编号确定</option><option>LA</option><option>SAV</option><option>NJ</option></select></div>
                 <div><label for="qa-start">取件开始日期</label><input type="date" id="qa-start" required></div>
                 <div><label for="qa-end">取件结束日期</label><input type="date" id="qa-end" required></div>
                 <div><label for="qa-address">收货邮编</label><input id="qa-address" type="search" placeholder="输入全部或部分邮编，如070；留空查全部"></div>
@@ -107,5 +107,5 @@
     </div>
 </div>
 <script src="{% static 'js/auto_quote_export.js' %}?v=20261113-kakas-abf"></script>
-<script src="{% static 'js/auto_quote_analysis.js' %}?v=20261104-shared-export"></script>
+<script src="{% static 'js/auto_quote_analysis.js' %}?v=20261124-scoped-aq"></script>
 {% endblock %}

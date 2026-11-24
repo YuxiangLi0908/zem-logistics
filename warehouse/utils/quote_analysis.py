@@ -82,10 +82,12 @@ def build_analysis(batches, params, *, export=False):
     profile = AutoQuoteProfile.objects.filter(pk=profile_id, pk__in=batches.values("profile_id")).first()
     if not profile:
         raise ValueError("没有权限查看该编号，或编号不存在")
-    if params.get("group"):
-        if params["group"] not in ("LA", "SAV", "NJ"):
-            raise ValueError("地址组不正确")
-        batches = batches.filter(group=params["group"])
+    address_group = profile.configuration.get("address_group")
+    if address_group not in ("LA", "SAV", "NJ"):
+        raise ValueError("该比较编号尚未按地址组拆分，请先执行数据库迁移")
+    if params.get("group") and params["group"] != address_group:
+        raise ValueError(f"该比较编号属于 {address_group} 地址组，不能查询其他地址组")
+    batches = batches.filter(group=address_group)
     items = AutoQuoteItem.objects.filter(batch__in=batches, finished_at__isnull=False, batch__parameters__pickupDate__gte=start.isoformat(),
                                          batch__parameters__pickupDate__lte=end.isoformat()).exclude(status__in=("cancelled", "pending", "running"))
     if items.count() > 20000:
@@ -319,7 +321,7 @@ def build_analysis(batches, params, *, export=False):
             "distance_groups": distance_groups, "address_summary": address_summary,
             "aggregate_chart": aggregate_chart if route_filter else [],
             "selected_address": route_filter, "filters": {"price_basis": price_basis, "start": start.isoformat(), "end": end.isoformat(), "lead": lead, "currency": currency,
-                        "timezone": timezone.get_current_timezone_name(), "include_partial": include_partial},
+                        "timezone": timezone.get_current_timezone_name(), "include_partial": include_partial, "group": address_group},
             "addresses": sorted(addresses.values(), key=lambda row: row["label"]), "lead_days": available_leads,
             "carriers": sorted(choices.values(), key=lambda row: row["label"]), "diagnostics": diagnostics,
             "summary": {"daily_samples": len(daily), "routes": len(route_days), "series": len(entries),
