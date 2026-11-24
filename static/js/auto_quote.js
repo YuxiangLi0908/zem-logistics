@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let batchPage = 1, itemPage = 1, addressPage = 1, selectedBatch = new URLSearchParams(location.search).get('batch');
     let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null, lastWake = 0;
     let exportingBatch = null;
+    let addressGroup = '', addressRequest = 0, addressSearchTimer = null;
     const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const n = Math.floor(Math.random() * 16); return (c === 'x' ? n : (n & 3) | 8).toString(16);
     });
@@ -207,12 +208,58 @@ document.addEventListener('DOMContentLoaded', () => {
         itemPage = data.page; paginate('auto-items', data);
     }
     async function addresses() {
-        const group = $('auto-group').value;
-        const data = await get({kind:'addresses', group, page:addressPage});
-        if (group !== $('auto-group').value) return;
-        $('auto-address-list').hidden = false;
-        $('auto-address-rows').innerHTML = data.rows.map(a => `<tr>${[a.group,a.city,a.state,a.zipcode,a.address,a.distance_miles].map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="6">该组还没有地址</td></tr>';
-        addressPage = data.page; paginate('auto-address', data);
+        const dialog = $('auto-address-list');
+        if (!dialog?.open) return;
+        clearTimeout(addressSearchTimer);
+        const group = addressGroup, query = $('auto-address-search').value.trim(), request = ++addressRequest;
+        const current = () => request === addressRequest && dialog.open && group === addressGroup && query === $('auto-address-search').value.trim();
+        $('auto-address-prev').disabled = true;
+        $('auto-address-next').disabled = true;
+        $('auto-address-page').textContent = '';
+        $('auto-address-status').className = 'small text-muted';
+        $('auto-address-status').textContent = '正在读取地址…';
+        $('auto-address-rows').innerHTML = '<tr><td colspan="12">正在加载…</td></tr>';
+        dialog.setAttribute('aria-busy', 'true');
+        try {
+            const data = await get({kind:'addresses', group, q:query, page:addressPage});
+            // Search, close, or reopen can happen while a previous request is still in flight.
+            if (!current()) return;
+            $('auto-address-rows').innerHTML = data.rows.map(a => `<tr>${[
+                a.id, a.group, a.city, a.state, a.zipcode, a.address, a.distance_miles,
+                a.uploaded_by_id, a.uploaded_by, a.created_at, a.import_id, a.fingerprint,
+            ].map(v => `<td>${esc(v === '' || v == null ? '—' : v)}</td>`).join('')}</tr>`).join('') ||
+                `<tr><td colspan="12">${query ? '没有匹配的地址，请更换搜索词' : '该地址组还没有记录'}</td></tr>`;
+            $('auto-address-status').textContent = query ? `共 ${data.group_total} 条地址，匹配 ${data.total} 条` : `共 ${data.total} 条地址`;
+            groups[group] = data.group_total;
+            groupCount();
+            addressPage = data.page; paginate('auto-address', data);
+        } catch (error) {
+            if (!current()) return;
+            $('auto-address-status').className = 'small text-danger';
+            $('auto-address-status').textContent = `加载失败：${error.message}。可点击“刷新”重试。`;
+            $('auto-address-rows').innerHTML = '<tr><td colspan="12">地址读取失败，请重试。</td></tr>';
+        } finally {
+            if (current()) dialog.removeAttribute('aria-busy');
+        }
+    }
+    function openAddresses() {
+        const dialog = $('auto-address-list');
+        addressGroup = $('auto-group').value;
+        addressPage = 1;
+        $('auto-address-search').value = '';
+        $('auto-address-title').textContent = `${addressGroup} 地址组明细`;
+        if (!dialog.open) dialog.showModal();
+        addresses();
+        $('auto-address-search').focus();
+    }
+    function searchAddresses() {
+        ++addressRequest;
+        clearTimeout(addressSearchTimer);
+        addressPage = 1;
+        $('auto-address-prev').disabled = true;
+        $('auto-address-next').disabled = true;
+        $('auto-address-status').textContent = '正在搜索…';
+        addressSearchTimer = setTimeout(addresses, 250);
     }
     const safely = action => async () => { try { await action(); } catch (error) { message(error.message, true); } };
     let preparedCopy = null;
@@ -322,9 +369,18 @@ document.addEventListener('DOMContentLoaded', () => {
         $('auto-address-' + suffix)?.addEventListener('click', safely(async () => { addressPage += delta; await addresses(); }));
     }
     $('auto-item-status')?.addEventListener('change', safely(async () => { itemPage = 1; await detail(); }));
-    $('auto-show-addresses')?.addEventListener('click', safely(addresses));
+    $('auto-show-addresses')?.addEventListener('click', openAddresses);
+    $('auto-address-search')?.addEventListener('input', searchAddresses);
+    $('auto-address-reload')?.addEventListener('click', addresses);
+    $('auto-address-close')?.addEventListener('click', () => $('auto-address-list').close());
+    $('auto-address-list')?.addEventListener('close', () => {
+        ++addressRequest;
+        clearTimeout(addressSearchTimer);
+        $('auto-address-list').removeAttribute('aria-busy');
+    });
     $('auto-group')?.addEventListener('change', () => {
-        groupCount(); addressPage = 1; $('auto-address-list').hidden = true;
+        groupCount(); addressPage = 1;
+        if ($('auto-address-list')?.open) $('auto-address-list').close();
         $('auto-import-message').textContent = ''; startToken = null;
     });
     $('auto-upload')?.addEventListener('click', async () => {
@@ -338,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             $('auto-import-message').textContent = `${group} 组：新增 ${data.added} 条，跳过重复 ${data.duplicates} 条。`;
             $('auto-address-file').value = '';
             await refresh();
-            if (!$('auto-address-list').hidden) await addresses();
+            if ($('auto-address-list')?.open) await addresses();
         } catch (error) { $('auto-import-message').textContent = error.message; }
         finally { $('auto-upload').disabled = false; }
     });

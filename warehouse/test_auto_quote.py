@@ -114,6 +114,10 @@ class AddressParsingTests(SimpleTestCase):
         self.assertIn('id="quote-mode" value="auto"', rendered)
         self.assertIn('id="auto-ui-message"', rendered)
         self.assertNotIn('id="auto-quote-tasks"', rendered)
+        self.assertIn('<dialog id="auto-address-list"', rendered)
+        self.assertIn('id="auto-address-search"', rendered)
+        self.assertLess(rendered.index('id="auto-group-count"'), rendered.index('id="auto-show-addresses"'))
+        self.assertLess(rendered.index('id="auto-show-addresses"'), rendered.index('id="auto-address-manager"'))
 
     def test_b_to_f_and_numeric_zip_preserve_leading_zero(self):
         rows, errors = read_addresses(workbook([["ignored", " Newark ", "nj", 7101, "1 Test Street", 12.5],
@@ -214,6 +218,60 @@ class QueueTests(TransactionTestCase):
         self.assertEqual(result["added"], 0)
         self.assertEqual(result["duplicates"], 10)
         self.assertEqual(import_addresses("LA", self.rows, self.user.pk)["added"], 5)
+
+    def test_address_preview_includes_database_fields_and_preserves_zero_distance(self):
+        address = AutoQuoteAddress.objects.first()
+        address.distance_miles = 0
+        address.save(update_fields=["distance_miles"])
+        with self.assertNumQueries(2):
+            response = auto_quote_get(self.request("get", {"kind": "addresses", "group": "NJ"}))
+        body = json.loads(response.content)
+        row = body["rows"][0]
+        self.assertEqual(body["group_total"], 5)
+        self.assertEqual(body["total"], 5)
+        self.assertEqual(row["id"], address.pk)
+        self.assertEqual(row["zipcode"], "07101")
+        self.assertEqual(row["distance_miles"], "0.00")
+        self.assertEqual(row["uploaded_by_id"], self.user.pk)
+        self.assertEqual(row["uploaded_by"], self.user.username)
+        self.assertEqual(row["import_id"], str(address.import_id))
+        self.assertEqual(row["fingerprint"], address.fingerprint)
+        self.assertTrue(row["created_at"])
+        AutoQuoteAddress.objects.filter(pk=address.pk).update(uploaded_by=None)
+        body = json.loads(auto_quote_get(self.request("get", {"kind": "addresses", "group": "NJ"})).content)
+        self.assertIsNone(body["rows"][0]["uploaded_by_id"])
+        self.assertEqual(body["rows"][0]["uploaded_by"], "")
+
+    def test_address_search_covers_all_pages_but_never_other_groups(self):
+        AutoQuoteAddress.objects.bulk_create([AutoQuoteAddress(
+            group="NJ", city="Newark", state="NJ", zipcode="07101", address=f"{i} Preview Street",
+            fingerprint=f"preview-{i}") for i in range(55)])
+        target = AutoQuoteAddress.objects.last()
+        target.city, target.zipcode = "Needle City", "08732"
+        target.save(update_fields=["city", "zipcode"])
+        AutoQuoteAddress.objects.create(group="LA", city="Needle City", state="CA", zipcode="08732",
+                                        address="Other group", fingerprint="other-group")
+        def preview(**filters):
+            return json.loads(auto_quote_get(self.request("get", {"kind": "addresses", "group": "NJ", **filters})).content)
+        first = preview()
+        self.assertEqual((first["total"], first["pages"], len(first["rows"])), (60, 2, 50))
+        self.assertNotIn(target.pk, [row["id"] for row in first["rows"]])
+        self.assertEqual(len(preview(page="2")["rows"]), 10)
+        for query in ("  nEeDlE  ", "08732", str(target.pk)):
+            with self.subTest(query=query):
+                # Stale page numbers are clamped after filtering to one page.
+                result = preview(q=query, page="2")
+                self.assertEqual((result["group_total"], result["total"], result["page"]), (60, 1, 1))
+                self.assertEqual([row["id"] for row in result["rows"]], [target.pk])
+        self.assertEqual(preview(q="no matching address")["rows"], [])
+
+    def test_address_preview_requires_login_and_valid_group(self):
+        request = self.request("get", {"kind": "addresses", "group": "NJ"})
+        request.user = AnonymousUser()
+        with self.assertRaises(PermissionDenied):
+            auto_quote_get(request)
+        response = auto_quote_get(self.request("get", {"kind": "addresses", "group": "invalid"}))
+        self.assertEqual(response.status_code, 400)
 
     def test_delete_cascades_results_but_preserves_addresses_profiles_and_other_batches(self):
         from warehouse.models.auto_quote import AutoQuotePrice, AutoQuoteProfile

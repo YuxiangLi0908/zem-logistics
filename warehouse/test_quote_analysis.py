@@ -190,6 +190,22 @@ class AnalysisDataTests(TransactionTestCase):
         self.assertTrue(all(len(row["services"]) == 2 for row in data["route_rows"]))
         self.assertEqual(len(self.analyze(group_by="address", page="2")["route_rows"]), 1)
 
+    def test_address_counts_are_pickup_dates_and_profiles_can_span_address_groups(self):
+        for day in (0, 1, 2):
+            self.item(day, [self.rate("A", 100)])
+        self.item(2, [self.rate("A", 110)], hour=1)  # Same pickup date is still one sample.
+        la_address = {**self.address, "id": 2, "group": "LA", "city": "Glendora", "state": "CA",
+                      "zipcode": "91740", "address": "2 Test Street"}
+        la_item = self.item(2, [self.rate("A", 200)], address=la_address)
+        AutoQuoteBatch.objects.filter(pk=la_item.batch_id).update(group="LA")
+        report = self.analyze(group_by="address", all_routes="1")
+        rows = {row["route"]: row for row in report["route_rows"]}
+        self.assertEqual(rows[address_key(self.address)]["expected"], 3)
+        self.assertEqual(rows[address_key(la_address)]["expected"], 1)
+        nj_only = self.analyze(group_by="address", group="NJ", all_routes="1")
+        self.assertEqual(len(nj_only["route_rows"]), 1)
+        self.assertEqual(nj_only["route_rows"][0]["expected"], 3)
+
     def test_address_statistics_use_daily_minima_and_preserve_missing_latest(self):
         self.item(0, [self.rate("A", 100), self.rate("B", 200)])
         self.item(1, [self.rate("A", 150), self.rate("B", 80)])

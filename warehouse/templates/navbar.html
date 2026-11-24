@@ -360,6 +360,7 @@
                 {path: '/warehouse_operations/'},
                 {path: '/warehouse_dash/'},
                 {path: '/inventory/'},
+                {path: '/shipped_inventory/'},
             ],
             items: [
                 {label: '拆柜入库', url: '{% url 'palletization' %}'},
@@ -374,6 +375,7 @@
                 {label: '合板管理', url: '{% url 'inventory' %}?step=merge_pallet'},
                 {label: '仓库待处理', url: '{% url 'palletization' %}?step=daily_operation', target: '_blank'},
                 {label: '库存管理', url: '{% url 'inventory' %}', target: '_blank'},
+                {label: '已出库数据管理', url: '{% url 'shipped_inventory' %}', target: '_blank'},
                 {label: '异常拆柜', children: [
                     {label: '待处理异常', url: '{% url 'palletization' %}?step=abnormal', target: '_blank'},
                     {label: '异常拆柜记录', url: '{% url 'palletization' %}?step=abnormal_records', target: '_blank'},

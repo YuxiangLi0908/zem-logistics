@@ -9,6 +9,7 @@ from zipfile import BadZipFile
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -111,9 +112,23 @@ def auto_quote_get(request):
             return response
         if kind == "addresses":
             group = check_group(request.GET.get("group"))
-            page = Paginator(AutoQuoteAddress.objects.filter(group=group), 50).get_page(request.GET.get("page"))
-            return JsonResponse({"success": True, "rows": [a.snapshot() for a in page],
-                                 "page": page.number, "pages": page.paginator.num_pages, "total": page.paginator.count})
+            addresses = AutoQuoteAddress.objects.filter(group=group).select_related("uploaded_by")
+            query = request.GET.get("q", "").strip()
+            group_total = addresses.count() if query else None
+            if query:
+                matches = (Q(city__icontains=query) | Q(state__icontains=query) |
+                           Q(zipcode__icontains=query) | Q(address__icontains=query))
+                if query.isascii() and query.isdecimal() and int(query) <= 9223372036854775807:
+                    matches |= Q(pk=int(query))
+                addresses = addresses.filter(matches)
+            page = Paginator(addresses, 50).get_page(request.GET.get("page"))
+            rows = [{**a.snapshot(), "fingerprint": a.fingerprint, "import_id": str(a.import_id),
+                     "uploaded_by_id": a.uploaded_by_id,
+                     "uploaded_by": a.uploaded_by.get_username() if a.uploaded_by_id else "",
+                     "created_at": a.created_at} for a in page]
+            return JsonResponse({"success": True, "rows": rows, "group": group, "query": query,
+                                 "page": page.number, "pages": page.paginator.num_pages, "total": page.paginator.count,
+                                 "group_total": group_total if query else page.paginator.count})
         if kind == "batch_copy":
             batch = get_object_or_404(visible_batches(request.user), pk=request.GET.get("batch"))
             # One read for the full result table; omit large request payloads not used in the clipboard.

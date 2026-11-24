@@ -27,6 +27,7 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.timeout_warning import TimeoutWarning
 from warehouse.views.post_port.warehouse.inventory import Inventory
+from warehouse.views.post_port.warehouse.shipped_inventory import ShippedInventory
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.post_port.warehouse.transfer_pallet import TransferPallet
 from warehouse.views.post_port.warehouse.warehouse_operations import WarehouseOperations
@@ -83,6 +84,7 @@ urlpatterns = [
     path("palletize/<str:pk>/", Palletization.as_view(), name="palletize_container"),
     path("palletize_la_public/<str:pk>/", Palletization.as_view(), name="palletize_la_public_container"),
     path("inventory/", Inventory.as_view(), name="inventory"),
+    path("shipped_inventory/", ShippedInventory.as_view(), name="shipped_inventory"),
     path("schedule_shipment/", ShippingManagement.as_view(), name="schedule_shipment"),
     path(
         "shipment_management/", ShippingManagement.as_view(), name="shipment_management"
