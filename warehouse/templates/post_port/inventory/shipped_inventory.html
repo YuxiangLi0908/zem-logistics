@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static tz %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/shipped_inventory.css' %}?v=20261120-7">
+<div class="shipped-page" id="shipped-page">
+    <div class="shipped-heading">
+        <div class="shipped-title-group">
+            <span class="shipped-page-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-5 9 5v10l-9 5-9-5Z"/><path d="m3 8 9 5 9-5M12 13v10M8 5.8l9 5"/><path d="M16 2h6v6M22 2l-5 5"/></svg></span>
+            <div><h3>已出库数据管理 <span class="shipped-record-count">共计 {{ pallet|length }} 条</span></h3><p>当前仓库：{{ warehouse|default:'未选择' }} · 查看出库记录，核对货物汇总。</p></div>
+        </div>
+    <div class="shipped-query-card">
+        <div class="shipped-query-title"><i class="bi bi-sliders" aria-hidden="true"></i><span>查询范围</span></div>
+        <form method="get" id="shipped-search">
+            <label><span>所属仓库</span><select name="warehouse" aria-label="所属仓库">{% for k, v in warehouse_options %}<option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k|default:'请选择仓库' }}</option>{% endfor %}</select></label>
+            <label><span>派送类型</span><select name="delivery_type" aria-label="派送类型">{% for k, v in delivery_type_options.items %}<option value="{{ v }}" {% if v == delivery_type %}selected{% endif %}>{% if v == 'public' %}公仓{% elif v == 'other' %}私仓{% else %}全部类型{% endif %}</option>{% endfor %}</select></label>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> 查询数据</button>
+        </form>
+    </div>
+    </div>
+    <section class="shipped-data-card" aria-labelledby="shipped-table-title">
+    <div class="shipped-table-toolbar">
+        <div><h4 id="shipped-table-title">出库记录 <span><b id="shipped-visible-count">{{ pallet|length }}</b> 条</span></h4><p>表头支持组合筛选，上方数据随筛选结果汇总。</p></div>
+        <div class="shipped-table-actions">
+            <div class="shipped-totals" aria-label="当前筛选合计">
+                <span class="shipped-summary-item">总重量：<b id="shipped-total-weight">0</b> lbs</span>
+                <span class="shipped-summary-item">总箱数：<b id="shipped-total-pcs">0</b> 箱</span>
+                <span class="shipped-summary-item">总体积：<b id="shipped-total-cbm">0</b> CBM</span>
+                <span class="shipped-summary-item">总卡板数：<b id="shipped-total-pallets">0</b> 板</span>
+            </div>
+            <button type="button" id="shipped-clear-filters" class="btn shipped-clear"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> 清空表头筛选</button>
+        </div>
+    </div>
+    <div class="shipped-table-wrap">
+        <table id="shipped-table" class="table table-bordered">
+            <colgroup><col class="shipped-col-action"><col class="shipped-col-customer"><col class="shipped-col-container"><col class="shipped-col-destination"><col class="shipped-col-method"><col class="shipped-col-time"><col class="shipped-col-time"><col class="shipped-col-mark"><col class="shipped-col-mark"><col class="shipped-col-mark"><col class="shipped-col-number"><col class="shipped-col-number"><col class="shipped-col-number"><col class="shipped-col-number"><col class="shipped-col-note"><col class="shipped-col-batch"><col class="shipped-col-batch"></colgroup>
+            <thead>
+                <tr><th>操作</th><th>客户</th><th>柜号</th><th>目的地</th><th>派送方式</th><th>拆柜时间</th><th>出库时间</th><th>唛头</th><th>FBA</th><th>REF</th><th>weight(lbs)</th><th>pcs</th><th>cbm</th><th>卡板数</th><th>备注</th><th>预约批次</th><th>预约号</th></tr>
+                <tr id="shipped-filters">
+                    <th></th><th><input placeholder="客户"></th><th><input placeholder="柜号"></th><th><input placeholder="目的地"></th><th><input placeholder="派送方式"></th>
+                    <th><input placeholder="拆柜时间"></th><th><input placeholder="出库时间"></th><th><input placeholder="唛头"></th><th><input placeholder="FBA"></th><th><input placeholder="REF"></th>
+                    <th><input placeholder="重量"></th><th><input placeholder="箱数"></th><th><input placeholder="CBM"></th><th><input placeholder="卡板数"></th><th><input placeholder="备注"></th><th><input placeholder="预约批次"></th><th><input placeholder="预约号"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% localtime off %}{% for p in pallet %}
+                <tr>
+                    <td><button type="button" class="btn btn-sm btn-primary shipped-edit" data-ids="{{ p.plt_ids }}" data-order="{{ p.order_id|default_if_none:'' }}" aria-label="修改 {{ p.container|default_if_none:'' }} 的出库记录">修改</button></td>
+                    <td>{{ p.customer_name|default_if_none:'' }}</td><td class="shipped-container-value">{{ p.container|default_if_none:'' }}</td><td><span class="shipped-destination-value">{{ p.destination|default_if_none:'' }}</span></td><td><span class="shipped-method-value">{{ p.delivery_method|default_if_none:'' }}</span></td>
+                    <td class="shipped-time"><span>{{ p.offload_at|date:'Y-m-d' }}</span> <br><small>{{ p.offload_at|date:'H:i:s' }}</small></td><td class="shipped-time"><span>{{ p.shipped_at|date:'Y-m-d' }}</span> <br><small>{{ p.shipped_at|date:'H:i:s' }}</small></td>
+                    <td class="shipped-marks">{{ p.shipping_mark|default_if_none:'' }}</td><td class="shipped-marks">{{ p.fba_id|default_if_none:'' }}</td><td class="shipped-marks">{{ p.ref_id|default_if_none:'' }}</td>
+                    <td class="shipped-numeric">{{ p.weight|floatformat:4 }}</td><td class="shipped-numeric">{{ p.pcs|default_if_none:0 }}</td><td class="shipped-numeric">{{ p.cbm|floatformat:2 }}</td><td class="shipped-numeric"><span class="shipped-pallet-count">{{ p.n_pallet }}</span></td><td class="shipped-marks">{{ p.note|default_if_none:'' }}</td>
+                    <td>{{ p.shipment|default_if_none:'' }}</td><td>{{ p.appointment_id|default_if_none:'' }}</td>
+                </tr>
+                {% empty %}<tr class="shipped-empty"><td colspan="17"><div class="shipped-empty-content"><span class="shipped-empty-icon"><i class="bi bi-inbox" aria-hidden="true"></i></span><strong>{% if searched %}暂无符合条件的出库记录{% else %}选择仓库，查看已出库数据{% endif %}</strong><p>{% if searched %}可以调整仓库或派送类型后重新查询。{% else %}查询后可查看汇总数据，并按行维护卡板信息。{% endif %}</p></div></td></tr>{% endfor %}{% endlocaltime %}
+            </tbody>
+        </table>
+    </div>
+    <div id="shipped-filter-empty" class="shipped-filter-empty" hidden><i class="bi bi-search" aria-hidden="true"></i> 没有匹配的记录，可调整或清空表头筛选。</div>
+    <div class="shipped-table-footer"><span>汇总结果按当前显示的记录计算</span><span><i class="bi bi-arrow-left-right" aria-hidden="true"></i> 左右滚动查看完整字段</span></div>
+    </section>
+    <div id="shipped-page-message" class="alert alert-danger" role="alert" hidden></div>
+    <dialog id="shipped-edit-dialog" aria-labelledby="shipped-edit-title">
+        <form id="shipped-edit-form" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="warehouse" value="{{ warehouse }}"><input type="hidden" name="step" value="save">
+            <input type="hidden" name="plt_ids"><input type="hidden" name="order_id"><input type="hidden" name="revision">
+            <div class="shipped-dialog-heading"><div><span class="shipped-dialog-eyebrow">出库记录维护</span><h4 id="shipped-edit-title">修改已出库数据</h4></div><button type="button" class="btn btn-light shipped-close" aria-label="关闭">&times;</button></div>
+            <div class="shipped-dialog-body">
+            <p class="shipped-shared-notice" id="shipped-shared-notice"></p>
+            <section class="shipped-edit-section"><div class="shipped-section-title"><h5><span>01</span> 关联信息</h5><span class="shipped-section-badge">原值展示</span></div>
+            <div class="shipped-edit-grid">
+                <label>客户<input name="customer_name" readonly></label>
+                <label>柜号<input name="container" readonly></label>
+                <label>拆柜时间<input name="offload_at" type="datetime-local" step="1" readonly></label>
+                <label>出库时间<input name="shipped_at" type="datetime-local" step="1" readonly></label>
+                <label>预约批次<input name="shipment" readonly></label><label>预约号<input name="appointment_id" readonly></label>
+            </div></section>
+            <section class="shipped-edit-section"><div class="shipped-section-title"><h5><span>02</span> 派送信息</h5><span class="shipped-section-badge shipped-section-badge-green">同步装箱单</span></div>
+            <div class="shipped-edit-grid">
+                <label>目的地<input name="destination" maxlength="255" required></label>
+                <label>派送方式<select name="delivery_method">{% for k, v in delivery_method_options %}<option value="{{ v }}">{{ k }}</option>{% endfor %}</select></label>
+                <label>仓库<input name="location" maxlength="100"></label>
+                <label>地址<input name="address" maxlength="2000"></label><label>邮编<input name="zipcode" maxlength="200"></label>
+                <label>派送类型<select name="delivery_type"><option value=""></option><option value="public">公仓</option><option value="other">私仓</option></select></label>
+            </div></section>
+            <section class="shipped-edit-section"><div class="shipped-section-title"><h5><span>03</span> 卡板标记</h5></div><div class="shipped-edit-grid">
+                <label>唛头<input name="shipping_mark" maxlength="99999"></label><label>FBA<input name="fba_id" maxlength="99999"></label><label>REF<input name="ref_id" maxlength="99999"></label>
+            </div></section>
+            <section class="shipped-edit-section"><div class="shipped-section-title"><h5><span>04</span> 数量与备注</h5><span class="shipped-section-badge">本行汇总值</span></div><div class="shipped-edit-grid shipped-quantity-grid">
+                <label>总重量（lbs）<input name="weight" type="number" min="0" step="0.0001" required></label>
+                <label>总箱数（pcs）<input name="pcs" type="number" min="0" step="1" required></label>
+                <label>总体积（CBM）<input name="cbm" type="number" min="0" step="0.01" required></label>
+                <label>卡板数<input name="n_pallet" type="number" min="1" max="10000" step="1" required></label>
+                <label class="shipped-wide">备注<textarea name="note" maxlength="8000" rows="3"></textarea></label>
+            </div></section>
+            <p class="shipped-form-hint">重量、箱数、体积是本行所有卡板的合计，卡板数是记录数量；修改总量或板数时重新分配，未修改总量时保留各板原值。卡板唛头、FBA、REF 按库存管理方式独立保存。</p>
+            <div id="shipped-edit-message" class="alert alert-danger" role="alert" hidden></div>
+            </div>
+            <div class="shipped-dialog-actions"><button type="button" class="btn btn-secondary shipped-close">取消</button><button type="submit" id="shipped-save" class="btn btn-success">保存修改</button></div>
+        </form>
+    </dialog>
+</div>
+<script src="{% static 'js/shipped_inventory.js' %}?v=20261120-2"></script>
+{% endblock %}
