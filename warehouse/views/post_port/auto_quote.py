@@ -9,7 +9,7 @@ from zipfile import BadZipFile
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -21,7 +21,7 @@ from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from urllib.parse import quote
 
-from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteWorkerState
+from warehouse.models.auto_quote import AutoQuoteAddress, AutoQuoteBatch, AutoQuoteItem, AutoQuoteWorkerState
 from warehouse.models.system_parameter import SystemParameter
 from warehouse.utils.auto_quote import (
     batch_summary, check_group, create_batch, import_addresses, read_addresses, stop_batch, queue_lock,
@@ -127,8 +127,35 @@ def auto_quote_get(request):
                      "uploaded_by": a.uploaded_by.get_username() if a.uploaded_by_id else "",
                      "created_at": a.created_at} for a in page]
             return JsonResponse({"success": True, "rows": rows, "group": group, "query": query,
-                                 "page": page.number, "pages": page.paginator.num_pages, "total": page.paginator.count,
+                                 "page": page.number, "pages": page.paginator.num_pages, "page_size": page.paginator.per_page,
+                                 "total": page.paginator.count,
                                  "group_total": group_total if query else page.paginator.count})
+        if kind == "address_sources":
+            query = request.GET.get("q", "").strip()
+            if not query:
+                raise ValueError("请先输入要核查的邮编、城市、详细地址或地址ID")
+            current_matches = (Q(city__icontains=query) | Q(state__icontains=query) |
+                               Q(zipcode__icontains=query) | Q(address__icontains=query))
+            history_matches = (Q(address_snapshot__city__icontains=query) | Q(address_snapshot__state__icontains=query) |
+                               Q(address_snapshot__zipcode__icontains=query) | Q(address_snapshot__address__icontains=query))
+            if query.isascii() and query.isdecimal() and int(query) <= 9223372036854775807:
+                current_matches |= Q(pk=int(query))
+                history_matches |= Q(address_snapshot__id=int(query))
+            current_groups = dict(AutoQuoteAddress.objects.filter(current_matches).order_by().values("group").annotate(
+                total=Count("id")).values_list("group", "total"))
+            # Historical tasks retain the destination snapshot even if its address-library row is later removed.
+            items = AutoQuoteItem.objects.filter(batch__in=visible_batches(request.user)).filter(history_matches).order_by("-batch_id", "-id")
+            total = items.count()
+            rows = [{"item_id": row["id"], "task_id": row["batch_id"], "group": row["batch__group"],
+                     "profile_code": f'AQ{row["batch__profile_id"]:06d}' if row["batch__profile_id"] else "",
+                     "origin": row["batch__parameters__originWarehouse"], "pickup_date": row["batch__parameters__pickupDate"],
+                     "address": row["address_snapshot"], "status": row["status"],
+                     "started_at": row["started_at"], "finished_at": row["finished_at"]}
+                    for row in items.values("id", "batch_id", "batch__group", "batch__profile_id",
+                                            "batch__parameters__originWarehouse", "batch__parameters__pickupDate",
+                                            "address_snapshot", "status", "started_at", "finished_at")[:50]]
+            return JsonResponse({"success": True, "query": query, "current_groups": current_groups,
+                                 "total": total, "rows": rows})
         if kind == "batch_copy":
             batch = get_object_or_404(visible_batches(request.user), pk=request.GET.get("batch"))
             # One read for the full result table; omit large request payloads not used in the clipboard.

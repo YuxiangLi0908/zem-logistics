@@ -36,15 +36,24 @@
     .aq-address-dialog::backdrop { background: rgba(15, 23, 42, .55); }
     .aq-address-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; }
     .aq-address-heading h3 { margin: 0; color: #fff; font-size: 20px; font-weight: 700; }
+    .aq-address-heading-title { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .aq-address-total { padding: 4px 10px; border: 1px solid rgba(255, 255, 255, .4); border-radius: 20px; background: rgba(255, 255, 255, .16); color: #fff; font-size: 15px; font-weight: 700; }
+    .aq-address-heading, .aq-address-toolbar, .aq-address-footer { flex-shrink: 0; }
     .aq-address-close { border: 0; background: transparent; color: #fff; font-size: 28px; line-height: 1; cursor: pointer; }
     .aq-address-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 20px; }
     .aq-address-toolbar input { width: min(430px, 100%); }
+    .aq-address-content { min-height: 0; overflow: auto; }
     .aq-address-table { min-height: 140px; max-height: 60vh; overflow: auto; border-top: 1px solid #dbe3ec; border-bottom: 1px solid #dbe3ec; }
     .aq-address-table table { width: 100%; margin: 0; border-collapse: separate; border-spacing: 0; font-size: 13px; }
     .aq-address-table th, .aq-address-table td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; white-space: nowrap; }
     .aq-address-table th { position: sticky; top: 0; z-index: 1; background: #eef2f7; color: #334155; }
     .aq-address-table tbody tr:nth-child(even) { background: #f8fafc; }
-    .aq-address-table td:nth-child(6) { min-width: 250px; max-width: 380px; white-space: normal; overflow-wrap: anywhere; }
+    #auto-address-rows td:nth-child(7), .aq-address-sources td:nth-child(6) { min-width: 250px; max-width: 380px; white-space: normal; overflow-wrap: anywhere; }
+    .aq-address-sources { margin: 12px 20px; }
+    .aq-address-sources[hidden] { display: none; }
+    .aq-address-sources h4 { margin: 0 0 6px; color: #334155; font-size: 16px; }
+    .aq-address-sources p { margin: 0 0 8px; font-size: 13px; }
+    .aq-address-sources .aq-address-table { min-height: 0; max-height: 260px; }
     .aq-address-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 20px; }
     .aq-address-footer p { margin: 0; color: #64748b; font-size: 12px; }
 </style>
@@ -81,23 +90,36 @@
             {% if automatic %}
             <dialog id="auto-address-list" class="aq-address-dialog" aria-labelledby="auto-address-title">
                 <div class="aq-address-heading">
-                    <h3 id="auto-address-title">地址组明细</h3>
+                    <div class="aq-address-heading-title"><h3 id="auto-address-title">地址组明细</h3><span id="auto-address-total" class="aq-address-total" aria-live="polite">读取数量中…</span></div>
                     <button type="button" id="auto-address-close" class="aq-address-close" aria-label="关闭地址明细">&times;</button>
                 </div>
                 <div class="aq-address-toolbar">
                     <label for="auto-address-search">搜索地址</label>
                     <input id="auto-address-search" type="search" class="form-control" placeholder="搜索 ID、城市、州、邮编或详细地址" autocomplete="off">
                     <button type="button" id="auto-address-reload" class="btn btn-sm btn-outline-primary">刷新</button>
+                    <button type="button" id="auto-address-source-button" class="btn btn-sm btn-outline-secondary" disabled>查询历史来源</button>
                     <span id="auto-address-status" class="small text-muted" role="status" aria-live="polite"></span>
                 </div>
+                <div class="aq-address-content">
                 <div class="aq-address-table" tabindex="0" aria-label="地址数据库记录，可横向滚动查看全部字段">
                     <table>
-                        <thead><tr><th scope="col">ID</th><th scope="col">地址组</th><th scope="col">城市</th><th scope="col">州</th><th scope="col">邮编</th><th scope="col">详细地址</th><th scope="col">距仓库距离（英里）</th><th scope="col">上传人 ID</th><th scope="col">上传人</th><th scope="col">创建时间（UTC）</th><th scope="col">导入批次（import_id）</th><th scope="col">地址指纹（fingerprint）</th></tr></thead>
+                        <thead><tr><th scope="col">序号</th><th scope="col">数据库ID</th><th scope="col">地址组</th><th scope="col">城市</th><th scope="col">州</th><th scope="col">邮编</th><th scope="col">详细地址</th><th scope="col">距仓库距离（英里）</th><th scope="col">上传人 ID</th><th scope="col">上传人</th><th scope="col">创建时间（UTC）</th><th scope="col">导入批次（import_id）</th><th scope="col">地址指纹（fingerprint）</th></tr></thead>
                         <tbody id="auto-address-rows"></tbody>
                     </table>
                 </div>
+                <section id="auto-address-sources" class="aq-address-sources" hidden aria-labelledby="auto-address-sources-title">
+                    <h4 id="auto-address-sources-title">历史询价来源（当前账号可查看的全部地址组）</h4>
+                    <p id="auto-address-source-status" role="status" aria-live="polite"></p>
+                    <div class="aq-address-table" tabindex="0" aria-label="匹配地址的历史任务来源">
+                        <table>
+                            <thead><tr><th scope="col">任务编号</th><th scope="col">任务地址组</th><th scope="col">AQ编号</th><th scope="col">发货仓</th><th scope="col">取件日期</th><th scope="col">当时的收货地址</th><th scope="col">当时的地址ID</th><th scope="col">执行状态</th><th scope="col">询价开始时间</th><th scope="col">询价结束时间</th></tr></thead>
+                            <tbody id="auto-address-source-rows"></tbody>
+                        </table>
+                    </div>
+                </section>
+                </div>
                 <div class="aq-address-footer">
-                    <p>显示当前地址组的数据库记录，每页 50 条；搜索覆盖整个地址组。</p>
+                    <p>每页 50 条，搜索覆盖整个地址组。序号连续排列；数据库ID由全表共用，不保证连续。</p>
                     <div>
                         <button type="button" id="auto-address-prev" class="btn btn-sm btn-outline-secondary">上一页</button>
                         <span id="auto-address-page" class="mx-2"></span>
@@ -428,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script src="{% static 'js/auto_quote_export.js' %}?v=20261113-kakas-abf"></script>
-<script src="{% static 'js/auto_quote.js' %}?v=20261124-address-dialog"></script>
+<script src="{% static 'js/auto_quote.js' %}?v=20261124-address-sources"></script>
 {% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}?v=20261112-cargo-groups"></script>{% endif %}
 <script src="{% static 'js/p1_quote_ui.js' %}?v=20261112-1"></script>
 <script src="{% static 'js/abf_followup.js' %}?v=20261103-1"></script>

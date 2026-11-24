@@ -116,6 +116,8 @@ class AddressParsingTests(SimpleTestCase):
         self.assertNotIn('id="auto-quote-tasks"', rendered)
         self.assertIn('<dialog id="auto-address-list"', rendered)
         self.assertIn('id="auto-address-search"', rendered)
+        self.assertIn('id="auto-address-total"', rendered)
+        self.assertIn('id="auto-address-source-button"', rendered)
         self.assertLess(rendered.index('id="auto-group-count"'), rendered.index('id="auto-show-addresses"'))
         self.assertLess(rendered.index('id="auto-show-addresses"'), rendered.index('id="auto-address-manager"'))
 
@@ -229,6 +231,7 @@ class QueueTests(TransactionTestCase):
         row = body["rows"][0]
         self.assertEqual(body["group_total"], 5)
         self.assertEqual(body["total"], 5)
+        self.assertEqual(body["page_size"], 50)
         self.assertEqual(row["id"], address.pk)
         self.assertEqual(row["zipcode"], "07101")
         self.assertEqual(row["distance_miles"], "0.00")
@@ -266,11 +269,54 @@ class QueueTests(TransactionTestCase):
         self.assertEqual(preview(q="no matching address")["rows"], [])
 
     def test_address_preview_requires_login_and_valid_group(self):
-        request = self.request("get", {"kind": "addresses", "group": "NJ"})
-        request.user = AnonymousUser()
-        with self.assertRaises(PermissionDenied):
-            auto_quote_get(request)
+        for kind in ("addresses", "address_sources"):
+            request = self.request("get", {"kind": kind, "group": "NJ", "q": "91792"})
+            request.user = AnonymousUser()
+            with self.assertRaises(PermissionDenied):
+                auto_quote_get(request)
         response = auto_quote_get(self.request("get", {"kind": "addresses", "group": "invalid"}))
+        self.assertEqual(response.status_code, 400)
+
+    def test_address_sources_identify_other_group_and_survive_library_deletion(self):
+        self.batch()
+        address = AutoQuoteAddress.objects.create(group="LA", city="West Covina", state="CA", zipcode="91792",
+                                                  address="1 CA Street", fingerprint="la-preview")
+        batch = create_batch("LA", parameters(), self.user.pk, uuid.uuid4())
+        batch.items.update(status="success", started_at=timezone.now(), finished_at=timezone.now())
+        def sources(query="91792"):
+            return json.loads(auto_quote_get(self.request("get", {"kind": "address_sources", "q": query})).content)
+        result = sources()
+        self.assertEqual(result["current_groups"], {"LA": 1})
+        self.assertEqual(result["total"], 1)
+        row = result["rows"][0]
+        self.assertEqual((row["task_id"], row["group"], row["profile_code"]), (batch.pk, "LA", batch.profile.code))
+        self.assertEqual(row["address"]["id"], address.pk)
+        self.assertEqual(row["address"]["zipcode"], "91792")
+        self.assertEqual(row["origin"], "NJ test")
+        self.assertEqual(row["status"], "success")
+        self.assertTrue(row["started_at"])
+        self.assertTrue(row["finished_at"])
+        self.assertEqual(sources("west COVINA")["total"], 1)
+        self.assertEqual(sources(str(address.pk))["rows"][0]["task_id"], batch.pk)
+        address.delete()
+        result = sources()
+        self.assertEqual(result["current_groups"], {})
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["rows"][0]["address"]["zipcode"], "91792")
+        self.assertEqual(AutoQuoteAddress.objects.filter(group="NJ").count(), 5)
+
+    def test_address_sources_respect_task_visibility_and_reject_empty_query(self):
+        own_batch = self.batch()
+        other_user = User.objects.create_user("other-address-owner")
+        other_batch = create_batch("NJ", parameters(), other_user.pk, uuid.uuid4())
+        result = json.loads(auto_quote_get(self.request("get", {"kind": "address_sources", "q": "07101"})).content)
+        self.assertEqual(result["total"], 5)
+        self.assertEqual({row["task_id"] for row in result["rows"]}, {own_batch.pk})
+        self.user.is_staff = True
+        result = json.loads(auto_quote_get(self.request("get", {"kind": "address_sources", "q": "07101"})).content)
+        self.assertEqual(result["total"], 10)
+        self.assertEqual({row["task_id"] for row in result["rows"]}, {own_batch.pk, other_batch.pk})
+        response = auto_quote_get(self.request("get", {"kind": "address_sources", "q": "   "}))
         self.assertEqual(response.status_code, 400)
 
     def test_delete_cascades_results_but_preserves_addresses_profiles_and_other_batches(self):

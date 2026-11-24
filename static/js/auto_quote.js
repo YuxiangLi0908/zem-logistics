@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let taskDates = {}, groups = {}, refreshing = false, startToken = null, startSignature = null, lastWake = 0;
     let exportingBatch = null;
     let addressGroup = '', addressRequest = 0, addressSearchTimer = null;
+    let addressSourceRequest = 0;
     const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const n = Math.floor(Math.random() * 16); return (c === 'x' ? n : (n & 3) | 8).toString(16);
     });
@@ -218,18 +219,21 @@ document.addEventListener('DOMContentLoaded', () => {
         $('auto-address-page').textContent = '';
         $('auto-address-status').className = 'small text-muted';
         $('auto-address-status').textContent = '正在读取地址…';
-        $('auto-address-rows').innerHTML = '<tr><td colspan="12">正在加载…</td></tr>';
+        $('auto-address-rows').innerHTML = '<tr><td colspan="13">正在加载…</td></tr>';
         dialog.setAttribute('aria-busy', 'true');
         try {
             const data = await get({kind:'addresses', group, q:query, page:addressPage});
             // Search, close, or reopen can happen while a previous request is still in flight.
             if (!current()) return;
-            $('auto-address-rows').innerHTML = data.rows.map(a => `<tr>${[
-                a.id, a.group, a.city, a.state, a.zipcode, a.address, a.distance_miles,
+            $('auto-address-rows').innerHTML = data.rows.map((a, index) => `<tr>${[
+                (data.page - 1) * data.page_size + index + 1, a.id, a.group, a.city, a.state, a.zipcode, a.address, a.distance_miles,
                 a.uploaded_by_id, a.uploaded_by, a.created_at, a.import_id, a.fingerprint,
             ].map(v => `<td>${esc(v === '' || v == null ? '—' : v)}</td>`).join('')}</tr>`).join('') ||
-                `<tr><td colspan="12">${query ? '没有匹配的地址，请更换搜索词' : '该地址组还没有记录'}</td></tr>`;
-            $('auto-address-status').textContent = query ? `共 ${data.group_total} 条地址，匹配 ${data.total} 条` : `共 ${data.total} 条地址`;
+                `<tr><td colspan="13">${query ? '没有匹配的地址，可点击“查询历史来源”核查其他任务' : '该地址组还没有记录'}</td></tr>`;
+            $('auto-address-total').textContent = `共计 ${data.group_total} 条地址`;
+            const from = data.total ? (data.page - 1) * data.page_size + 1 : 0;
+            const to = from ? from + data.rows.length - 1 : 0;
+            $('auto-address-status').textContent = `${query ? `匹配 ${data.total} 条，` : ''}本页显示 ${from}–${to} 条`;
             groups[group] = data.group_total;
             groupCount();
             addressPage = data.page; paginate('auto-address', data);
@@ -237,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!current()) return;
             $('auto-address-status').className = 'small text-danger';
             $('auto-address-status').textContent = `加载失败：${error.message}。可点击“刷新”重试。`;
-            $('auto-address-rows').innerHTML = '<tr><td colspan="12">地址读取失败，请重试。</td></tr>';
+            $('auto-address-rows').innerHTML = '<tr><td colspan="13">地址读取失败，请重试。</td></tr>';
         } finally {
             if (current()) dialog.removeAttribute('aria-busy');
         }
@@ -248,18 +252,61 @@ document.addEventListener('DOMContentLoaded', () => {
         addressPage = 1;
         $('auto-address-search').value = '';
         $('auto-address-title').textContent = `${addressGroup} 地址组明细`;
+        $('auto-address-total').textContent = '读取数量中…';
+        clearAddressSources();
         if (!dialog.open) dialog.showModal();
         addresses();
         $('auto-address-search').focus();
     }
     function searchAddresses() {
         ++addressRequest;
+        clearAddressSources();
         clearTimeout(addressSearchTimer);
         addressPage = 1;
         $('auto-address-prev').disabled = true;
         $('auto-address-next').disabled = true;
         $('auto-address-status').textContent = '正在搜索…';
         addressSearchTimer = setTimeout(addresses, 250);
+    }
+    function clearAddressSources() {
+        ++addressSourceRequest;
+        $('auto-address-sources').hidden = true;
+        $('auto-address-source-rows').innerHTML = '';
+        $('auto-address-source-button').textContent = '查询历史来源';
+        $('auto-address-source-button').disabled = !$('auto-address-search').value.trim();
+    }
+    async function addressSources() {
+        const dialog = $('auto-address-list'), query = $('auto-address-search').value.trim();
+        if (!dialog.open || !query) return;
+        const request = ++addressSourceRequest;
+        const current = () => request === addressSourceRequest && dialog.open && query === $('auto-address-search').value.trim();
+        $('auto-address-source-button').disabled = true;
+        $('auto-address-source-button').textContent = '查询中…';
+        $('auto-address-sources').hidden = false;
+        $('auto-address-source-status').textContent = '正在核查当前地址库及历史任务…';
+        $('auto-address-source-rows').innerHTML = '<tr><td colspan="10">正在加载…</td></tr>';
+        try {
+            const data = await get({kind:'address_sources', q:query});
+            if (!current()) return;
+            const groupsText = Object.entries(data.current_groups).map(([group, count]) => `${group}组 ${count}条`).join('、') || '所有地址组均无匹配记录';
+            $('auto-address-source-status').textContent = `当前地址库：${groupsText}。匹配历史询价记录 ${data.total} 条${data.total > data.rows.length ? `，显示最近 ${data.rows.length} 条` : ''}。历史地址保留任务创建时的内容，不随当前地址库变化。`;
+            $('auto-address-source-rows').innerHTML = data.rows.map(row => {
+                const a = row.address || {};
+                const address = [a.city, a.state, a.zipcode, a.address].filter(Boolean).join(' · ');
+                return `<tr>${['#' + row.task_id, row.group, row.profile_code, row.origin, row.pickup_date,
+                    address, a.id, labels[row.status] || row.status, date(row.started_at), date(row.finished_at),
+                ].map(value => `<td>${esc(value == null || value === '' ? '—' : value)}</td>`).join('')}</tr>`;
+            }).join('') || '<tr><td colspan="10">当前账号可查看的历史任务中没有匹配记录。</td></tr>';
+        } catch (error) {
+            if (!current()) return;
+            $('auto-address-source-status').textContent = `历史来源查询失败：${error.message}`;
+            $('auto-address-source-rows').innerHTML = '';
+        } finally {
+            if (current()) {
+                $('auto-address-source-button').disabled = false;
+                $('auto-address-source-button').textContent = '查询历史来源';
+            }
+        }
     }
     const safely = action => async () => { try { await action(); } catch (error) { message(error.message, true); } };
     let preparedCopy = null;
@@ -372,9 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
     $('auto-show-addresses')?.addEventListener('click', openAddresses);
     $('auto-address-search')?.addEventListener('input', searchAddresses);
     $('auto-address-reload')?.addEventListener('click', addresses);
+    $('auto-address-source-button')?.addEventListener('click', addressSources);
     $('auto-address-close')?.addEventListener('click', () => $('auto-address-list').close());
     $('auto-address-list')?.addEventListener('close', () => {
         ++addressRequest;
+        clearAddressSources();
         clearTimeout(addressSearchTimer);
         $('auto-address-list').removeAttribute('aria-busy');
     });
