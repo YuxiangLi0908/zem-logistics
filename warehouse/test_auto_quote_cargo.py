@@ -31,7 +31,7 @@ class CargoGroupTests(TransactionTestCase):
             value["destinationType"] = 2 if index == 1 else 1
             if index == 2:
                 value["items"].append(dict(value["items"][0], length=24, width=20, weight=50))
-            profile = get_profile(value)
+            profile = get_profile(value, "NJ")
             self.profiles.append(profile)
             AutoQuoteBatch.objects.create(group="NJ", parameters=value, profile=profile, operator=self.user,
                                           submission_id=uuid.uuid4(), status="completed")
@@ -62,6 +62,24 @@ class CargoGroupTests(TransactionTestCase):
         self.assertEqual([list(batch.items.values_list("address_snapshot", flat=True)) for batch in batches][0],
                          list(batches[2].items.values_list("address_snapshot", flat=True)))
         self.assertEqual(batch_summary(batches[0])["cargo_group_name"], "Daily cargo")
+
+    def test_same_saved_cargo_can_start_another_group_with_separate_aq_numbers(self):
+        nj, _ = self.start()
+        AutoQuoteAddress.objects.create(group="LA", city="Glendora", state="CA", zipcode="91740",
+                                        address="1 LA Street", fingerprint="la-address")
+        la, _ = start_cargo_group(self.user, self.group.pk, "LA", self.date, uuid.uuid4(), self.warehouses)
+        self.assertTrue(set(batch.profile_id for batch in nj).isdisjoint(batch.profile_id for batch in la))
+        self.assertEqual([batch.parameters for batch in nj], [batch.parameters for batch in la])
+        self.assertTrue(all(batch.profile.configuration["address_group"] == "LA" for batch in la))
+        self.assertTrue(all(batch.items.count() == 1 for batch in la))
+        self.assertEqual(list(self.group.members.values_list("profile_id", flat=True)), [profile.pk for profile in self.profiles])
+
+    def test_group_rejects_equivalent_cargo_from_different_address_groups(self):
+        other = get_profile(parameters(), "LA")
+        AutoQuoteBatch.objects.create(group="LA", parameters=parameters(), profile=other,
+                                      operator=self.user, submission_id=uuid.uuid4())
+        with self.assertRaisesRegex(ValueError, "仅地址组不同"):
+            save_cargo_group(self.user, None, "Duplicates", [self.profiles[0].pk, other.pk])
 
     def test_network_retry_and_other_tab_reuse_then_new_run_after_completion(self):
         token = uuid.uuid4()

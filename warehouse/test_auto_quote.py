@@ -221,6 +221,23 @@ class QueueTests(TransactionTestCase):
         self.assertEqual(result["duplicates"], 10)
         self.assertEqual(import_addresses("LA", self.rows, self.user.pk)["added"], 5)
 
+    def test_new_tasks_use_separate_profiles_for_each_address_group(self):
+        import_addresses("LA", self.rows, self.user.pk)
+        import_addresses("SAV", self.rows, self.user.pk)
+        batches = [create_batch(group, parameters(), self.user.pk, uuid.uuid4()) for group in ("NJ", "LA", "SAV")]
+        self.assertEqual(len({batch.profile_id for batch in batches}), 3)
+        for batch in batches:
+            self.assertEqual(batch.profile.configuration["address_group"], batch.group)
+            self.assertEqual({item.address_snapshot["group"] for item in batch.items.all()}, {batch.group})
+        later = parameters()
+        later["pickupDate"] = (timezone.localdate() + timedelta(days=3)).isoformat()
+        self.assertEqual(create_batch("NJ", later, self.user.pk, uuid.uuid4()).profile_id, batches[0].profile_id)
+        batches[0].items.update(status="failed")
+        batches[0].status = "completed"
+        batches[0].save(update_fields=["status"])
+        with self.assertRaisesRegex(ValueError, "原任务的地址组"):
+            create_batch("LA", parameters(), self.user.pk, uuid.uuid4(), parent=batches[0])
+
     def test_address_preview_includes_database_fields_and_preserves_zero_distance(self):
         address = AutoQuoteAddress.objects.first()
         address.distance_miles = 0

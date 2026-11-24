@@ -23,7 +23,7 @@ const routeHeading = new Element();
 const nodes = {};
 const el = id => nodes['qa-' + id] ||= new Element();
 let ready, calls = [], failNext = false;
-const configuration = {origin:{City:'Newark',State:'NJ',PostCode:'07101',DetailAddress:'1 Street'},declaredValue:'100',quoteType:1,needLiftgate:false,destinationType:1,items:[]};
+const configuration = {address_group:'NJ',origin:{City:'Newark',State:'NJ',PostCode:'07101',DetailAddress:'1 Street'},declaredValue:'100',quoteType:1,needLiftgate:false,destinationType:1,items:[]};
 const product = {platform:'kakas',carrier:'Carrier <unsafe>',service:'STD',volatility_pct:10,routes:1,available_routes:1,coverage_pct:66.67,min_samples:3,comparable_routes:true};
 const report = {
     profile:{id:1,code:'AQ000001',origin:'NJ',configuration},
@@ -58,6 +58,9 @@ async function main() {
     await tick();
     assert.equal(el('loading').hidden, true);
     assert.equal(el('content').hidden, false);
+    assert.equal(el('group').value, 'NJ');
+    assert.equal(el('group').disabled, true);
+    assert.equal(calls.find(p => p.get('kind') === 'analysis').get('group'), 'NJ');
     assert.equal(calls.find(p => p.get('kind') === 'analysis').get('include_partial'), '1');
     assert.equal((el('series').innerHTML.match(/data-route=/g) || []).length, 1);
     assert(el('series').innerHTML.includes('Carrier B'));

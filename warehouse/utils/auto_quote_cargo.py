@@ -10,6 +10,7 @@ from warehouse.models.auto_quote import (
     AutoQuoteAddress, AutoQuoteBatch, AutoQuoteCargoGroup, AutoQuoteCargoGroupMember, AutoQuoteProfile,
 )
 from warehouse.utils.auto_quote import check_group, clean_text, create_batch, queue_lock, validate_parameters
+from warehouse.utils.quote_identity_v1 import digest
 
 
 def visible_groups(user):
@@ -54,9 +55,14 @@ def save_cargo_group(user, group_id, name, profile_ids):
     if not profile_ids or len(set(profile_ids)) != len(profile_ids):
         raise ValueError("请选择有效且不重复的 AQ 货物明细")
     group = get_object_or_404(visible_groups(user).select_for_update(), pk=group_id) if group_id else None
-    allowed = set(visible_profiles(user).filter(pk__in=profile_ids).values_list("pk", flat=True))
+    profiles = list(visible_profiles(user).filter(pk__in=profile_ids))
+    allowed = {profile.pk for profile in profiles}
     if allowed != set(profile_ids):
         raise ValueError("所选 AQ 货物明细不存在或无权使用，请刷新后重新选择")
+    cargo_keys = {digest({key: value for key, value in profile.configuration.items()
+                          if key not in ("version", "address_group")}) for profile in profiles}
+    if len(cargo_keys) != len(profiles):
+        raise ValueError("所选AQ中有货物和服务条件完全相同、仅地址组不同的明细，请只保留一条")
     owner_id = group.operator_id if group else user.pk
     if AutoQuoteCargoGroup.objects.filter(operator_id=owner_id, name=name).exclude(pk=group.pk if group else None).exists():
         raise ValueError("已有同名货物明细组，请修改名称")
@@ -113,13 +119,17 @@ def start_cargo_group(user, cargo_group_id, address_group, pickup_date, submissi
     snapshots = [address.snapshot() for address in AutoQuoteAddress.objects.filter(group=address_group)]
     if not snapshots:
         raise ValueError("所选地址组没有可询价的地址")
-    parameters = []
+    parameters, seen = [], {}
     for member in members:
         try:
             value = profile_parameters(member.profile, pickup_date, warehouses)
             validate_parameters(value, snapshots[0])
         except (ValueError, TypeError, KeyError, OverflowError) as exc:
             raise ValueError(f"组内第{member.position}条（{member.profile.code}）：{exc}") from exc
+        key = digest(value)
+        if key in seen:
+            raise ValueError(f"组内第{seen[key]}条与第{member.position}条的货物和服务条件相同，请编辑货物明细组，只保留一条")
+        seen[key] = member.position
         parameters.append(value)
     # Repeated clicks from different tabs reuse a complete, still-active group submission.
     active_tokens = AutoQuoteBatch.objects.filter(

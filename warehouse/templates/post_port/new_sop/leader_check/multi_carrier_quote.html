@@ -85,7 +85,7 @@
                     <div id="auto-import-message" class="small mt-2" style="white-space:pre-wrap" role="status"></div>
                 </details>
                 <p class="small text-muted mt-2 mb-0">选择货物明细组后，组内每个 AQ 分别跑完所选地址组，各自保留货物、申报价值、发货仓及服务条件。提交后后台执行，关闭页面仍会继续。</p>
-                <p class="small text-muted mt-1 mb-0">相同发货地址、货物明细、申报价值及服务条件自动复用比较编号（AQ开头）；任务列表中可点击“价格分析”查看历次变化。</p>
+                <p class="small text-muted mt-1 mb-0">相同地址组、发货地址、货物明细、申报价值及服务条件自动复用比较编号（AQ开头）；不同地址组分别编号，任务列表中可点击“价格分析”查看历次变化。</p>
             </div>
             {% if automatic %}
             <dialog id="auto-address-list" class="aq-address-dialog" aria-labelledby="auto-address-title">
@@ -192,7 +192,7 @@
                             <button type="button" id="quote-cargo-edit" class="btn btn-sm btn-outline-secondary" disabled>编辑当前组</button>
                             <button type="button" id="quote-cargo-delete" class="btn btn-sm btn-outline-danger" disabled>删除组</button>
                         </div>
-                        <p class="small text-muted mt-2 mb-2">每个 AQ 独立询价，沿用其原发货仓、货物、申报价值及服务条件；使用本次取件日期和地址组。</p>
+                        <p class="small text-muted mt-2 mb-2">沿用组内各条明细的发货仓、货物、申报价值及服务条件；按本次所选地址组匹配或生成独立AQ编号，使用本次取件日期。</p>
                         <div id="quote-cargo-preview" class="table-responsive"></div>
                         <p id="quote-cargo-plan" class="small text-primary mt-2 mb-0" role="status"></p>
                         <div id="quote-cargo-editor" class="border rounded bg-white p-3 mt-3" hidden>
@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 <script src="{% static 'js/auto_quote_export.js' %}?v=20261113-kakas-abf"></script>
 <script src="{% static 'js/auto_quote.js' %}?v=20261124-address-sources"></script>
-{% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}?v=20261112-cargo-groups"></script>{% endif %}
+{% if automatic %}<script src="{% static 'js/auto_quote_presets.js' %}?v=20261124-scoped-aq"></script>{% endif %}
 <script src="{% static 'js/p1_quote_ui.js' %}?v=20261112-1"></script>
 <script src="{% static 'js/abf_followup.js' %}?v=20261103-1"></script>
 <script src="{% static 'js/abf_booking.js' %}?v=20261103-2"></script>
