@@ -2010,6 +2010,7 @@ class OrderQuantity(View):
         labels, legend, orders = await self._get_bar_chart(criteria, trunc_m)
         # 表格
         table = await self._get_table_chart(criteria, labels, trunc_m)
+        warehouse_statistics = await self._get_warehouse_order_quantity(criteria, labels, trunc_m)
         # 饼图
         customer_labels, customer_data, month_labels, month_data = (
             await self._get_pie_chart(criteria, trunc_m)
@@ -2028,6 +2029,7 @@ class OrderQuantity(View):
             "orders": orders,
             "legend": legend,
             "table": table,
+            "warehouse_statistics": warehouse_statistics,
             "customer_labels": customer_labels,
             "customer_data": customer_data,
             "month_labels": month_labels,
@@ -2133,6 +2135,33 @@ class OrderQuantity(View):
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )
+        return self._format_order_quantity_table(orders, direct_labels)
+
+    async def _get_warehouse_order_quantity(self, criteria, labels, trunc_m):
+        # Aggregate once for all three warehouses, using exactly the main query's filters.
+        rows = await sync_to_async(list)(
+            Order.objects.filter(criteria).annotate(month=TruncMonth(trunc_m))
+            .values("retrieval_id__retrieval_destination_area", "customer_name__zem_name", "month")
+            .annotate(count=Count("id")).order_by("customer_name__zem_name", "month")
+        )
+        groups = {warehouse: [] for warehouse in self.area_options}
+        totals = dict.fromkeys(groups, 0)
+        unassigned_total = 0
+        for row in rows:
+            warehouse = row["retrieval_id__retrieval_destination_area"]
+            if warehouse in groups:
+                groups[warehouse].append(row)
+                totals[warehouse] += row["count"]
+            else:
+                unassigned_total += row["count"]
+        return {
+            "tables": {warehouse: self._format_order_quantity_table(records, labels)
+                       for warehouse, records in groups.items()},
+            "totals": totals, "unassigned_total": unassigned_total,
+        }
+
+    @staticmethod
+    def _format_order_quantity_table(orders, direct_labels):
         d_orders = {}
         for item in orders:
             customer_name = item["customer_name__zem_name"]
@@ -2143,7 +2172,7 @@ class OrderQuantity(View):
             d_orders[customer_name][month_str] = count
         # 填充缺失的月份
         for customer_name, data in d_orders.items():
-            for month in direct_labels:
+            for month in direct_labels or []:
                 if month not in data:
                     data[month] = 0
 

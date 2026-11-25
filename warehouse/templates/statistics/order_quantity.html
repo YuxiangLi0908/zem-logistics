@@ -80,16 +80,28 @@
     
 {% endblock %}
 {% if orders %}
+{{ table|json_script:"order-quantity-table-data" }}
+{{ labels|json_script:"order-quantity-month-labels" }}
+{{ warehouse_statistics|json_script:"warehouse-order-statistics" }}
 <div style="display: grid; grid-template-columns: 8fr 2fr; grid-template-rows: 1fr 1fr; gap: 20px; padding: 20px; background-color: #f9f9f9; height: 100vh;">
     <!-- 表格 -->
     <div style="grid-column: 1 / 2; grid-row: 1 / 2; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">       
         <div style="text-align: center; padding: 2px; background-color: #f9f9f9; border: 1px dashed #ddd; border-radius: 8px;">
             <div style="text-align: center; padding: 20px; margin: 0 auto;">
-                <div style="text-align:right;">
+                <div class="order-quantity-toolbar">
                     <button id="showOrdersOnly" class="btn btn-primary"  style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('orders-column', 'mom-column')">仅订单量</button>
                     <button id="showMoMOnly" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('mom-column', 'orders-column')">仅MoM</button>
                     <button id="showBoth" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('orders-column', 'mom-column', true)">同时显示</button>
+                    <label for="tableWarehouseFilter">表格仓库</label>
+                    <select id="tableWarehouseFilter" aria-label="按仓库筛选订单量表格">
+                        <option value="">全部仓库</option>
+                        <option value="NJ">NJ</option>
+                        <option value="SAV">SAV</option>
+                        <option value="LA">LA</option>
+                    </select>
                 </div>
+                <div class="order-quantity-overview">
+                <div class="order-quantity-table-wrap">
                 <table id="tTable">
                     <thead>
                         <tr id="theaderRow">
@@ -108,6 +120,15 @@
                     </tbody>
                     <tfoot id="orderQuantityTotals"></tfoot>
                 </table>
+                </div>
+                <aside class="warehouse-order-panel" aria-labelledby="warehouseOrderHeading">
+                    <h3 id="warehouseOrderHeading">各仓库柜量</h3>
+                    <p>按上方查询条件统计</p>
+                    <div class="warehouse-order-canvas"><canvas id="warehouseOrderChart" role="img" aria-label="NJ、SAV、LA三个仓库的柜量对比"></canvas></div>
+                    <div id="warehouseOrderSummary" class="warehouse-order-summary" aria-live="polite"></div>
+                    <p id="warehouseUnassignedNote" class="warehouse-order-note" hidden></p>
+                </aside>
+                </div>
             </div>
         </div>
     </div>
@@ -141,6 +162,22 @@
 {% endif %}
 
 <style>   
+    .order-quantity-toolbar { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .order-quantity-toolbar label { margin: 0 4px 0 12px; font-size: 13px; font-weight: 700; }
+    .order-quantity-toolbar select { min-width: 115px; height: 32px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; padding: 4px 8px; font-size: 13px; }
+    .order-quantity-overview { display: flex; align-items: flex-start; gap: 24px; }
+    .order-quantity-table-wrap { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+    .warehouse-order-panel { flex: 0 0 300px; min-width: 0; box-sizing: border-box; padding: 20px 16px; border: 1px solid #dbe3ec; border-radius: 10px; background: #fff; text-align: left; }
+    .warehouse-order-panel h3 { margin: 0 0 6px; color: #334155; font-size: 17px; font-weight: 700; }
+    .warehouse-order-panel p { margin: 0; color: #64748b; font-size: 12px; }
+    .warehouse-order-canvas { position: relative; height: 230px; margin-top: 12px; }
+    .warehouse-order-summary { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #334155; font-size: 14px; font-weight: 700; }
+    .warehouse-order-panel .warehouse-order-note { margin-top: 8px; line-height: 1.6; }
+    @media (max-width: 1100px) {
+        .order-quantity-overview { flex-direction: column; }
+        .order-quantity-table-wrap, .warehouse-order-panel { width: 100%; }
+        .warehouse-order-panel { flex-basis: auto; }
+    }
     #tTable tfoot { background-color: #eef3f8; font-weight: 700; }
     #tTable tfoot th, #tTable tfoot td { border-top: 2px solid #cbd5e1; padding: 6px 8px; }
     .page-title {
@@ -154,6 +191,7 @@
     }
 </style>
 
+{% if orders %}
 <script>
     const { Chart, ChartDataLabels } = window;
     Chart.register(ChartDataLabels);
@@ -220,10 +258,36 @@
     });
 
     //表格
-    const datas = {{ table|safe }};
-    const labels = {{ labels|safe }};
+    const datas = JSON.parse(document.getElementById('order-quantity-table-data').textContent);
+    const labels = JSON.parse(document.getElementById('order-quantity-month-labels').textContent);
+    const warehouseStatistics = JSON.parse(document.getElementById('warehouse-order-statistics').textContent);
+    const warehouseLabels = ['NJ', 'SAV', 'LA'];
+    const warehouseCounts = warehouseLabels.map(warehouse => warehouseStatistics.totals[warehouse] || 0);
+    new Chart(document.getElementById('warehouseOrderChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: warehouseLabels,
+            datasets: [{label: '柜量', data: warehouseCounts, backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'], borderRadius: 5, barThickness: 28}]
+        },
+        options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            layout: {padding: {right: 48}},
+            plugins: {
+                legend: {display: false},
+                datalabels: {anchor: 'end', align: 'right', color: '#334155', font: {weight: 'bold', size: 13}, formatter: value => `${value}条`}
+            },
+            scales: {x: {beginAtZero: true, ticks: {precision: 0}}, y: {grid: {display: false}}}
+        }
+    });
+    document.getElementById('warehouseOrderSummary').textContent = `三仓合计 ${warehouseCounts.reduce((sum, count) => sum + count, 0)} 条柜子`;
+    if (warehouseStatistics.unassigned_total) {
+        const note = document.getElementById('warehouseUnassignedNote');
+        note.hidden = false;
+        note.textContent = `当前查询另有 ${warehouseStatistics.unassigned_total} 条柜子未归入 NJ、SAV、LA。`;
+    }
     const tTable = document.getElementById('tTable');
     const theaderRow = document.getElementById('theaderRow');
+    let tableColumnMode = ['orders-column', 'mom-column', true];
     // 表头
     labels.forEach(month => {
         const th1 = document.createElement('th');
@@ -233,86 +297,106 @@
         th1.style.verticalAlign = 'middle'; 
         theaderRow.appendChild(th1);
     });   
-    // 数据行
-    const orderTotals = labels.map(() => 0);
-    for (const [customer, monthsData] of Object.entries(datas)) {
-        const row = document.createElement('tr');
-        const customerCell = document.createElement('td');
-        customerCell.textContent = customer;
-        row.appendChild(customerCell);
+    function renderOrderTable(tableData) {
+        tTable.querySelector('tbody').replaceChildren();
+        document.getElementById('orderQuantityTotals').replaceChildren();
+        const orderTotals = labels.map(() => 0);
+        if (!Object.keys(tableData).length) {
+            const emptyRow = document.createElement('tr');
+            const emptyCell = document.createElement('td');
+            emptyCell.id = 'orderQuantityEmpty';
+            emptyCell.textContent = '当前查询范围内，该仓库没有订单记录';
+            emptyCell.style.textAlign = 'center';
+            emptyRow.appendChild(emptyCell);
+            tTable.querySelector('tbody').appendChild(emptyRow);
+        }
+        // 数据行
+        for (const [customer, monthsData] of Object.entries(tableData)) {
+            const row = document.createElement('tr');
+            const customerCell = document.createElement('td');
+            customerCell.textContent = customer;
+            row.appendChild(customerCell);
 
-        labels.forEach((month, index) => {
-            const [orders, mom, isMax] = monthsData[month] || [0, 0, false];
-            orderTotals[index] += Number(orders) || 0;
+            labels.forEach((month, index) => {
+                const [orders, mom, isMax] = monthsData[month] || [0, 0, false];
+                orderTotals[index] += Number(orders) || 0;
 
-            const ordersCell = document.createElement('td');
-            ordersCell.textContent = orders;
-            ordersCell.style.textAlign = 'center';
-            ordersCell.classList.add('orders-column');
-            if (isMax){
-                ordersCell.style.fontWeight = 'bold'; 
-                ordersCell.style.fontSize = '20px';
-                ordersCell.style.color = '#FF0000';
-                //ordersCell.style.backgroundColor = '#f8d7da';
-            }
-            row.appendChild(ordersCell);
+                const ordersCell = document.createElement('td');
+                ordersCell.textContent = orders;
+                ordersCell.style.textAlign = 'center';
+                ordersCell.classList.add('orders-column');
+                if (isMax){
+                    ordersCell.style.fontWeight = 'bold';
+                    ordersCell.style.fontSize = '20px';
+                    ordersCell.style.color = '#FF0000';
+                    //ordersCell.style.backgroundColor = '#f8d7da';
+                }
+                row.appendChild(ordersCell);
+
+                const momCell = document.createElement('td');
+                momCell.style.textAlign = 'center';
+                momCell.classList.add('mom-column');
+
+                if (mom === 0) {
+                    // 清空内容
+                    momCell.style.backgroundColor = '#f0f0f0'; // 灰色背景
+                    momCell.style.color = '#6c757d'; // 灰色文字
+                    momCell.textContent = ' --';
+                } else if (mom > 0){
+                    momCell.textContent = `+${mom}%`;
+                    momCell.style.backgroundColor = '#f8d7da'; // 红色背景
+                    momCell.style.color = '#dc3545'; // 红色文字
+                    momCell.textContent += ' ↑';
+                } else if ( mom < 0 ){
+                    momCell.textContent = `${mom}%`; // 负增长
+                    momCell.style.backgroundColor = '#e6f4ea'; // 绿色背景
+                    momCell.style.color = '#28a745'; // 绿色文字
+                    momCell.textContent += ' ↓';
+                }else if ( mom == '+' ) {
+                    momCell.textContent = `+`;
+                    momCell.style.backgroundColor = '#f8d7da';
+                    momCell.style.color = '#dc3545';
+                }else if (mom == '-') {
+                    momCell.textContent = '-100% ↓';
+                    momCell.style.backgroundColor = '#e6f4ea';
+                    momCell.style.color = '#28a745';
+                }else {
+                    momCell.textContent = mom;
+                }
+                row.appendChild(momCell);
+            });
+
+            tTable.querySelector('tbody').appendChild(row);
+        }
+        // 仅汇总当前查询结果中各月的订单量，MoM列留空。
+        const totalRow = document.createElement('tr');
+        const totalLabel = document.createElement('th');
+        totalLabel.scope = 'row';
+        totalLabel.textContent = '汇总';
+        totalLabel.style.textAlign = 'left';
+        totalRow.appendChild(totalLabel);
+        orderTotals.forEach(total => {
+            const totalCell = document.createElement('td');
+            totalCell.textContent = total;
+            totalCell.style.textAlign = 'center';
+            totalCell.classList.add('orders-column');
+            totalRow.appendChild(totalCell);
 
             const momCell = document.createElement('td');
-            momCell.style.textAlign = 'center';
             momCell.classList.add('mom-column');
-            
-            if (mom === 0) {
-                // 清空内容   
-                momCell.style.backgroundColor = '#f0f0f0'; // 灰色背景
-                momCell.style.color = '#6c757d'; // 灰色文字
-                momCell.textContent = ' --';
-            } else if (mom > 0){
-                momCell.textContent = `+${mom}%`; 
-                momCell.style.backgroundColor = '#f8d7da'; // 红色背景
-                momCell.style.color = '#dc3545'; // 红色文字
-                momCell.textContent += ' ↑';
-            } else if ( mom < 0 ){
-                momCell.textContent = `${mom}%`; // 负增长
-                momCell.style.backgroundColor = '#e6f4ea'; // 绿色背景
-                momCell.style.color = '#28a745'; // 绿色文字
-                momCell.textContent += ' ↓';
-            }else if ( mom == '+' ) {
-                momCell.textContent = `+`; 
-                momCell.style.backgroundColor = '#f8d7da'; 
-                momCell.style.color = '#dc3545';    
-            }else if (mom == '-') {
-                momCell.textContent = '-100% ↓'; 
-                momCell.style.backgroundColor = '#e6f4ea'; 
-                momCell.style.color = '#28a745';
-            }else {
-                momCell.textContent = mom; 
-            }          
-            row.appendChild(momCell);
+            totalRow.appendChild(momCell);
         });
-
-        tTable.querySelector('tbody').appendChild(row);
+        document.getElementById('orderQuantityTotals').appendChild(totalRow);
+        toggleColumns(...tableColumnMode);
     }
-    // 仅汇总当前查询结果中各月的订单量，MoM列留空。
-    const totalRow = document.createElement('tr');
-    const totalLabel = document.createElement('th');
-    totalLabel.scope = 'row';
-    totalLabel.textContent = '汇总';
-    totalLabel.style.textAlign = 'left';
-    totalRow.appendChild(totalLabel);
-    orderTotals.forEach(total => {
-        const totalCell = document.createElement('td');
-        totalCell.textContent = total;
-        totalCell.style.textAlign = 'center';
-        totalCell.classList.add('orders-column');
-        totalRow.appendChild(totalCell);
-
-        const momCell = document.createElement('td');
-        momCell.classList.add('mom-column');
-        totalRow.appendChild(momCell);
+    renderOrderTable(datas);
+    document.getElementById('tableWarehouseFilter').addEventListener('change', event => {
+        const warehouse = event.target.value;
+        renderOrderTable(warehouse ? warehouseStatistics.tables[warehouse] || {} : datas);
     });
-    document.getElementById('orderQuantityTotals').appendChild(totalRow);
     //点击按钮隐藏列
     function toggleColumns(showClass, hideClass, showBoth = false) {
+        tableColumnMode = [showClass, hideClass, showBoth];
         const showColumns = document.querySelectorAll(`.${showClass}`);
         const hideColumns = document.querySelectorAll(`.${hideClass}`);
 
@@ -328,6 +412,8 @@
         }else{
             updateHeaderColSpan(2);
         }
+        const emptyCell = document.getElementById('orderQuantityEmpty');
+        if (emptyCell) emptyCell.colSpan = 1 + labels.length * (showBoth ? 2 : 1);
         
     }
     //隐藏列时，表头的改变
@@ -472,6 +558,7 @@
         }
     });
 </script>
+{% endif %}
 {% endblock %}
 
 
