@@ -106,6 +106,7 @@
                     <tbody>
                         
                     </tbody>
+                    <tfoot id="orderQuantityTotals"></tfoot>
                 </table>
             </div>
         </div>
@@ -140,6 +141,8 @@
 {% endif %}
 
 <style>   
+    #tTable tfoot { background-color: #eef3f8; font-weight: 700; }
+    #tTable tfoot th, #tTable tfoot td { border-top: 2px solid #cbd5e1; padding: 6px 8px; }
     .page-title {
         color: #000000;
         font-size: 22px;
@@ -231,14 +234,16 @@
         theaderRow.appendChild(th1);
     });   
     // 数据行
+    const orderTotals = labels.map(() => 0);
     for (const [customer, monthsData] of Object.entries(datas)) {
         const row = document.createElement('tr');
         const customerCell = document.createElement('td');
         customerCell.textContent = customer;
         row.appendChild(customerCell);
 
-        labels.forEach(month => {
-            const [orders, mom, isMax] = monthsData[month] || [0, 0,False];
+        labels.forEach((month, index) => {
+            const [orders, mom, isMax] = monthsData[month] || [0, 0, false];
+            orderTotals[index] += Number(orders) || 0;
 
             const ordersCell = document.createElement('td');
             ordersCell.textContent = orders;
@@ -287,6 +292,25 @@
 
         tTable.querySelector('tbody').appendChild(row);
     }
+    // 仅汇总当前查询结果中各月的订单量，MoM列留空。
+    const totalRow = document.createElement('tr');
+    const totalLabel = document.createElement('th');
+    totalLabel.scope = 'row';
+    totalLabel.textContent = '汇总';
+    totalLabel.style.textAlign = 'left';
+    totalRow.appendChild(totalLabel);
+    orderTotals.forEach(total => {
+        const totalCell = document.createElement('td');
+        totalCell.textContent = total;
+        totalCell.style.textAlign = 'center';
+        totalCell.classList.add('orders-column');
+        totalRow.appendChild(totalCell);
+
+        const momCell = document.createElement('td');
+        momCell.classList.add('mom-column');
+        totalRow.appendChild(momCell);
+    });
+    document.getElementById('orderQuantityTotals').appendChild(totalRow);
     //点击按钮隐藏列
     function toggleColumns(showClass, hideClass, showBoth = false) {
         const showColumns = document.querySelectorAll(`.${showClass}`);
